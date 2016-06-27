@@ -1,0 +1,6 @@
+[submodule "ISEE-Basic-Pedestrian-Tracker"]
+	path = src/native/ISEE-Basic-Pedestrian-Tracker
+	url = https://github.com/kyu-sz/ISEE-Basic-Pedestrian-Tracker.git
+[submodule "Video-Decoder"]
+	path = src/native/Video-Decoder
+	url = https://github.com/kyu-sz/Video-Decoder.git

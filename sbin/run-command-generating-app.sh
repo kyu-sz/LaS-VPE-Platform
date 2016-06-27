@@ -1,0 +1,1 @@
+java -classpath las-vpe-platform-0.0.1-full.jar org.cripac.isee.vpe.debug.CommandGeneratingApp -v
