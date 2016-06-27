@@ -1,6 +1,7 @@
 package org.isee.vpe.alg.tracking;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.apache.spark.SparkConf;
@@ -12,7 +13,7 @@ import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.isee.vpe.SparkStreamingApplication;
+import org.isee.vpe.common.SparkStreamingApplication;
 
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
@@ -22,15 +23,19 @@ public class PedestrianTrackingApplication extends SparkStreamingApplication {
 	public final static String APPLICATION_NAME = "PedestrianTracking";
 	
 	private static final long serialVersionUID = 3104859533881615664L;
+	private String brokers;
+	private HashSet<String> topicsSet = new HashSet<>();
 
 	public PedestrianTrackingApplication(String brokers) {
-		super(brokers);
+		super();
+		
+		this.brokers = brokers;
 		
 		topicsSet.add(TRACKING_TASK_TOPIC);
 	}
 
 	@Override
-	protected JavaStreamingContext getStreamContext(String brokers) {
+	protected JavaStreamingContext getStreamContext() {
 		SparkConf sparkConf = new SparkConf()
 				.setMaster("local[*]")
 				.setAppName(APPLICATION_NAME);
@@ -80,6 +85,7 @@ public class PedestrianTrackingApplication extends SparkStreamingApplication {
 	 */
 	public static void main(String[] args) {
 		PedestrianTrackingApplication pedestrianTrackingApplication = new PedestrianTrackingApplication("localhost:9092");
+		pedestrianTrackingApplication.initialize("checkpoint");
 		pedestrianTrackingApplication.start();
 		pedestrianTrackingApplication.awaitTermination();
 	}

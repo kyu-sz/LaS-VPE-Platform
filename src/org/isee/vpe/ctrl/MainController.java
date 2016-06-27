@@ -12,6 +12,7 @@ import java.util.Map.Entry;
 import java.util.Properties;
 
 import org.I0Itec.zkclient.ZkClient;
+import org.isee.vpe.alg.tracking.PedestrianTrackingApplication;
 
 import kafka.admin.AdminUtils;
 
@@ -27,10 +28,14 @@ public class MainController implements Serializable {
 	int sessionTimeoutMs = 10 * 10000;
 	int connectionTimeoutMs = 8 * 1000;
 	
+	//Kafka properties
 	String brokers = "localhost:9092";
 	int partitions = 1;
 	int replicationFactor = 1;
 	HashSet<String> topics = new HashSet<>();
+	
+	//Spark properties
+	String checkpointDir = "checkpoint";
 	
 	private void loadSystemProperties(String propertyFilename) throws IOException {
 		Properties systemProperties = new Properties();
@@ -51,6 +56,9 @@ public class MainController implements Serializable {
 			case "replicationFactor":
 				replicationFactor = new Integer((String) entry.getValue()); 
 				break;
+			case "checkpointDirectory":
+				checkpointDir = (String) entry.getValue(); 
+				break;
 			}
 		}
 	}
@@ -61,6 +69,8 @@ public class MainController implements Serializable {
 
 		ZkClient zkClient = new ZkClient(zookeeper, sessionTimeoutMs, connectionTimeoutMs);
 		
+		topics.add(MessageHandlingApplication.COMMAND_TOPIC);
+		topics.add(PedestrianTrackingApplication.TRACKING_TASK_TOPIC);
 		//Create topics.
 		for (String topic : topics) {
 			if (!AdminUtils.topicExists(zkClient, topic)) {
@@ -70,13 +80,20 @@ public class MainController implements Serializable {
 	}
 	
 	void run() {
-		CommandHandlingApplication commandHandlingApplication = new CommandHandlingApplication(brokers);
-		commandHandlingApplication.start();
+		MessageHandlingApplication messageHandlingApplication = new MessageHandlingApplication(brokers);
+		messageHandlingApplication.initialize(checkpointDir);
+		messageHandlingApplication.start();
 
 		CommandGenerator commandGenerator = new CommandGenerator(brokers);
 		commandGenerator.generatePresetCommand();
 		
-		commandHandlingApplication.stop();
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		
+		messageHandlingApplication.stop();
 	}
 	
 	/**

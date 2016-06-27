@@ -1,25 +1,26 @@
-package org.isee.vpe;
+package org.isee.vpe.common;
 
 import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Set;
 
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.api.java.JavaStreamingContextFactory;
 
 public abstract class SparkStreamingApplication implements Serializable {
 
 	private static final long serialVersionUID = 2780614096112566164L;
 
 	protected transient JavaStreamingContext streamingContext = null;
-	protected HashSet<String> topicsSet = new HashSet<>();
 	
-	protected abstract JavaStreamingContext getStreamContext(String brokers);
-	protected Set<String> getRequiredTopics() {
-		return topicsSet;
-	}
+	protected abstract JavaStreamingContext getStreamContext();
 	
-	public SparkStreamingApplication(String brokers) {
-		streamingContext = getStreamContext(brokers);
+	public void initialize(String checkpointDir) {
+		streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, new JavaStreamingContextFactory() {
+			
+			@Override
+			public JavaStreamingContext create() {
+				return getStreamContext();
+			}
+		});
 	}
 	
 	public void start() {
@@ -36,7 +37,9 @@ public abstract class SparkStreamingApplication implements Serializable {
 	
 	@Override
 	protected void finalize() throws Throwable {
-		streamingContext.close();
+		if (streamingContext != null) {
+			streamingContext.close();
+		}
 		super.finalize();
 	}
 }
