@@ -36,6 +36,7 @@ public class MainController implements Serializable {
 	
 	//Spark properties
 	String checkpointDir = "checkpoint";
+	String master = "local[*]";
 	
 	private void loadSystemProperties(String propertyFilename) throws IOException {
 		Properties systemProperties = new Properties();
@@ -59,6 +60,9 @@ public class MainController implements Serializable {
 			case "checkpointDirectory":
 				checkpointDir = (String) entry.getValue(); 
 				break;
+			case "master":
+				master = (String) entry.getValue(); 
+				break;
 			}
 		}
 	}
@@ -80,7 +84,7 @@ public class MainController implements Serializable {
 	}
 	
 	void run() {
-		MessageHandlingApplication messageHandlingApplication = new MessageHandlingApplication(brokers);
+		MessageHandlingApplication messageHandlingApplication = new MessageHandlingApplication(master, brokers);
 		messageHandlingApplication.initialize(checkpointDir);
 		messageHandlingApplication.start();
 

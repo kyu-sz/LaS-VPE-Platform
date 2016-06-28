@@ -9,8 +9,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
 /**
- * A smart wrapper for KafkaProducer.
- * Initialize a producer just before using it, like lazy evaluation in Scala.
+ * The KafkaSink class is a smart wrapper for KafkaProducer.
+ * It initializes a producer just before using it, like lazy evaluation in Scala.
  * KafkaProducer is not serializable, so it cannot be broadcast to Spark Streaming executors.
  * But this wrapper can be serialized, thus solving this problem.
  * To use it with Spark Streaming, first use SparkContext to create a broadcast variable of KafkaSink:

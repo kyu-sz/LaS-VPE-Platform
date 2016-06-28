@@ -23,12 +23,14 @@ public class PedestrianTrackingApplication extends SparkStreamingApplication {
 	public final static String APPLICATION_NAME = "PedestrianTracking";
 	
 	private static final long serialVersionUID = 3104859533881615664L;
+	private String master;
 	private String brokers;
 	private HashSet<String> topicsSet = new HashSet<>();
 
-	public PedestrianTrackingApplication(String brokers) {
+	public PedestrianTrackingApplication(String master, String brokers) {
 		super();
 		
+		this.master = master;
 		this.brokers = brokers;
 		
 		topicsSet.add(TRACKING_TASK_TOPIC);
@@ -37,7 +39,7 @@ public class PedestrianTrackingApplication extends SparkStreamingApplication {
 	@Override
 	protected JavaStreamingContext getStreamContext() {
 		SparkConf sparkConf = new SparkConf()
-				.setMaster("local[*]")
+				.setMaster(master)
 				.setAppName(APPLICATION_NAME);
 		final JavaStreamingContext commandHandlingContext = new JavaStreamingContext(sparkConf, Durations.seconds(2));
 		
@@ -71,7 +73,7 @@ public class PedestrianTrackingApplication extends SparkStreamingApplication {
 					public void call(String commandLine) throws Exception {
 						String[] elements = commandLine.split(" ");
 						assert (elements.length == 2);
-						System.out.println("Tracking " + elements[1] + " for " + elements[1] + "...");
+						System.out.println("Tracker: Tracking " + elements[0] + " for " + elements[1] + "...");
 					}
 				});
 			}
@@ -84,7 +86,8 @@ public class PedestrianTrackingApplication extends SparkStreamingApplication {
 	 * @param args No options supported currently.
 	 */
 	public static void main(String[] args) {
-		PedestrianTrackingApplication pedestrianTrackingApplication = new PedestrianTrackingApplication("localhost:9092");
+		PedestrianTrackingApplication pedestrianTrackingApplication =
+				new PedestrianTrackingApplication("local[*]", "localhost:9092");
 		pedestrianTrackingApplication.initialize("checkpoint");
 		pedestrianTrackingApplication.start();
 		pedestrianTrackingApplication.awaitTermination();

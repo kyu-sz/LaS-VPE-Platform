@@ -32,7 +32,7 @@ public class CommandGenerator implements Serializable {
 	
 	void generatePresetCommand() {
 		for (int i = 0; i < 6; ++i) {
-			commandProducer.send(new ProducerRecord<String, String>(topic, "Track video1 for ken"));
+			commandProducer.send(new ProducerRecord<String, String>(topic, "Track", "video1 for ken"));
 			System.out.println("Command producer: sent to kafka <" + topic + ">" + "Track video1 for ken");
 			
 			try {

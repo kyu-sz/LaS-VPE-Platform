@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
@@ -33,12 +34,14 @@ public class MessageHandlingApplication extends SparkStreamingApplication {
 	private static final long serialVersionUID = -942388332211825622L;
 	private Pattern spaceSplitter = Pattern.compile(" ");
 	private String brokers;
+	private String master;
 	private HashSet<String> topicsSet = new HashSet<>();
 	private Properties trackingTaskProducerProperties;
 	
-	public MessageHandlingApplication(String brokers) {
+	public MessageHandlingApplication(String master, String brokers) {
 		super();
 		
+		this.master = master;
 		this.brokers = brokers;
 		
 		topicsSet.add(COMMAND_TOPIC);
@@ -51,51 +54,43 @@ public class MessageHandlingApplication extends SparkStreamingApplication {
 
 	@Override
 	protected JavaStreamingContext getStreamContext() {
+		//Create contexts.
 		SparkConf sparkConf = new SparkConf()
-				.setMaster("local[*]")
+				.setMaster(master)
 				.setAppName(APPLICATION_NAME);
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
-		JavaStreamingContext commandHandlingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
+		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
+		//Create KafkaSink for Spark Streaming to output to Kafka.
+		final Broadcast<KafkaSink<String, String>> broadcastKafkaSink =
+				sparkContext.broadcast(new KafkaSink<String, String>(trackingTaskProducerProperties));
+		
+		//Create an input DStream using Kafka.
 		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put("metadata.broker.list", brokers);
-		
-		KafkaSink<String, String> kafkaSink = new KafkaSink<String, String>(trackingTaskProducerProperties);
-		final Broadcast<KafkaSink<String, String>> broadcastKafkaSink = sparkContext.broadcast(kafkaSink);
-		
 		JavaPairInputDStream<String, String> messagesDStream =
-				KafkaUtils.createDirectStream(commandHandlingContext, String.class, String.class,
+				KafkaUtils.createDirectStream(streamingContext, String.class, String.class,
 				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
-		
-		JavaDStream<String> linesDStream = messagesDStream.map(
-				new Function<Tuple2<String, String>, String>() {
-					private static final long serialVersionUID = 5410585675756968997L;
-
-					@Override
-					public String call(Tuple2<String, String> tuple2) throws Exception {
-						System.out.println("Message handler: recerived from Kafka " + tuple2._1() + "-" + tuple2._2());
-						return tuple2._2();
-					}
-				});		
-		linesDStream.foreachRDD(new VoidFunction<JavaRDD<String>>() {
+		messagesDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, String>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaRDD<String> linesRDD) throws Exception {
+			public void call(JavaPairRDD<String, String> messagesRDD) throws Exception {
 				
-				linesRDD.foreach(new VoidFunction<String>() {
+				messagesRDD.foreach(new VoidFunction<Tuple2<String, String>>() {
 
 					private static final long serialVersionUID = 1L;
 
 					@Override
-					public void call(String line) throws Exception {
-						String[] elements = spaceSplitter.split(line);
-						assert (elements.length > 0);
-						switch (elements[0]) {
+					public void call(Tuple2<String, String> message) throws Exception {
+						String command = message._1();
+						String params = message._2();
+						String[] elements = spaceSplitter.split(params);
+						switch (command) {
 						case "Track":
 							assert (elements.length == 4);
-							String videoURL = elements[1];
-							String client = elements[3];
+							String videoURL = elements[0];
+							String client = elements[2];
 							broadcastKafkaSink.value().send(new ProducerRecord<String, String>(PedestrianTrackingApplication.TRACKING_TASK_TOPIC, videoURL + " " + client));
 							System.out.println("Message handler: sent to Kafka <" + PedestrianTrackingApplication.TRACKING_TASK_TOPIC + ">" + videoURL + " " + client);
 							break;
@@ -105,6 +100,6 @@ public class MessageHandlingApplication extends SparkStreamingApplication {
 			}
 		});
 		
-		return commandHandlingContext;
+		return streamingContext;
 	}
 }
