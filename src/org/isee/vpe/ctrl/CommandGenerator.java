@@ -6,6 +6,13 @@ import java.util.Properties;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
+/**
+ * The CommandGenerator class is for simulating commands sent to the message handling application
+ * through Kafka.
+ * TODO The command format should be further considered.
+ * @author Ken Yu, ISEE, 2016
+ *
+ */
 public class CommandGenerator implements Serializable {
 	
 	private static final long serialVersionUID = -1221111574183021547L;

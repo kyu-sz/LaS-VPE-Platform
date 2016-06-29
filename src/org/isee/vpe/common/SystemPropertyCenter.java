@@ -24,12 +24,13 @@ public class SystemPropertyCenter {
 	public SystemPropertyCenter() { }
 	
 	public SystemPropertyCenter(String propertyFilename) throws IOException {
+		//Load the property file.
 		Properties systemProperties = new Properties();
 		BufferedInputStream propInputStream = new BufferedInputStream(new FileInputStream(propertyFilename));
 		systemProperties.load(propInputStream);
 		
+		//Digest the settings.
 		for (Entry<Object, Object> entry : systemProperties.entrySet()) {
-			
 			System.out.println("Read property: " + entry.getKey() + " - " + entry.getValue());
 			
 			switch ((String) entry.getKey()) {

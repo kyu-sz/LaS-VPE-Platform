@@ -67,18 +67,19 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
-		Map<String, String> kafkaParams = new HashMap<>();
-		kafkaParams.put("metadata.broker.list", kafkaBrokers);
-		
 		//Create KafkaSink for Spark Streaming to output to Kafka.
 		final Broadcast<KafkaSink<String, String>> broadcastKafkaSink =
 				sparkContext.broadcast(new KafkaSink<String, String>(trackingResultProducerProperties));
 		
+		//Retrieve messages from Kafka.
+		Map<String, String> kafkaParams = new HashMap<>();
+		kafkaParams.put("metadata.broker.list", kafkaBrokers);
 		JavaPairInputDStream<String, String> messagesDStream =
 				KafkaUtils.createDirectStream(streamingContext, String.class, String.class,
 				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
 		
-		JavaDStream<String> linesDStream = messagesDStream.map(
+		//Extract video URLs from the message.
+		JavaDStream<String> videoURLsDStream = messagesDStream.map(
 				new Function<Tuple2<String, String>, String>() {
 					private static final long serialVersionUID = 5410585675756968997L;
 
@@ -89,7 +90,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 					}
 				});
 		
-		JavaDStream<Track> tracksDStream = linesDStream.flatMap(new FlatMapFunction<String, Track>() {
+		//Get pedestrian tracks from videos at the URLs by a pedestrian tracker.
+		JavaDStream<Track> tracksDStream = videoURLsDStream.flatMap(new FlatMapFunction<String, Track>() {
 
 			private static final long serialVersionUID = -3035821562428112978L;
 
@@ -99,12 +101,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 			}
 		});
 		
+		//Send the tracks to the Kafka.
 		tracksDStream.foreachRDD(new VoidFunction<JavaRDD<Track>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaRDD<Track> linesRDD) throws Exception {
-				linesRDD.foreach(new VoidFunction<Track>() {
+			public void call(JavaRDD<Track> tracksRDD) throws Exception {
+				tracksRDD.foreach(new VoidFunction<Track>() {
 					private static final long serialVersionUID = 7107437032125778866L;
 
 					@Override
@@ -124,7 +127,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	 * @param args No options supported currently.
 	 */
 	public static void main(String[] args) {
-		
+		//Load system properties.
 		SystemPropertyCenter propertyCenter;
 		try {
 			propertyCenter = new SystemPropertyCenter("system.properties");
@@ -133,6 +136,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 			propertyCenter = new SystemPropertyCenter();
 		}
 		
+		//Start the pedestrian tracking application.
 		PedestrianTrackingApp pedestrianTrackingApp =
 				new PedestrianTrackingApp(propertyCenter.sparkMaster, propertyCenter.kafkaBrokers);
 		pedestrianTrackingApp.initialize(propertyCenter.checkpointDir);

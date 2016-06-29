@@ -43,13 +43,15 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
+		//Retrieve messages from Kafka.
 		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put("metadata.broker.list", kafkaBrokers);
-		
 		JavaPairInputDStream<String, String> messagesDStream =
 				KafkaUtils.createDirectStream(streamingContext, String.class, String.class,
 				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
 		
+		//Display the messages.
+		//TODO Modify the streaming steps from here to store the meta data.
 		messagesDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, String>>() {
 
 			private static final long serialVersionUID = -1269453288342585510L;

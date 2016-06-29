@@ -24,8 +24,10 @@ public class MainController implements Serializable {
 	public HashSet<String> topics = new HashSet<>();
 	
 	MainController() throws IOException {
+		//Load system properties.
 		propertyCenter = new SystemPropertyCenter("system.properties");
-		
+
+		//Initializes the system environment.
 		System.out.println("Connecting to zookeeper: " + propertyCenter.zookeeper);
 		ZkClient zkClient = new ZkClient(
 				propertyCenter.zookeeper,
@@ -51,20 +53,25 @@ public class MainController implements Serializable {
 	}
 	
 	void run() {
+		//Create and start a message handling application.
 		MessageHandlingApp messageHandlingApplication =
 				new MessageHandlingApp(propertyCenter.sparkMaster, propertyCenter.kafkaBrokers);
 		messageHandlingApplication.initialize(propertyCenter.checkpointDir);
 		messageHandlingApplication.start();
 
+		//Create and start a command generator
+		//to simulate commands sent to the message handling application through Kafka.
 		CommandGenerator commandGenerator = new CommandGenerator(propertyCenter.kafkaBrokers);
 		commandGenerator.generatePresetCommand();
 		
+		//Wait some time for the whole system to digest the commands.
 		try {
 			Thread.sleep(2000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
 		
+		//Stop the system.
 		messageHandlingApplication.stop();
 	}
 	
