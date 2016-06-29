@@ -12,12 +12,13 @@ import java.util.Map.Entry;
 import java.util.Properties;
 
 import org.I0Itec.zkclient.ZkClient;
-import org.isee.vpe.alg.tracking.PedestrianTrackingApplication;
+import org.isee.vpe.alg.PedestrianTrackingApp;
 
 import kafka.admin.AdminUtils;
+import kafka.admin.TopicCommand;
 
 /**
- * @author ken
+ * @author Kai Yu
  * 
  */
 public class MainController implements Serializable {
@@ -29,14 +30,14 @@ public class MainController implements Serializable {
 	int connectionTimeoutMs = 8 * 1000;
 	
 	//Kafka properties
-	String brokers = "localhost:9092";
+	String kafkaBrokers = "localhost:9092";
 	int partitions = 1;
 	int replicationFactor = 1;
 	HashSet<String> topics = new HashSet<>();
 	
 	//Spark properties
 	String checkpointDir = "checkpoint";
-	String master = "local[*]";
+	String sparkMaster = "local[*]";
 	
 	private void loadSystemProperties(String propertyFilename) throws IOException {
 		Properties systemProperties = new Properties();
@@ -44,24 +45,27 @@ public class MainController implements Serializable {
 		systemProperties.load(propInputStream);
 		
 		for (Entry<Object, Object> entry : systemProperties.entrySet()) {
+			
+			System.out.println("Read property: " + entry.getKey() + " - " + entry.getValue());
+			
 			switch ((String) entry.getKey()) {
 			case "zookeeper":
 				zookeeper = (String) entry.getValue(); 
 				break;
-			case "brokers":
-				brokers = (String) entry.getValue(); 
+			case "kafka.brokers":
+				kafkaBrokers = (String) entry.getValue(); 
 				break;
 			case "partitions":
 				partitions = new Integer((String) entry.getValue()); 
 				break;
-			case "replicationFactor":
+			case "replication.factor":
 				replicationFactor = new Integer((String) entry.getValue()); 
 				break;
-			case "checkpointDirectory":
+			case "checkpoint.directory":
 				checkpointDir = (String) entry.getValue(); 
 				break;
-			case "master":
-				master = (String) entry.getValue(); 
+			case "spark.master":
+				sparkMaster = (String) entry.getValue(); 
 				break;
 			}
 		}
@@ -70,25 +74,33 @@ public class MainController implements Serializable {
 	MainController() throws IOException {
 		loadSystemProperties("system.properties");
 		
-
+		System.out.println("Connecting to zookeeper: " + zookeeper);
 		ZkClient zkClient = new ZkClient(zookeeper, sessionTimeoutMs, connectionTimeoutMs);
 		
-		topics.add(MessageHandlingApplication.COMMAND_TOPIC);
-		topics.add(PedestrianTrackingApplication.TRACKING_TASK_TOPIC);
+		topics.add(MessageHandlingApp.COMMAND_TOPIC);
+		topics.add(PedestrianTrackingApp.TRACKING_TASK_TOPIC);
 		//Create topics.
 		for (String topic : topics) {
 			if (!AdminUtils.topicExists(zkClient, topic)) {
-				AdminUtils.createTopic(zkClient, topic, partitions, replicationFactor, new Properties());
+				System.out.println("Creating topic: " + topic);
+//				AdminUtils.createTopic(zkClient, topic, partitions, replicationFactor, new Properties());
+				kafka.admin.TopicCommand.main(new String[]{
+						"--create",
+						"--zookeeper", zookeeper,
+						"--topic", topic,
+						"--partitions", new Integer(partitions).toString(),
+						"--replication-factor", new Integer(replicationFactor).toString()
+						});
 			}
 		}
 	}
 	
 	void run() {
-		MessageHandlingApplication messageHandlingApplication = new MessageHandlingApplication(master, brokers);
+		MessageHandlingApp messageHandlingApplication = new MessageHandlingApp(sparkMaster, kafkaBrokers);
 		messageHandlingApplication.initialize(checkpointDir);
 		messageHandlingApplication.start();
 
-		CommandGenerator commandGenerator = new CommandGenerator(brokers);
+		CommandGenerator commandGenerator = new CommandGenerator(kafkaBrokers);
 		commandGenerator.generatePresetCommand();
 		
 		try {

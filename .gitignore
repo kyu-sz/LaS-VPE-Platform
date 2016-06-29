@@ -1,5 +1,12 @@
+# Binary files #
 lib/
 bin/
-checkpoint/
 
+# Temporary files #
+checkpoint/
 *.log
+*.swp
+
+# Eclipse project files #
+.project
+.classpath

@@ -1,0 +1,132 @@
+package org.isee.vpe.alg;
+
+import java.net.URL;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.streaming.Durations;
+import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaPairInputDStream;
+import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.isee.pedestrian.tracking.FakePedestrianTracker;
+import org.isee.pedestrian.tracking.PedestrianTracker;
+import org.isee.pedestrian.tracking.PedestrianTracker.Track;
+import org.isee.vpe.common.KafkaSink;
+import org.isee.vpe.common.SparkStreamingApp;
+
+import kafka.serializer.StringDecoder;
+import scala.Tuple2;
+
+public class PedestrianTrackingApp extends SparkStreamingApp {
+	
+	public static final String TRACKING_TASK_TOPIC = "tracking-task";
+	public static final String TRACKING_RESULT_TOPIC = "tracking-result";
+	public final static String APPLICATION_NAME = "PedestrianTracking";
+	
+	private static final long serialVersionUID = 3104859533881615664L;
+	private String sparkMaster;
+	private String kafkaBrokers;
+	private HashSet<String> topicsSet = new HashSet<>();
+	private PedestrianTracker tracker = null;
+	private Properties trackingResultProducerProperties = null;
+
+	public PedestrianTrackingApp(String sparkMaster, String kafkaBrokers) {
+		super();
+		
+		this.sparkMaster = sparkMaster;
+		this.kafkaBrokers = kafkaBrokers;
+		
+		topicsSet.add(TRACKING_TASK_TOPIC);
+		
+		tracker = new FakePedestrianTracker();
+		
+		trackingResultProducerProperties = new Properties();
+		trackingResultProducerProperties.put("bootstrap.servers", kafkaBrokers);
+		trackingResultProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
+		trackingResultProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+	}
+
+	@Override
+	protected JavaStreamingContext getStreamContext() {
+		//Create contexts.
+		SparkConf sparkConf = new SparkConf()
+				.setMaster(sparkMaster)
+				.setAppName(APPLICATION_NAME);
+		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
+		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
+		
+		Map<String, String> kafkaParams = new HashMap<>();
+		kafkaParams.put("metadata.broker.list", kafkaBrokers);
+		
+		//Create KafkaSink for Spark Streaming to output to Kafka.
+		final Broadcast<KafkaSink<String, String>> broadcastKafkaSink =
+				sparkContext.broadcast(new KafkaSink<String, String>(trackingResultProducerProperties));
+		
+		JavaPairInputDStream<String, String> messagesDStream =
+				KafkaUtils.createDirectStream(streamingContext, String.class, String.class,
+				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
+		
+		JavaDStream<String> linesDStream = messagesDStream.map(
+				new Function<Tuple2<String, String>, String>() {
+					private static final long serialVersionUID = 5410585675756968997L;
+
+					@Override
+					public String call(Tuple2<String, String> tuple2) throws Exception {
+						System.out.println(tuple2._1() + ":" + tuple2._2());
+						return tuple2._2();
+					}
+				});
+
+		linesDStream.foreachRDD(new VoidFunction<JavaRDD<String>>() {
+			private static final long serialVersionUID = 5448084941313023969L;
+
+			@Override
+			public void call(JavaRDD<String> linesRDD) throws Exception {
+				linesRDD.foreach(new VoidFunction<String>() {
+					private static final long serialVersionUID = 7107437032125778866L;
+
+					@Override
+					public void call(String commandLine) throws Exception {
+						KafkaSink<String, String> producerSink = broadcastKafkaSink.value();
+						
+						String videoURL = commandLine;
+						System.out.println("Tracking application: Tracking " + videoURL);
+						
+						Set<Track> tracks = tracker.track(videoURL);
+						
+						for (Track track : tracks) {
+							producerSink.send(new ProducerRecord<String, String>(TRACKING_RESULT_TOPIC, "Hello"));
+							System.out.printf("Sent to Kafka: <%s>%s\n", TRACKING_RESULT_TOPIC, "Hello");
+						}
+						
+						System.out.printf("Tracking application: %d tracking results sent!\n", tracks.size());
+					}
+				});
+			}
+		});
+		
+		return streamingContext;
+	}
+
+	/**
+	 * @param args No options supported currently.
+	 */
+	public static void main(String[] args) {
+		PedestrianTrackingApp pedestrianTrackingApp =
+				new PedestrianTrackingApp("local[*]", "172.18.33.83:9092");
+		pedestrianTrackingApp.initialize("checkpoint/");
+		pedestrianTrackingApp.start();
+		pedestrianTrackingApp.awaitTermination();
+	}
+}

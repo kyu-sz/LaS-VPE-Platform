@@ -15,7 +15,7 @@ public class CommandGenerator implements Serializable {
 	
 	public CommandGenerator(String brokers) {
 		this.brokers = brokers;
-		this.topic = MessageHandlingApplication.COMMAND_TOPIC;
+		this.topic = MessageHandlingApp.COMMAND_TOPIC;
 		
 		Properties commandProducerProperties = new Properties();
 		commandProducerProperties.put("bootstrap.servers", brokers);
@@ -32,8 +32,8 @@ public class CommandGenerator implements Serializable {
 	
 	void generatePresetCommand() {
 		for (int i = 0; i < 6; ++i) {
-			commandProducer.send(new ProducerRecord<String, String>(topic, "Track", "video1 for ken"));
-			System.out.println("Command producer: sent to kafka <" + topic + ">" + "Track video1 for ken");
+			commandProducer.send(new ProducerRecord<String, String>(topic, "Track", "video123"));
+			System.out.println("Command producer: sent to kafka <" + topic + ">" + "Track video123");
 			
 			try {
 				Thread.sleep(5000);

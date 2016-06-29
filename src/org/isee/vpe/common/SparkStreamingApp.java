@@ -6,14 +6,14 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.api.java.JavaStreamingContextFactory;
 
 /**
- * The SparkStreamingApplication class wraps a whole Spark Streaming application,
+ * The SparkStreamingApp class wraps a whole Spark Streaming application,
  * including driver code and executor code.
  * After initialized, it can be used just like a JavaStreamingContext class.
  * Note that you must call the initialize() method after construction and before using it.  
  * @author ken
  *
  */
-public abstract class SparkStreamingApplication implements Serializable {
+public abstract class SparkStreamingApp implements Serializable {
 
 	private static final long serialVersionUID = 2780614096112566164L;
 
