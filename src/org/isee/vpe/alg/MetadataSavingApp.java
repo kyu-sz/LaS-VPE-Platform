@@ -1,5 +1,6 @@
 package org.isee.vpe.alg;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.isee.vpe.common.SparkStreamingApp;
+import org.isee.vpe.common.SystemPropertyCenter;
 
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
@@ -74,9 +76,18 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	 * @param args No options supported currently.
 	 */
 	public static void main(String[] args) {
+		
+		SystemPropertyCenter propertyCenter;
+		try {
+			propertyCenter = new SystemPropertyCenter("system.properties");
+		} catch (IOException e) {
+			e.printStackTrace();
+			propertyCenter = new SystemPropertyCenter();
+		}
+		
 		MetadataSavingApp metadataSavingApp =
-				new MetadataSavingApp("local[*]", "localhost:9092");
-		metadataSavingApp.initialize("checkpoint/");
+				new MetadataSavingApp(propertyCenter.sparkMaster, propertyCenter.kafkaBrokers);
+		metadataSavingApp.initialize(propertyCenter.checkpointDir);
 		metadataSavingApp.start();
 		metadataSavingApp.awaitTermination();
 	}

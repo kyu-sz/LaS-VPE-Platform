@@ -1,7 +1,6 @@
 package org.isee.pedestrian.tracking;
 
 import java.io.Serializable;
-import java.net.URL;
 import java.util.List;
 import java.util.Set;
 

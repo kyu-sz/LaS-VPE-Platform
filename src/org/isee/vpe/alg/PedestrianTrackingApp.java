@@ -1,16 +1,16 @@
 package org.isee.vpe.alg;
 
-import java.net.URL;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
@@ -24,6 +24,7 @@ import org.isee.pedestrian.tracking.PedestrianTracker;
 import org.isee.pedestrian.tracking.PedestrianTracker.Track;
 import org.isee.vpe.common.KafkaSink;
 import org.isee.vpe.common.SparkStreamingApp;
+import org.isee.vpe.common.SystemPropertyCenter;
 
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
@@ -87,30 +88,30 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						return tuple2._2();
 					}
 				});
+		
+		JavaDStream<Track> tracksDStream = linesDStream.flatMap(new FlatMapFunction<String, Track>() {
 
-		linesDStream.foreachRDD(new VoidFunction<JavaRDD<String>>() {
+			private static final long serialVersionUID = -3035821562428112978L;
+
+			@Override
+			public Iterable<Track> call(String videoURL) throws Exception {
+				return tracker.track(videoURL);
+			}
+		});
+		
+		tracksDStream.foreachRDD(new VoidFunction<JavaRDD<Track>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaRDD<String> linesRDD) throws Exception {
-				linesRDD.foreach(new VoidFunction<String>() {
+			public void call(JavaRDD<Track> linesRDD) throws Exception {
+				linesRDD.foreach(new VoidFunction<Track>() {
 					private static final long serialVersionUID = 7107437032125778866L;
 
 					@Override
-					public void call(String commandLine) throws Exception {
+					public void call(Track track) throws Exception {
 						KafkaSink<String, String> producerSink = broadcastKafkaSink.value();
-						
-						String videoURL = commandLine;
-						System.out.println("Tracking application: Tracking " + videoURL);
-						
-						Set<Track> tracks = tracker.track(videoURL);
-						
-						for (Track track : tracks) {
-							producerSink.send(new ProducerRecord<String, String>(TRACKING_RESULT_TOPIC, "Hello"));
-							System.out.printf("Sent to Kafka: <%s>%s\n", TRACKING_RESULT_TOPIC, "Hello");
-						}
-						
-						System.out.printf("Tracking application: %d tracking results sent!\n", tracks.size());
+						producerSink.send(new ProducerRecord<String, String>(TRACKING_RESULT_TOPIC, "Hello"));
+						System.out.printf("Sent to Kafka: <%s>%s\n", TRACKING_RESULT_TOPIC, "Hello");
 					}
 				});
 			}
@@ -123,9 +124,18 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	 * @param args No options supported currently.
 	 */
 	public static void main(String[] args) {
+		
+		SystemPropertyCenter propertyCenter;
+		try {
+			propertyCenter = new SystemPropertyCenter("system.properties");
+		} catch (IOException e) {
+			e.printStackTrace();
+			propertyCenter = new SystemPropertyCenter();
+		}
+		
 		PedestrianTrackingApp pedestrianTrackingApp =
-				new PedestrianTrackingApp("local[*]", "172.18.33.83:9092");
-		pedestrianTrackingApp.initialize("checkpoint/");
+				new PedestrianTrackingApp(propertyCenter.sparkMaster, propertyCenter.kafkaBrokers);
+		pedestrianTrackingApp.initialize(propertyCenter.checkpointDir);
 		pedestrianTrackingApp.start();
 		pedestrianTrackingApp.awaitTermination();
 	}
