@@ -15,13 +15,15 @@
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.casia.cripac.isee.pedestrian.tracking;
+package org.casia.cripac.isee.vpe.debug;
 
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.Set;
 
+import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
+import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox;
 
 public class FakePedestrianTracker extends PedestrianTracker {

@@ -15,10 +15,12 @@
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.casia.cripac.isee.pedestrian.attr;
+package org.casia.cripac.isee.vpe.debug;
 
 import java.util.Random;
 
+import org.casia.cripac.isee.pedestrian.attr.Attribute;
+import org.casia.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.casia.cripac.isee.pedestrian.attr.Attribute.Facing;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 

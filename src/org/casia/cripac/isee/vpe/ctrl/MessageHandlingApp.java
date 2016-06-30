@@ -45,6 +45,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	public class CommandSet {
 		public final static String TRACK_ONLY = "track-only";
 		public final static String TRACK_AND_RECOG_ATTR = "track-and-recog-attr";
+		public final static String RECOG_ATTR_ONLY = "recog-attr-only";
 	}
 	
 	public final static String COMMAND_TOPIC = "command";
@@ -76,8 +77,14 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		private String buf = "";
 		
 		public void addTask(String... topics) {
+			if (buf.length() > 0 && topics.length > 0) {
+				buf = buf.concat("|");
+			}
 			for (int i = 0; i < topics.length; ++i) {
-				buf = buf.concat(topics[i] + ((i == topics.length - 1) ? "|" : ","));
+				buf = buf.concat(topics[i]);
+				if (i < topics.length - 1) {
+					buf = buf.concat(",");
+				}
 			}
 		}
 		
@@ -151,6 +158,21 @@ public class MessageHandlingApp extends SparkStreamingApp {
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
 											execQueueBuilder.getQueue(),
 											params));
+							break;
+						case CommandSet.RECOG_ATTR_ONLY:
+							System.out.printf(
+									"Message handler: sending to Kafka <%s>%s=%s\n",
+									PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
+									execQueueBuilder.getQueue(),
+									params);
+							broadcastKafkaSink.value().send(
+									new ProducerRecord<String, String>(
+											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
+											execQueueBuilder.getQueue(),
+											params));
+							break;
+						default:
+							System.out.println("Unsupported command!");
 							break;
 						}
 					}

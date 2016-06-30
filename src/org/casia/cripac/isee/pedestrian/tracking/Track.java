@@ -20,6 +20,15 @@ package org.casia.cripac.isee.pedestrian.tracking;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * The Track class stores a sequence of bounding boxes,
+ * representing the track of a pedestrian in a video.
+ * 
+ * TODO Should assign an ID to each track or use some other methods to identify them.
+ * 
+ * @author Ken Yu, CRIPAC, 2016
+ *
+ */
 public class Track implements Serializable {
 	
 	public class BoundingBox implements Serializable {

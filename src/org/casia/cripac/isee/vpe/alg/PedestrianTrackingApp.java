@@ -27,23 +27,23 @@ import java.util.Set;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.casia.cripac.isee.pedestrian.tracking.FakePedestrianTracker;
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.KafkaSink;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
+import org.casia.cripac.isee.vpe.debug.FakePedestrianTracker;
 
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
@@ -123,10 +123,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
 		
 		//Get pedestrian tracks from videos at the URLs by a pedestrian tracker.
-		JavaDStream<Tuple2<String, Track>> tracksWithExecQueueDStream = videoURLWithExecQueueDStream.flatMap(
-				new FlatMapFunction<Tuple2<String, String>, Tuple2<String, Track>>() {
-					private static final long serialVersionUID = -3035821562428112978L;
-					
+		JavaPairDStream<String,Track> tracksWithExecQueueDStream =
+				videoURLWithExecQueueDStream.flatMapToPair(new PairFlatMapFunction<Tuple2<String,String>, String, Track>() {
+
+					private static final long serialVersionUID = 1L;
+
 					@Override
 					public Iterable<Tuple2<String, Track>> call(Tuple2<String, String> videoURL) throws Exception {
 						HashSet<Tuple2<String, Track>> unitedResult = new HashSet<>();
@@ -141,11 +142,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		});
 		
 		//Send the tracks to the Kafka.
-		tracksWithExecQueueDStream.foreachRDD(new VoidFunction<JavaRDD<Tuple2<String, Track>>>() {
+		tracksWithExecQueueDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, Track>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaRDD<Tuple2<String, Track>> tracksWithExecQueueRDD) throws Exception {
+			public void call(JavaPairRDD<String, Track> tracksWithExecQueueRDD) throws Exception {
 				
 				tracksWithExecQueueRDD.foreach(new VoidFunction<Tuple2<String, Track>>() {
 					
@@ -191,7 +192,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 							}
 						}
 						
-						//Always send to the metadata saving application.
+						//Always send to the meta data saving application.
 						System.out.printf(
 								"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
 								MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
@@ -200,6 +201,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 								new ProducerRecord<String, byte[]>(
 										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, 
 										bytes));
+						
+						System.gc();
 					}
 				});
 			}

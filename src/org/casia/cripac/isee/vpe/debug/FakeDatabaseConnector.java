@@ -14,26 +14,23 @@
  * You should have received a copy of the GNU General Public License
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
-
-package org.casia.cripac.isee.pedestrian.attr;
+package org.casia.cripac.isee.vpe.debug;
 
 import java.io.Serializable;
+import java.util.Set;
+
+import org.casia.cripac.isee.pedestrian.tracking.Track;
 
 /**
- * The Attribute class stores all the pre-defined attributes of a pedestrian in a track.
- * 
- * TODO: Design how to associate an attribute to the track it belongs to.
- * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class Attribute implements Serializable {
+public class FakeDatabaseConnector implements Serializable {
 	
-	private static final long serialVersionUID = -7873269416770994896L;
+	private static final long serialVersionUID = 355205529406170579L;
 
-	public enum Facing {
-		LEFT, RIGHT, FRONT, BACK
+	public Set<Track> getTracks(String videoURL, String[] trackIDs) {
+		FakePedestrianTracker fakePedestrianTracker = new FakePedestrianTracker();
+		return fakePedestrianTracker.track(videoURL);
 	}
-	
-	public Facing facing;
 }

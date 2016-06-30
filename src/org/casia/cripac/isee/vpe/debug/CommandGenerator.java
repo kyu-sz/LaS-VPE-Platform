@@ -15,13 +15,14 @@
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.casia.cripac.isee.vpe.ctrl;
+package org.casia.cripac.isee.vpe.debug;
 
 import java.io.Serializable;
 import java.util.Properties;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp.CommandSet;
 
 /**
@@ -53,7 +54,7 @@ public class CommandGenerator implements Serializable {
 		super.finalize();
 	}
 	
-	void generatePresetCommand() {
+	public void generatePresetCommand() {
 		
 		for (int i = 0; i < 5; ++i) {
 			commandProducer.send(new ProducerRecord<String, String>(
@@ -65,6 +66,34 @@ public class CommandGenerator implements Serializable {
 					MessageHandlingApp.COMMAND_TOPIC,
 					CommandSet.TRACK_AND_RECOG_ATTR,
 					"video123");
+			
+			try {
+				Thread.sleep(2000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		for (int i = 0; i < 5; ++i) {
+			commandProducer.send(new ProducerRecord<String, String>(
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.TRACK_AND_RECOG_ATTR,
+					"video123"));
+			System.out.printf(
+					"Command producer: sent to kafka <%s>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.TRACK_AND_RECOG_ATTR,
+					"video123");
+
+			commandProducer.send(new ProducerRecord<String, String>(
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.RECOG_ATTR_ONLY,
+					"video123:1,2,3"));
+			System.out.printf(
+					"Command producer: sent to kafka <%s>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.RECOG_ATTR_ONLY,
+					"video123:1,2,3");
 			
 			try {
 				Thread.sleep(2000);

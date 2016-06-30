@@ -99,7 +99,6 @@ public class MetadataSavingApp extends SparkStreamingApp {
 								result._1(),
 								track.startFrameIndex + " " + track.locationSequence.size());
 					}
-					
 				});
 			}
 		});

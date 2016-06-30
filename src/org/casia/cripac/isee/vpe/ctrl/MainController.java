@@ -29,6 +29,7 @@ import org.casia.cripac.isee.vpe.alg.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
+import org.casia.cripac.isee.vpe.debug.CommandGenerator;
 
 import kafka.admin.AdminUtils;
 
