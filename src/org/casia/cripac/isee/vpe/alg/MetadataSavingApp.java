@@ -17,7 +17,11 @@
 
 package org.casia.cripac.isee.vpe.alg;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -30,11 +34,14 @@ import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 
+import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
+import scala.io.BytePickle.Def;
 
 public class MetadataSavingApp extends SparkStreamingApp {
 	
@@ -60,28 +67,53 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
+		Class<Track> a = Track.class; 
+		
 		//Retrieve messages from Kafka.
 		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put("metadata.broker.list", kafkaBrokers);
-		JavaPairInputDStream<String, String> messagesDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, String.class,
-				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
+		JavaPairInputDStream<String, byte[]> messagesDStream =
+				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+				StringDecoder.class, DefaultDecoder.class, kafkaParams, topicsSet);
 		
 		//Display the messages.
 		//TODO Modify the streaming steps from here to store the meta data.
-		messagesDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, String>>() {
+		messagesDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
 			private static final long serialVersionUID = -1269453288342585510L;
 
 			@Override
-			public void call(JavaPairRDD<String, String> resultsRDD) throws Exception {
-				resultsRDD.foreach(new VoidFunction<Tuple2<String,String>>() {
+			public void call(JavaPairRDD<String, byte[]> resultsRDD) throws Exception {
+				resultsRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
 
 					private static final long serialVersionUID = 6465526220612689594L;
 
 					@Override
-					public void call(Tuple2<String, String> result) throws Exception {
-						System.out.printf("Metadata saver received: <%s>%s\n", result._1(), result._2());
+					public void call(Tuple2<String, byte[]> result) throws Exception {
+						
+						ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(result._2());
+						ObjectInput input = null;
+						try {
+							input = new ObjectInputStream(byteArrayInputStream);
+							Track track = (Track) input.readObject();
+							
+							System.out.printf("Metadata saver received: %s=%s\n",
+									result._1(),
+									track.startFrameIndex + " " + track.locationSequence.size());
+						} finally {
+							try {
+								if (input != null) {
+									input.close();
+								}
+							} catch (IOException e) {
+								// ignore close exception
+							}
+							try {
+								byteArrayInputStream.close();
+							} catch (IOException e) {
+								// ignore close exception
+							}
+						}
 					}
 					
 				});

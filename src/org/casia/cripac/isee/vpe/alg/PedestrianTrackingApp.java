@@ -17,7 +17,11 @@
 
 package org.casia.cripac.isee.vpe.alg;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -38,7 +42,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.tracking.FakePedestrianTracker;
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
-import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker.Track;
+import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.KafkaSink;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
@@ -56,8 +60,20 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	private String sparkMaster;
 	private String kafkaBrokers;
 	private HashSet<String> topicsSet = new HashSet<>();
-	private PedestrianTracker tracker = null;
 	private Properties trackingResultProducerProperties = null;
+	
+	private class ResourceSink implements Serializable {
+		private static final long serialVersionUID = 1031852129274071157L;
+		private PedestrianTracker tracker = null;
+		
+		public PedestrianTracker getTracker() {
+			if (tracker == null) {
+				tracker = new FakePedestrianTracker();
+			}
+			
+			return tracker;
+		}
+	}
 
 	public PedestrianTrackingApp(String sparkMaster, String kafkaBrokers) {
 		super();
@@ -67,12 +83,15 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		
 		topicsSet.add(TRACKING_TASK_TOPIC);
 		
-		tracker = new FakePedestrianTracker();
-		
 		trackingResultProducerProperties = new Properties();
 		trackingResultProducerProperties.put("bootstrap.servers", kafkaBrokers);
-		trackingResultProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
-		trackingResultProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+		trackingResultProducerProperties.put("producer.type", "sync");
+		trackingResultProducerProperties.put("request.required.acks", "1");
+		trackingResultProducerProperties.put("compression.codec", "gzip");
+		trackingResultProducerProperties.put(
+				"key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
+		trackingResultProducerProperties.put(
+				"value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 	}
 
 	@Override
@@ -80,13 +99,16 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		//Create contexts.
 		SparkConf sparkConf = new SparkConf()
 				.setMaster(sparkMaster)
-				.setAppName(APPLICATION_NAME);
+				.setAppName(APPLICATION_NAME);		
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
 		//Create KafkaSink for Spark Streaming to output to Kafka.
-		final Broadcast<KafkaSink<String, String>> broadcastKafkaSink =
-				sparkContext.broadcast(new KafkaSink<String, String>(trackingResultProducerProperties));
+		final Broadcast<KafkaSink<String, byte[]>> broadcastKafkaSink =
+				sparkContext.broadcast(new KafkaSink<String, byte[]>(trackingResultProducerProperties));
+		//Create ResourceSink for any other unserializable components.
+		final Broadcast<ResourceSink> resouceSink =
+				sparkContext.broadcast(new ResourceSink());
 		
 		//Retrieve messages from Kafka.
 		Map<String, String> kafkaParams = new HashMap<>();
@@ -114,7 +136,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
 			@Override
 			public Iterable<Track> call(String videoURL) throws Exception {
-				return tracker.track(videoURL);
+				return resouceSink.value().getTracker().track(videoURL);
 			}
 		});
 		
@@ -129,9 +151,34 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
 					@Override
 					public void call(Track track) throws Exception {
-						KafkaSink<String, String> producerSink = broadcastKafkaSink.value();
-						producerSink.send(new ProducerRecord<String, String>(TRACKING_RESULT_TOPIC, "Hello"));
-						System.out.printf("Sent to Kafka: <%s>%s\n", TRACKING_RESULT_TOPIC, "Hello");
+						//Transform the track into byte[]
+						ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+						ObjectOutput output = null;
+						try {
+							output = new ObjectOutputStream(byteArrayOutputStream);
+							output.writeObject(track);
+							byte[] bytes = byteArrayOutputStream.toByteArray();
+							
+							KafkaSink<String, byte[]> producerSink = broadcastKafkaSink.value();
+							producerSink.send(
+									new ProducerRecord<String, byte[]>(
+											TRACKING_RESULT_TOPIC, 
+											bytes));
+							System.out.printf("Sent to Kafka: <%s>%s\n", TRACKING_RESULT_TOPIC, "A track");
+						} finally {
+							try {
+								if (output != null) {
+									output.close();
+								}
+							} catch (IOException e) {
+								// ignore close exception
+							}
+							try {
+								byteArrayOutputStream.close();
+							} catch (IOException e) {
+								// ignore close exception
+							}
+						}
 					}
 				});
 			}

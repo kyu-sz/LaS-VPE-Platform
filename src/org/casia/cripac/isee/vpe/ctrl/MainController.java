@@ -31,6 +31,9 @@ import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import kafka.admin.AdminUtils;
 
 /**
+ * The MainController class initializes the system environment,
+ * then starts the message handling applications and command simulating program respectively.
+ * TODO After development of the whole system, modify this to start all the applications.
  * @author Ken Yu
  * 
  */
