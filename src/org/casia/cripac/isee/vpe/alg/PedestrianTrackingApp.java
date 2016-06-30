@@ -71,12 +71,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		private static final long serialVersionUID = 1031852129274071157L;
 		private PedestrianTracker tracker = null;
 		
-		public PedestrianTracker getTracker() {
+		public Set<Track> track(String videoURL) {
 			if (tracker == null) {
 				tracker = new FakePedestrianTracker();
 			}
 			
-			return tracker;
+			return tracker.track(videoURL);
 		}
 	}
 
@@ -131,7 +131,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 					public Iterable<Tuple2<String, Track>> call(Tuple2<String, String> videoURL) throws Exception {
 						HashSet<Tuple2<String, Track>> unitedResult = new HashSet<>();
 						
-						Set<Track> tracks = resouceSink.value().getTracker().track(videoURL._2());
+						Set<Track> tracks = resouceSink.value().track(videoURL._2());
 						for (Track track : tracks) {
 							unitedResult.add(new Tuple2<String, Track>(videoURL._1(), track));
 						}
@@ -159,7 +159,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						//Transform the track into byte[]
 						byte[] bytes = ObjectFactory.getByteArray(track);
 						
-						//TODO Modify here to get a producer from the sink and use it directly.
 						KafkaSink<String, byte[]> producerSink = broadcastKafkaSink.value();
 
 						if (execQueue.length() > 0) {

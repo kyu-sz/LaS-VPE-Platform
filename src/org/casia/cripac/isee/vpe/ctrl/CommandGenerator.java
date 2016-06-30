@@ -27,7 +27,6 @@ import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp.CommandSet;
 /**
  * The CommandGenerator class is for simulating commands sent to the message handling application
  * through Kafka.
- * TODO The command format should be further considered.
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
@@ -70,7 +69,6 @@ public class CommandGenerator implements Serializable {
 			try {
 				Thread.sleep(2000);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -89,7 +87,6 @@ public class CommandGenerator implements Serializable {
 			try {
 				Thread.sleep(2000);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

@@ -59,16 +59,17 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	public static final String PEDESTRIAN_ATTR_RECOG_TASK_TOPIC = "pedestrian-attr-recog-task";
 	public static final String PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC = "pedestrian-attr-recog-input";
 	
-	private class ResourceSink implements Serializable {
+	private class PedestrianAttributeRecognizerSink implements Serializable {
+		
 		private static final long serialVersionUID = 1031852129274071157L;
 		private PedestrianAttrRecognizer recognizer = null;
 		
-		public PedestrianAttrRecognizer getRecognizer() {
+		public Attribute recognize(Track track) {
 			if (recognizer == null) {
 				recognizer = new FakePedestrianAttrRecognizer();
 			}
 			
-			return recognizer;
+			return recognizer.recognize(track);
 		}
 	}
 
@@ -104,8 +105,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		final Broadcast<KafkaSink<String, byte[]>> broadcastKafkaSink =
 				sparkContext.broadcast(new KafkaSink<String, byte[]>(attrProducerProperties));
 		//Create ResourceSink for any other unserializable components.
-		final Broadcast<ResourceSink> resouceSink =
-				sparkContext.broadcast(new ResourceSink());
+		final Broadcast<PedestrianAttributeRecognizerSink> resouceSink =
+				sparkContext.broadcast(new PedestrianAttributeRecognizerSink());
 		
 		//Retrieve tracks from Kafka.
 		Map<String, String> kafkaParams = new HashMap<>();
@@ -116,7 +117,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 				StringDecoder.class, DefaultDecoder.class, kafkaParams, topicsSet);
 		
 		//Recognize attributes from the tracks, then send them to the metadata saving application.
-		//TODO Modify the streaming steps from here to store the meta data.
 		tracksWithExecQueueDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
 			private static final long serialVersionUID = -1269453288342585510L;
@@ -134,10 +134,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						Track track = (Track) ObjectFactory.getObject(trackWithExecQueue._2());
 						
 						//Recognize attributes.
-						Attribute attribute = resouceSink.value().getRecognizer().recognize(track);
+						Attribute attribute = resouceSink.value().recognize(track);
 						byte[] bytes = ObjectFactory.getByteArray(attribute);
 						
-						//TODO Modify here to get a producer from the sink and use it directly.
 						KafkaSink<String, byte[]> producerSink = broadcastKafkaSink.value();
 						
 						if (execQueue.length() > 0) {
