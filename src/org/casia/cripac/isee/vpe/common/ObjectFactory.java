@@ -25,10 +25,14 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 
 /**
- * @author Ken Yu, ISEE, 2016
+ * The ObjectFactory class provides two static functions for transformation between objects and byte arrays.
+ * It is mainly used for sending objects through socket or Kafka. 
+ * 
+ * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class ObjectFactory {
+	
 	public static byte[] getByteArray(Object object) throws IOException {
 		ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 		ObjectOutput output = null;

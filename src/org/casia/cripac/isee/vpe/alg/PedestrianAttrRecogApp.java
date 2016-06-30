@@ -50,14 +50,14 @@ import scala.Tuple2;
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
+	private static final String APPLICATION_NAME = "PedestrianAttributeRecognizing";
 	private String sparkMaster;
 	private String kafkaBrokers;
 	private HashSet<String> topicsSet = new HashSet<>();
 	private Properties attrProducerProperties = null;
-	
-	public static final String ATTR_RECOG_TASK_TOPIC = "attr-recog-task";
-	public static final String PEDESTRIAN_ATTR_TOPIC = "pedestrian-attr";
-	public final static String APPLICATION_NAME = "PedestrianAttributeRecognizing";
+
+	public static final String PEDESTRIAN_ATTR_RECOG_TASK_TOPIC = "pedestrian-attr-recog-task";
+	public static final String PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC = "pedestrian-attr-recog-input";
 	
 	private class ResourceSink implements Serializable {
 		private static final long serialVersionUID = 1031852129274071157L;
@@ -78,7 +78,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		this.sparkMaster = sparkMaster;
 		this.kafkaBrokers = kafkaBrokers;
 		
-		topicsSet.add(PedestrianTrackingApp.PEDESTRIAN_TRACK_TOPIC);
+		topicsSet.add(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
 		
 		attrProducerProperties = new Properties();
 		attrProducerProperties.put("bootstrap.servers", kafkaBrokers);
@@ -107,35 +107,77 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		final Broadcast<ResourceSink> resouceSink =
 				sparkContext.broadcast(new ResourceSink());
 		
-		//Retrieve messages from Kafka.
+		//Retrieve tracks from Kafka.
 		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put("group.id", "1");
 		kafkaParams.put("metadata.broker.list", kafkaBrokers);
-		JavaPairInputDStream<String, byte[]> messagesDStream =
+		JavaPairInputDStream<String, byte[]> tracksWithExecQueueDStream =
 				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
 				StringDecoder.class, DefaultDecoder.class, kafkaParams, topicsSet);
 		
-		//Display the messages.
+		//Recognize attributes from the tracks, then send them to the metadata saving application.
 		//TODO Modify the streaming steps from here to store the meta data.
-		messagesDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+		tracksWithExecQueueDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
 			private static final long serialVersionUID = -1269453288342585510L;
 
 			@Override
-			public void call(JavaPairRDD<String, byte[]> resultsRDD) throws Exception {
-				resultsRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
+			public void call(JavaPairRDD<String, byte[]> tracksWithExecQueueRDD) throws Exception {
+				
+				tracksWithExecQueueRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
 
 					private static final long serialVersionUID = 6465526220612689594L;
 
 					@Override
-					public void call(Tuple2<String, byte[]> result) throws Exception {
-						Track track = (Track) ObjectFactory.getObject(result._2());
+					public void call(Tuple2<String, byte[]> trackWithExecQueue) throws Exception {
+						String execQueue = trackWithExecQueue._1();
+						Track track = (Track) ObjectFactory.getObject(trackWithExecQueue._2());
+						
+						//Recognize attributes.
 						Attribute attribute = resouceSink.value().getRecognizer().recognize(track);
-						broadcastKafkaSink.value().send(
+						byte[] bytes = ObjectFactory.getByteArray(attribute);
+						
+						//TODO Modify here to get a producer from the sink and use it directly.
+						KafkaSink<String, byte[]> producerSink = broadcastKafkaSink.value();
+						
+						if (execQueue.length() > 0) {
+							//Extract current tasks.
+							String curExecQueue;
+							String restExecQueue;
+							int splitIndex = execQueue.indexOf('|');
+							if (splitIndex == -1) {
+								curExecQueue = execQueue;
+								restExecQueue = "";
+							} else {
+								curExecQueue = execQueue.substring(0, splitIndex);
+								restExecQueue = execQueue.substring(splitIndex + 1);
+							}
+							String[] topics = curExecQueue.split(",");
+							
+							//Send to each topic.
+							for (String topic : topics) {
+								broadcastKafkaSink.value().send(
+										new ProducerRecord<String, byte[]>(
+												topic,
+												restExecQueue,
+												bytes));
+								System.out.printf(
+										"PedestrianAttrRecogApp: Sent to Kafka: <%s>%s=%s\n",
+										topic,
+										restExecQueue,
+										"An attribute.");
+							}
+						}
+						
+						//Always send to the meta data saving application.
+						producerSink.send(
 								new ProducerRecord<String, byte[]>(
-										PEDESTRIAN_ATTR_TOPIC, 
-										ObjectFactory.getByteArray(attribute)));
-						System.out.printf("PedestrianAttrRecogApp: Sent to Kafka: <%s>%s\n", PEDESTRIAN_ATTR_TOPIC, "An attribute.");
+										MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC, 
+										bytes));
+						System.out.printf(
+								"PedestrianTrackingApp: Sent to Kafka: <%s>%s\n", 
+								MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC,
+								"A track");
 					}
 					
 				});

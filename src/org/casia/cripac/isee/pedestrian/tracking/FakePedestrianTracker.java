@@ -22,6 +22,8 @@ import java.util.LinkedList;
 import java.util.Random;
 import java.util.Set;
 
+import org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox;
+
 public class FakePedestrianTracker extends PedestrianTracker {
 	
 	private Random random = new Random();
@@ -34,7 +36,7 @@ public class FakePedestrianTracker extends PedestrianTracker {
 		track.locationSequence = new LinkedList<>();
 		int appearSpan = random.nextInt(31) + 1;
 		for (int i = 0; i < appearSpan; ++i) {
-			org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox bbox = track.new BoundingBox();
+			BoundingBox bbox = track.new BoundingBox();
 			bbox.x = random.nextInt();
 			bbox.y = random.nextInt();
 			bbox.width = random.nextInt();

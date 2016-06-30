@@ -22,12 +22,14 @@ import java.util.Properties;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp.CommandSet;
 
 /**
  * The CommandGenerator class is for simulating commands sent to the message handling application
  * through Kafka.
  * TODO The command format should be further considered.
- * @author Ken Yu, ISEE, 2016
+ * 
+ * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class CommandGenerator implements Serializable {
@@ -35,11 +37,9 @@ public class CommandGenerator implements Serializable {
 	private static final long serialVersionUID = -1221111574183021547L;
 	private transient KafkaProducer<String, String> commandProducer;
 	String brokers = null;
-	String topic = null;
 	
 	public CommandGenerator(String brokers) {
 		this.brokers = brokers;
-		this.topic = MessageHandlingApp.COMMAND_TOPIC;
 		
 		Properties commandProducerProperties = new Properties();
 		commandProducerProperties.put("bootstrap.servers", brokers);
@@ -55,12 +55,39 @@ public class CommandGenerator implements Serializable {
 	}
 	
 	void generatePresetCommand() {
-		for (int i = 0; i < 6; ++i) {
-			commandProducer.send(new ProducerRecord<String, String>(topic, "Track", "video123"));
-			System.out.println("Command producer: sent to kafka <" + topic + ">" + "Track video123");
+		
+		for (int i = 0; i < 5; ++i) {
+			commandProducer.send(new ProducerRecord<String, String>(
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.TRACK_AND_RECOG_ATTR,
+					"video123"));
+			System.out.printf(
+					"Command producer: sent to kafka <%s>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.TRACK_AND_RECOG_ATTR,
+					"video123");
 			
 			try {
-				Thread.sleep(5000);
+				Thread.sleep(2000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		for (int i = 0; i < 15; ++i) {
+			commandProducer.send(new ProducerRecord<String, String>(
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.TRACK_ONLY,
+					"video123"));
+			System.out.printf(
+					"Command producer: sent to kafka <%s>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.TRACK_ONLY,
+					"video123");
+			
+			try {
+				Thread.sleep(2000);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

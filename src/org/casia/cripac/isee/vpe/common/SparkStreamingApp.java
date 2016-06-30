@@ -26,8 +26,9 @@ import org.apache.spark.streaming.api.java.JavaStreamingContextFactory;
  * The SparkStreamingApp class wraps a whole Spark Streaming application,
  * including driver code and executor code.
  * After initialized, it can be used just like a JavaStreamingContext class.
- * Note that you must call the initialize() method after construction and before using it.  
- * @author ken
+ * Note that you must call the initialize() method after construction and before using it.
+ *   
+ * @author Ken Yu, CRIPAC, 2016
  *
  */
 public abstract class SparkStreamingApp implements Serializable {

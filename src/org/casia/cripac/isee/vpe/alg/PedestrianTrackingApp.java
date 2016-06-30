@@ -23,13 +23,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
-import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
@@ -52,20 +52,20 @@ import scala.Tuple2;
  * The PedestrianTrackingApp class takes in video URLs from Kafka,
  * then process the videos with pedestrian tracking algorithms,
  * and finally push the tracking results back to Kafka.
- * @author Ken Yu, ISEE, 2016
+ * 
+ * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class PedestrianTrackingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
+	private static final String APPLICATION_NAME = "PedestrianTracking";
 	private String sparkMaster;
 	private String kafkaBrokers;
 	private HashSet<String> topicsSet = new HashSet<>();
 	private Properties trackProducerProperties = null;
 	
-	public static final String TRACKING_TASK_TOPIC = "tracking-task";
-	public static final String PEDESTRIAN_TRACK_TOPIC = "pedestrian-track";
-	public final static String APPLICATION_NAME = "PedestrianTracking";
+	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
 	
 	private class ResourceSink implements Serializable {
 		private static final long serialVersionUID = 1031852129274071157L;
@@ -86,7 +86,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		this.sparkMaster = sparkMaster;
 		this.kafkaBrokers = kafkaBrokers;
 		
-		topicsSet.add(TRACKING_TASK_TOPIC);
+		topicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
 		
 		trackProducerProperties = new Properties();
 		trackProducerProperties.put("bootstrap.servers", kafkaBrokers);
@@ -118,53 +118,89 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		//Retrieve messages from Kafka.
 		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put("metadata.broker.list", kafkaBrokers);
-		JavaPairInputDStream<String, String> trackDStream =
+		JavaPairInputDStream<String, String> videoURLWithExecQueueDStream =
 				KafkaUtils.createDirectStream(streamingContext, String.class, String.class,
 				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
 		
-		//Extract video URLs from the message.
-		JavaDStream<String> videoURLsDStream = trackDStream.map(
-				new Function<Tuple2<String, String>, String>() {
-					private static final long serialVersionUID = 5410585675756968997L;
-
-					@Override
-					public String call(Tuple2<String, String> tuple2) throws Exception {
-						System.out.println(tuple2._1() + ":" + tuple2._2());
-						return tuple2._2();
-					}
-				});
-		
 		//Get pedestrian tracks from videos at the URLs by a pedestrian tracker.
-		JavaDStream<Track> tracksDStream = videoURLsDStream.flatMap(
-				new FlatMapFunction<String, Track>() {
+		JavaDStream<Tuple2<String, Track>> tracksWithExecQueueDStream = videoURLWithExecQueueDStream.flatMap(
+				new FlatMapFunction<Tuple2<String, String>, Tuple2<String, Track>>() {
 					private static final long serialVersionUID = -3035821562428112978L;
 					
 					@Override
-					public Iterable<Track> call(String videoURL) throws Exception {
-						return resouceSink.value().getTracker().track(videoURL);
+					public Iterable<Tuple2<String, Track>> call(Tuple2<String, String> videoURL) throws Exception {
+						HashSet<Tuple2<String, Track>> unitedResult = new HashSet<>();
+						
+						Set<Track> tracks = resouceSink.value().getTracker().track(videoURL._2());
+						for (Track track : tracks) {
+							unitedResult.add(new Tuple2<String, Track>(videoURL._1(), track));
+						}
+						
+						return unitedResult;
 					}
 		});
 		
 		//Send the tracks to the Kafka.
-		tracksDStream.foreachRDD(new VoidFunction<JavaRDD<Track>>() {
+		tracksWithExecQueueDStream.foreachRDD(new VoidFunction<JavaRDD<Tuple2<String, Track>>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaRDD<Track> tracksRDD) throws Exception {
-				tracksRDD.foreach(new VoidFunction<Track>() {
+			public void call(JavaRDD<Tuple2<String, Track>> tracksWithExecQueueRDD) throws Exception {
+				
+				tracksWithExecQueueRDD.foreach(new VoidFunction<Tuple2<String, Track>>() {
+					
 					private static final long serialVersionUID = 7107437032125778866L;
 
 					@Override
-					public void call(Track track) throws Exception {
+					public void call(Tuple2<String, Track> trackWithExecQueue) throws Exception {
+						String execQueue = trackWithExecQueue._1();
+						Track track = trackWithExecQueue._2();
+						
 						//Transform the track into byte[]
 						byte[] bytes = ObjectFactory.getByteArray(track);
 						
+						//TODO Modify here to get a producer from the sink and use it directly.
 						KafkaSink<String, byte[]> producerSink = broadcastKafkaSink.value();
+
+						if (execQueue.length() > 0) {
+							//Extract current execution queue.
+							String curExecQueue;
+							String restExecQueue;
+							int splitIndex = execQueue.indexOf('|');
+							if (splitIndex == -1) {
+								curExecQueue = execQueue;
+								restExecQueue = "";
+							} else {
+								curExecQueue = execQueue.substring(0, splitIndex);
+								restExecQueue = execQueue.substring(splitIndex + 1);
+							}
+							
+							String[] topics = curExecQueue.split(",");
+							
+							//Send to each topic.
+							for (String topic : topics) {
+								System.out.printf(
+										"PedestrianTrackingApp: Sending to Kafka: <%s>%s=%s\n", 
+										topic,
+										restExecQueue,
+										"A track");
+								producerSink.send(
+										new ProducerRecord<String, byte[]>(
+												topic,
+												restExecQueue,
+												bytes));
+							}
+						}
+						
+						//Always send to the metadata saving application.
+						System.out.printf(
+								"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
+								MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
+								"A track");
 						producerSink.send(
 								new ProducerRecord<String, byte[]>(
-										PEDESTRIAN_TRACK_TOPIC, 
+										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, 
 										bytes));
-						System.out.printf("PedestrianTrackingApp: Sent to Kafka: <%s>%s\n", PEDESTRIAN_TRACK_TOPIC, "A track");
 					}
 				});
 			}

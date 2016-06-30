@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.util.HashSet;
 
 import org.I0Itec.zkclient.ZkClient;
+import org.casia.cripac.isee.vpe.alg.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
@@ -34,8 +35,10 @@ import kafka.admin.AdminUtils;
 /**
  * The MainController class initializes the system environment,
  * then starts the message handling applications and command simulating program respectively.
+ * 
  * TODO After development of the whole system, modify this to start all the applications.
- * @author Ken Yu
+ * 
+ * @author Ken Yu, CRIPAC, 2016
  * 
  */
 public class MainController implements Serializable {
@@ -57,10 +60,11 @@ public class MainController implements Serializable {
 
 		//Create topics.
 		topics.add(MessageHandlingApp.COMMAND_TOPIC);
-		topics.add(PedestrianTrackingApp.TRACKING_TASK_TOPIC);
-		topics.add(PedestrianTrackingApp.PEDESTRIAN_TRACK_TOPIC);
-		topics.add(PedestrianAttrRecogApp.ATTR_RECOG_TASK_TOPIC);
-		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_TOPIC);
+		topics.add(PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC);
+		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
+		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
+		topics.add(MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
+		topics.add(MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		for (String topic : topics) {
 			if (!AdminUtils.topicExists(zkClient, topic)) {
 				System.out.println("Creating topic: " + topic);

@@ -49,12 +49,15 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
 	private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
 	
+	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
+	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
+	
 	public MetadataSavingApp(String sparkMaster, String kafkaBrokers) {
 		this.sparkMaster = sparkMaster;
 		this.kafkaBrokers = kafkaBrokers;
 		
-		pedestrianTrackTopicsSet.add(PedestrianTrackingApp.PEDESTRIAN_TRACK_TOPIC);
-		pedestrianAttrTopicsSet.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_TOPIC);
+		pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
+		pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 	}
 
 	@Override
@@ -66,16 +69,15 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
-		//Retrieve messages from Kafka.
+		//Common Kafka settings
 		Map<String, String> kafkaParams = new HashMap<>();
 		kafkaParams.put("group.id", "0");
 		kafkaParams.put("metadata.broker.list", kafkaBrokers);
+		
+		//Retrieve tracks from Kafka.
 		JavaPairInputDStream<String, byte[]> trackDStream =
 				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
 				StringDecoder.class, DefaultDecoder.class, kafkaParams, pedestrianTrackTopicsSet);
-		JavaPairInputDStream<String, byte[]> attrDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, kafkaParams, pedestrianAttrTopicsSet);
 		
 		//Display the tracks.
 		//TODO Modify the streaming steps from here to store the meta data.
@@ -101,6 +103,11 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				});
 			}
 		});
+
+		//Retrieve attributes from Kafka
+		JavaPairInputDStream<String, byte[]> attrDStream =
+				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+				StringDecoder.class, DefaultDecoder.class, kafkaParams, pedestrianAttrTopicsSet);
 		
 		//Display the attributes.
 		//TODO Modify the streaming steps from here to store the meta data.

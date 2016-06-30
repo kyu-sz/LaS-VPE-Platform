@@ -42,7 +42,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
  * broadcastKafkaSink.value().send(topic, value);
  * }
  * </pre>
- * @author ken
+ * @author Ken Yu, CRIPAC, 2016
  *
  * @param <K> Type of the key in a Kafka message.
  * @param <V> Type of the value in a Kafka message.
