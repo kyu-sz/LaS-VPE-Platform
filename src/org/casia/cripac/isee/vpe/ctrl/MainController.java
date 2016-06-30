@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.util.HashSet;
 
 import org.I0Itec.zkclient.ZkClient;
+import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 
@@ -57,7 +58,9 @@ public class MainController implements Serializable {
 		//Create topics.
 		topics.add(MessageHandlingApp.COMMAND_TOPIC);
 		topics.add(PedestrianTrackingApp.TRACKING_TASK_TOPIC);
-		topics.add(PedestrianTrackingApp.TRACKING_RESULT_TOPIC);
+		topics.add(PedestrianTrackingApp.PEDESTRIAN_TRACK_TOPIC);
+		topics.add(PedestrianAttrRecogApp.ATTR_RECOG_TASK_TOPIC);
+		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_TOPIC);
 		for (String topic : topics) {
 			if (!AdminUtils.topicExists(zkClient, topic)) {
 				System.out.println("Creating topic: " + topic);

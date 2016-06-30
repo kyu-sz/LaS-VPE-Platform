@@ -15,26 +15,37 @@
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.casia.cripac.isee.pedestrian.tracking;
+package org.casia.cripac.isee.pedestrian.attr;
 
-import java.io.Serializable;
-import java.util.List;
+import java.util.Random;
 
-public class Track implements Serializable {
+import org.casia.cripac.isee.pedestrian.attr.Attribute.Facing;
+import org.casia.cripac.isee.pedestrian.tracking.Track;
+
+public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
+
+	Random random = new Random();
 	
-	public class BoundingBox implements Serializable {
+	@Override
+	public Attribute recognize(Track track) {
+		Attribute attribute = new Attribute();
 		
-		private static final long serialVersionUID = -5261437055893590056L;
+		switch (random.nextInt(4)) {
+		case 0:
+			attribute.facing = Facing.FRONT;
+			break;
+		case 1:
+			attribute.facing = Facing.BACK;
+			break;
+		case 2:
+			attribute.facing = Facing.LEFT;
+			break;
+		case 3:
+			attribute.facing = Facing.RIGHT;
+			break;
+		}
 		
-		public int x;
-		public int y;
-		public int width;
-		public int height;
+		return attribute;
 	}
 	
-	private static final long serialVersionUID = -6133927313545472821L;
-	
-	public String videoURL;
-	public int startFrameIndex;
-	public List<BoundingBox> locationSequence;
 }

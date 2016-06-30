@@ -17,10 +17,9 @@
 
 package org.casia.cripac.isee.pedestrian.tracking;
 
-import java.util.List;
 import java.util.Set;
 
-public interface PedestrianTracker {
-	public Set<Track> track(String videoURL);
-	public Set<Track> track(List<String> frameURLs);
+public abstract class PedestrianTracker {
+	
+	public abstract Set<Track> track(String videoURL);
 }
