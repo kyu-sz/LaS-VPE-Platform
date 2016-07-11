@@ -16,65 +16,20 @@
  ************************************************************************/
 package org.casia.cripac.isee.vpe.common;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
 /**
- * The ObjectFactory class provides two static functions for transformation between objects and byte arrays.
- * It is mainly used for sending objects through socket or Kafka. 
+ * <br>
+ * The ObjectFactory class can produce objects in a fixed manner.
+ * It is usually used in a combination with the ObjectSink class.
+ * </br>
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class ObjectFactory {
+public abstract class ObjectFactory<T> implements Serializable {
 	
-	public static byte[] getByteArray(Object object) throws IOException {
-		ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-		ObjectOutput output = null;
-		try {
-			output = new ObjectOutputStream(byteArrayOutputStream);
-			output.writeObject(object);
-			return byteArrayOutputStream.toByteArray();
-		} finally {
-			try {
-				if (output != null) {
-					output.close();
-				}
-			} catch (IOException e) {
-				// ignore close exception
-			}
-			try {
-				byteArrayOutputStream.close();
-			} catch (IOException e) {
-				// ignore close exception
-			}
-		}
-	}
-	
-	public static Object getObject(byte[] byteArray) throws ClassNotFoundException, IOException {
-		ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
-		ObjectInput input = null;
-		try {
-			input = new ObjectInputStream(byteArrayInputStream);
-			return input.readObject();
-		} finally {
-			try {
-				if (input != null) {
-					input.close();
-				}
-			} catch (IOException e) {
-				// ignore close exception
-			}
-			try {
-				byteArrayInputStream.close();
-			} catch (IOException e) {
-				// ignore close exception
-			}
-		}
-	}
+	private static final long serialVersionUID = -7931301716101856732L;
+
+	public abstract T getObject();
 }

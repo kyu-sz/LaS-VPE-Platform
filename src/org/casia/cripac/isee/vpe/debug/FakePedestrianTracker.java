@@ -30,7 +30,7 @@ public class FakePedestrianTracker extends PedestrianTracker {
 	
 	private Random random = new Random();
 	
-	private Track generateRandomTrack(String videoURL) {
+	public Track generateRandomTrack(String videoURL) {
 		Track track = new Track();
 		track.startFrameIndex = random.nextInt(10000) + 1;
 		track.videoURL = videoURL;
@@ -50,7 +50,7 @@ public class FakePedestrianTracker extends PedestrianTracker {
 		return track;
 	}
 	
-	private Set<Track> generateRandomTrackSet(String videoURL) {
+	public Set<Track> generateRandomTrackSet(String videoURL) {
 		HashSet<Track> trackSet = new HashSet<>();
 		
 		int trackNum = random.nextInt(31) + 1;

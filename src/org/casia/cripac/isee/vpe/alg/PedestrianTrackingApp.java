@@ -17,18 +17,19 @@
 
 package org.casia.cripac.isee.vpe.alg;
 
-import java.io.IOException;
-import java.io.Serializable;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
@@ -39,12 +40,18 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
-import org.casia.cripac.isee.vpe.common.KafkaSink;
+import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
+import org.casia.cripac.isee.vpe.common.ByteArrayFactory.ByteArrayQueueParts;
+import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
+import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
+import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
+import org.casia.cripac.isee.vpe.ctrl.TopicManager;
 import org.casia.cripac.isee.vpe.debug.FakePedestrianTracker;
 
+import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
@@ -59,37 +66,20 @@ import scala.Tuple2;
 public class PedestrianTrackingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
-	private static final String APPLICATION_NAME = "PedestrianTracking";
-	private String sparkMaster;
-	private String kafkaBrokers;
-	private HashSet<String> topicsSet = new HashSet<>();
-	private Properties trackProducerProperties = null;
-	
-	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
-	
-	private class ResourceSink implements Serializable {
-		private static final long serialVersionUID = 1031852129274071157L;
-		private PedestrianTracker tracker = null;
-		
-		public Set<Track> track(String videoURL) {
-			if (tracker == null) {
-				tracker = new FakePedestrianTracker();
-			}
-			
-			return tracker.track(videoURL);
-		}
-	}
+	private HashSet<String> taskTopicsSet = new HashSet<>();
+	private Properties trackProducerProperties = new Properties();
+	private transient SparkConf sparkConf;
+	private Map<String, String> kafkaParams = new HashMap<>();
 
-	public PedestrianTrackingApp(String sparkMaster, String kafkaBrokers) {
+	public static final String APPLICATION_NAME = "PedestrianTracking";
+	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
+
+	public PedestrianTrackingApp(SystemPropertyCenter propertyCenter) {
 		super();
 		
-		this.sparkMaster = sparkMaster;
-		this.kafkaBrokers = kafkaBrokers;
+		taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
 		
-		topicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
-		
-		trackProducerProperties = new Properties();
-		trackProducerProperties.put("bootstrap.servers", kafkaBrokers);
+		trackProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
 		trackProducerProperties.put("producer.type", "sync");
 		trackProducerProperties.put("request.required.acks", "1");
 		trackProducerProperties.put("compression.codec", "gzip");
@@ -97,44 +87,80 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 				"key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
 		trackProducerProperties.put(
 				"value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+
+		//Create contexts.
+		sparkConf = new SparkConf()
+				.setAppName(APPLICATION_NAME);
+		if (!propertyCenter.onYARN) {
+			sparkConf = sparkConf
+					.setMaster(propertyCenter.sparkMaster)
+					.set("deploy.mode", propertyCenter.sparkDeployMode);
+		}
+
+		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
 	}
 
 	@Override
 	protected JavaStreamingContext getStreamContext() {
-		//Create contexts.
-		SparkConf sparkConf = new SparkConf()
-				.setMaster(sparkMaster)
-				.setAppName(APPLICATION_NAME);		
+		//Create contexts.	
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
+		sparkContext.setLogLevel("WARN");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
-		
+
 		//Create KafkaSink for Spark Streaming to output to Kafka.
-		final Broadcast<KafkaSink<String, byte[]>> broadcastKafkaSink =
-				sparkContext.broadcast(new KafkaSink<String, byte[]>(trackProducerProperties));
+		final Broadcast<ObjectSupplier<KafkaProducer<String, byte[]>>> broadcastKafkaSink =
+				sparkContext.broadcast(
+						new ObjectSupplier<KafkaProducer<String, byte[]>>(
+								new KafkaProducerFactory<>(trackProducerProperties)));
 		//Create ResourceSink for any other unserializable components.
-		final Broadcast<ResourceSink> resouceSink =
-				sparkContext.broadcast(new ResourceSink());
+		final Broadcast<ObjectSupplier<PedestrianTracker>> trackerSink =
+				sparkContext.broadcast(new ObjectSupplier<PedestrianTracker>(new ObjectFactory<PedestrianTracker>() {
+
+					private static final long serialVersionUID = -3454317350293711609L;
+
+					@Override
+					public PedestrianTracker getObject() {
+						return new FakePedestrianTracker();
+					}
+				}));
 		
 		//Retrieve messages from Kafka.
-		Map<String, String> kafkaParams = new HashMap<>();
-		kafkaParams.put("metadata.broker.list", kafkaBrokers);
-		JavaPairInputDStream<String, String> videoURLWithExecQueueDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, String.class,
-				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
+		JavaPairInputDStream<String, byte[]> taskDStream =
+				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+				StringDecoder.class, DefaultDecoder.class, kafkaParams, taskTopicsSet);
 		
-		//Get pedestrian tracks from videos at the URLs by a pedestrian tracker.
-		JavaPairDStream<String,Track> tracksWithExecQueueDStream =
-				videoURLWithExecQueueDStream.flatMapToPair(new PairFlatMapFunction<Tuple2<String,String>, String, Track>() {
+		//Get video URL from the data queue.
+		JavaPairDStream<String, Tuple2<String, byte[]>> videoURLDStream = taskDStream.mapValues(new Function<byte[], Tuple2<String, byte[]>>() {
+
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public Tuple2<String, byte[]> call(byte[] compressedDataQueue) throws Exception {
+				byte[] dataQueue = ByteArrayFactory.decompress(compressedDataQueue);
+				ByteArrayQueueParts parts = ByteArrayFactory.splitByteStream(dataQueue);
+				String videoURL = (String) ByteArrayFactory.getObject(parts.head);
+				return new Tuple2<String, byte[]>(videoURL, parts.rest);
+			}
+		});
+		
+		//Get pedestrian tracks from video at the URL by a pedestrian tracker.
+		JavaPairDStream<String,Tuple2<Track, byte[]>> trackDStream =
+				videoURLDStream.flatMapToPair(new PairFlatMapFunction<Tuple2<String,Tuple2<String,byte[]>>, String, Tuple2<Track,byte[]>>() {
 
 					private static final long serialVersionUID = 1L;
 
 					@Override
-					public Iterable<Tuple2<String, Track>> call(Tuple2<String, String> videoURL) throws Exception {
-						HashSet<Tuple2<String, Track>> unitedResult = new HashSet<>();
+					public Iterable<Tuple2<String,Tuple2<Track, byte[]>>> call(Tuple2<String,Tuple2<String,byte[]>> videoURLWithDataQueue) throws Exception {
+						String taskQueue = videoURLWithDataQueue._1();
+						String videoURL = videoURLWithDataQueue._2()._1();
+						byte[] dataQueue = videoURLWithDataQueue._2()._2();
+						HashSet<Tuple2<String, Tuple2<Track, byte[]>>> unitedResult = new HashSet<>();
 						
-						Set<Track> tracks = resouceSink.value().track(videoURL._2());
+						Set<Track> tracks = trackerSink.value().get().track(videoURL);
 						for (Track track : tracks) {
-							unitedResult.add(new Tuple2<String, Track>(videoURL._1(), track));
+							unitedResult.add(new Tuple2<String, Tuple2<Track, byte[]>>(
+									taskQueue,
+									new Tuple2<Track, byte[]>(track, dataQueue)));
 						}
 						
 						return unitedResult;
@@ -142,25 +168,30 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		});
 		
 		//Send the tracks to the Kafka.
-		tracksWithExecQueueDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, Track>>() {
+		trackDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, Tuple2<Track, byte[]>>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaPairRDD<String, Track> tracksWithExecQueueRDD) throws Exception {
+			public void call(JavaPairRDD<String, Tuple2<Track, byte[]>> trackRDD) throws Exception {
 				
-				tracksWithExecQueueRDD.foreach(new VoidFunction<Tuple2<String, Track>>() {
+				trackRDD.foreach(new VoidFunction<Tuple2<String, Tuple2<Track, byte[]>>>() {
 					
 					private static final long serialVersionUID = 7107437032125778866L;
 
 					@Override
-					public void call(Tuple2<String, Track> trackWithExecQueue) throws Exception {
-						String execQueue = trackWithExecQueue._1();
-						Track track = trackWithExecQueue._2();
+					public void call(Tuple2<String, Tuple2<Track, byte[]>> trackAndDataQueueAndExecQueue) throws Exception {
+						String execQueue = trackAndDataQueueAndExecQueue._1();
+						Track track = trackAndDataQueueAndExecQueue._2()._1();
+						byte[] dataQueue = trackAndDataQueueAndExecQueue._2()._2();
 						
-						//Transform the track into byte[]
-						byte[] bytes = ObjectFactory.getByteArray(track);
+						//Append the track to the dataQueue.
+						byte[] resBytes = ByteArrayFactory.getByteArray(track);
+						byte[] compressedResBytes = ByteArrayFactory.compress(resBytes);
+						byte[] newDataQueue = ByteArrayFactory.combineByteArray(
+								ByteArrayFactory.appendLengthToHead(resBytes), dataQueue);
+						byte[] compressedDataQueue = ByteArrayFactory.compress(newDataQueue);
 						
-						KafkaSink<String, byte[]> producerSink = broadcastKafkaSink.value();
+						KafkaProducer<String, byte[]> producer = broadcastKafkaSink.value().get();
 
 						if (execQueue.length() > 0) {
 							//Extract current execution queue.
@@ -184,11 +215,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 										topic,
 										restExecQueue,
 										"A track");
-								producerSink.send(
+								producer.send(
 										new ProducerRecord<String, byte[]>(
 												topic,
 												restExecQueue,
-												bytes));
+												compressedDataQueue));
 							}
 						}
 						
@@ -197,10 +228,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 								"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
 								MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
 								"A track");
-						producerSink.send(
+						producer.send(
 								new ProducerRecord<String, byte[]>(
 										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, 
-										bytes));
+										compressedResBytes));
 						
 						System.gc();
 					}
@@ -213,21 +244,18 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
 	/**
 	 * @param args No options supported currently.
+	 * @throws URISyntaxException 
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws URISyntaxException {
 		//Load system properties.
 		SystemPropertyCenter propertyCenter;
-		try {
-			propertyCenter = new SystemPropertyCenter("system.properties");
-		} catch (IOException e) {
-			e.printStackTrace();
-			propertyCenter = new SystemPropertyCenter();
-		}
+		propertyCenter = new SystemPropertyCenter(args);
+		
+		TopicManager.checkTopics(propertyCenter);
 		
 		//Start the pedestrian tracking application.
-		PedestrianTrackingApp pedestrianTrackingApp =
-				new PedestrianTrackingApp(propertyCenter.sparkMaster, propertyCenter.kafkaBrokers);
-		pedestrianTrackingApp.initialize(propertyCenter.checkpointDir);
+		PedestrianTrackingApp pedestrianTrackingApp = new PedestrianTrackingApp(propertyCenter);
+		pedestrianTrackingApp.initialize(propertyCenter);
 		pedestrianTrackingApp.start();
 		pedestrianTrackingApp.awaitTermination();
 	}

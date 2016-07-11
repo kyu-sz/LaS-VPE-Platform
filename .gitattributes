@@ -1,0 +1,5 @@
+bin/vpe-platform.jar filter=lfs diff=lfs merge=lfs -text
+lib/jopt-simple-4.9.jar filter=lfs diff=lfs merge=lfs -text
+lib/kafka-clients-0.10.0.0.jar filter=lfs diff=lfs merge=lfs -text
+lib/spark-assembly-1.6.1-hadoop2.6.0.jar filter=lfs diff=lfs merge=lfs -text
+lib/spark-examples-1.6.1-hadoop2.6.0.jar filter=lfs diff=lfs merge=lfs -text

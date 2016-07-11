@@ -20,101 +20,115 @@ package org.casia.cripac.isee.vpe.ctrl;
  * 
  */
 
+import java.io.File;
 import java.io.IOException;
-import java.io.Serializable;
-import java.util.HashSet;
+import java.net.URISyntaxException;
+import java.util.Map;
+import java.util.Map.Entry;
 
-import org.I0Itec.zkclient.ZkClient;
-import org.casia.cripac.isee.vpe.alg.MetadataSavingApp;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.spark.SparkConf;
+import org.apache.spark.deploy.yarn.Client;
+import org.apache.spark.deploy.yarn.ClientArguments;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
+import org.casia.cripac.isee.vpe.common.HadoopXMLParser;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
-import org.casia.cripac.isee.vpe.debug.CommandGenerator;
-
-import kafka.admin.AdminUtils;
+import org.casia.cripac.isee.vpe.common.SystemPropertyCenter.NoAppSpecifiedException;
+import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
+import org.xml.sax.SAXException;
 
 /**
- * The MainController class initializes the system environment,
- * then starts the message handling applications and command simulating program respectively.
- * 
- * TODO After development of the whole system, modify this to start all the applications.
+ * The MainController class initializes the system environment (currently only checks the required topics),
+ * and provides entrance to start any spark streaming applications.
  * 
  * @author Ken Yu, CRIPAC, 2016
  * 
  */
-public class MainController implements Serializable {
-	private static final long serialVersionUID = 4145646848594916984L;
-	private SystemPropertyCenter propertyCenter = null;
+public class MainController {
 	
-	public HashSet<String> topics = new HashSet<>();
-	
-	MainController() throws IOException {
-		//Load system properties.
-		propertyCenter = new SystemPropertyCenter("system.properties");
+	public static void main(String[] args) throws NoAppSpecifiedException, URISyntaxException, IOException {
+		
+		//Analyze the command line and store the options into a system property center.
+		SystemPropertyCenter propertyCenter = new SystemPropertyCenter(args);
+		
+		//Check whether topics required have been created in the Kafka servers.
+		if (propertyCenter.verbose) {
+			System.out.println("Checking required topics...");
+		}
+		TopicManager.checkTopics(propertyCenter);
+		
+		String[] arguments = propertyCenter.generateCommandLineOpts();
+		
+		if (propertyCenter.verbose) {
+			System.out.print("Submitting with args:");
+			for (String arg : arguments) {
+				System.out.print(" " + arg);
+			}
+			System.out.println("");
+		}
 
-		//Initializes the system environment.
-		System.out.println("Connecting to zookeeper: " + propertyCenter.zookeeper);
-		ZkClient zkClient = new ZkClient(
-				propertyCenter.zookeeper,
-				propertyCenter.sessionTimeoutMs,
-				propertyCenter.connectionTimeoutMs);
-
-		//Create topics.
-		topics.add(MessageHandlingApp.COMMAND_TOPIC);
-		topics.add(PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC);
-		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
-		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
-		topics.add(MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
-		topics.add(MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
-		for (String topic : topics) {
-			if (!AdminUtils.topicExists(zkClient, topic)) {
-				System.out.println("Creating topic: " + topic);
-				kafka.admin.TopicCommand.main(new String[]{
-						"--create",
-						"--zookeeper", propertyCenter.zookeeper,
-						"--topic", topic,
-						"--partitions", new Integer(propertyCenter.partitions).toString(),
-						"--replication-factor", new Integer(propertyCenter.replicationFactor).toString()
-						});
+		SparkConf sparkConf = new SparkConf();
+		//Prepare system configuration.
+		if (propertyCenter.onYARN) {
+			System.setProperty("SPARK_YARN_MODE", "true");
+			sparkConf.set("mapreduce.framework.name", "yarn");
+			sparkConf.set("yarn.resourcemanager.hostname", propertyCenter.yarnResourceManagerHostname);
+			
+			//Load Hadoop configuration from XML files.
+			Configuration hadoopConf = new Configuration();
+			Map<String, String> propMap;
+			try {
+				propMap = HadoopXMLParser.getPropsFromXML(new File("$HADOOP/etc/hadoop/core.xml"));
+				for (Entry<String, String> prop : propMap.entrySet()) {
+					System.out.printf("Setting hadoop configuration: %s=%s\n", prop.getKey(), prop.getValue());
+					hadoopConf.set(prop.getKey(), prop.getValue());
+				}
+				propMap = HadoopXMLParser.getPropsFromXML(new File("$HADOOP/etc/hadoop/yarn.xml"));
+				for (Entry<String, String> prop : propMap.entrySet()) {
+					System.out.printf("Setting hadoop configuration: %s=%s\n", prop.getKey(), prop.getValue());
+					hadoopConf.set(prop.getKey(), prop.getValue());
+				}
+			} catch (ParserConfigurationException | SAXException | IOException e) {
+				e.printStackTrace();
+			}
+			
+//			arguments = new String[] {
+//				"--name", "SparkPiFromJava",
+//				"--class", "org.apache.spark.examples.SparkPi",
+//				"--jar", "/home/ken/spark-1.6.1-bin-hadoop2.6/lib/spark-examples-1.6.1-hadoop2.6.0.jar",
+//				"--arg", "10"
+//			};
+			
+			//Submit to Spark.
+			ClientArguments yarnClientArguments = new ClientArguments(arguments, sparkConf);
+			new Client(yarnClientArguments, hadoopConf, sparkConf).run();
+		} else {
+			//Run locally.
+			switch (propertyCenter.applicationName) {
+			case MessageHandlingApp.APPLICATION_NAME:
+				MessageHandlingApp.main(arguments);
+				break;
+			case MetadataSavingApp.APPLICATION_NAME:
+				MetadataSavingApp.main(arguments);
+				break;
+			case PedestrianAttrRecogApp.APPLICATION_NAME:
+				PedestrianAttrRecogApp.main(arguments);
+				break;
+			case PedestrianTrackingApp.APPLICATION_NAME:
+				PedestrianTrackingApp.main(arguments);
+				break;
+			case CommandGeneratingApp.APPLICATION_NAME:
+				CommandGeneratingApp.main(arguments);
+				break;
+			default:
+				System.err.printf("No application named \"%s\"!\n", propertyCenter.applicationName);
+			case "":
+				System.out.println("Try using '-h' for more information.");
+				throw new NoAppSpecifiedException();
 			}
 		}
 	}
-	
-	void run() {
-		//Create and start a message handling application.
-		MessageHandlingApp messageHandlingApplication =
-				new MessageHandlingApp(propertyCenter.sparkMaster, propertyCenter.kafkaBrokers);
-		messageHandlingApplication.initialize(propertyCenter.checkpointDir);
-		messageHandlingApplication.start();
-
-		//Create and start a command generator
-		//to simulate commands sent to the message handling application through Kafka.
-		CommandGenerator commandGenerator = new CommandGenerator(propertyCenter.kafkaBrokers);
-		commandGenerator.generatePresetCommand();
-		
-		//Wait some time for the whole system to digest the commands.
-		try {
-			Thread.sleep(2000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		
-		//Stop the system.
-		messageHandlingApplication.stop();
-	}
-	
-	/**
-	 * @param args No options supported currently.
-	 */
-	public static void main(String[] args) {
-		MainController controller;
-		try {
-			controller = new MainController();
-		} catch (IOException e) {
-			e.printStackTrace();
-			return;
-		}
-		controller.run();
-	}
-
 }

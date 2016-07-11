@@ -17,8 +17,13 @@
 
 package org.casia.cripac.isee.vpe.common;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.api.java.JavaStreamingContextFactory;
 
@@ -50,12 +55,23 @@ public abstract class SparkStreamingApp implements Serializable {
 	 * Initialize the application.
 	 * @param checkpointDir The directory storing the check points of Spark Streaming context.
 	 */
-	public void initialize(String checkpointDir) {
-		streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, new JavaStreamingContextFactory() {
+	public void initialize(SystemPropertyCenter propertyCenter) {
+		streamingContext = JavaStreamingContext.getOrCreate(propertyCenter.checkpointDir, new JavaStreamingContextFactory() {
 			
 			@Override
 			public JavaStreamingContext create() {
-				return getStreamContext();
+				JavaStreamingContext context = getStreamContext();
+				try {
+					if (propertyCenter.sparkMaster.contains("local")) {
+						new File(propertyCenter.checkpointDir).mkdirs();
+					} else {
+						FileSystem.get(new Configuration()).mkdirs(new Path(propertyCenter.checkpointDir));
+					}
+					context.checkpoint(propertyCenter.checkpointDir);
+				} catch (IllegalArgumentException | IOException e) {
+					e.printStackTrace();
+				}
+				return context;
 			}
 		});
 	}

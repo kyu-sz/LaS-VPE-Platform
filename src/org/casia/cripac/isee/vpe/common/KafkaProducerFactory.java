@@ -14,21 +14,38 @@
  * You should have received a copy of the GNU General Public License
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
-package org.casia.cripac.isee.vpe.debug;
+package org.casia.cripac.isee.vpe.common;
 
-import java.io.Serializable;
+import java.util.Properties;
 
-import org.casia.cripac.isee.pedestrian.tracking.Track;
+import org.apache.kafka.clients.producer.KafkaProducer;
 
 /**
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class FakeDatabaseConnector implements Serializable {
-	
-	private static final long serialVersionUID = 355205529406170579L;
+public class KafkaProducerFactory<K, V> extends ObjectFactory<KafkaProducer<K, V>> {
 
-	public Track getTracks(String videoURL, String trackID) {
-		return new FakePedestrianTracker().generateRandomTrack(videoURL);
+	private static final long serialVersionUID = 537687120172257949L;
+
+	/**
+	 * Configuration for constructing the object.
+	 */
+	private Properties config;
+	
+	/**
+	 * Input a property for constructing the Kafka producer.
+	 */
+	public KafkaProducerFactory(Properties prop) {
+		this.config = prop;
 	}
+
+	/* (non-Javadoc)
+	 * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject(java.util.Properties)
+	 */
+	@Override
+	public KafkaProducer<K, V> getObject() {
+		return new KafkaProducer<>(config);
+	}
+
 }

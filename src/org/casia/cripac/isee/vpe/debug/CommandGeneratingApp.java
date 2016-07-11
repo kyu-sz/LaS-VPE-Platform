@@ -17,13 +17,22 @@
 
 package org.casia.cripac.isee.vpe.debug;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.net.URISyntaxException;
 import java.util.Properties;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+//import org.apache.spark.SparkConf;
+//import org.apache.spark.SparkContext;
+//import org.apache.spark.streaming.Duration;
+//import org.apache.spark.streaming.StreamingContext;
+import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
+import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp.CommandSet;
+import org.casia.cripac.isee.vpe.ctrl.TopicManager;
 
 /**
  * The CommandGenerator class is for simulating commands sent to the message handling application
@@ -32,20 +41,19 @@ import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp.CommandSet;
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class CommandGenerator implements Serializable {
+public class CommandGeneratingApp implements Serializable {
 	
 	private static final long serialVersionUID = -1221111574183021547L;
-	private transient KafkaProducer<String, String> commandProducer;
-	String brokers = null;
+	private transient KafkaProducer<String, byte[]> commandProducer;
 	
-	public CommandGenerator(String brokers) {
-		this.brokers = brokers;
-		
+	public static final String APPLICATION_NAME = "CommandGenerating";
+	
+	public CommandGeneratingApp(SystemPropertyCenter propertyCenter) {
 		Properties commandProducerProperties = new Properties();
-		commandProducerProperties.put("bootstrap.servers", brokers);
+		commandProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
 		commandProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
-		commandProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
-		commandProducer = new KafkaProducer<String, String>(commandProducerProperties);
+		commandProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+		commandProducer = new KafkaProducer<String, byte[]>(commandProducerProperties);
 	}
 	
 	@Override
@@ -54,46 +62,30 @@ public class CommandGenerator implements Serializable {
 		super.finalize();
 	}
 	
-	public void generatePresetCommand() {
+	public void generatePresetCommand() throws IOException {
 		
-		for (int i = 0; i < 5; ++i) {
-			commandProducer.send(new ProducerRecord<String, String>(
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR,
-					"video123"));
-			System.out.printf(
-					"Command producer: sent to kafka <%s>%s=%s\n",
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR,
-					"video123");
-			
-			try {
-				Thread.sleep(2000);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-		
-		for (int i = 0; i < 5; ++i) {
-			commandProducer.send(new ProducerRecord<String, String>(
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR,
-					"video123"));
-			System.out.printf(
-					"Command producer: sent to kafka <%s>%s=%s\n",
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR,
-					"video123");
+		String trackArg = "video123";
+		byte[] trackArgBytes =
+				ByteArrayFactory.compress(
+						ByteArrayFactory.appendLengthToHead(
+								ByteArrayFactory.getByteArray(trackArg)));
 
-			commandProducer.send(new ProducerRecord<String, String>(
+		String attrRecogArg = "video123:12";
+		byte[] attrRecogArgBytes = 
+				ByteArrayFactory.compress(
+						ByteArrayFactory.appendLengthToHead(
+								ByteArrayFactory.getByteArray(attrRecogArg)));
+		
+		for (int i = 0; i < 3; ++i) {
+			commandProducer.send(new ProducerRecord<String, byte[]>(
 					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.RECOG_ATTR_ONLY,
-					"video123:1,2,3"));
+					CommandSet.TRACK_AND_RECOG_ATTR,
+					trackArgBytes));
 			System.out.printf(
 					"Command producer: sent to kafka <%s>%s=%s\n",
 					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.RECOG_ATTR_ONLY,
-					"video123:1,2,3");
+					CommandSet.TRACK_AND_RECOG_ATTR,
+					trackArg);
 			
 			try {
 				Thread.sleep(2000);
@@ -102,16 +94,26 @@ public class CommandGenerator implements Serializable {
 			}
 		}
 		
-		for (int i = 0; i < 15; ++i) {
-			commandProducer.send(new ProducerRecord<String, String>(
+		for (int i = 0; i < 3; ++i) {
+			commandProducer.send(new ProducerRecord<String, byte[]>(
 					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_ONLY,
-					"video123"));
+					CommandSet.TRACK_AND_RECOG_ATTR,
+					trackArgBytes));
 			System.out.printf(
 					"Command producer: sent to kafka <%s>%s=%s\n",
 					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_ONLY,
-					"video123");
+					CommandSet.TRACK_AND_RECOG_ATTR,
+					trackArg);
+
+			commandProducer.send(new ProducerRecord<String, byte[]>(
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.RECOG_ATTR_ONLY,
+					attrRecogArgBytes));
+			System.out.printf(
+					"Command producer: sent to kafka <%s>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.RECOG_ATTR_ONLY,
+					attrRecogArg);
 			
 			try {
 				Thread.sleep(2000);
@@ -119,5 +121,43 @@ public class CommandGenerator implements Serializable {
 				e.printStackTrace();
 			}
 		}
+		
+		for (int i = 0; i < 3; ++i) {
+			commandProducer.send(new ProducerRecord<String, byte[]>(
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.TRACK_ONLY,
+					trackArgBytes));
+			System.out.printf(
+					"Command producer: sent to kafka <%s>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC,
+					CommandSet.TRACK_ONLY,
+					trackArg);
+			
+			try {
+				Thread.sleep(2000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	public static void main(String[] args) throws IOException, URISyntaxException {
+
+		SystemPropertyCenter propertyCenter;
+		if (args.length > 0) {
+			propertyCenter = new SystemPropertyCenter(args);
+		} else {
+			propertyCenter = new SystemPropertyCenter();
+		}
+
+		TopicManager.checkTopics(propertyCenter);
+		
+		CommandGeneratingApp app = new CommandGeneratingApp(propertyCenter);
+		app.generatePresetCommand();
+		
+//		SparkContext context = new SparkContext(new SparkConf().setAppName("CommandGeneratingApp"));
+//		StreamingContext streamingContext = new StreamingContext(context, new Duration(10));
+//		streamingContext.start();
+//		streamingContext.stop(true);
 	}
 }

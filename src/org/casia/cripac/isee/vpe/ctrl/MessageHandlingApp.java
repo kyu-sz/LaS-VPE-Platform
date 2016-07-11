@@ -17,11 +17,13 @@
 
 package org.casia.cripac.isee.vpe.ctrl;
 
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -34,9 +36,12 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
-import org.casia.cripac.isee.vpe.common.KafkaSink;
+import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
+import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
+import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 
+import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
@@ -52,24 +57,36 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	public final static String APPLICATION_NAME = "MessageHandling";
 
 	private static final long serialVersionUID = -942388332211825622L;
-	private String kafkaBrokers;
-	private String sparkMaster;
 	private HashSet<String> topicsSet = new HashSet<>();
 	private Properties trackingTaskProducerProperties;
+	private transient SparkConf sparkConf;
+	private Map<String, String> commonKafkaParams;
+	private boolean verbose = false;
 	
-	public MessageHandlingApp(String sparkMaster, String kafkaBrokers) {
+	public MessageHandlingApp(SystemPropertyCenter propertyCenter) {
 		super();
 		
-		this.sparkMaster = sparkMaster;
-		this.kafkaBrokers = kafkaBrokers;
-		System.out.println("Message handler: Kafka brokers: " + kafkaBrokers);
+		verbose = propertyCenter.verbose;
 		
 		topicsSet.add(COMMAND_TOPIC);
 		
 		trackingTaskProducerProperties = new Properties();
-		trackingTaskProducerProperties.put("bootstrap.servers", kafkaBrokers);
+		trackingTaskProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
 		trackingTaskProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
-		trackingTaskProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+		trackingTaskProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+		
+		//Create contexts.
+		sparkConf = new SparkConf()
+				.setAppName(APPLICATION_NAME);
+		if (!propertyCenter.onYARN) {
+			sparkConf = sparkConf
+					.setMaster(propertyCenter.sparkMaster)
+					.set("deploy.mode", propertyCenter.sparkDeployMode);
+		}
+		
+		commonKafkaParams = new HashMap<>();
+		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		commonKafkaParams.put("group.id", "0");
 	}
 	
 	private class ExecQueueBuilder {
@@ -95,84 +112,88 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 	@Override
 	protected JavaStreamingContext getStreamContext() {
-		//Create contexts.
-		SparkConf sparkConf = new SparkConf()
-				.setMaster(sparkMaster)
-				.setAppName(APPLICATION_NAME);
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
+		sparkContext.setLogLevel("WARN");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
 		//Create KafkaSink for Spark Streaming to output to Kafka.
-		final Broadcast<KafkaSink<String, String>> broadcastKafkaSink =
-				sparkContext.broadcast(new KafkaSink<String, String>(trackingTaskProducerProperties));
+		final Broadcast<ObjectSupplier<KafkaProducer<String, byte[]>>> broadcastKafkaSink =
+				sparkContext.broadcast(
+						new ObjectSupplier<KafkaProducer<String, byte[]>>(
+								new KafkaProducerFactory<>(trackingTaskProducerProperties)));
 		
 		//Create an input DStream using Kafka.
-		Map<String, String> kafkaParams = new HashMap<>();
-		kafkaParams.put("metadata.broker.list", kafkaBrokers);
-		kafkaParams.put("group.id", "0");
-		JavaPairInputDStream<String, String> messagesDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, String.class,
-				StringDecoder.class, StringDecoder.class, kafkaParams, topicsSet);
+		JavaPairInputDStream<String, byte[]> messageDStream =
+				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, topicsSet);
 		
 		//Handle the messages received from Kafka,
-		messagesDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, String>>() {
+		messageDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaPairRDD<String, String> messagesRDD) throws Exception {
+			public void call(JavaPairRDD<String, byte[]> messageRDD) throws Exception {
 				
-				messagesRDD.foreach(new VoidFunction<Tuple2<String, String>>() {
+				messageRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
 
 					private static final long serialVersionUID = 1L;
 
 					@Override
-					public void call(Tuple2<String, String> message) throws Exception {
+					public void call(Tuple2<String, byte[]> message) throws Exception {
 						
 						ExecQueueBuilder execQueueBuilder = new ExecQueueBuilder();
 						
 						String command = message._1();
-						String params = message._2();
+						byte[] dataQueue = message._2();
+						
+						if (verbose) {
+							System.out.printf("Message handler: received command \"%s\"\n", command);
+						}
+						
 						switch (command) {
 						case CommandSet.TRACK_ONLY:
-							System.out.printf(
-									"Message handler: sending to Kafka <%s>%s=%s\n",
-									PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-									execQueueBuilder.getQueue(),
-									params);
-							broadcastKafkaSink.value().send(
-									new ProducerRecord<String, String>(
+							if (verbose) {
+								System.out.printf(
+										"Message handler: sending to Kafka <%s>%s=...\n",
+										PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
+										execQueueBuilder.getQueue());
+							}
+							broadcastKafkaSink.value().get().send(
+									new ProducerRecord<String, byte[]>(
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
 											execQueueBuilder.getQueue(),
-											params));
+											dataQueue));
 							break;
 						case CommandSet.TRACK_AND_RECOG_ATTR:
 							execQueueBuilder.addTask(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
 
-							System.out.printf(
-									"Message handler: sending to Kafka <%s>%s=%s\n",
-									PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-									execQueueBuilder.getQueue(),
-									params);
-							broadcastKafkaSink.value().send(
-									new ProducerRecord<String, String>(
+							if (verbose) {
+								System.out.printf(
+										"Message handler: sending to Kafka <%s>%s=...\n",
+										PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
+										execQueueBuilder.getQueue());
+							}
+							broadcastKafkaSink.value().get().send(
+									new ProducerRecord<String, byte[]>(
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
 											execQueueBuilder.getQueue(),
-											params));
+											dataQueue));
 							break;
 						case CommandSet.RECOG_ATTR_ONLY:
-							System.out.printf(
-									"Message handler: sending to Kafka <%s>%s=%s\n",
-									PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
-									execQueueBuilder.getQueue(),
-									params);
-							broadcastKafkaSink.value().send(
-									new ProducerRecord<String, String>(
+							if (verbose) {
+								System.out.printf(
+										"Message handler: sending to Kafka <%s>%s=...\n",
+										PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
+										execQueueBuilder.getQueue());
+							}
+							broadcastKafkaSink.value().get().send(
+									new ProducerRecord<String, byte[]>(
 											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
 											execQueueBuilder.getQueue(),
-											params));
+											dataQueue));
 							break;
 						default:
-							System.out.println("Unsupported command!");
+							System.err.println("Unsupported command!");
 							break;
 						}
 					}
@@ -181,5 +202,22 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		});
 		
 		return streamingContext;
+	}
+
+	public static void main(String[] args) throws URISyntaxException {
+		
+		SystemPropertyCenter propertyCenter;
+		if (args.length > 0) {
+			propertyCenter = new SystemPropertyCenter(args);
+		} else {
+			propertyCenter = new SystemPropertyCenter();
+		}
+
+		TopicManager.checkTopics(propertyCenter);
+		
+		MessageHandlingApp messageHandlingApp = new MessageHandlingApp(propertyCenter);
+		messageHandlingApp.initialize(propertyCenter);
+		messageHandlingApp.start();
+		messageHandlingApp.awaitTermination();
 	}
 }

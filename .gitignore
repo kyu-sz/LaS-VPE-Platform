@@ -1,6 +1,6 @@
 # Binary files #
-lib/*
-bin/*
+# Now push dependent libraries to the Git using LFS.
+#lib/*
 
 # Temporary files #
 checkpoint/
