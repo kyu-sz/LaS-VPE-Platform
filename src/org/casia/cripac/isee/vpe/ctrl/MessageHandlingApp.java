@@ -23,6 +23,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.spark.SparkConf;
@@ -40,6 +42,7 @@ import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
+import org.xml.sax.SAXException;
 
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
@@ -204,7 +207,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		return streamingContext;
 	}
 
-	public static void main(String[] args) throws URISyntaxException {
+	public static void main(String[] args) throws URISyntaxException, ParserConfigurationException, SAXException {
 		
 		SystemPropertyCenter propertyCenter;
 		if (args.length > 0) {

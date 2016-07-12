@@ -22,6 +22,8 @@ import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.util.Properties;
 
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 //import org.apache.spark.SparkConf;
@@ -33,6 +35,7 @@ import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp.CommandSet;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
+import org.xml.sax.SAXException;
 
 /**
  * The CommandGenerator class is for simulating commands sent to the message handling application
@@ -141,7 +144,7 @@ public class CommandGeneratingApp implements Serializable {
 		}
 	}
 	
-	public static void main(String[] args) throws IOException, URISyntaxException {
+	public static void main(String[] args) throws IOException, URISyntaxException, ParserConfigurationException, SAXException {
 
 		SystemPropertyCenter propertyCenter;
 		if (args.length > 0) {

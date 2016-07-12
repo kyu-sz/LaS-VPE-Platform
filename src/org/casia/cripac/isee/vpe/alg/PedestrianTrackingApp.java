@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.spark.SparkConf;
@@ -50,6 +52,7 @@ import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
 import org.casia.cripac.isee.vpe.debug.FakePedestrianTracker;
+import org.xml.sax.SAXException;
 
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
@@ -245,8 +248,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	/**
 	 * @param args No options supported currently.
 	 * @throws URISyntaxException 
+	 * @throws SAXException 
+	 * @throws ParserConfigurationException 
 	 */
-	public static void main(String[] args) throws URISyntaxException {
+	public static void main(String[] args) throws URISyntaxException, ParserConfigurationException, SAXException {
 		//Load system properties.
 		SystemPropertyCenter propertyCenter;
 		propertyCenter = new SystemPropertyCenter(args);

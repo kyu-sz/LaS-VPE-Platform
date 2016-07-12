@@ -27,12 +27,13 @@ import java.util.Arrays;
 import java.util.Map.Entry;
 import java.util.Properties;
 
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -41,6 +42,7 @@ import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp;
 import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
+import org.xml.sax.SAXException;
 
 public class SystemPropertyCenter {
 	
@@ -136,7 +138,7 @@ public class SystemPropertyCenter {
 		return Arrays.copyOf(options.toArray(), options.size(), String[].class);
 	}
 	
-	public SystemPropertyCenter(String[] args) throws URISyntaxException {
+	public SystemPropertyCenter(String[] args) throws URISyntaxException, ParserConfigurationException, SAXException {
 
 		CommandLineParser parser = new BasicParser();
 		Options options = new Options();
@@ -210,7 +212,7 @@ public class SystemPropertyCenter {
 							System.out.println("Loading properties using HDFS platform from " + propertyFilePath + "...");
 						}
 						
-						FileSystem fileSystem = FileSystem.get(new URI(propertyFilePath), new Configuration());
+						FileSystem fileSystem = FileSystem.get(new URI(propertyFilePath), HadoopUtils.getDefaultConf());
 						FSDataInputStream hdfsInputStream = fileSystem.open(new Path(propertyFilePath)); 
 						propInputStream = new BufferedInputStream(hdfsInputStream);
 					} else {
@@ -222,6 +224,7 @@ public class SystemPropertyCenter {
 					}
 					systemProperties.load(propInputStream);
 				} catch (IOException e) {
+					e.printStackTrace();
 					System.err.printf("Cannot load system property file at specified path: \"%s\"!\n", propertyFilePath);
 					System.out.println("Try use '-h' for more information.");
 				    System.exit(0);

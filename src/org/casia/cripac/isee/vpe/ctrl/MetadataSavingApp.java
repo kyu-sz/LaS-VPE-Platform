@@ -23,6 +23,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -41,10 +43,12 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.attr.Attribute;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
+import org.casia.cripac.isee.vpe.common.HadoopUtils;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
+import org.xml.sax.SAXException;
 
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
@@ -70,7 +74,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
 	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
 	
-	public MetadataSavingApp(SystemPropertyCenter propertyCenter) throws IOException {
+	public MetadataSavingApp(SystemPropertyCenter propertyCenter) throws IOException, IllegalArgumentException, ParserConfigurationException, SAXException {
 		pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 
@@ -91,7 +95,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		metadataSavingDir = "/metadata";
 		
 		trackSavingDir = metadataSavingDir + "/track";
-		FileSystem.get(new Configuration()).mkdirs(new Path(trackSavingDir));
+		FileSystem.get(HadoopUtils.getDefaultConf()).mkdirs(new Path(trackSavingDir));
 	}
 
 	@Override
@@ -108,11 +112,12 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 					@Override
 					public FileSystem getObject() {
-						Configuration hdfsConf = new Configuration();
-						hdfsConf.setBoolean("dfs.support.append", true);
+						Configuration hdfsConf;
 						try {
+							hdfsConf = HadoopUtils.getDefaultConf();
+							hdfsConf.setBoolean("dfs.support.append", true);
 							return FileSystem.get(hdfsConf);
-						} catch (IOException e) {
+						} catch (ParserConfigurationException | SAXException | IOException e) {
 							e.printStackTrace();
 							return null;
 						}
@@ -202,7 +207,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		return streamingContext;
 	}
 
-	public static void main(String[] args) throws IOException, URISyntaxException {
+	public static void main(String[] args) throws IOException, URISyntaxException, ParserConfigurationException, SAXException {
 		
 		SystemPropertyCenter propertyCenter;
 		if (args.length > 0) {

@@ -20,11 +20,8 @@ package org.casia.cripac.isee.vpe.ctrl;
  * 
  */
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Map;
-import java.util.Map.Entry;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -34,7 +31,7 @@ import org.apache.spark.deploy.yarn.Client;
 import org.apache.spark.deploy.yarn.ClientArguments;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
-import org.casia.cripac.isee.vpe.common.HadoopXMLParser;
+import org.casia.cripac.isee.vpe.common.HadoopUtils;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter.NoAppSpecifiedException;
 import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
@@ -49,7 +46,7 @@ import org.xml.sax.SAXException;
  */
 public class MainController {
 	
-	public static void main(String[] args) throws NoAppSpecifiedException, URISyntaxException, IOException {
+	public static void main(String[] args) throws NoAppSpecifiedException, URISyntaxException, IOException, ParserConfigurationException, SAXException {
 		
 		//Analyze the command line and store the options into a system property center.
 		SystemPropertyCenter propertyCenter = new SystemPropertyCenter(args);
@@ -78,22 +75,7 @@ public class MainController {
 			sparkConf.set("yarn.resourcemanager.hostname", propertyCenter.yarnResourceManagerHostname);
 			
 			//Load Hadoop configuration from XML files.
-			Configuration hadoopConf = new Configuration();
-			Map<String, String> propMap;
-			try {
-				propMap = HadoopXMLParser.getPropsFromXML(new File("$HADOOP/etc/hadoop/core.xml"));
-				for (Entry<String, String> prop : propMap.entrySet()) {
-					System.out.printf("Setting hadoop configuration: %s=%s\n", prop.getKey(), prop.getValue());
-					hadoopConf.set(prop.getKey(), prop.getValue());
-				}
-				propMap = HadoopXMLParser.getPropsFromXML(new File("$HADOOP/etc/hadoop/yarn.xml"));
-				for (Entry<String, String> prop : propMap.entrySet()) {
-					System.out.printf("Setting hadoop configuration: %s=%s\n", prop.getKey(), prop.getValue());
-					hadoopConf.set(prop.getKey(), prop.getValue());
-				}
-			} catch (ParserConfigurationException | SAXException | IOException e) {
-				e.printStackTrace();
-			}
+			Configuration hadoopConf = HadoopUtils.getDefaultConf();
 			
 //			arguments = new String[] {
 //				"--name", "SparkPiFromJava",
