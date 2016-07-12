@@ -31,19 +31,47 @@ import java.util.List;
  */
 public class Track implements Serializable {
 	
+	/**
+	 * The BoundingBox class stores the location of an object in a single static frame.
+	 * @author Ken Yu, CRIPAC, 2016
+	 *
+	 */
 	public class BoundingBox implements Serializable {
 		
 		private static final long serialVersionUID = -5261437055893590056L;
 		
+		/**
+		 * x-coordinate of the point on the left-upper corner of the bounding box.
+		 */
 		public int x;
+		
+		/**
+		 * y-coordinate of the point on the left-upper corner of the bounding box.
+		 */
 		public int y;
+		/**
+		 * The width of the bounding box.
+		 */
 		public int width;
+		/**
+		 * The height of the bounding box.
+		 */
 		public int height;
 	}
 	
 	private static final long serialVersionUID = -6133927313545472821L;
 	
+	/**
+	 * The URL indicating where the source video is stored.
+	 */
 	public String videoURL;
+	/**
+	 * The starting frame index of this track in the source video.
+	 * User can use this to calculate the starting time of this track using the FPS information of the video.
+	 */
 	public int startFrameIndex;
+	/**
+	 * Storing the locations with the BoundingBox class at each moment, sorted by time.
+	 */
 	public List<BoundingBox> locationSequence;
 }
