@@ -1,1 +1,1 @@
-java -jar bin/vpe-platform.jar -a PedestrianAttributeRecognizing -p hdfs://localhost:9000/vpe-platform/system.properties -v
+java -jar bin/vpe-platform.jar -a PedestrianAttributeRecognizing -f system.properties -v

@@ -1,1 +1,1 @@
-java -jar bin/vpe-platform.jar -a PedestrianTracking -p hdfs://localhost:9000/vpe-platform/system.properties -v
+java -jar bin/vpe-platform.jar -a PedestrianTracking -f system.properties -v

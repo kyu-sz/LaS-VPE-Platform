@@ -44,8 +44,20 @@ import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
 import org.xml.sax.SAXException;
 
+/**
+ * The SystemPropertyCenter class is responsible of managing the properties of the systems.
+ * There are some properties predefined, and they can be overwritten by command options or an extern property file.
+ * It can also generate back command options for uses like SparkSubmit.
+ * @author Ken Yu, CRIPAC, 2016
+ *
+ */
 public class SystemPropertyCenter {
 	
+	/**
+	 * Thrown when no application is specified in any possible property sources.
+	 * @author Ken Yu, CRIPAC, 2016
+	 *
+	 */
 	public static class NoAppSpecifiedException extends Exception {
 		private static final long serialVersionUID = -8356206863229009557L;
 	}
@@ -68,14 +80,25 @@ public class SystemPropertyCenter {
 	public boolean onYARN = false;
 	
 	public String propertyFilePath = "";
-	public String hdfsNameNode = "localhost:9000";
+	public String hdfsDefaultName = "localhost:9000";
 	public String yarnResourceManagerHostname = "localhost";
 	public String jarPath = "bin/vpe-platform.jar";
 	
+	/**
+	 * Whether to print verbose running information.
+	 */
 	public boolean verbose = false;
 	
+	/**
+	 * Construction function supporting allocating a SystemPropertyCenter then filling in the properties manually.
+	 */
 	public SystemPropertyCenter() { }
 	
+	/**
+	 * Generate command line options for SparkSubmit client, according to the stored properties.
+	 * @return An array of string with format required by SparkSubmit client.
+	 * @throws NoAppSpecifiedException
+	 */
 	public String[] generateCommandLineOpts() throws NoAppSpecifiedException {
 		ArrayList<String> options = new ArrayList<>();
 
@@ -108,12 +131,6 @@ public class SystemPropertyCenter {
 				throw new NoAppSpecifiedException();
 			}
 	
-	//		options.add("--master");
-	//		options.add(sparkMaster);
-			
-	//		options.add("--deploy-mode");
-	//		options.add(sparkDeployMode);
-	
 			options.add("--jar");
 			options.add(jarPath);
 	
@@ -121,13 +138,43 @@ public class SystemPropertyCenter {
 			if (verbose) {
 				options.add("-v");
 			}
-	
+
+			options.add("--arg");
+			options.add("-b");
+			options.add("--arg");
+			options.add(kafkaBrokers);
+
+			options.add("--arg");
+			options.add("-z");
+			options.add("--arg");
+			options.add(zookeeper);
+
+			options.add("--arg");
+			options.add("-n");
+			options.add("--arg");
+			options.add(hdfsDefaultName);
+
 			options.add("--arg");
 			options.add("-p");
 			options.add("--arg");
-			options.add(propertyFilePath);
+			options.add(new Integer(kafkaPartitions).toString());
+
+			options.add("--arg");
+			options.add("-r");
+			options.add("--arg");
+			options.add(new Integer(kafkaReplicationFactor).toString());
+
+			options.add("--arg");
+			options.add("-y");
+			options.add("--arg");
+			options.add(yarnResourceManagerHostname);
+			
+//			options.add("--arg");
+//			options.add("-f");
+//			options.add("--arg");
+//			options.add(propertyFilePath);
 		} else {
-			options.add("-p");
+			options.add("-f");
 			options.add(propertyFilePath);
 			
 			if (verbose) {
@@ -145,12 +192,16 @@ public class SystemPropertyCenter {
 		options.addOption("h", "help", false, "Display this help message.");
 		options.addOption("v", "verbose", false, "Display debug information.");
 		options.addOption("a", "application", true, "Application specified to run.");
-		options.addOption("p", "property-file", true, "File path of the system property file.");
+		options.addOption("f", "property-file", true, "File path of the system property file.");
 		options.addOption("b", "kafka-brokers", true, "Kafka brokers' ip addresses and ports.");
+		options.addOption("p", "kafka-partition", true, "Kafka brokers' number of partitions.");
+		options.addOption("r", "kafka-replication-factor", true, "Kafka brokers' replication factor.");
 		options.addOption("z", "zookeeper", true, "Zookeeper server's ip address and port.");
 		options.addOption("m", "spark-master", true, "Spark master (local[*], yarn, mesos).");
-		options.addOption("dm", "spart-deploy-mode", true, "Spark deploy mode (cluster, client).");
-		options.addOption("hdfs", "hdfs", true, "HDFS server ip address and port.");
+		options.addOption("d", "spart-deploy-mode", true, "Spark deploy mode (cluster, client).");
+		options.addOption("n", "hdfs-default-name", true, "HDFS server ip address and port.");
+		options.addOption("c", "checkpoint-dir", true, "Checkpoint directory for Spark.");
+		options.addOption("y", "yarn-rm", true, "YARN resource manager hostname.");
 		CommandLine commandLine;
 		
 		try {
@@ -172,10 +223,10 @@ public class SystemPropertyCenter {
 			System.out.println("Verbosity enabled!");
 			verbose = true;
 		}
-		if (commandLine.hasOption("hdfs")) {
-			hdfsNameNode = commandLine.getOptionValue("hdfs");
+		if (commandLine.hasOption('n')) {
+			hdfsDefaultName = commandLine.getOptionValue("n");
 			if (verbose) {
-				System.out.println("HDFS server: " + hdfsNameNode);
+				System.out.println("HDFS default name: " + hdfsDefaultName);
 			}
 		}
 		if (commandLine.hasOption('a')) {
@@ -200,8 +251,8 @@ public class SystemPropertyCenter {
 				}
 			}
 		}
-		if (commandLine.hasOption('p')) {
-			propertyFilePath = commandLine.getOptionValue('p');
+		if (commandLine.hasOption('f')) {
+			propertyFilePath = commandLine.getOptionValue('f');
 			if (!propertyFilePath.equals("")) {
 				//Load the property file.
 				Properties systemProperties = new Properties();
@@ -264,8 +315,8 @@ public class SystemPropertyCenter {
 					case "yarn.resource.manager.hostname":
 						yarnResourceManagerHostname = (String) entry.getValue();
 						break;
-					case "hdfs.namenode":
-						hdfsNameNode = (String) entry.getValue();
+					case "hdfs.default.name":
+						hdfsDefaultName = (String) entry.getValue();
 						break;
 					}
 				}
@@ -274,11 +325,23 @@ public class SystemPropertyCenter {
 		if (commandLine.hasOption('b')) {
 			kafkaBrokers = commandLine.getOptionValue('b');
 		}
+		if (commandLine.hasOption('p')) {
+			kafkaPartitions = new Integer(commandLine.getOptionValue('p'));
+		}
+		if (commandLine.hasOption('r')) {
+			kafkaReplicationFactor = new Integer(commandLine.getOptionValue('r'));
+		}
 		if (commandLine.hasOption('z')) {
 			zookeeper = commandLine.getOptionValue('z');
 		}
-		if (commandLine.hasOption("dm")) {
-			sparkDeployMode = commandLine.getOptionValue("dm");
+		if (commandLine.hasOption("d")) {
+			sparkDeployMode = commandLine.getOptionValue("d");
+		}
+		if (commandLine.hasOption("c")) {
+			checkpointDir = commandLine.getOptionValue("c");
+		}
+		if (commandLine.hasOption("y")) {
+			yarnResourceManagerHostname = commandLine.getOptionValue("y");
 		}
 		
 		if (sparkMaster.contains("yarn") && !onYARN) {
