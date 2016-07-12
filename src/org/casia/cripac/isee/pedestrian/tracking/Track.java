@@ -62,16 +62,24 @@ public class Track implements Serializable {
 	private static final long serialVersionUID = -6133927313545472821L;
 	
 	/**
+	 * The ID of the track in the video.
+	 * The ID is usually organized in a chronological order.
+	 * Track generating algorithms, like pedestrian tracking algorithms, should be responsible of generating this ID.
+	 * Its default value is -1, meaning the ID has not been generated yet.
+	 */
+	public int trackID = -1;
+	/**
 	 * The URL indicating where the source video is stored.
 	 */
-	public String videoURL;
+	public String videoURL = null;
 	/**
 	 * The starting frame index of this track in the source video.
 	 * User can use this to calculate the starting time of this track using the FPS information of the video.
+	 * Its default value is -1, meaning the index has not been determined yet.
 	 */
-	public int startFrameIndex;
+	public int startFrameIndex = -1;
 	/**
 	 * Storing the locations with the BoundingBox class at each moment, sorted by time.
 	 */
-	public List<BoundingBox> locationSequence;
+	public List<BoundingBox> locationSequence = null;
 }
