@@ -34,7 +34,6 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
@@ -42,6 +41,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.attr.Attribute;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
+import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.HadoopUtils;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
@@ -105,8 +105,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		sparkContext.setLogLevel("WARN");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
-		Broadcast<ObjectSupplier<FileSystem>> fileSystemBroadcast =
-				sparkContext.broadcast(new ObjectSupplier<>(new ObjectFactory<FileSystem>() {
+		BroadcastSingleton<FileSystem> fileSystemSingleton =
+				new BroadcastSingleton<>(new ObjectFactory<FileSystem>() {
 
 					private static final long serialVersionUID = 1L;
 
@@ -122,7 +122,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							return null;
 						}
 					}
-				})); 
+				}, FileSystem.class); 
 		
 		//Retrieve tracks from Kafka.
 		JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
@@ -152,6 +152,10 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 			@Override
 			public void call(JavaPairRDD<String, Iterable<Track>> trackGroupRDD) throws Exception {
+				
+				final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton.getSupplier(
+						new JavaSparkContext(trackGroupRDD.context()));
+				
 				trackGroupRDD.foreach(new VoidFunction<Tuple2<String,Iterable<Track>>>() {
 
 					private static final long serialVersionUID = -7729434941232380812L;
@@ -161,7 +165,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 						String videoURL = trackGroup._1();
 						String dst = trackSavingDir + "/" + videoURL;
 						
-						FSDataOutputStream outputStream = fileSystemBroadcast.value().get().append(new Path(dst));
+						FSDataOutputStream outputStream = fsSupplier.get().append(new Path(dst));
 						
 						//TODO Convert the track group into string.
 						byte[] bytes = trackGroup.toString().getBytes();

@@ -34,7 +34,6 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
@@ -42,6 +41,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
+import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory.ByteArrayQueueParts;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
@@ -111,13 +111,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
 		//Create KafkaSink for Spark Streaming to output to Kafka.
-		final Broadcast<ObjectSupplier<KafkaProducer<String, byte[]>>> broadcastKafkaSink =
-				sparkContext.broadcast(
-						new ObjectSupplier<KafkaProducer<String, byte[]>>(
-								new KafkaProducerFactory<>(trackProducerProperties)));
+		final BroadcastSingleton<KafkaProducer<String, byte[]>> producerSingleton =
+				new BroadcastSingleton<KafkaProducer<String, byte[]>>(
+						new KafkaProducerFactory<>(trackProducerProperties),
+						KafkaProducer.class);
 		//Create ResourceSink for any other unserializable components.
-		final Broadcast<ObjectSupplier<PedestrianTracker>> trackerSink =
-				sparkContext.broadcast(new ObjectSupplier<PedestrianTracker>(new ObjectFactory<PedestrianTracker>() {
+		final BroadcastSingleton<PedestrianTracker> trackerSingleton =
+				new BroadcastSingleton<PedestrianTracker>(new ObjectFactory<PedestrianTracker>() {
 
 					private static final long serialVersionUID = -3454317350293711609L;
 
@@ -125,7 +125,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 					public PedestrianTracker getObject() {
 						return new FakePedestrianTracker();
 					}
-				}));
+				}, PedestrianTracker.class);
 		
 		//Retrieve messages from Kafka.
 		JavaPairInputDStream<String, byte[]> taskDStream =
@@ -158,8 +158,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						String videoURL = videoURLWithDataQueue._2()._1();
 						byte[] dataQueue = videoURLWithDataQueue._2()._2();
 						HashSet<Tuple2<String, Tuple2<Track, byte[]>>> unitedResult = new HashSet<>();
-						
-						Set<Track> tracks = trackerSink.value().get().track(videoURL);
+						Set<Track> tracks =
+								trackerSingleton.getSupplier(
+										new JavaSparkContext(videoURLDStream.context().sc())).get().track(videoURL);
 						for (Track track : tracks) {
 							unitedResult.add(new Tuple2<String, Tuple2<Track, byte[]>>(
 									taskQueue,
@@ -177,6 +178,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 			@Override
 			public void call(JavaPairRDD<String, Tuple2<Track, byte[]>> trackRDD) throws Exception {
 				
+				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = 
+						producerSingleton.getSupplier(new JavaSparkContext(trackRDD.context()));
+				
 				trackRDD.foreach(new VoidFunction<Tuple2<String, Tuple2<Track, byte[]>>>() {
 					
 					private static final long serialVersionUID = 7107437032125778866L;
@@ -193,8 +197,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						byte[] newDataQueue = ByteArrayFactory.combineByteArray(
 								ByteArrayFactory.appendLengthToHead(resBytes), dataQueue);
 						byte[] compressedDataQueue = ByteArrayFactory.compress(newDataQueue);
-						
-						KafkaProducer<String, byte[]> producer = broadcastKafkaSink.value().get();
 
 						if (execQueue.length() > 0) {
 							//Extract current execution queue.
@@ -218,7 +220,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 										topic,
 										restExecQueue,
 										"A track");
-								producer.send(
+								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
 												topic,
 												restExecQueue,
@@ -231,7 +233,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 								"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
 								MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
 								"A track");
-						producer.send(
+						producerSupplier.get().send(
 								new ProducerRecord<String, byte[]>(
 										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, 
 										compressedResBytes));

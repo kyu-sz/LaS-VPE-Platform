@@ -33,7 +33,6 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
@@ -42,6 +41,7 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.attr.Attribute;
 import org.casia.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
+import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory.ByteArrayQueueParts;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
@@ -105,13 +105,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
 		//Create KafkaSink for Spark Streaming to output to Kafka.
-		final Broadcast<ObjectSupplier<KafkaProducer<String, byte[]>>> broadcastKafkaSink =
-				sparkContext.broadcast(
-						new ObjectSupplier<KafkaProducer<String, byte[]>>(
-								new KafkaProducerFactory<>(attrProducerProperties)));
+		final BroadcastSingleton<KafkaProducer<String, byte[]>> broadcastKafkaSink =
+				new BroadcastSingleton<>(
+						new KafkaProducerFactory<String, byte[]>(attrProducerProperties),
+						KafkaProducer.class);
 		//Create ResourceSink for any other unserializable components.
-		final Broadcast<ObjectSupplier<PedestrianAttrRecognizer>> attrRecognizerSink =
-				sparkContext.broadcast(new ObjectSupplier<>(new ObjectFactory<PedestrianAttrRecognizer>() {
+		final BroadcastSingleton<PedestrianAttrRecognizer> attrRecognizerSingleton =
+				new BroadcastSingleton<>(new ObjectFactory<PedestrianAttrRecognizer>() {
 
 					private static final long serialVersionUID = -5422299243899032592L;
 
@@ -119,7 +119,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 					public PedestrianAttrRecognizer getObject() {
 						return new FakePedestrianAttrRecognizer();
 					}
-				}));
+				}, PedestrianAttrRecognizer.class);
 
 		//Retrieve data from Kafka.
 		HashSet<String> inputTopicsSet = new HashSet<>();
@@ -184,6 +184,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 			@Override
 			public void call(JavaPairRDD<String, Tuple2<Track, byte[]>> trackRDD) throws Exception {
 				
+				final ObjectSupplier<PedestrianAttrRecognizer> recognizerSupplier = 
+						attrRecognizerSingleton.getSupplier(new JavaSparkContext(trackRDD.context()));
+				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier =
+						broadcastKafkaSink.getSupplier(new JavaSparkContext(trackRDD.context()));
+				
 				trackRDD.foreach(new VoidFunction<Tuple2<String, Tuple2<Track, byte[]>>>() {
 
 					private static final long serialVersionUID = 6465526220612689594L;
@@ -195,7 +200,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						byte[] dataQueue = trackWithQueues._2()._2();
 						
 						//Recognize attributes.
-						Attribute attribute = attrRecognizerSink.value().get().recognize(track);
+						Attribute attribute = recognizerSupplier.get().recognize(track);
 						
 						//Prepare new data queue.
 						byte[] resBytes = ByteArrayFactory.getByteArray(attribute);
@@ -203,8 +208,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						byte[] newDataQueue = ByteArrayFactory.combineByteArray(
 								ByteArrayFactory.appendLengthToHead(resBytes), dataQueue);
 						byte[] compressedDataQueue = ByteArrayFactory.compress(newDataQueue);
-						
-						KafkaProducer<String, byte[]> producer = broadcastKafkaSink.value().get();
 						
 						if (execQueue.length() > 0) {
 							//Extract current tasks.
@@ -227,7 +230,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 										topic,
 										restExecQueue,
 										"An attribute.");
-								producer.send(
+								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
 												topic,
 												restExecQueue,
@@ -240,7 +243,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 								"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
 								MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC,
 								"Attribute to save");
-						producer.send(
+						producerSupplier.get().send(
 								new ProducerRecord<String, byte[]>(
 										MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC, 
 										compressedResBytes));

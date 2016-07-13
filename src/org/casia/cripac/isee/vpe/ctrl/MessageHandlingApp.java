@@ -20,6 +20,7 @@ package org.casia.cripac.isee.vpe.ctrl;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 
@@ -31,13 +32,13 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
+import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
@@ -120,10 +121,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
 		//Create KafkaSink for Spark Streaming to output to Kafka.
-		final Broadcast<ObjectSupplier<KafkaProducer<String, byte[]>>> broadcastKafkaSink =
-				sparkContext.broadcast(
-						new ObjectSupplier<KafkaProducer<String, byte[]>>(
-								new KafkaProducerFactory<>(trackingTaskProducerProperties)));
+		final BroadcastSingleton<KafkaProducer<String, byte[]>> producerSingleton =
+				new BroadcastSingleton<KafkaProducer<String, byte[]>>(
+						new KafkaProducerFactory<>(trackingTaskProducerProperties),
+						KafkaProducer.class);
 		
 		//Create an input DStream using Kafka.
 		JavaPairInputDStream<String, byte[]> messageDStream =
@@ -136,68 +137,75 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 			@Override
 			public void call(JavaPairRDD<String, byte[]> messageRDD) throws Exception {
-				
-				messageRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
 
-					private static final long serialVersionUID = 1L;
+				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier =
+						producerSingleton.getSupplier(new JavaSparkContext(messageRDD.context()));
+				
+				messageRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
+
+					private static final long serialVersionUID = -4594138896649250346L;
 
 					@Override
-					public void call(Tuple2<String, byte[]> message) throws Exception {
+					public void call(Iterator<Tuple2<String, byte[]>> messages) throws Exception {
 						
-						ExecQueueBuilder execQueueBuilder = new ExecQueueBuilder();
-						
-						String command = message._1();
-						byte[] dataQueue = message._2();
-						
-						if (verbose) {
-							System.out.printf("Message handler: received command \"%s\"\n", command);
-						}
-						
-						switch (command) {
-						case CommandSet.TRACK_ONLY:
+						while (messages.hasNext()) {
+							Tuple2<String, byte[]> message = messages.next();
+							
+							ExecQueueBuilder execQueueBuilder = new ExecQueueBuilder();
+							
+							String command = message._1();
+							byte[] dataQueue = message._2();
+							
 							if (verbose) {
-								System.out.printf(
-										"Message handler: sending to Kafka <%s>%s=...\n",
-										PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-										execQueueBuilder.getQueue());
+								System.out.printf("Message handler: received command \"%s\"\n", command);
 							}
-							broadcastKafkaSink.value().get().send(
-									new ProducerRecord<String, byte[]>(
+							
+							switch (command) {
+							case CommandSet.TRACK_ONLY:
+								if (verbose) {
+									System.out.printf(
+											"Message handler: sending to Kafka <%s>%s=...\n",
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-											execQueueBuilder.getQueue(),
-											dataQueue));
-							break;
-						case CommandSet.TRACK_AND_RECOG_ATTR:
-							execQueueBuilder.addTask(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
+											execQueueBuilder.getQueue());
+								}
+								producerSupplier.get().send(
+										new ProducerRecord<String, byte[]>(
+												PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
+												execQueueBuilder.getQueue(),
+												dataQueue));
+								break;
+							case CommandSet.TRACK_AND_RECOG_ATTR:
+								execQueueBuilder.addTask(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
 
-							if (verbose) {
-								System.out.printf(
-										"Message handler: sending to Kafka <%s>%s=...\n",
-										PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-										execQueueBuilder.getQueue());
-							}
-							broadcastKafkaSink.value().get().send(
-									new ProducerRecord<String, byte[]>(
+								if (verbose) {
+									System.out.printf(
+											"Message handler: sending to Kafka <%s>%s=...\n",
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-											execQueueBuilder.getQueue(),
-											dataQueue));
-							break;
-						case CommandSet.RECOG_ATTR_ONLY:
-							if (verbose) {
-								System.out.printf(
-										"Message handler: sending to Kafka <%s>%s=...\n",
-										PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
-										execQueueBuilder.getQueue());
-							}
-							broadcastKafkaSink.value().get().send(
-									new ProducerRecord<String, byte[]>(
+											execQueueBuilder.getQueue());
+								}
+								producerSupplier.get().send(
+										new ProducerRecord<String, byte[]>(
+												PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
+												execQueueBuilder.getQueue(),
+												dataQueue));
+								break;
+							case CommandSet.RECOG_ATTR_ONLY:
+								if (verbose) {
+									System.out.printf(
+											"Message handler: sending to Kafka <%s>%s=...\n",
 											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
-											execQueueBuilder.getQueue(),
-											dataQueue));
-							break;
-						default:
-							System.err.println("Unsupported command!");
-							break;
+											execQueueBuilder.getQueue());
+								}
+								producerSupplier.get().send(
+										new ProducerRecord<String, byte[]>(
+												PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
+												execQueueBuilder.getQueue(),
+												dataQueue));
+								break;
+							default:
+								System.err.println("Unsupported command!");
+								break;
+							}
 						}
 					}
 				});

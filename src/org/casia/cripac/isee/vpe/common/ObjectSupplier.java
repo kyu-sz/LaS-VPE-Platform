@@ -14,7 +14,6 @@
  * You should have received a copy of the GNU General Public License
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
-
 package org.casia.cripac.isee.vpe.common;
 
 import java.io.Closeable;
@@ -22,50 +21,27 @@ import java.io.Serializable;
 import java.util.function.Supplier;
 
 /**
- * The ObjectSupplier class is a smart wrapper for any objects.
- * It initializes an object just before using it, like lazy evaluation in Scala.
- * The wrapped object is usually not serializable, so it cannot be broadcast to Spark Streaming executors.
- * But this wrapper can be serialized, so it can bring the wrapped object to executors.
- * To use it with Spark Streaming, first use SparkContext to create a broadcast variable of ObjectSink:
- * <pre>
- * {@code
- * Broadcast<ObjectSupplier<T>> broadcastSupplier = sparkContext.broadcast(new ObjectSupplier<T>(config));
- * }
- * </pre>
- * Then in an executor, get a ObjectSupplier from the broadcast and get the wrapper object from it.
- * <pre>
- * {@code
- * T obj = broadcastSupplier.value().getObject();
- * }
- * </pre>
- * Then use the object as usual.
  * @author Ken Yu, CRIPAC, 2016
  *
- * @param T The type of the object to supply.
  */
 public class ObjectSupplier<T> implements Serializable, Supplier<T> {
-	private static final long serialVersionUID = -7565726994857167434L;
-
-	/**
-	 * Lazy-evaluated object.
-	 */
-	private transient T obj = null;
-	private ObjectFactory<T> objectFactory = null;
 	
-	/**
-	 * Constructor inputting a configuration for initializing KafkaProducer.
-	 * The producer is not initialized immediately here, but lazy-evaluated somewhere else.
-	 * @param config The configuration for KafkaProducer.
-	 */
-	public ObjectSupplier(ObjectFactory<T> objFactory) {
-		this.objectFactory = objFactory;
+	private static final long serialVersionUID = 4084371413129601845L;
+	private volatile T instance = null;
+	private ObjectFactory<T> factory = null;
+	
+	public ObjectSupplier(ObjectFactory<T> factory) {
+		this.factory = factory;
 	}
 	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#finalize()
+	 */
 	@Override
 	protected void finalize() throws Throwable {
-		if (obj != null && obj instanceof Closeable)
-			((Closeable) obj).close();
-		
+		if (instance != null && instance instanceof Closeable) {
+			((Closeable) instance).close();
+		}
 		super.finalize();
 	}
 
@@ -74,9 +50,10 @@ public class ObjectSupplier<T> implements Serializable, Supplier<T> {
 	 */
 	@Override
 	public T get() {
-		if (obj == null) {
-			obj = objectFactory.getObject();
+		if (instance == null) {
+			instance = factory.getObject();
 		}
-		return obj;
+		return instance;
 	}
-};
+
+}
