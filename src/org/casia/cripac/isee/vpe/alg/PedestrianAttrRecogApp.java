@@ -86,6 +86,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		//Create contexts.
 		sparkConf = new SparkConf()
 				.setAppName(APPLICATION_NAME);
+		// Use fair sharing between jobs. 
+		sparkConf = sparkConf.set("spark.scheduler.mode", "FAIR");
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)

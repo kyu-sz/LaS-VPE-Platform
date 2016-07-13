@@ -78,6 +78,12 @@ public class SystemPropertyCenter {
 	public String sparkDeployMode = "client";
 	public String applicationName = "";
 	public boolean onYARN = false;
+	public String executorMem = "1G";	//Memory per executor (e.g. 1000M, 2G) (Default: 1G)
+	public int numExecutors = 2; 		//Number of executors to start (Default: 2)
+	public int executorCores = 1;		//Number of cores per executor (Default: 1)
+	public String driverMem = "1G";		//Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)
+	public int driverCores = 1;			//Number of cores used by the driver (Default: 1).
+	public String hadoopQueue = "default";	//The hadoop queue to use for allocation requests (Default: 'default')
 	
 	public String propertyFilePath = "";
 	public String hdfsDefaultName = "localhost:9000";
@@ -103,6 +109,24 @@ public class SystemPropertyCenter {
 		ArrayList<String> options = new ArrayList<>();
 
 		if (onYARN) {
+			options.add("--num-executors");
+			options.add(new Integer(numExecutors).toString());
+			
+			options.add("--executor-memory");
+			options.add(executorMem);
+
+			options.add("--executor-cores");
+			options.add(new Integer(executorCores).toString());
+			
+			options.add("--driver-memory");
+			options.add(driverMem);
+
+			options.add("--driver-cores");
+			options.add(new Integer(driverCores).toString());
+
+			options.add("--queue");
+			options.add(hadoopQueue);
+			
 			options.add("--name");
 			options.add(applicationName);
 	
@@ -168,6 +192,11 @@ public class SystemPropertyCenter {
 			options.add("-y");
 			options.add("--arg");
 			options.add(yarnResourceManagerHostname);
+
+			options.add("--arg");
+			options.add("-c");
+			options.add("--arg");
+			options.add(checkpointDir);
 			
 //			options.add("--arg");
 //			options.add("-f");
@@ -202,6 +231,12 @@ public class SystemPropertyCenter {
 		options.addOption("n", "hdfs-default-name", true, "HDFS server ip address and port.");
 		options.addOption("c", "checkpoint-dir", true, "Checkpoint directory for Spark.");
 		options.addOption("y", "yarn-rm", true, "YARN resource manager hostname.");
+		options.addOption("e", "num-executor", true, "Number of executors to start (Default: 2)");
+		options.addOption("em", "executor-mem", true, "Memory per executor (e.g. 1000M, 2G) (Default: 1G)");
+		options.addOption("ec", "executor-cores", true, "Number of cores per executor (Default: 1)");
+		options.addOption("dm", "driver-mem", true, "Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)");
+		options.addOption("dc", "driver-cores", true, "Number of cores used by the driver (Default: 1).");
+		options.addOption("q", "hadoop-queue", true, "The hadoop queue to use for allocation requests (Default: 'default')");
 		CommandLine commandLine;
 		
 		try {
@@ -318,6 +353,24 @@ public class SystemPropertyCenter {
 					case "hdfs.default.name":
 						hdfsDefaultName = (String) entry.getValue();
 						break;
+					case "executor.num":
+						numExecutors = new Integer((String) entry.getValue()); 
+						break;
+					case "executor.memory":
+						executorMem = (String) entry.getValue();
+						break;
+					case "executor.cores":
+						executorCores = new Integer((String) entry.getValue()); 
+						break;
+					case "driver.memory":
+						driverMem = (String) entry.getValue();
+						break;
+					case "driver.cores":
+						driverCores = new Integer((String) entry.getValue()); 
+						break;
+					case "hadoop.queue":
+						hadoopQueue = (String) entry.getValue(); 
+						break;
 					}
 				}
 			}
@@ -342,6 +395,24 @@ public class SystemPropertyCenter {
 		}
 		if (commandLine.hasOption("y")) {
 			yarnResourceManagerHostname = commandLine.getOptionValue("y");
+		}
+		if (commandLine.hasOption("e")) {
+			numExecutors = new Integer(commandLine.getOptionValue('e'));
+		}
+		if (commandLine.hasOption("em")) {
+			executorMem = commandLine.getOptionValue("em");
+		}
+		if (commandLine.hasOption("ec")) {
+			executorCores = new Integer(commandLine.getOptionValue("ec"));
+		}
+		if (commandLine.hasOption("dm")) {
+			driverMem = commandLine.getOptionValue("dm");
+		}
+		if (commandLine.hasOption("dc")) {
+			driverCores = new Integer(commandLine.getOptionValue("dc"));
+		}
+		if (commandLine.hasOption("q")) {
+			hadoopQueue = commandLine.getOptionValue("q");
 		}
 		
 		if (sparkMaster.contains("yarn") && !onYARN) {

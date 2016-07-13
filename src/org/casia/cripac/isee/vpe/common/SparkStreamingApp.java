@@ -56,6 +56,9 @@ public abstract class SparkStreamingApp implements Serializable {
 	 * @param checkpointDir The directory storing the check points of Spark Streaming context.
 	 */
 	public void initialize(SystemPropertyCenter propertyCenter) {
+		
+		System.out.println("Using " + propertyCenter.checkpointDir + " as checkpoint directory.");
+		
 		streamingContext = JavaStreamingContext.getOrCreate(propertyCenter.checkpointDir, new JavaStreamingContextFactory() {
 			
 			@Override
