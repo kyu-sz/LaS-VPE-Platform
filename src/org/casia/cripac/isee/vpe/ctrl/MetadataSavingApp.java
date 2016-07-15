@@ -43,7 +43,6 @@ import org.casia.cripac.isee.pedestrian.attr.Attribute;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
-import org.casia.cripac.isee.vpe.common.HadoopUtils;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
@@ -69,12 +68,16 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private String metadataSavingDir;
 	private String trackSavingDir;
+	private boolean verbose = false;
 
 	public static final String APPLICATION_NAME = "MetadataSaving";
 	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
 	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
 	
 	public MetadataSavingApp(SystemPropertyCenter propertyCenter) throws IOException, IllegalArgumentException, ParserConfigurationException, SAXException {
+		
+		verbose = propertyCenter.verbose;
+		
 		pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 
@@ -82,7 +85,15 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		sparkConf = new SparkConf()
 				.setAppName(APPLICATION_NAME);
 		// Use fair sharing between jobs. 
-		sparkConf = sparkConf.set("spark.scheduler.mode", "FAIR");
+		sparkConf = sparkConf
+				.set("spark.scheduler.mode", "FAIR")
+				.set("spark.shuffle.service.enabled", "true")
+				.set("spark.dynamicAllocation.enabled", "true")
+				.set("spark.streaming.dynamicAllocation.enabled", "true")
+				.set("spark.streaming.dynamicAllocation.minExecutors", "0")
+				.set("spark.streaming.dynamicAllocation.maxExecutors", "100")
+				.set("spark.streaming.dynamicAllocation.debug", "true")
+				.set("spark.streaming.dynamicAllocation.delay.rounds", "5");
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)
@@ -97,7 +108,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		metadataSavingDir = "/metadata";
 		
 		trackSavingDir = metadataSavingDir + "/track";
-		FileSystem.get(HadoopUtils.getDefaultConf()).mkdirs(new Path(trackSavingDir));
+		FileSystem.get(new Configuration()).mkdirs(new Path(trackSavingDir));
 	}
 
 	@Override
@@ -116,10 +127,10 @@ public class MetadataSavingApp extends SparkStreamingApp {
 					public FileSystem getObject() {
 						Configuration hdfsConf;
 						try {
-							hdfsConf = HadoopUtils.getDefaultConf();
+							hdfsConf = new Configuration();
 							hdfsConf.setBoolean("dfs.support.append", true);
 							return FileSystem.get(hdfsConf);
-						} catch (ParserConfigurationException | SAXException | IOException e) {
+						} catch (IOException e) {
 							e.printStackTrace();
 							return null;
 						}
@@ -200,10 +211,12 @@ public class MetadataSavingApp extends SparkStreamingApp {
 					public void call(Tuple2<String, byte[]> result) throws Exception {
 						Attribute attr = (Attribute) ByteArrayFactory.getObject(
 								ByteArrayFactory.decompress(result._2()));
-						
-						System.out.printf("Metadata saver received attribute: %s=%s\n",
-								result._1(),
-								attr.facing);
+
+						if (verbose) {
+							System.out.printf("Metadata saver received attribute: %s=%s\n",
+									result._1(),
+									attr.facing);
+						}
 					}
 					
 				});

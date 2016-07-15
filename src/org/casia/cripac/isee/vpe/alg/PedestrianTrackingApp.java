@@ -32,7 +32,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -72,13 +71,16 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	private HashSet<String> taskTopicsSet = new HashSet<>();
 	private Properties trackProducerProperties = new Properties();
 	private transient SparkConf sparkConf;
-	private Map<String, String> kafkaParams = new HashMap<>();
+	private Map<String, String> commonKafkaParams = new HashMap<>();
+	private boolean verbose = false;
 
 	public static final String APPLICATION_NAME = "PedestrianTracking";
 	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
 
 	public PedestrianTrackingApp(SystemPropertyCenter propertyCenter) {
 		super();
+		
+		verbose = propertyCenter.verbose;
 		
 		taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
 		
@@ -95,14 +97,22 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		sparkConf = new SparkConf()
 				.setAppName(APPLICATION_NAME);
 		// Use fair sharing between jobs. 
-		sparkConf = sparkConf.set("spark.scheduler.mode", "FAIR");
+		sparkConf = sparkConf
+				.set("spark.scheduler.mode", "FAIR")
+				.set("spark.shuffle.service.enabled", "true")
+				.set("spark.dynamicAllocation.enabled", "true")
+				.set("spark.streaming.dynamicAllocation.enabled", "true")
+				.set("spark.streaming.dynamicAllocation.minExecutors", "0")
+				.set("spark.streaming.dynamicAllocation.maxExecutors", "100")
+				.set("spark.streaming.dynamicAllocation.debug", "true")
+				.set("spark.streaming.dynamicAllocation.delay.rounds", "5");
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)
 					.set("deploy.mode", propertyCenter.sparkDeployMode);
 		}
 
-		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
 	}
 
 	@Override
@@ -132,7 +142,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		//Retrieve messages from Kafka.
 		JavaPairInputDStream<String, byte[]> taskDStream =
 				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, kafkaParams, taskTopicsSet);
+				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, taskTopicsSet);
 		
 		//Get video URL from the data queue.
 		JavaPairDStream<String, Tuple2<String, byte[]>> videoURLDStream = taskDStream.mapValues(new Function<byte[], Tuple2<String, byte[]>>() {
@@ -148,11 +158,101 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 			}
 		});
 		
+		videoURLDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, Tuple2<String, byte[]>>>() {
+
+			private static final long serialVersionUID = -5700026946957604438L;
+
+			@Override
+			public void call(JavaPairRDD<String, Tuple2<String, byte[]>> videoURLRDD) throws Exception {
+
+				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier =
+						producerSingleton.getSupplier(new JavaSparkContext(videoURLRDD.context()));
+				final ObjectSupplier<PedestrianTracker> trackerSupplier =
+						trackerSingleton.getSupplier(new JavaSparkContext(videoURLRDD.context()));
+				
+				videoURLRDD.foreach(new VoidFunction<Tuple2<String,Tuple2<String,byte[]>>>() {
+
+					private static final long serialVersionUID = 955383087048954689L;
+
+					@Override
+					public void call(Tuple2<String, Tuple2<String, byte[]>> videoURLPackage) throws Exception {
+						String execQueue = videoURLPackage._1();
+						String videoURL = videoURLPackage._2()._1();
+						byte[] restDataQueue = videoURLPackage._2()._2();
+						
+						Set<Track> tracks = trackerSupplier.get().track(videoURL);
+						
+						for (Track track : tracks) {
+							//Append the track to the dataQueue.
+							byte[] trackBytes = ByteArrayFactory.getByteArray(track);
+							byte[] compressedTrackBytes = ByteArrayFactory.compress(trackBytes);
+							byte[] newDataQueue = ByteArrayFactory.combineByteArray(
+									ByteArrayFactory.appendLengthToHead(trackBytes), restDataQueue);
+							byte[] compressedDataQueue = ByteArrayFactory.compress(newDataQueue);
+
+							if (execQueue.length() > 0) {
+								//Extract current execution queue.
+								String curExecQueue;
+								String restExecQueue;
+								int splitIndex = execQueue.indexOf('|');
+								if (splitIndex == -1) {
+									curExecQueue = execQueue;
+									restExecQueue = "";
+								} else {
+									curExecQueue = execQueue.substring(0, splitIndex);
+									restExecQueue = execQueue.substring(splitIndex + 1);
+								}
+								
+								String[] topics = curExecQueue.split(",");
+								
+								//Send to each topic.
+								for (String topic : topics) {
+									System.out.printf(
+											"PedestrianTrackingApp: Sending to Kafka: <%s>%s=%s\n", 
+											topic,
+											restExecQueue,
+											"A track");
+									producerSupplier.get().send(
+											new ProducerRecord<String, byte[]>(
+													topic,
+													restExecQueue,
+													compressedDataQueue));
+								}
+							}
+							
+							//Always send to the meta data saving application.
+							if (verbose) {
+								System.out.printf(
+										"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
+										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
+										"A track");
+							}
+							producerSupplier.get().send(
+									new ProducerRecord<String, byte[]>(
+											MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, 
+											compressedTrackBytes));
+							
+							System.gc();
+						}
+					}
+				});
+			}
+		});
+		
+		/*******************************************************************************
+		 * The following codes are discarded because we cannot get a tracker inside a map function.
+		 * This is because the tracker should be broadcast, but broadcast is not compatible with checkpointing.
+		 * Following the official programming guide, the broadcast itself should be lazy-evaluated.
+		 * That means it should be created during the stream if we recover the application.
+		 * But we cannot get a Spark context inside a map function.
+		 * Using context outside would cause the task to be not serializable.
+		 * TODO: Find a workaround here.
+
 		//Get pedestrian tracks from video at the URL by a pedestrian tracker.
 		JavaPairDStream<String,Tuple2<Track, byte[]>> trackDStream =
 				videoURLDStream.flatMapToPair(new PairFlatMapFunction<Tuple2<String,Tuple2<String,byte[]>>, String, Tuple2<Track,byte[]>>() {
 
-					private static final long serialVersionUID = 1L;
+					private static final long serialVersionUID = -1754838428126683921L;
 
 					@Override
 					public Iterable<Tuple2<String,Tuple2<Track, byte[]>>> call(Tuple2<String,Tuple2<String,byte[]>> videoURLWithDataQueue) throws Exception {
@@ -160,9 +260,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						String videoURL = videoURLWithDataQueue._2()._1();
 						byte[] dataQueue = videoURLWithDataQueue._2()._2();
 						HashSet<Tuple2<String, Tuple2<Track, byte[]>>> unitedResult = new HashSet<>();
-						Set<Track> tracks =
-								trackerSingleton.getSupplier(
-										new JavaSparkContext(videoURLDStream.context().sc())).get().track(videoURL);
+						Set<Track> tracks = trackerSingleton.getSupplier(
+								new JavaSparkContext(videoURLDStream.context().sc())).get().track(videoURL);
 						for (Track track : tracks) {
 							unitedResult.add(new Tuple2<String, Tuple2<Track, byte[]>>(
 									taskQueue,
@@ -231,10 +330,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						}
 						
 						//Always send to the meta data saving application.
-						System.out.printf(
-								"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
-								MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
-								"A track");
+						if (verbose) {
+							System.out.printf(
+									"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
+									MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
+									"A track");
+						}
 						producerSupplier.get().send(
 								new ProducerRecord<String, byte[]>(
 										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, 
@@ -245,6 +346,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 				});
 			}
 		});
+		*********************************************************************************/
 		
 		return streamingContext;
 	}

@@ -83,7 +83,16 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		sparkConf = new SparkConf()
 				.setAppName(APPLICATION_NAME);
 		// Use fair sharing between jobs. 
-		sparkConf = sparkConf.set("spark.scheduler.mode", "FAIR");
+		sparkConf = sparkConf
+				.set("spark.scheduler.mode", "FAIR")
+				.set("spark.shuffle.service.enabled", "true")
+				.set("spark.dynamicAllocation.enabled", "true")
+				.set("spark.streaming.dynamicAllocation.enabled", "true")
+				.set("spark.streaming.dynamicAllocation.minExecutors", "0")
+				.set("spark.streaming.dynamicAllocation.maxExecutors", "100")
+				.set("spark.streaming.dynamicAllocation.debug", "true")
+				.set("spark.streaming.dynamicAllocation.delay.rounds", "5");
+		
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)

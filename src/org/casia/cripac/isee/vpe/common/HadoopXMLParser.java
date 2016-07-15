@@ -42,7 +42,7 @@ public class HadoopXMLParser {
 		
 		DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
 		DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
-		Document doc = documentBuilder.parse(new File("/usr/local/hadoop/etc/hadoop/core-site.xml"));
+		Document doc = documentBuilder.parse(xmlFile);
 		
 		Element root = doc.getDocumentElement();
 		if (null != root && root.getNodeName().equals("configuration")) {

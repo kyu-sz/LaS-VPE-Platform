@@ -35,12 +35,13 @@ public class HadoopUtils {
 		//Load Hadoop configuration from XML files.
 		Configuration hadoopConf = new Configuration();
 		Map<String, String> propMap;
-		propMap = HadoopXMLParser.getPropsFromXML(new File("$HADOOP/etc/hadoop/core.xml"));
+		String hadoopHome = System.getenv("HADOOP_HOME");
+		propMap = HadoopXMLParser.getPropsFromXML(new File(hadoopHome + "/etc/hadoop/core-site.xml"));
 		for (Entry<String, String> prop : propMap.entrySet()) {
 			System.out.printf("Setting hadoop configuration: %s=%s\n", prop.getKey(), prop.getValue());
 			hadoopConf.set(prop.getKey(), prop.getValue());
 		}
-		propMap = HadoopXMLParser.getPropsFromXML(new File("$HADOOP/etc/hadoop/yarn.xml"));
+		propMap = HadoopXMLParser.getPropsFromXML(new File(hadoopHome + "/etc/hadoop/yarn-site.xml"));
 		for (Entry<String, String> prop : propMap.entrySet()) {
 			System.out.printf("Setting hadoop configuration: %s=%s\n", prop.getKey(), prop.getValue());
 			hadoopConf.set(prop.getKey(), prop.getValue());

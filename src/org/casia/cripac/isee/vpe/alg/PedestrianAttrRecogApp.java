@@ -64,7 +64,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	private static final long serialVersionUID = 3104859533881615664L;
 	private Properties attrProducerProperties = null;
 	private transient SparkConf sparkConf;
-	private Map<String, String> kafkaParams = new HashMap<>();
+	private Map<String, String> commonKafkaParams = new HashMap<>();
+	private boolean verbose = false;
 
 	public static final String APPLICATION_NAME = "PedestrianAttributeRecognizing";
 	public static final String PEDESTRIAN_ATTR_RECOG_TASK_TOPIC = "pedestrian-attr-recog-task";
@@ -72,6 +73,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 	public PedestrianAttrRecogApp(SystemPropertyCenter propertyCenter) {
 		super();
+		
+		verbose = propertyCenter.verbose;
 		
 		attrProducerProperties = new Properties();
 		attrProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
@@ -87,7 +90,15 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		sparkConf = new SparkConf()
 				.setAppName(APPLICATION_NAME);
 		// Use fair sharing between jobs. 
-		sparkConf = sparkConf.set("spark.scheduler.mode", "FAIR");
+		sparkConf = sparkConf
+				.set("spark.scheduler.mode", "FAIR")
+				.set("spark.shuffle.service.enabled", "true")
+				.set("spark.dynamicAllocation.enabled", "true")
+				.set("spark.streaming.dynamicAllocation.enabled", "true")
+				.set("spark.streaming.dynamicAllocation.minExecutors", "0")
+				.set("spark.streaming.dynamicAllocation.maxExecutors", "100")
+				.set("spark.streaming.dynamicAllocation.debug", "true")
+				.set("spark.streaming.dynamicAllocation.delay.rounds", "5");
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)
@@ -95,8 +106,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		}
 		
 		//Common kafka settings.
-		kafkaParams.put("group.id", "1");
-		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		commonKafkaParams.put("group.id", "1");
+		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
 	}
 
 	@Override
@@ -128,7 +139,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		inputTopicsSet.add(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
 		JavaPairInputDStream<String, byte[]> trackBytesDStream =
 				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, kafkaParams, inputTopicsSet);
+				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, inputTopicsSet);
 		
 		//Extract tracks from the data.
 		JavaPairDStream<String, Tuple2<Track, byte[]>> trackDStreamFromKafka =
@@ -152,7 +163,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		//Get tasks from Kafka. 
 		JavaPairInputDStream<String, byte[]> taskDStream =
 				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, kafkaParams, taskTopicsSet);
+				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, taskTopicsSet);
 		
 		JavaPairDStream<String, Tuple2<Track, byte[]>> trackDStreamFromTask =
 		taskDStream.mapValues(new Function<byte[], Tuple2<Track, byte[]>>() {
@@ -241,10 +252,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						}
 						
 						//Always send to the meta data saving application.
-						System.out.printf(
-								"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
-								MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC,
-								"Attribute to save");
+						if (verbose) {
+							System.out.printf(
+									"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
+									MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC,
+									"Attribute to save");
+						}
 						producerSupplier.get().send(
 								new ProducerRecord<String, byte[]>(
 										MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC, 
