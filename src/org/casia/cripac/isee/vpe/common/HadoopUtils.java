@@ -31,7 +31,9 @@ import org.xml.sax.SAXException;
  *
  */
 public class HadoopUtils {
+	
 	public static Configuration getDefaultConf() throws ParserConfigurationException, SAXException, IOException {
+		
 		//Load Hadoop configuration from XML files.
 		Configuration hadoopConf = new Configuration();
 		Map<String, String> propMap;

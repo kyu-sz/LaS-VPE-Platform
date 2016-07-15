@@ -84,14 +84,22 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				.setAppName(APPLICATION_NAME);
 		// Use fair sharing between jobs. 
 		sparkConf = sparkConf
-				.set("spark.scheduler.mode", "FAIR")
-				.set("spark.shuffle.service.enabled", "true")
-				.set("spark.dynamicAllocation.enabled", "true")
-				.set("spark.streaming.dynamicAllocation.enabled", "true")
-				.set("spark.streaming.dynamicAllocation.minExecutors", "0")
-				.set("spark.streaming.dynamicAllocation.maxExecutors", "100")
-				.set("spark.streaming.dynamicAllocation.debug", "true")
-				.set("spark.streaming.dynamicAllocation.delay.rounds", "5");
+				.set("spark.scheduler.mode",
+						propertyCenter.sparkSchedulerMode)
+				.set("spark.shuffle.service.enabled",
+						propertyCenter.sparkShuffleServiceEnabled)
+				.set("spark.dynamicAllocation.enabled",
+						propertyCenter.sparkDynamicAllocationEnabled)
+				.set("spark.streaming.dynamicAllocation.enabled",
+						propertyCenter.sparkStreamingDynamicAllocationEnabled)
+				.set("spark.streaming.dynamicAllocation.minExecutors",
+						propertyCenter.sparkStreamingDynamicAllocationMinExecutors)
+				.set("spark.streaming.dynamicAllocation.maxExecutors",
+						propertyCenter.sparkStreamingDynamicAllocationMaxExecutors)
+				.set("spark.streaming.dynamicAllocation.debug",
+						propertyCenter.sparkStreamingDynamicAllocationDebug)
+				.set("spark.streaming.dynamicAllocation.delay.rounds",
+						propertyCenter.sparkStreamingDynamicAllocationDelayRounds);
 		
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf

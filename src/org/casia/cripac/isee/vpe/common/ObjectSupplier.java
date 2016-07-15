@@ -21,6 +21,8 @@ import java.io.Serializable;
 import java.util.function.Supplier;
 
 /**
+ * Wrapper for any object to make them lazy-evaluated.
+ * Used together with the BroadcastSingleton class.
  * @author Ken Yu, CRIPAC, 2016
  *
  */

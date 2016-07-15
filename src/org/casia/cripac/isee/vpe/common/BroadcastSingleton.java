@@ -17,7 +17,6 @@
 
 package org.casia.cripac.isee.vpe.common;
 
-import java.io.Closeable;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +24,12 @@ import java.util.Map;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 
+/**
+ * The BroadcastSingleton class is an ultimate solution for using unserializable objects in Spark Streaming!
+ * @author Ken Yu, CRIPAC, 2016
+ *
+ * @param <T>	The type of the object.
+ */
 public class BroadcastSingleton<T> implements Serializable {
 	
 	private static final long serialVersionUID = -7565726994857167434L;
@@ -38,9 +43,9 @@ public class BroadcastSingleton<T> implements Serializable {
 	final private Class<T> typeParameterClass;
 	
 	/**
-	 * Constructor inputting a configuration for initializing KafkaProducer.
-	 * The producer is not initialized immediately here, but lazy-evaluated somewhere else.
-	 * @param config The configuration for KafkaProducer.
+	 * Constructor of BroadcastSingleton.
+	 * @param objFactory	Factory that provides method to generate a new object. 
+	 * @param clazz			The class of the object.
 	 */
 	@SuppressWarnings("unchecked")
 	public BroadcastSingleton(ObjectFactory<T> objFactory, @SuppressWarnings("rawtypes") Class clazz) {
@@ -48,14 +53,14 @@ public class BroadcastSingleton<T> implements Serializable {
 		this.typeParameterClass = clazz;
 	}
 
-	@Override
-	protected void finalize() throws Throwable {
-		if (broadcastPool != null && broadcastPool instanceof Closeable)
-			((Closeable) broadcastPool).close();
-		
-		super.finalize();
-	}
-
+	/**
+	 * Get a supplier of the object.
+	 * The supplier is broadcast over the cluster, and provides a singleton of the object.
+	 * The broadcast is lazy-evaluated, so it cannot be checkpointed by Spark Streaming.
+	 * Every time the application starts or recovers, the first call of this method would broadcast a supplier.
+	 * @param sparkContext	The Spark context for broadcasting.
+	 * @return				A supplier for the object.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public ObjectSupplier<T> getSupplier(JavaSparkContext sparkContext) {
 		if (broadcastPool == null) {

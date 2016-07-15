@@ -90,6 +90,15 @@ public class SystemPropertyCenter {
 	public String yarnResourceManagerHostname = "localhost";
 	public String jarPath = "bin/vpe-platform.jar";
 	
+	public String sparkSchedulerMode = "FAIR";
+	public String sparkShuffleServiceEnabled = "true";
+	public String sparkDynamicAllocationEnabled = "true";
+	public String sparkStreamingDynamicAllocationEnabled = "true";
+	public String sparkStreamingDynamicAllocationMinExecutors = "0";
+	public String sparkStreamingDynamicAllocationMaxExecutors = "100";
+	public String sparkStreamingDynamicAllocationDebug = "true";
+	public String sparkStreamingDynamicAllocationDelayRounds = "5";
+	
 	/**
 	 * Whether to print verbose running information.
 	 */
@@ -197,11 +206,46 @@ public class SystemPropertyCenter {
 			options.add("-c");
 			options.add("--arg");
 			options.add(checkpointDir);
-			
-//			options.add("--arg");
-//			options.add("-f");
-//			options.add("--arg");
-//			options.add(propertyFilePath);
+
+			options.add("--arg");
+			options.add("--spark-scheduler-mode");
+			options.add("--arg");
+			options.add(sparkSchedulerMode);
+
+			options.add("--arg");
+			options.add("--spark-shuffle-service-enabled");
+			options.add("--arg");
+			options.add(sparkShuffleServiceEnabled);
+
+			options.add("--arg");
+			options.add("--spark-dynamicAllocation-enabled");
+			options.add("--arg");
+			options.add(sparkDynamicAllocationEnabled);
+
+			options.add("--arg");
+			options.add("--spark-streaming-dynamicAllocation-enabled");
+			options.add("--arg");
+			options.add(sparkStreamingDynamicAllocationEnabled);
+
+			options.add("--arg");
+			options.add("--spark-streaming-dynamicAllocation-minExecutors");
+			options.add("--arg");
+			options.add(sparkStreamingDynamicAllocationMinExecutors);
+
+			options.add("--arg");
+			options.add("--spark-streaming-dynamicAllocation-maxExecutors");
+			options.add("--arg");
+			options.add(sparkStreamingDynamicAllocationMaxExecutors);
+
+			options.add("--arg");
+			options.add("--spark-streaming-dynamicAllocation-debug");
+			options.add("--arg");
+			options.add(sparkStreamingDynamicAllocationDebug);
+
+			options.add("--arg");
+			options.add("--spark-streaming-dynamicAllocation-delay-rounds");
+			options.add("--arg");
+			options.add(sparkStreamingDynamicAllocationDelayRounds);
 		} else {
 			options.add("-f");
 			options.add(propertyFilePath);
@@ -237,6 +281,14 @@ public class SystemPropertyCenter {
 		options.addOption("dm", "driver-mem", true, "Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)");
 		options.addOption("dc", "driver-cores", true, "Number of cores used by the driver (Default: 1).");
 		options.addOption("q", "hadoop-queue", true, "The hadoop queue to use for allocation requests (Default: 'default')");
+		options.addOption(null, "spark-scheduler-mode", true, "");
+		options.addOption(null, "spark-shuffle-service-enabled", true, "");
+		options.addOption(null, "spark-dynamicAllocation-enabled", true, "");
+		options.addOption(null, "spark-streaming-dynamicAllocation-enabled", true, "");
+		options.addOption(null, "spark-streaming-dynamicAllocation-minExecutors", true, "");
+		options.addOption(null, "spark-streaming-dynamicAllocation-maxExecutors", true, "");
+		options.addOption(null, "spark-streaming-dynamicAllocation-debug", true, "");
+		options.addOption(null, "spark-streaming-dynamicAllocation-delay-rounds", true, "");
 		CommandLine commandLine;
 		
 		try {
@@ -371,6 +423,30 @@ public class SystemPropertyCenter {
 					case "hadoop.queue":
 						hadoopQueue = (String) entry.getValue(); 
 						break;
+					case "spark.scheduler.mode":
+						sparkSchedulerMode = (String) entry.getValue(); 
+						break;
+					case "spark.shuffle.service.enabled":
+						sparkShuffleServiceEnabled = (String) entry.getValue(); 
+						break;
+					case "spark.dynamicAllocation.enabled":
+						sparkDynamicAllocationEnabled = (String) entry.getValue(); 
+						break;
+					case "spark.streaming.dynamicAllocation.enabled":
+						sparkStreamingDynamicAllocationEnabled = (String) entry.getValue(); 
+						break;
+					case "spark.streaming.dynamicAllocation.minExecutors":
+						sparkStreamingDynamicAllocationMinExecutors = (String) entry.getValue(); 
+						break;
+					case "spark.streaming.dynamicAllocation.maxExecutors":
+						sparkStreamingDynamicAllocationMaxExecutors = (String) entry.getValue(); 
+						break;
+					case "spark.streaming.dynamicAllocation.debug":
+						sparkStreamingDynamicAllocationDebug = (String) entry.getValue(); 
+						break;
+					case "spark.streaming.dynamicAllocation.delay.rounds":
+						sparkStreamingDynamicAllocationDelayRounds = (String) entry.getValue(); 
+						break;
 					}
 				}
 			}
@@ -413,6 +489,35 @@ public class SystemPropertyCenter {
 		}
 		if (commandLine.hasOption("q")) {
 			hadoopQueue = commandLine.getOptionValue("q");
+		}
+		if (commandLine.hasOption("spark-scheduler-mode")) {
+			sparkSchedulerMode = commandLine.getOptionValue("spark-scheduler-mode");
+		}
+		if (commandLine.hasOption("spark-shuffle-service-enabled")) {
+			sparkShuffleServiceEnabled = commandLine.getOptionValue("spark-shuffle-service-enabled");
+		}
+		if (commandLine.hasOption("spark-dynamicAllocation-enabled")) {
+			sparkDynamicAllocationEnabled = commandLine.getOptionValue("spark-dynamicAllocation-enabled");
+		}
+		if (commandLine.hasOption("spark-streaming-dynamicAllocation-enabled")) {
+			sparkStreamingDynamicAllocationEnabled =
+					commandLine.getOptionValue("spark-streaming-dynamicAllocation-enabled");
+		}
+		if (commandLine.hasOption("spark-streaming-dynamicAllocation-minExecutors")) {
+			sparkStreamingDynamicAllocationMinExecutors =
+					commandLine.getOptionValue("spark-streaming-dynamicAllocation-minExecutors");
+		}
+		if (commandLine.hasOption("spark-streaming-dynamicAllocation-maxExecutors")) {
+			sparkStreamingDynamicAllocationMaxExecutors =
+					commandLine.getOptionValue("spark-streaming-dynamicAllocation-maxExecutors");
+		}
+		if (commandLine.hasOption("spark-streaming-dynamicAllocation-debug")) {
+			sparkStreamingDynamicAllocationDebug =
+					commandLine.getOptionValue("spark-streaming-dynamicAllocation-debug");
+		}
+		if (commandLine.hasOption("spark-streaming-dynamicAllocation-delay-rounds")) {
+			sparkStreamingDynamicAllocationDelayRounds =
+					commandLine.getOptionValue("spark-streaming-dynamicAllocation-delay-rounds");
 		}
 		
 		if (sparkMaster.contains("yarn") && !onYARN) {
