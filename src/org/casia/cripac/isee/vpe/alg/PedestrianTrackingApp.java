@@ -28,6 +28,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -44,6 +45,7 @@ import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory.ByteArrayQueueParts;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
+import org.casia.cripac.isee.vpe.common.LoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
@@ -113,7 +115,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 				.set("spark.streaming.dynamicAllocation.debug",
 						propertyCenter.sparkStreamingDynamicAllocationDebug)
 				.set("spark.streaming.dynamicAllocation.delay.rounds",
-						propertyCenter.sparkStreamingDynamicAllocationDelayRounds);
+						propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
+				.set("spark.executor.memory", propertyCenter.executorMem)
+				.set("spark.rdd.compress", "true")
+				.set("spark.storage.memoryFraction", "1");
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)
@@ -121,6 +126,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		}
 
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		commonKafkaParams.put("group.id", "PedestrianTrackingApp");
+		// Determine where the stream starts (default: largest)
+		commonKafkaParams.put("auto.offset.reset", "smallest");
+		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 
 	@Override
@@ -146,6 +155,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						return new FakePedestrianTracker();
 					}
 				}, PedestrianTracker.class);
+		final BroadcastSingleton<Logger> loggerSingleton = new BroadcastSingleton<>(new LoggerFactory(), Logger.class);
 		
 		//Retrieve messages from Kafka.
 		JavaPairInputDStream<String, byte[]> taskDStream =
@@ -177,6 +187,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						producerSingleton.getSupplier(new JavaSparkContext(videoURLRDD.context()));
 				final ObjectSupplier<PedestrianTracker> trackerSupplier =
 						trackerSingleton.getSupplier(new JavaSparkContext(videoURLRDD.context()));
+				final ObjectSupplier<Logger> loggerSupplier = 
+						loggerSingleton.getSupplier(new JavaSparkContext(videoURLRDD.context()));
 				
 				videoURLRDD.foreach(new VoidFunction<Tuple2<String,Tuple2<String,byte[]>>>() {
 
@@ -216,6 +228,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 								//Send to each topic.
 								for (String topic : topics) {
 									if (verbose) {
+										loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka: <" +
+												topic + ">" + restExecQueue + "=" + "A track");
 										System.out.printf(
 												"PedestrianTrackingApp: Sending to Kafka: <%s>%s=%s\n", 
 												topic,
@@ -232,10 +246,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 							
 							//Always send to the meta data saving application.
 							if (verbose) {
+								loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka: <" +
+										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC + ">" + "A track");
 								System.out.printf(
 										"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
 										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
-										"A track");
+										"Track to save");
 							}
 							producerSupplier.get().send(
 									new ProducerRecord<String, byte[]>(
@@ -371,6 +387,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		//Load system properties.
 		SystemPropertyCenter propertyCenter;
 		propertyCenter = new SystemPropertyCenter(args);
+		
+		if (propertyCenter.verbose) {
+			System.out.println("Starting PedestrianTrackingApp...");
+		}
 		
 		TopicManager.checkTopics(propertyCenter);
 		

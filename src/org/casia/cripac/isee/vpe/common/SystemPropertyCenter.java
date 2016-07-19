@@ -71,6 +71,7 @@ public class SystemPropertyCenter {
 	public String kafkaBrokers = "localhost:9092";
 	public int kafkaPartitions = 1;
 	public int kafkaReplicationFactor = 1;
+	public int kafkaFetchMessageMaxBytes = 10000000;
 	
 	//Spark properties
 	public String checkpointDir = "checkpoint";
@@ -118,6 +119,9 @@ public class SystemPropertyCenter {
 		ArrayList<String> options = new ArrayList<>();
 
 		if (onYARN) {
+			options.add("--files");
+			options.add("log4j.properties");
+			
 			options.add("--num-executors");
 			options.add(new Integer(numExecutors).toString());
 			
@@ -196,6 +200,11 @@ public class SystemPropertyCenter {
 			options.add("-r");
 			options.add("--arg");
 			options.add(new Integer(kafkaReplicationFactor).toString());
+
+			options.add("--arg");
+			options.add("--kafka-fetch-message-max-bytes");
+			options.add("--arg");
+			options.add(new Integer(kafkaFetchMessageMaxBytes).toString());
 
 			options.add("--arg");
 			options.add("-y");
@@ -281,6 +290,7 @@ public class SystemPropertyCenter {
 		options.addOption("dm", "driver-mem", true, "Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)");
 		options.addOption("dc", "driver-cores", true, "Number of cores used by the driver (Default: 1).");
 		options.addOption("q", "hadoop-queue", true, "The hadoop queue to use for allocation requests (Default: 'default')");
+		options.addOption(null, "kafka-fetch-message-max-bytes", true, "");
 		options.addOption(null, "spark-scheduler-mode", true, "");
 		options.addOption(null, "spark-shuffle-service-enabled", true, "");
 		options.addOption(null, "spark-dynamicAllocation-enabled", true, "");
@@ -387,6 +397,9 @@ public class SystemPropertyCenter {
 					case "kafka.replication.factor":
 						kafkaReplicationFactor = new Integer((String) entry.getValue()); 
 						break;
+					case "kafka.fetch.message.max.bytes":
+						kafkaFetchMessageMaxBytes = new Integer((String) entry.getValue());
+						break;
 					case "checkpoint.directory":
 						checkpointDir = (String) entry.getValue(); 
 						break;
@@ -459,6 +472,9 @@ public class SystemPropertyCenter {
 		}
 		if (commandLine.hasOption('r')) {
 			kafkaReplicationFactor = new Integer(commandLine.getOptionValue('r'));
+		}
+		if (commandLine.hasOption("kafka-fetch-message-max-bytes")) {
+			kafkaFetchMessageMaxBytes = new Integer(commandLine.getOptionValue("kafka-fetch-message-max-bytes"));
 		}
 		if (commandLine.hasOption('z')) {
 			zookeeper = commandLine.getOptionValue('z');

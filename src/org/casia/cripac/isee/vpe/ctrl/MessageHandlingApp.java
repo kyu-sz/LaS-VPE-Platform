@@ -28,6 +28,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -40,6 +41,7 @@ import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
+import org.casia.cripac.isee.vpe.common.LoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
@@ -68,6 +70,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	private boolean verbose = false;
 	
 	public MessageHandlingApp(SystemPropertyCenter propertyCenter) {
+		
 		super();
 		
 		verbose = propertyCenter.verbose;
@@ -99,7 +102,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				.set("spark.streaming.dynamicAllocation.debug",
 						propertyCenter.sparkStreamingDynamicAllocationDebug)
 				.set("spark.streaming.dynamicAllocation.delay.rounds",
-						propertyCenter.sparkStreamingDynamicAllocationDelayRounds);
+						propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
+				.set("spark.executor.memory", propertyCenter.executorMem)
+				.set("spark.rdd.compress", "true")
+				.set("spark.storage.memoryFraction", "1");
 		
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
@@ -109,7 +115,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		
 		commonKafkaParams = new HashMap<>();
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
-		commonKafkaParams.put("group.id", "0");
+		commonKafkaParams.put("group.id", "MessageHandlingApp");
+		// Determine where the stream starts (default: largest)
+		commonKafkaParams.put("auto.offset.reset", "smallest");
+		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 	
 	private class ExecQueueBuilder {
@@ -136,7 +145,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	@Override
 	protected JavaStreamingContext getStreamContext() {
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
-		sparkContext.setLogLevel("WARN");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
 		//Create KafkaSink for Spark Streaming to output to Kafka.
@@ -144,6 +152,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				new BroadcastSingleton<KafkaProducer<String, byte[]>>(
 						new KafkaProducerFactory<>(trackingTaskProducerProperties),
 						KafkaProducer.class);
+		
+		final BroadcastSingleton<Logger> loggerSingleton = new BroadcastSingleton<>(new LoggerFactory(), Logger.class);
 		
 		//Create an input DStream using Kafka.
 		JavaPairInputDStream<String, byte[]> messageDStream =
@@ -159,6 +169,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier =
 						producerSingleton.getSupplier(new JavaSparkContext(messageRDD.context()));
+				final ObjectSupplier<Logger> loggerSupplier = 
+						loggerSingleton.getSupplier(new JavaSparkContext(messageRDD.context()));
 				
 				messageRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
 
@@ -176,16 +188,20 @@ public class MessageHandlingApp extends SparkStreamingApp {
 							byte[] dataQueue = message._2();
 							
 							if (verbose) {
-								System.out.printf("Message handler: received command \"%s\"\n", command);
+								System.out.printf("MessageHandlingApp: received command \"%s\"\n", command);
+								loggerSupplier.get().info("MessageHandlingApp: received command \"" + command + "\"");
 							}
 							
 							switch (command) {
 							case CommandSet.TRACK_ONLY:
 								if (verbose) {
 									System.out.printf(
-											"Message handler: sending to Kafka <%s>%s=...\n",
+											"MessageHandlingApp: sending to Kafka <%s>%s=...\n",
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
 											execQueueBuilder.getQueue());
+									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
+											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
+											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -198,9 +214,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 								if (verbose) {
 									System.out.printf(
-											"Message handler: sending to Kafka <%s>%s=...\n",
+											"MessageHandlingApp: sending to Kafka <%s>%s=...\n",
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
 											execQueueBuilder.getQueue());
+									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
+											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
+											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -214,6 +233,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
 											"Message handler: sending to Kafka <%s>%s=...\n",
 											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
 											execQueueBuilder.getQueue());
+									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
+											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC + ">" +
+											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -222,7 +244,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 												dataQueue));
 								break;
 							default:
-								System.err.println("Unsupported command!");
+								System.err.println("MessageHandlingApp: Unsupported command!");
+								loggerSupplier.get().error("MessageHandlingApp: Unsupported command!");
 								break;
 							}
 						}

@@ -28,6 +28,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -45,6 +46,7 @@ import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory.ByteArrayQueueParts;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
+import org.casia.cripac.isee.vpe.common.LoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
@@ -106,7 +108,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 				.set("spark.streaming.dynamicAllocation.debug",
 						propertyCenter.sparkStreamingDynamicAllocationDebug)
 				.set("spark.streaming.dynamicAllocation.delay.rounds",
-						propertyCenter.sparkStreamingDynamicAllocationDelayRounds);
+						propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
+				.set("spark.executor.memory", propertyCenter.executorMem)
+				.set("spark.rdd.compress", "true")
+				.set("spark.storage.memoryFraction", "1");
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)
@@ -114,8 +119,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		}
 		
 		//Common kafka settings.
-		commonKafkaParams.put("group.id", "1");
+		commonKafkaParams.put("group.id", "PedestrianAttrRecogApp");
+		// Determine where the stream starts (default: largest)
+		commonKafkaParams.put("auto.offset.reset", "smallest");
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 
 	@Override
@@ -141,6 +149,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						return new FakePedestrianAttrRecognizer();
 					}
 				}, PedestrianAttrRecognizer.class);
+		final BroadcastSingleton<Logger> loggerSingleton = new BroadcastSingleton<>(new LoggerFactory(), Logger.class);
 
 		//Retrieve data from Kafka.
 		HashSet<String> inputTopicsSet = new HashSet<>();
@@ -209,6 +218,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						attrRecognizerSingleton.getSupplier(new JavaSparkContext(trackRDD.context()));
 				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier =
 						broadcastKafkaSink.getSupplier(new JavaSparkContext(trackRDD.context()));
+				final ObjectSupplier<Logger> loggerSupplier = 
+						loggerSingleton.getSupplier(new JavaSparkContext(trackRDD.context()));
 				
 				trackRDD.foreach(new VoidFunction<Tuple2<String, Tuple2<Track, byte[]>>>() {
 
@@ -247,11 +258,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 							//Send to each topic.
 							for (String topic : topics) {
 								if (verbose) {
+									loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka: <" +
+											topic + ">" + restExecQueue + "=" + "An attr");
 									System.out.printf(
 											"PedestrianAttrRecogApp: Sending to Kafka: <%s>%s=%s\n",
 											topic,
 											restExecQueue,
-											"An attribute.");
+											"An attr.");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -263,10 +276,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						
 						//Always send to the meta data saving application.
 						if (verbose) {
+							loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka: <" +
+									MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC + ">" + "An attr");
 							System.out.printf(
-									"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
+									"PedestrianAttrRecogApp: Sending to Kafka: <%s>%s\n", 
 									MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC,
-									"Attribute to save");
+									"Attr to save");
 						}
 						producerSupplier.get().send(
 								new ProducerRecord<String, byte[]>(

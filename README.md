@@ -49,4 +49,4 @@ Then, configure your master node to be a proxy server using Squid. Tutors can be
 
 Finally, configure your browser to use the proxy provided by you master node. Then it would be able to access pages on slave nodes.
 
-In Firefox, it is recommended to use the AutoProxy plugin for enabling proxy. Beside obvious configurations, you need to first access [about:config](about:config), then set network.proxy.socks_remote_dns as "true".
+In Firefox, it is recommended to use the AutoProxy plugin for enabling proxy. Beside obvious configurations, you need to first access *about:config*, then set *network.proxy.socks_remote_dns* as *true*.

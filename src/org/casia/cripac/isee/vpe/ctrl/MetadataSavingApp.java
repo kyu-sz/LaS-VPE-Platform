@@ -29,6 +29,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -43,6 +44,7 @@ import org.casia.cripac.isee.pedestrian.attr.Attribute;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
+import org.casia.cripac.isee.vpe.common.LoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
@@ -101,7 +103,10 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				.set("spark.streaming.dynamicAllocation.debug",
 						propertyCenter.sparkStreamingDynamicAllocationDebug)
 				.set("spark.streaming.dynamicAllocation.delay.rounds",
-						propertyCenter.sparkStreamingDynamicAllocationDelayRounds);
+						propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
+				.set("spark.executor.memory", propertyCenter.executorMem)
+				.set("spark.rdd.compress", "true")
+				.set("spark.storage.memoryFraction", "1");
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)
@@ -109,8 +114,11 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		}
 		
 		//Common Kafka settings
-		commonKafkaParams.put("group.id", "0");
+		commonKafkaParams.put("group.id", "MetadataSavingApp");
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		// Determine where the stream starts (default: largest)
+		commonKafkaParams.put("auto.offset.reset", "smallest");
+		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 
 //		metadataSavingDir = "hdfs://" + propertyCenter.hdfs + "/metadata";
 		metadataSavingDir = "/metadata";
@@ -126,7 +134,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		sparkContext.setLogLevel("WARN");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
-		BroadcastSingleton<FileSystem> fileSystemSingleton =
+		final BroadcastSingleton<FileSystem> fileSystemSingleton =
 				new BroadcastSingleton<>(new ObjectFactory<FileSystem>() {
 
 					private static final long serialVersionUID = 1L;
@@ -144,6 +152,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 						}
 					}
 				}, FileSystem.class); 
+		
+		final BroadcastSingleton<Logger> loggerSingleton = new BroadcastSingleton<>(new LoggerFactory(), Logger.class);
 		
 		//Retrieve tracks from Kafka.
 		JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
@@ -176,6 +186,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				
 				final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton.getSupplier(
 						new JavaSparkContext(trackGroupRDD.context()));
+				final ObjectSupplier<Logger> loggerSupplier = loggerSingleton.getSupplier(
+						new JavaSparkContext(trackGroupRDD.context()));
 				
 				trackGroupRDD.foreach(new VoidFunction<Tuple2<String,Iterable<Track>>>() {
 
@@ -185,6 +197,11 @@ public class MetadataSavingApp extends SparkStreamingApp {
 					public void call(Tuple2<String, Iterable<Track>> trackGroup) throws Exception {
 						String videoURL = trackGroup._1();
 						String dst = trackSavingDir + "/" + videoURL;
+						
+						if (verbose) {
+							loggerSupplier.get().info("MetadataSavingApp: Saving track to " + dst);
+							System.out.println("MetadataSavingApp: Saving track to " + dst);
+						}
 						
 						FSDataOutputStream outputStream = fsSupplier.get().append(new Path(dst));
 						
@@ -210,8 +227,12 @@ public class MetadataSavingApp extends SparkStreamingApp {
 			private static final long serialVersionUID = -1269453288342585510L;
 
 			@Override
-			public void call(JavaPairRDD<String, byte[]> resultsRDD) throws Exception {
-				resultsRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
+			public void call(JavaPairRDD<String, byte[]> attrRDD) throws Exception {
+				
+				final ObjectSupplier<Logger> loggerSupplier = loggerSingleton.getSupplier(
+						new JavaSparkContext(attrRDD.context()));
+				
+				attrRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
 
 					private static final long serialVersionUID = 6465526220612689594L;
 
@@ -221,6 +242,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 								ByteArrayFactory.decompress(result._2()));
 
 						if (verbose) {
+							loggerSupplier.get().info("Metadata saver received attribute: "
+									+ result._1() + "=" + attr.facing);
 							System.out.printf("Metadata saver received attribute: %s=%s\n",
 									result._1(),
 									attr.facing);
@@ -235,12 +258,16 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	}
 
 	public static void main(String[] args) throws IOException, URISyntaxException, ParserConfigurationException, SAXException {
-		
+	
 		SystemPropertyCenter propertyCenter;
 		if (args.length > 0) {
 			propertyCenter = new SystemPropertyCenter(args);
 		} else {
 			propertyCenter = new SystemPropertyCenter();
+		}
+		
+		if (propertyCenter.verbose) {
+			System.out.println("Starting MetadataSavingApp...");
 		}
 
 		TopicManager.checkTopics(propertyCenter);

@@ -32,14 +32,8 @@ import kafka.admin.AdminUtils;
 public class TopicManager {
 
 	public static void checkTopics(SystemPropertyCenter propertyCenter) {
-		//Initializes the system environment.
-		System.out.println("Connecting to zookeeper: " + propertyCenter.zookeeper);
-		ZkClient zkClient = new ZkClient(
-				propertyCenter.zookeeper,
-				propertyCenter.sessionTimeoutMs,
-				propertyCenter.connectionTimeoutMs);
 
-		//Create topics.
+		//list topics.
 		HashSet<String> topics = new HashSet<>();
 		topics.add(MessageHandlingApp.COMMAND_TOPIC);
 		topics.add(PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC);
@@ -47,17 +41,29 @@ public class TopicManager {
 		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
 		topics.add(MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 		topics.add(MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
-		for (String topic : topics) {
-			if (!AdminUtils.topicExists(zkClient, topic)) {
-				System.out.println("Creating topic: " + topic);
-				kafka.admin.TopicCommand.main(new String[]{
-						"--create",
-						"--zookeeper", propertyCenter.zookeeper,
-						"--topic", topic,
-						"--partitions", new Integer(propertyCenter.kafkaPartitions).toString(),
-						"--replication-factor", new Integer(propertyCenter.kafkaReplicationFactor).toString()
-						});
+		
+		// Check each node of the zookeeper cluster respectively.
+		String[] znodes = propertyCenter.zookeeper.split(",");
+		for (String znode : znodes) {
+			// Initialize the system environment.
+			System.out.println("Connecting to zookeeper: " + znode);
+			ZkClient zkClient = new ZkClient(
+					znode,
+					propertyCenter.sessionTimeoutMs,
+					propertyCenter.connectionTimeoutMs);
+			for (String topic : topics) {
+				if (!AdminUtils.topicExists(zkClient, topic)) {
+					System.out.println("Creating topic: " + topic);
+					kafka.admin.TopicCommand.main(new String[]{
+							"--create",
+							"--zookeeper", znode,
+							"--topic", topic,
+							"--partitions", "" + propertyCenter.kafkaPartitions,
+							"--replication-factor", "" + propertyCenter.kafkaReplicationFactor
+							});
+				}
 			}
 		}
+		System.out.println("Topics checked!");
 	}
 }
