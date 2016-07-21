@@ -16,16 +16,11 @@
  ************************************************************************/
 package org.casia.cripac.isee.vpe.common;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
-
 /**
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class LoggerFactory extends ObjectFactory<Logger> {
+public class SynthesizedLoggerFactory extends ObjectFactory<SynthesizedLogger> {
 
 	private static final long serialVersionUID = -6857919300875993611L;
 
@@ -33,11 +28,8 @@ public class LoggerFactory extends ObjectFactory<Logger> {
 	 * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject()
 	 */
 	@Override
-	public Logger getObject() {
-		PropertyConfigurator.configure("log4j.properties");
-		Logger logger = LogManager.getRootLogger();
-		logger.setLevel(Level.INFO);
-		return logger;
+	public SynthesizedLogger getObject() {
+		return new SynthesizedLogger();
 	}
 
 }

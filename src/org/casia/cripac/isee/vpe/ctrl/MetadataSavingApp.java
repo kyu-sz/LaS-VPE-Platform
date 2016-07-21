@@ -29,7 +29,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -44,10 +43,11 @@ import org.casia.cripac.isee.pedestrian.attr.Attribute;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
-import org.casia.cripac.isee.vpe.common.LoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
+import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
+import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.xml.sax.SAXException;
 
@@ -131,13 +131,12 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	protected JavaStreamingContext getStreamContext() {
 		//Create contexts.
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
-		sparkContext.setLogLevel("WARN");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
 		final BroadcastSingleton<FileSystem> fileSystemSingleton =
 				new BroadcastSingleton<>(new ObjectFactory<FileSystem>() {
 
-					private static final long serialVersionUID = 1L;
+					private static final long serialVersionUID = 300022787313821456L;
 
 					@Override
 					public FileSystem getObject() {
@@ -153,7 +152,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 					}
 				}, FileSystem.class); 
 		
-		final BroadcastSingleton<Logger> loggerSingleton = new BroadcastSingleton<>(new LoggerFactory(), Logger.class);
+		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
+				new BroadcastSingleton<>(new SynthesizedLoggerFactory(), SynthesizedLogger.class);
 		
 		//Retrieve tracks from Kafka.
 		JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
@@ -179,19 +179,23 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		//Save the track groups to an HDFS file.
 		trackGroupDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, Iterable<Track>>>() {
 
-			private static final long serialVersionUID = 1L;
+			private static final long serialVersionUID = -829492342592682281L;
 
 			@Override
 			public void call(JavaPairRDD<String, Iterable<Track>> trackGroupRDD) throws Exception {
 				
 				final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton.getSupplier(
 						new JavaSparkContext(trackGroupRDD.context()));
-				final ObjectSupplier<Logger> loggerSupplier = loggerSingleton.getSupplier(
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
 						new JavaSparkContext(trackGroupRDD.context()));
+				
+//				loggerSupplier.get().info("RDD count: " 
+//				+ trackGroupRDD.count() + " partitions:" + trackGroupRDD.getNumPartitions()
+//				+ " " + trackGroupRDD.toString());
 				
 				trackGroupRDD.foreach(new VoidFunction<Tuple2<String,Iterable<Track>>>() {
 
-					private static final long serialVersionUID = -7729434941232380812L;
+					private static final long serialVersionUID = 7987724814781209086L;
 
 					@Override
 					public void call(Tuple2<String, Iterable<Track>> trackGroup) throws Exception {
@@ -200,10 +204,17 @@ public class MetadataSavingApp extends SparkStreamingApp {
 						
 						if (verbose) {
 							loggerSupplier.get().info("MetadataSavingApp: Saving track to " + dst);
-							System.out.println("MetadataSavingApp: Saving track to " + dst);
 						}
 						
-						FSDataOutputStream outputStream = fsSupplier.get().append(new Path(dst));
+						FileSystem fs = fsSupplier.get();
+						Path dstPath = new Path(dst);
+						
+						FSDataOutputStream outputStream;
+						if (fs.exists(dstPath)) {
+							outputStream = fs.append(dstPath);
+						} else {
+							outputStream = fs.create(dstPath);
+						}
 						
 						//TODO Convert the track group into string.
 						byte[] bytes = trackGroup.toString().getBytes();
@@ -224,29 +235,34 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		//TODO Modify the streaming steps from here to store the meta data.
 		attrDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
-			private static final long serialVersionUID = -1269453288342585510L;
+			private static final long serialVersionUID = -715024705240889905L;
 
 			@Override
 			public void call(JavaPairRDD<String, byte[]> attrRDD) throws Exception {
 				
-				final ObjectSupplier<Logger> loggerSupplier = loggerSingleton.getSupplier(
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
 						new JavaSparkContext(attrRDD.context()));
+				
+				System.out.println("RDD count: " + attrRDD.count() + " partitions:" + attrRDD.getNumPartitions()
+				+ " " + attrRDD.toString());
 				
 				attrRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
 
-					private static final long serialVersionUID = 6465526220612689594L;
+					private static final long serialVersionUID = -4846631314801254257L;
 
 					@Override
 					public void call(Tuple2<String, byte[]> result) throws Exception {
-						Attribute attr = (Attribute) ByteArrayFactory.getObject(
-								ByteArrayFactory.decompress(result._2()));
+						Attribute attr;
+						try {
+							attr = (Attribute) ByteArrayFactory.getObject(
+									ByteArrayFactory.decompress(result._2()));
 
-						if (verbose) {
-							loggerSupplier.get().info("Metadata saver received attribute: "
-									+ result._1() + "=" + attr.facing);
-							System.out.printf("Metadata saver received attribute: %s=%s\n",
-									result._1(),
-									attr.facing);
+							if (verbose) {
+								loggerSupplier.get().info("Metadata saver received attribute: "
+										+ result._1() + "=" + attr.facing);
+							}
+						} catch (IOException e) {
+							loggerSupplier.get().error(e);
 						}
 					}
 					

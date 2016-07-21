@@ -28,7 +28,6 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -45,10 +44,11 @@ import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory.ByteArrayQueueParts;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
-import org.casia.cripac.isee.vpe.common.LoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
+import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
+import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
@@ -155,7 +155,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						return new FakePedestrianTracker();
 					}
 				}, PedestrianTracker.class);
-		final BroadcastSingleton<Logger> loggerSingleton = new BroadcastSingleton<>(new LoggerFactory(), Logger.class);
+		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
+				new BroadcastSingleton<>(new SynthesizedLoggerFactory(), SynthesizedLogger.class);
 		
 		//Retrieve messages from Kafka.
 		JavaPairInputDStream<String, byte[]> taskDStream =
@@ -165,7 +166,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		//Get video URL from the data queue.
 		JavaPairDStream<String, Tuple2<String, byte[]>> videoURLDStream = taskDStream.mapValues(new Function<byte[], Tuple2<String, byte[]>>() {
 
-			private static final long serialVersionUID = 1L;
+			private static final long serialVersionUID = 1992431816877590290L;
 
 			@Override
 			public Tuple2<String, byte[]> call(byte[] compressedDataQueue) throws Exception {
@@ -187,7 +188,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						producerSingleton.getSupplier(new JavaSparkContext(videoURLRDD.context()));
 				final ObjectSupplier<PedestrianTracker> trackerSupplier =
 						trackerSingleton.getSupplier(new JavaSparkContext(videoURLRDD.context()));
-				final ObjectSupplier<Logger> loggerSupplier = 
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = 
 						loggerSingleton.getSupplier(new JavaSparkContext(videoURLRDD.context()));
 				
 				videoURLRDD.foreach(new VoidFunction<Tuple2<String,Tuple2<String,byte[]>>>() {
@@ -230,11 +231,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 									if (verbose) {
 										loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka: <" +
 												topic + ">" + restExecQueue + "=" + "A track");
-										System.out.printf(
-												"PedestrianTrackingApp: Sending to Kafka: <%s>%s=%s\n", 
-												topic,
-												restExecQueue,
-												"A track");
 									}
 									producerSupplier.get().send(
 											new ProducerRecord<String, byte[]>(
@@ -248,10 +244,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 							if (verbose) {
 								loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka: <" +
 										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC + ">" + "A track");
-								System.out.printf(
-										"PedestrianTrackingApp: Sending to Kafka: <%s>%s\n", 
-										MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
-										"Track to save");
 							}
 							producerSupplier.get().send(
 									new ProducerRecord<String, byte[]>(

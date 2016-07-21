@@ -28,7 +28,6 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -46,10 +45,11 @@ import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory.ByteArrayQueueParts;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
-import org.casia.cripac.isee.vpe.common.LoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
+import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
+import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
@@ -130,7 +130,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	protected JavaStreamingContext getStreamContext() {
 		//Create contexts.
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
-		sparkContext.setLogLevel("WARN");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
 		//Create KafkaSink for Spark Streaming to output to Kafka.
@@ -149,7 +148,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						return new FakePedestrianAttrRecognizer();
 					}
 				}, PedestrianAttrRecognizer.class);
-		final BroadcastSingleton<Logger> loggerSingleton = new BroadcastSingleton<>(new LoggerFactory(), Logger.class);
+		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
+				new BroadcastSingleton<>(new SynthesizedLoggerFactory(), SynthesizedLogger.class);
 
 		//Retrieve data from Kafka.
 		HashSet<String> inputTopicsSet = new HashSet<>();
@@ -218,7 +218,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						attrRecognizerSingleton.getSupplier(new JavaSparkContext(trackRDD.context()));
 				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier =
 						broadcastKafkaSink.getSupplier(new JavaSparkContext(trackRDD.context()));
-				final ObjectSupplier<Logger> loggerSupplier = 
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = 
 						loggerSingleton.getSupplier(new JavaSparkContext(trackRDD.context()));
 				
 				trackRDD.foreach(new VoidFunction<Tuple2<String, Tuple2<Track, byte[]>>>() {
@@ -260,11 +260,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 								if (verbose) {
 									loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka: <" +
 											topic + ">" + restExecQueue + "=" + "An attr");
-									System.out.printf(
-											"PedestrianAttrRecogApp: Sending to Kafka: <%s>%s=%s\n",
-											topic,
-											restExecQueue,
-											"An attr.");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -278,10 +273,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						if (verbose) {
 							loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka: <" +
 									MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC + ">" + "An attr");
-							System.out.printf(
-									"PedestrianAttrRecogApp: Sending to Kafka: <%s>%s\n", 
-									MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC,
-									"Attr to save");
 						}
 						producerSupplier.get().send(
 								new ProducerRecord<String, byte[]>(

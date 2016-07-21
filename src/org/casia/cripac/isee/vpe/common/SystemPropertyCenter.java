@@ -479,16 +479,17 @@ public class SystemPropertyCenter {
 		if (commandLine.hasOption('z')) {
 			zookeeper = commandLine.getOptionValue('z');
 		}
-		if (commandLine.hasOption("d")) {
+		if (commandLine.hasOption('d')) {
 			sparkDeployMode = commandLine.getOptionValue("d");
 		}
-		if (commandLine.hasOption("c")) {
+		if (commandLine.hasOption('c')) {
 			checkpointDir = commandLine.getOptionValue("c");
+			System.out.println("Checkpoint directory set to \"" + checkpointDir + "\"");
 		}
-		if (commandLine.hasOption("y")) {
+		if (commandLine.hasOption('y')) {
 			yarnResourceManagerHostname = commandLine.getOptionValue("y");
 		}
-		if (commandLine.hasOption("e")) {
+		if (commandLine.hasOption('e')) {
 			numExecutors = new Integer(commandLine.getOptionValue('e'));
 		}
 		if (commandLine.hasOption("em")) {

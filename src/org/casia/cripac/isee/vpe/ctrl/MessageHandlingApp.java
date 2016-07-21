@@ -41,9 +41,10 @@ import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
-import org.casia.cripac.isee.vpe.common.LoggerFactory;
+import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
+import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.xml.sax.SAXException;
 
@@ -114,6 +115,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		}
 		
 		commonKafkaParams = new HashMap<>();
+		System.out.println("MessageHandlingApp: metadata.broker.list=" + propertyCenter.kafkaBrokers);
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
 		commonKafkaParams.put("group.id", "MessageHandlingApp");
 		// Determine where the stream starts (default: largest)
@@ -153,7 +155,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 						new KafkaProducerFactory<>(trackingTaskProducerProperties),
 						KafkaProducer.class);
 		
-		final BroadcastSingleton<Logger> loggerSingleton = new BroadcastSingleton<>(new LoggerFactory(), Logger.class);
+		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
+				new BroadcastSingleton<>(new SynthesizedLoggerFactory(), Logger.class);
 		
 		//Create an input DStream using Kafka.
 		JavaPairInputDStream<String, byte[]> messageDStream =
@@ -169,8 +172,11 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier =
 						producerSingleton.getSupplier(new JavaSparkContext(messageRDD.context()));
-				final ObjectSupplier<Logger> loggerSupplier = 
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = 
 						loggerSingleton.getSupplier(new JavaSparkContext(messageRDD.context()));
+				
+				System.out.println("RDD count: " + messageRDD.count() + " partitions:" + messageRDD.getNumPartitions()
+				+ " " + messageRDD.toString());
 				
 				messageRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
 
@@ -180,6 +186,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 					public void call(Iterator<Tuple2<String, byte[]>> messages) throws Exception {
 						
 						while (messages.hasNext()) {
+							
 							Tuple2<String, byte[]> message = messages.next();
 							
 							ExecQueueBuilder execQueueBuilder = new ExecQueueBuilder();
@@ -188,20 +195,19 @@ public class MessageHandlingApp extends SparkStreamingApp {
 							byte[] dataQueue = message._2();
 							
 							if (verbose) {
-								System.out.printf("MessageHandlingApp: received command \"%s\"\n", command);
 								loggerSupplier.get().info("MessageHandlingApp: received command \"" + command + "\"");
 							}
 							
 							switch (command) {
 							case CommandSet.TRACK_ONLY:
 								if (verbose) {
-									System.out.printf(
-											"MessageHandlingApp: sending to Kafka <%s>%s=...\n",
-											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-											execQueueBuilder.getQueue());
 									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
 											execQueueBuilder.getQueue() + "...");
+//									
+//									throw new Exception("MessageHandlingApp: sending to Kafka <" +
+//											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
+//											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -213,13 +219,13 @@ public class MessageHandlingApp extends SparkStreamingApp {
 								execQueueBuilder.addTask(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
 
 								if (verbose) {
-									System.out.printf(
-											"MessageHandlingApp: sending to Kafka <%s>%s=...\n",
-											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-											execQueueBuilder.getQueue());
 									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
 											execQueueBuilder.getQueue() + "...");
+									
+//									throw new Exception("MessageHandlingApp: sending to Kafka <" +
+//											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
+//											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -229,13 +235,13 @@ public class MessageHandlingApp extends SparkStreamingApp {
 								break;
 							case CommandSet.RECOG_ATTR_ONLY:
 								if (verbose) {
-									System.out.printf(
-											"Message handler: sending to Kafka <%s>%s=...\n",
-											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
-											execQueueBuilder.getQueue());
 									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
 											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC + ">" +
 											execQueueBuilder.getQueue() + "...");
+									
+//									throw new Exception("MessageHandlingApp: sending to Kafka <" +
+//											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC + ">" +
+//											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -244,7 +250,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 												dataQueue));
 								break;
 							default:
-								System.err.println("MessageHandlingApp: Unsupported command!");
+								System.err.println("MessageHandlingApp report: Unsupported command!");
 								loggerSupplier.get().error("MessageHandlingApp: Unsupported command!");
 								break;
 							}

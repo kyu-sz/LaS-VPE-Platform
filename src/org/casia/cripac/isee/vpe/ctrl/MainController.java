@@ -87,6 +87,10 @@ public class MainController {
 			//Submit to Spark.
 			ClientArguments yarnClientArguments = new ClientArguments(arguments, sparkConf);
 			new Client(yarnClientArguments, hadoopConf, sparkConf).run();
+			
+			while (true) {
+				System.out.println("I am alive!!!");
+			}
 		} else {
 			//Run locally.
 			switch (propertyCenter.applicationName) {

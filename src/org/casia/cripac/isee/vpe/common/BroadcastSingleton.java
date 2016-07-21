@@ -46,6 +46,7 @@ public class BroadcastSingleton<T> implements Serializable {
 	 * Constructor of BroadcastSingleton.
 	 * @param objFactory	Factory that provides method to generate a new object. 
 	 * @param clazz			The class of the object.
+	 * TODO: Check whether clazz here is the class type of T.
 	 */
 	@SuppressWarnings("unchecked")
 	public BroadcastSingleton(ObjectFactory<T> objFactory, @SuppressWarnings("rawtypes") Class clazz) {
