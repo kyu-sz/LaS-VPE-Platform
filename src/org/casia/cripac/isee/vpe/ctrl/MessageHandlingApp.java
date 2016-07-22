@@ -19,10 +19,10 @@ package org.casia.cripac.isee.vpe.ctrl;
 
 import java.net.URISyntaxException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -32,8 +32,9 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaPairInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
@@ -51,9 +52,21 @@ import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
+/**
+ * The MessageHandlingApp class is a Spark Streaming application responsible for
+ * receiving commands from sources like web-UI, then producing appropriate command messages
+ * and sending to command-defined starting application.
+ * @author Ken Yu, CRIPAC, 2016
+ *
+ */
 public class MessageHandlingApp extends SparkStreamingApp {
 	
-	public class CommandSet {
+	/**
+	 * This class stores possible commands and the String expressions of them.
+	 * @author Ken Yu, CRIPAC, 2016
+	 *
+	 */
+	public static class CommandSet {
 		public final static String TRACK_ONLY = "track-only";
 		public final static String TRACK_AND_RECOG_ATTR = "track-and-recog-attr";
 		public final static String RECOG_ATTR_ONLY = "recog-attr-only";
@@ -63,7 +76,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	public final static String APPLICATION_NAME = "MessageHandling";
 
 	private static final long serialVersionUID = -942388332211825622L;
-	private HashSet<String> topicsSet = new HashSet<>();
+//	private HashSet<String> topicSet = new HashSet<>();
+	private Map<String, Integer> topicPartitions = new HashMap<>();
 	private Properties trackingTaskProducerProperties;
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams;
@@ -72,6 +86,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	String messageListenerAddr;
 	int messageListenerPort;
 	
+	/**
+	 * The constructor method. It sets the configurations, but does not start the contexts.
+	 * @param propertyCenter	The propertyCenter stores all the available configurations.
+	 */
 	public MessageHandlingApp(SystemPropertyCenter propertyCenter) {
 		
 		super();
@@ -81,7 +99,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		messageListenerAddr = propertyCenter.messageListenerAddress;
 		messageListenerPort = propertyCenter.messageListenerPort;
 		
-		topicsSet.add(COMMAND_TOPIC);
+//		topicSet.add(COMMAND_TOPIC);
+		topicPartitions.put(COMMAND_TOPIC, propertyCenter.kafkaPartitions);
 		
 		trackingTaskProducerProperties = new Properties();
 		trackingTaskProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
@@ -111,7 +130,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
 						propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
 				.set("spark.executor.memory", propertyCenter.executorMem)
 				.set("spark.rdd.compress", "true")
-				.set("spark.storage.memoryFraction", "1");
+				.set("spark.storage.memoryFraction", "1")
+				.set("spark.streaming.receiver.writeAheadLog.enable", "true")
+				.set("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
+				.set("spark.streaming.receiver.writeAheadLog.closeFileAfterWrite", "true");
 		
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
@@ -121,8 +143,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		
 		commonKafkaParams = new HashMap<>();
 		System.out.println("MessageHandlingApp: metadata.broker.list=" + propertyCenter.kafkaBrokers);
+		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
-		commonKafkaParams.put("group.id", "MessageHandlingApp");
+		commonKafkaParams.put("group.id", "MessageHandlingApp" + UUID.randomUUID());
 		// Determine where the stream starts (default: largest)
 		commonKafkaParams.put("auto.offset.reset", "smallest");
 		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
@@ -165,10 +188,24 @@ public class MessageHandlingApp extends SparkStreamingApp {
 						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
 						SynthesizedLogger.class);
 		
-		//Create an input DStream using Kafka.
-		JavaPairInputDStream<String, byte[]> messageDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, topicsSet);
+		/**
+		 * Though the "createDirectStream" method is suggested for higher speed,
+		 * we use createStream for auto management of Kafka offsets by Zookeeper.
+		 * TODO Create multiple input streams and unite them together for higher receiving speed.
+		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
+		 * TODO Find ways to robustly make use of createDirectStream.
+		 */
+		JavaPairReceiverInputDStream<String, byte[]> messageDStream = KafkaUtils.createStream(
+				streamingContext,
+				String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
+				commonKafkaParams,
+				topicPartitions, 
+				StorageLevel.MEMORY_AND_DISK_SER());
+		
+//		//Create an input DStream using Kafka.
+//		JavaPairInputDStream<String, byte[]> messageDStream =
+//				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+//				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, topicSet);
 		
 		//Handle the messages received from Kafka,
 		messageDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
@@ -211,10 +248,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
 											execQueueBuilder.getQueue() + "...");
-//									
-//									throw new Exception("MessageHandlingApp: sending to Kafka <" +
-//											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
-//											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -229,10 +262,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
 											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
 											execQueueBuilder.getQueue() + "...");
-									
-//									throw new Exception("MessageHandlingApp: sending to Kafka <" +
-//											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
-//											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
@@ -245,10 +274,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
 											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC + ">" +
 											execQueueBuilder.getQueue() + "...");
-									
-//									throw new Exception("MessageHandlingApp: sending to Kafka <" +
-//											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC + ">" +
-//											execQueueBuilder.getQueue() + "...");
 								}
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(

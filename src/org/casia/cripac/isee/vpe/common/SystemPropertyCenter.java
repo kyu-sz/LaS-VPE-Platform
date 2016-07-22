@@ -63,7 +63,7 @@ public class SystemPropertyCenter {
 	}
 	
 	//Zookeeper properties
-	public String zookeeper = "localhost:2181";
+	public String zookeeperConnect = "localhost:2181";
 	public int sessionTimeoutMs = 10 * 10000;
 	public int connectionTimeoutMs = 8 * 1000;
 	
@@ -187,7 +187,7 @@ public class SystemPropertyCenter {
 			options.add("--arg");
 			options.add("-z");
 			options.add("--arg");
-			options.add(zookeeper);
+			options.add(zookeeperConnect);
 
 			options.add("--arg");
 			options.add("-n");
@@ -291,7 +291,7 @@ public class SystemPropertyCenter {
 		options.addOption("b", "kafka-brokers", true, "Kafka brokers' ip addresses and ports.");
 		options.addOption("p", "kafka-partition", true, "Kafka brokers' number of partitions.");
 		options.addOption("r", "kafka-replication-factor", true, "Kafka brokers' replication factor.");
-		options.addOption("z", "zookeeper", true, "Zookeeper server's ip address and port.");
+		options.addOption("z", "zookeeper-connect", true, "Zookeeper server's ip address and port.");
 		options.addOption("m", "spark-master", true, "Spark master (local[*], yarn, mesos).");
 		options.addOption("d", "spart-deploy-mode", true, "Spark deploy mode (cluster, client).");
 		options.addOption("n", "hdfs-default-name", true, "HDFS server ip address and port.");
@@ -400,8 +400,8 @@ public class SystemPropertyCenter {
 						System.out.println("Read from property file: " + entry.getKey() + "=" + entry.getValue());
 					}
 					switch ((String) entry.getKey()) {
-					case "zookeeper":
-						zookeeper = (String) entry.getValue(); 
+					case "zookeeper.connect":
+						zookeeperConnect = (String) entry.getValue(); 
 						break;
 					case "kafka.brokers":
 						kafkaBrokers = (String) entry.getValue(); 
@@ -492,7 +492,7 @@ public class SystemPropertyCenter {
 			kafkaFetchMessageMaxBytes = new Integer(commandLine.getOptionValue("kafka-fetch-message-max-bytes"));
 		}
 		if (commandLine.hasOption('z')) {
-			zookeeper = commandLine.getOptionValue('z');
+			zookeeperConnect = commandLine.getOptionValue('z');
 		}
 		if (commandLine.hasOption('d')) {
 			sparkDeployMode = commandLine.getOptionValue("d");

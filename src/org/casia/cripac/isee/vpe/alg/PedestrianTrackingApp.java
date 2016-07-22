@@ -19,10 +19,10 @@ package org.casia.cripac.isee.vpe.alg;
 
 import java.net.URISyntaxException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.UUID;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -33,9 +33,10 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.apache.spark.streaming.api.java.JavaPairInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
@@ -70,7 +71,8 @@ import scala.Tuple2;
 public class PedestrianTrackingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
-	private HashSet<String> taskTopicsSet = new HashSet<>();
+//	private HashSet<String> taskTopicsSet = new HashSet<>();
+	private Map<String, Integer> taskTopicPartitions = new HashMap<>();
 	private Properties trackProducerProperties = new Properties();
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
@@ -90,7 +92,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		messageListenerAddr = propertyCenter.messageListenerAddress;
 		messageListenerPort = propertyCenter.messageListenerPort;
 		
-		taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
+//		taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
+		taskTopicPartitions.put(PEDESTRIAN_TRACKING_TASK_TOPIC, propertyCenter.kafkaPartitions);
 		
 		trackProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
 		trackProducerProperties.put("producer.type", "sync");
@@ -132,7 +135,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		}
 
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
-		commonKafkaParams.put("group.id", "PedestrianTrackingApp");
+		commonKafkaParams.put("group.id", "PedestrianTrackingApp" + UUID.randomUUID());
+		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		// Determine where the stream starts (default: largest)
 		commonKafkaParams.put("auto.offset.reset", "smallest");
 		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
@@ -165,11 +169,25 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 				new BroadcastSingleton<>(
 						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
 						SynthesizedLogger.class);
+
+		/**
+		 * Though the "createDirectStream" method is suggested for higher speed,
+		 * we use createStream for auto management of Kafka offsets by Zookeeper.
+		 * TODO Create multiple input streams and unite them together for higher receiving speed.
+		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
+		 * TODO Find ways to robustly make use of createDirectStream.
+		 */
+		JavaPairReceiverInputDStream<String, byte[]> taskDStream = KafkaUtils.createStream(
+				streamingContext,
+				String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
+				commonKafkaParams,
+				taskTopicPartitions, 
+				StorageLevel.MEMORY_AND_DISK_SER());
 		
-		//Retrieve messages from Kafka.
-		JavaPairInputDStream<String, byte[]> taskDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, taskTopicsSet);
+//		//Retrieve messages from Kafka.
+//		JavaPairInputDStream<String, byte[]> taskDStream =
+//				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+//				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, taskTopicsSet);
 		
 		//Get video URL from the data queue.
 		JavaPairDStream<String, Tuple2<String, byte[]>> videoURLDStream = taskDStream.mapValues(new Function<byte[], Tuple2<String, byte[]>>() {

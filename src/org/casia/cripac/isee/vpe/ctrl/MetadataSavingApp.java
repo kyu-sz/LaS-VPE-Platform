@@ -20,8 +20,8 @@ package org.casia.cripac.isee.vpe.ctrl;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
+import java.util.UUID;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -34,9 +34,10 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.apache.spark.streaming.api.java.JavaPairInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.attr.Attribute;
@@ -64,8 +65,10 @@ import scala.Tuple2;
 public class MetadataSavingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = -4167212422997458537L;
-	private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
-	private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
+//	private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
+//	private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
+	private Map<String, Integer> trackTopicPartitions = new HashMap<>();
+	private Map<String, Integer> attrTopicPartitions = new HashMap<>();
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private String metadataSavingDir;
@@ -86,8 +89,10 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		messageListenerAddr = propertyCenter.messageListenerAddress;
 		messageListenerPort = propertyCenter.messageListenerPort;
 		
-		pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
-		pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
+		trackTopicPartitions.put(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, propertyCenter.kafkaPartitions);
+		attrTopicPartitions.put(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC, propertyCenter.kafkaPartitions);
+//		pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
+//		pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 
 		//Create contexts.
 		sparkConf = new SparkConf()
@@ -120,7 +125,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		}
 		
 		//Common Kafka settings
-		commonKafkaParams.put("group.id", "MetadataSavingApp");
+		commonKafkaParams.put("group.id", "MetadataSavingApp" + UUID.randomUUID());
+		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
 		// Determine where the stream starts (default: largest)
 		commonKafkaParams.put("auto.offset.reset", "smallest");
@@ -162,11 +168,25 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				new BroadcastSingleton<>(
 						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
 						SynthesizedLogger.class);
+
+		/**
+		 * Though the "createDirectStream" method is suggested for higher speed,
+		 * we use createStream for auto management of Kafka offsets by Zookeeper.
+		 * TODO Create multiple input streams and unite them together for higher receiving speed.
+		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
+		 * TODO Find ways to robustly make use of createDirectStream.
+		 */
+		JavaPairReceiverInputDStream<String, byte[]> trackByteArrayDStream = KafkaUtils.createStream(
+				streamingContext,
+				String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
+				commonKafkaParams,
+				trackTopicPartitions, 
+				StorageLevel.MEMORY_AND_DISK_SER());
 		
-		//Retrieve tracks from Kafka.
-		JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, pedestrianTrackTopicsSet);
+//		//Retrieve tracks from Kafka.
+//		JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
+//				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+//				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, pedestrianTrackTopicsSet);
 		
 		//Extract videoURLs from the tracks to use as keys.
 		JavaPairDStream<String,Track> trackDStream =
@@ -234,10 +254,24 @@ public class MetadataSavingApp extends SparkStreamingApp {
 			}
 		});
 
-		//Retrieve attributes from Kafka
-		JavaPairInputDStream<String, byte[]> attrDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, pedestrianAttrTopicsSet);
+		/**
+		 * Though the "createDirectStream" method is suggested for higher speed,
+		 * we use createStream for auto management of Kafka offsets by Zookeeper.
+		 * TODO Create multiple input streams and unite them together for higher receiving speed.
+		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
+		 * TODO Find ways to robustly make use of createDirectStream.
+		 */
+		JavaPairReceiverInputDStream<String, byte[]> attrDStream = KafkaUtils.createStream(
+				streamingContext,
+				String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
+				commonKafkaParams,
+				attrTopicPartitions, 
+				StorageLevel.MEMORY_AND_DISK_SER());
+		
+//		//Retrieve attributes from Kafka
+//		JavaPairInputDStream<String, byte[]> attrDStream =
+//				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+//				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, pedestrianAttrTopicsSet);
 		
 		//Display the attributes.
 		//TODO Modify the streaming steps from here to store the meta data.
@@ -270,7 +304,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 										+ result._1() + "=" + attr.facing);
 							}
 						} catch (IOException e) {
-							loggerSupplier.get().error(e);
+							loggerSupplier.get().error("Exception caught when decompressing attributes", e);
 						}
 					}
 					

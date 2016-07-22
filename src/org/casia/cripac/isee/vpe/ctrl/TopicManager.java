@@ -43,7 +43,7 @@ public class TopicManager {
 		topics.add(MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		
 		// Check each node of the zookeeper cluster respectively.
-		String[] znodes = propertyCenter.zookeeper.split(",");
+		String[] znodes = propertyCenter.zookeeperConnect.split(",");
 		for (String znode : znodes) {
 			// Initialize the system environment.
 			System.out.println("Connecting to zookeeper: " + znode);

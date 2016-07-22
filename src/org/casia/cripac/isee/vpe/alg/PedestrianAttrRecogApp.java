@@ -20,9 +20,9 @@ package org.casia.cripac.isee.vpe.alg;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -33,9 +33,10 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.apache.spark.streaming.api.java.JavaPairInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.attr.Attribute;
@@ -69,6 +70,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private boolean verbose = false;
 	
+//	private HashSet<String> inputTopicsSet = new HashSet<>();
+//	private HashSet<String> taskTopicsSet = new HashSet<>();
+	private Map<String, Integer> inputTopicPartitions = new HashMap<>();
+	private Map<String, Integer> taskTopicPartitions = new HashMap<>();
+	
 	String messageListenerAddr;
 	int messageListenerPort;
 
@@ -78,6 +84,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 	public PedestrianAttrRecogApp(SystemPropertyCenter propertyCenter) {
 		super();
+
+//		taskTopicsSet.add(PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
+//		inputTopicsSet.add(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
+		taskTopicPartitions.put(PEDESTRIAN_ATTR_RECOG_TASK_TOPIC, propertyCenter.kafkaPartitions);
+		inputTopicPartitions.put(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC, propertyCenter.kafkaPartitions);
 		
 		verbose = propertyCenter.verbose;
 		
@@ -125,7 +136,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		}
 		
 		//Common kafka settings.
-		commonKafkaParams.put("group.id", "PedestrianAttrRecogApp");
+		commonKafkaParams.put("group.id", "PedestrianAttrRecogApp" + UUID.randomUUID());
+		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		// Determine where the stream starts (default: largest)
 		commonKafkaParams.put("auto.offset.reset", "smallest");
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
@@ -159,16 +171,27 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
 						SynthesizedLogger.class);
 
-		//Retrieve data from Kafka.
-		HashSet<String> inputTopicsSet = new HashSet<>();
-		inputTopicsSet.add(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
-		JavaPairInputDStream<String, byte[]> trackBytesDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, inputTopicsSet);
+		/**
+		 * Though the "createDirectStream" method is suggested for higher speed,
+		 * we use createStream for auto management of Kafka offsets by Zookeeper.
+		 * TODO Create multiple input streams and unite them together for higher receiving speed.
+		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
+		 * TODO Find ways to robustly make use of createDirectStream.
+		 */
+		JavaPairReceiverInputDStream<String, byte[]> trackDStream = KafkaUtils.createStream(
+				streamingContext,
+				String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
+				commonKafkaParams,
+				inputTopicPartitions, 
+				StorageLevel.MEMORY_AND_DISK_SER());
+//		//Retrieve data from Kafka.
+//		JavaPairInputDStream<String, byte[]> trackBytesDStream =
+//				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+//				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, inputTopicsSet);
 		
 		//Extract tracks from the data.
 		JavaPairDStream<String, Tuple2<Track, byte[]>> trackDStreamFromKafka =
-		trackBytesDStream.mapValues(new Function<byte[], Tuple2<Track, byte[]>>() {
+		trackDStream.mapValues(new Function<byte[], Tuple2<Track, byte[]>>() {
 
 			private static final long serialVersionUID = -2138675698164723884L;
 
@@ -180,15 +203,27 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 				return new Tuple2<Track, byte[]>(track, parts.rest);
 			}
 		});
+
+		/**
+		 * Though the "createDirectStream" method is suggested for higher speed,
+		 * we use createStream for auto management of Kafka offsets by Zookeeper.
+		 * TODO Create multiple input streams and unite them together for higher receiving speed.
+		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
+		 * TODO Find ways to robustly make use of createDirectStream.
+		 */
+		JavaPairReceiverInputDStream<String, byte[]> taskDStream = KafkaUtils.createStream(
+				streamingContext,
+				String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
+				commonKafkaParams,
+				taskTopicPartitions, 
+				StorageLevel.MEMORY_AND_DISK_SER());
+//		//Get tasks from Kafka. 
+//		JavaPairInputDStream<String, byte[]> taskDStream =
+//				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
+//				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, taskTopicsSet);
 		
 		//Retrieve tracks from database.
 		FakeDatabaseConnector databaseConnector = new FakeDatabaseConnector();
-		HashSet<String> taskTopicsSet = new HashSet<>();
-		taskTopicsSet.add(PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
-		//Get tasks from Kafka. 
-		JavaPairInputDStream<String, byte[]> taskDStream =
-				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, taskTopicsSet);
 		
 		JavaPairDStream<String, Tuple2<Track, byte[]>> trackDStreamFromTask =
 		taskDStream.mapValues(new Function<byte[], Tuple2<Track, byte[]>>() {
@@ -244,7 +279,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						
 						//Prepare new data queue.
 						byte[] resBytes = ByteArrayFactory.getByteArray(attribute);
-						byte[] compressedResBytes = ByteArrayFactory.getByteArray(resBytes);
+						byte[] compressedResBytes = ByteArrayFactory.compress(resBytes);
 						byte[] newDataQueue = ByteArrayFactory.combineByteArray(
 								ByteArrayFactory.appendLengthToHead(resBytes), dataQueue);
 						byte[] compressedDataQueue = ByteArrayFactory.compress(newDataQueue);
