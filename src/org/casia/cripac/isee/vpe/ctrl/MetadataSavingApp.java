@@ -182,7 +182,6 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				commonKafkaParams,
 				trackTopicPartitions, 
 				StorageLevel.MEMORY_AND_DISK_SER());
-		
 //		//Retrieve tracks from Kafka.
 //		JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
 //				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
@@ -267,7 +266,6 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				commonKafkaParams,
 				attrTopicPartitions, 
 				StorageLevel.MEMORY_AND_DISK_SER());
-		
 //		//Retrieve attributes from Kafka
 //		JavaPairInputDStream<String, byte[]> attrDStream =
 //				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,

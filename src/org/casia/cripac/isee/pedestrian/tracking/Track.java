@@ -43,20 +43,29 @@ public class Track implements Serializable {
 		/**
 		 * x-coordinate of the point on the left-upper corner of the bounding box.
 		 */
-		public int x;
+		public int x = 0;
 		
 		/**
 		 * y-coordinate of the point on the left-upper corner of the bounding box.
 		 */
-		public int y;
+		public int y = 0;
 		/**
 		 * The width of the bounding box.
 		 */
-		public int width;
+		public int width = 0;
 		/**
 		 * The height of the bounding box.
 		 */
-		public int height;
+		public int height = 0;
+		/**
+		 * The RGB data of the patch croped by the bounding box.
+		 * If it is not availble, it should be set to null.
+		 * Otherwise, it should follow the format of the 'data' field of OpenCV 2.x's Mat class.
+		 * When reconstructing a OpenCV's Mat with this bounding box,
+		 * first allocate a Mat with width and height same to this bounding box and format as CV_8UC3,
+		 * then directly copy data of the 'patchData' field here to the 'data' field of it using functions like memcpy.
+		 */
+		public byte[] patchData = null;
 	}
 	
 	private static final long serialVersionUID = -6133927313545472821L;
