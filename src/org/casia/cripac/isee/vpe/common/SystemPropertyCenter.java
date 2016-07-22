@@ -99,6 +99,9 @@ public class SystemPropertyCenter {
 	public String sparkStreamingDynamicAllocationMaxExecutors = "100";
 	public String sparkStreamingDynamicAllocationDebug = "true";
 	public String sparkStreamingDynamicAllocationDelayRounds = "5";
+
+	public String messageListenerAddress = "localhost";
+	public int messageListenerPort = 0;
 	
 	/**
 	 * Whether to print verbose running information.
@@ -194,17 +197,17 @@ public class SystemPropertyCenter {
 			options.add("--arg");
 			options.add("-p");
 			options.add("--arg");
-			options.add(new Integer(kafkaPartitions).toString());
+			options.add("" + kafkaPartitions);
 
 			options.add("--arg");
 			options.add("-r");
 			options.add("--arg");
-			options.add(new Integer(kafkaReplicationFactor).toString());
+			options.add("" + kafkaReplicationFactor);
 
 			options.add("--arg");
 			options.add("--kafka-fetch-message-max-bytes");
 			options.add("--arg");
-			options.add(new Integer(kafkaFetchMessageMaxBytes).toString());
+			options.add("" + kafkaFetchMessageMaxBytes);
 
 			options.add("--arg");
 			options.add("-y");
@@ -255,6 +258,16 @@ public class SystemPropertyCenter {
 			options.add("--spark-streaming-dynamicAllocation-delay-rounds");
 			options.add("--arg");
 			options.add(sparkStreamingDynamicAllocationDelayRounds);
+			
+			options.add("--arg");
+			options.add("--message-listening-addr");
+			options.add("--arg");
+			options.add(messageListenerAddress);
+			
+			options.add("--arg");
+			options.add("--message-listening-port");
+			options.add("--arg");
+			options.add("" + messageListenerPort);
 		} else {
 			options.add("-f");
 			options.add(propertyFilePath);
@@ -299,6 +312,8 @@ public class SystemPropertyCenter {
 		options.addOption(null, "spark-streaming-dynamicAllocation-maxExecutors", true, "");
 		options.addOption(null, "spark-streaming-dynamicAllocation-debug", true, "");
 		options.addOption(null, "spark-streaming-dynamicAllocation-delay-rounds", true, "");
+		options.addOption(null, "message-listening-addr", true, "");
+		options.addOption(null, "message-listening-port", true, "");
 		CommandLine commandLine;
 		
 		try {
@@ -535,6 +550,14 @@ public class SystemPropertyCenter {
 		if (commandLine.hasOption("spark-streaming-dynamicAllocation-delay-rounds")) {
 			sparkStreamingDynamicAllocationDelayRounds =
 					commandLine.getOptionValue("spark-streaming-dynamicAllocation-delay-rounds");
+		}
+		if (commandLine.hasOption("message-listening-addr")) {
+			messageListenerAddress =
+					commandLine.getOptionValue("message-listening-addr");
+		}
+		if (commandLine.hasOption("message-listening-port")) {
+			messageListenerPort =
+					new Integer(commandLine.getOptionValue("message-listening-port"));
 		}
 		
 		if (sparkMaster.contains("yarn") && !onYARN) {

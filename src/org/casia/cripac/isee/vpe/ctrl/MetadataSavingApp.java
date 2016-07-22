@@ -76,9 +76,15 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
 	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
 	
+	String messageListenerAddr;
+	int messageListenerPort;
+	
 	public MetadataSavingApp(SystemPropertyCenter propertyCenter) throws IOException, IllegalArgumentException, ParserConfigurationException, SAXException {
 		
 		verbose = propertyCenter.verbose;
+		
+		messageListenerAddr = propertyCenter.messageListenerAddress;
+		messageListenerPort = propertyCenter.messageListenerPort;
 		
 		pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
@@ -151,9 +157,11 @@ public class MetadataSavingApp extends SparkStreamingApp {
 						}
 					}
 				}, FileSystem.class); 
-		
+
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
-				new BroadcastSingleton<>(new SynthesizedLoggerFactory(), SynthesizedLogger.class);
+				new BroadcastSingleton<>(
+						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
+						SynthesizedLogger.class);
 		
 		//Retrieve tracks from Kafka.
 		JavaPairInputDStream<String, byte[]> trackByteArrayDStream =

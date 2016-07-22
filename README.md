@@ -34,7 +34,9 @@ Welcome to read Ken Yu's Chinese [blog](http://blog.csdn.net/kyu_115s/article/de
 
 # How to monitor
 
-To monitor your Spark application, you might need to access the log files in the slave nodes. However, if your application runs on a cluster without desktop, and you connect remotely to the cluster, you might not be able to access the web pages loaded from the slave nodes.
+To briefly monitor, some informations are printed to the console that starts each module. However, to use this function, you must have the name of the host you start the module registered to each task nodes.
+
+To fully monitor your Spark application, you might need to access the log files in the slave nodes. However, if your application runs on a cluster without desktop, and you connect remotely to the cluster, you might not be able to access the web pages loaded from the slave nodes.
 
 To solve this problem, first add the ip address of the slave nodes to the /etc/hosts in the master node. Make sure the master node can access the pages on slave nodes by terminal browsers like w3m or lynx. In Ubuntu, they can be installed by
 ```shell

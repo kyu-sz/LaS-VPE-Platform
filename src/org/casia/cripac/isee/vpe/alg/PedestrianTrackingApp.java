@@ -75,6 +75,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private boolean verbose = false;
+	
+	String messageListenerAddr;
+	int messageListenerPort;
 
 	public static final String APPLICATION_NAME = "PedestrianTracking";
 	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
@@ -83,6 +86,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		super();
 		
 		verbose = propertyCenter.verbose;
+		
+		messageListenerAddr = propertyCenter.messageListenerAddress;
+		messageListenerPort = propertyCenter.messageListenerPort;
 		
 		taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
 		
@@ -156,7 +162,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 					}
 				}, PedestrianTracker.class);
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
-				new BroadcastSingleton<>(new SynthesizedLoggerFactory(), SynthesizedLogger.class);
+				new BroadcastSingleton<>(
+						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
+						SynthesizedLogger.class);
 		
 		//Retrieve messages from Kafka.
 		JavaPairInputDStream<String, byte[]> taskDStream =

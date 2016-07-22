@@ -68,6 +68,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private boolean verbose = false;
+	
+	String messageListenerAddr;
+	int messageListenerPort;
 
 	public static final String APPLICATION_NAME = "PedestrianAttributeRecognizing";
 	public static final String PEDESTRIAN_ATTR_RECOG_TASK_TOPIC = "pedestrian-attr-recog-task";
@@ -77,6 +80,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		super();
 		
 		verbose = propertyCenter.verbose;
+		
+		messageListenerAddr = propertyCenter.messageListenerAddress;
+		messageListenerPort = propertyCenter.messageListenerPort;
 		
 		attrProducerProperties = new Properties();
 		attrProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
@@ -149,7 +155,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 					}
 				}, PedestrianAttrRecognizer.class);
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
-				new BroadcastSingleton<>(new SynthesizedLoggerFactory(), SynthesizedLogger.class);
+				new BroadcastSingleton<>(
+						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
+						SynthesizedLogger.class);
 
 		//Retrieve data from Kafka.
 		HashSet<String> inputTopicsSet = new HashSet<>();

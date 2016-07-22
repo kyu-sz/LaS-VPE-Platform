@@ -52,6 +52,7 @@ public class TopicManager {
 					propertyCenter.sessionTimeoutMs,
 					propertyCenter.connectionTimeoutMs);
 			for (String topic : topics) {
+				System.out.println("Checking topic: " + topic);
 				if (!AdminUtils.topicExists(zkClient, topic)) {
 					System.out.println("Creating topic: " + topic);
 					kafka.admin.TopicCommand.main(new String[]{

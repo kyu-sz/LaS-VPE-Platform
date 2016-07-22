@@ -23,13 +23,24 @@ package org.casia.cripac.isee.vpe.common;
 public class SynthesizedLoggerFactory extends ObjectFactory<SynthesizedLogger> {
 
 	private static final long serialVersionUID = -6857919300875993611L;
+	
+	String addr;
+	int port;
+	
+	/**
+	 * 
+	 */
+	public SynthesizedLoggerFactory(String messageListenerAddr, int messageListenerPort) {
+		addr = messageListenerAddr;
+		port = messageListenerPort;
+	}
 
 	/* (non-Javadoc)
 	 * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject()
 	 */
 	@Override
 	public SynthesizedLogger getObject() {
-		return new SynthesizedLogger();
+		return new SynthesizedLogger(addr, port);
 	}
 
 }

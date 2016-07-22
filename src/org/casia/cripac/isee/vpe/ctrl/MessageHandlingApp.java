@@ -28,7 +28,6 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -41,10 +40,10 @@ import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
-import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
+import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.xml.sax.SAXException;
 
@@ -70,11 +69,17 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	private Map<String, String> commonKafkaParams;
 	private boolean verbose = false;
 	
+	String messageListenerAddr;
+	int messageListenerPort;
+	
 	public MessageHandlingApp(SystemPropertyCenter propertyCenter) {
 		
 		super();
 		
 		verbose = propertyCenter.verbose;
+		
+		messageListenerAddr = propertyCenter.messageListenerAddress;
+		messageListenerPort = propertyCenter.messageListenerPort;
 		
 		topicsSet.add(COMMAND_TOPIC);
 		
@@ -154,9 +159,11 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				new BroadcastSingleton<KafkaProducer<String, byte[]>>(
 						new KafkaProducerFactory<>(trackingTaskProducerProperties),
 						KafkaProducer.class);
-		
+
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
-				new BroadcastSingleton<>(new SynthesizedLoggerFactory(), Logger.class);
+				new BroadcastSingleton<>(
+						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
+						SynthesizedLogger.class);
 		
 		//Create an input DStream using Kafka.
 		JavaPairInputDStream<String, byte[]> messageDStream =
@@ -250,7 +257,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 												dataQueue));
 								break;
 							default:
-								System.err.println("MessageHandlingApp report: Unsupported command!");
 								loggerSupplier.get().error("MessageHandlingApp: Unsupported command!");
 								break;
 							}

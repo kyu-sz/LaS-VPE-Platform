@@ -21,6 +21,9 @@ package org.casia.cripac.isee.vpe.ctrl;
  */
 
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.URISyntaxException;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -46,6 +49,7 @@ import org.xml.sax.SAXException;
  */
 public class MainController {
 	
+	@SuppressWarnings("deprecation")
 	public static void main(String[] args) throws NoAppSpecifiedException, URISyntaxException, IOException, ParserConfigurationException, SAXException {
 		
 		//Analyze the command line and store the options into a system property center.
@@ -56,16 +60,6 @@ public class MainController {
 			System.out.println("Checking required topics...");
 		}
 		TopicManager.checkTopics(propertyCenter);
-		
-		String[] arguments = propertyCenter.generateCommandLineOpts();
-		
-		if (propertyCenter.verbose) {
-			System.out.print("Submitting with args:");
-			for (String arg : arguments) {
-				System.out.print(" " + arg);
-			}
-			System.out.println("");
-		}
 
 		SparkConf sparkConf = new SparkConf();
 		//Prepare system configuration.
@@ -84,14 +78,50 @@ public class MainController {
 //				"--arg", "10"
 //			};
 			
+			DatagramSocket server = new DatagramSocket(0);
+			
+			//Create a thread to listen to messages.
+			Thread listener = new Thread(new Runnable() {
+				
+				@Override
+				public void run() {
+					byte[] recvBuf = new byte[1000];
+					DatagramPacket recvPacket = new DatagramPacket(recvBuf, recvBuf.length);
+					try {
+						while (true) {
+							server.receive(recvPacket);
+							String recvStr = new String(recvPacket.getData(), 0, recvPacket.getLength());
+							System.out.println(recvStr);
+						}
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					server.close();
+				}
+			});
+			listener.start();
+			
+			propertyCenter.messageListenerAddress = InetAddress.getLocalHost().getHostName();
+			propertyCenter.messageListenerPort = server.getLocalPort();
+			
+			String[] arguments = propertyCenter.generateCommandLineOpts();
+			
+			if (propertyCenter.verbose) {
+				System.out.print("Submitting with args:");
+				for (String arg : arguments) {
+					System.out.print(" " + arg);
+				}
+				System.out.println("");
+			}
+			
 			//Submit to Spark.
 			ClientArguments yarnClientArguments = new ClientArguments(arguments, sparkConf);
 			new Client(yarnClientArguments, hadoopConf, sparkConf).run();
 			
-			while (true) {
-				System.out.println("I am alive!!!");
-			}
+			listener.stop();
 		} else {
+			String[] arguments = propertyCenter.generateCommandLineOpts();
+			
 			//Run locally.
 			switch (propertyCenter.applicationName) {
 			case MessageHandlingApp.APPLICATION_NAME:
