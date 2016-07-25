@@ -214,9 +214,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						byte[] restDataQueue = parts.rest;
 						
 						Set<Track> tracks = trackerSupplier.get().track(videoURL);
+
+						UUID taskID = UUID.randomUUID();
 						
 						for (Track track : tracks) {
-							//Append the track to the dataQueue.
+							// Fill in this field here, so track generators do not need to consider about it.
+							track.taskID = taskID;
+							
+							// Append the track to the dataQueue.
 							byte[] trackBytes = ByteArrayFactory.getByteArray(track);
 							byte[] compressedTrackBytes = ByteArrayFactory.compress(trackBytes);
 							byte[] newDataQueue = ByteArrayFactory.combineByteArray(
@@ -224,7 +229,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 							byte[] compressedDataQueue = ByteArrayFactory.compress(newDataQueue);
 
 							if (execQueue.length() > 0) {
-								//Extract current execution queue.
+								// Extract current execution queue.
 								String curExecQueue;
 								String restExecQueue;
 								int splitIndex = execQueue.indexOf('|');

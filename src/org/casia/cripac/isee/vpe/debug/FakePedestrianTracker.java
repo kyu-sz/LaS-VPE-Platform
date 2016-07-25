@@ -53,10 +53,11 @@ public class FakePedestrianTracker extends PedestrianTracker {
 	public Set<Track> generateRandomTrackSet(String videoURL) {
 		HashSet<Track> trackSet = new HashSet<>();
 		
-		int trackNum = random.nextInt(31) + 1;
-		for (int i = 0; i < trackNum; ++i) {
+		int numTracks = random.nextInt(31) + 1;
+		for (int i = 0; i < numTracks; ++i) {
 			Track track = generateRandomTrack(videoURL);
-			track.trackID = i;
+			track.id = i;
+			track.numTracks = numTracks;
 			trackSet.add(track);
 		}
 		

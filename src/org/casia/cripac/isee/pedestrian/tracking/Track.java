@@ -19,6 +19,7 @@ package org.casia.cripac.isee.pedestrian.tracking;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * The Track class stores a sequence of bounding boxes,
@@ -49,14 +50,17 @@ public class Track implements Serializable {
 		 * y-coordinate of the point on the left-upper corner of the bounding box.
 		 */
 		public int y = 0;
+		
 		/**
 		 * The width of the bounding box.
 		 */
 		public int width = 0;
+		
 		/**
 		 * The height of the bounding box.
 		 */
 		public int height = 0;
+		
 		/**
 		 * The RGB data of the patch croped by the bounding box.
 		 * If it is not availble, it should be set to null.
@@ -73,20 +77,37 @@ public class Track implements Serializable {
 	/**
 	 * The ID of the track in the video.
 	 * The ID is usually organized in a chronological order.
-	 * Track generating algorithms, like pedestrian tracking algorithms, should be responsible of generating this ID.
+	 * Track generators, like pedestrian tracking modules, should be responsible of generating this ID.
 	 * Its default value is -1, meaning the ID has not been generated yet.
 	 */
-	public int trackID = -1;
+	public int id = -1;
+	
+	/**
+	 * The total number of tracks in the video.
+	 * This field can be left as -1, meaning that this information is not available yet,
+	 * but setting this field can help checking whether all tracks have been obtained or processed in latter steps.
+	 * So it is highly recommended that track generators should also fill in this field.
+	 */
+	public int numTracks = -1;
+	
 	/**
 	 * The URL indicating where the source video is stored.
 	 */
 	public String videoURL = null;
+	
 	/**
 	 * The starting frame index of this track in the source video.
 	 * User can use this to calculate the starting time of this track using the FPS information of the video.
 	 * Its default value is -1, meaning the index has not been determined yet.
 	 */
 	public int startFrameIndex = -1;
+	
+	/**
+	 * This field should be filled in case that following steps need to group tracks generated in one task.
+	 * Track generators do not need to fill in this field. 
+	 */
+	public UUID taskID = null;
+	
 	/**
 	 * Storing the locations with the BoundingBox class at each moment, sorted by time.
 	 */

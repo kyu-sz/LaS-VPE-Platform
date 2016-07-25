@@ -6,3 +6,6 @@ lib/spark-examples-1.6.1-hadoop2.6.0.jar filter=lfs diff=lfs merge=lfs -text
 lib/spark-assembly-1.6.2-hadoop2.6.0.jar filter=lfs diff=lfs merge=lfs -text
 lib/spark-examples-1.6.2-hadoop2.6.0.jar filter=lfs diff=lfs merge=lfs -text
 lib/guava-19.0.jar filter=lfs diff=lfs merge=lfs -text
+lib/javacpp.jar filter=lfs diff=lfs merge=lfs -text
+lib/opencv.jar filter=lfs diff=lfs merge=lfs -text
+lib/opencv-linux-x86_64.jar filter=lfs diff=lfs merge=lfs -text
