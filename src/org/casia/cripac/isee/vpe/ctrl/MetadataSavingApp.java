@@ -32,6 +32,7 @@ import java.util.UUID;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.HarFileSystem;
@@ -101,31 +102,25 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		attrTopicPartitions.put(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC, propertyCenter.kafkaPartitions);
 //		pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 //		pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
+		
+		SynthesizedLogger logger = new SynthesizedLogger(messageListenerAddr, messageListenerPort);
+		logger.info("MessageHandlingApp: spark.dynamic.allocation.enabled="
+				+ propertyCenter.sparkDynamicAllocationEnabled);
+		logger.info("MessageHandlingApp: spark.streaming.dynamic.allocation.enabled="
+				+ propertyCenter.sparkStreamingDynamicAllocationEnabled);
+		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.minExecutors="
+				+ propertyCenter.sparkStreamingDynamicAllocationMinExecutors);
+		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.maxExecutors="
+				+ propertyCenter.sparkStreamingDynamicAllocationMaxExecutors);
 
 		//Create contexts.
 		sparkConf = new SparkConf()
-				.setAppName(APPLICATION_NAME);
-		// Use fair sharing between jobs. 
-		sparkConf = sparkConf
-				.set("spark.scheduler.mode",
-						propertyCenter.sparkSchedulerMode)
-				.set("spark.shuffle.service.enabled",
-						propertyCenter.sparkShuffleServiceEnabled)
-				.set("spark.dynamicAllocation.enabled",
-						propertyCenter.sparkDynamicAllocationEnabled)
-				.set("spark.streaming.dynamicAllocation.enabled",
-						propertyCenter.sparkStreamingDynamicAllocationEnabled)
-				.set("spark.streaming.dynamicAllocation.minExecutors",
-						propertyCenter.sparkStreamingDynamicAllocationMinExecutors)
-				.set("spark.streaming.dynamicAllocation.maxExecutors",
-						propertyCenter.sparkStreamingDynamicAllocationMaxExecutors)
-				.set("spark.streaming.dynamicAllocation.debug",
-						propertyCenter.sparkStreamingDynamicAllocationDebug)
-				.set("spark.streaming.dynamicAllocation.delay.rounds",
-						propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
-				.set("spark.executor.memory", propertyCenter.executorMem)
+				.setAppName(APPLICATION_NAME)
 				.set("spark.rdd.compress", "true")
-				.set("spark.storage.memoryFraction", "1");
+				.set("spark.streaming.receiver.writeAheadLog.enable", "true")
+				.set("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
+				.set("spark.streaming.receiver.writeAheadLog.closeFileAfterWrite", "true");
+		
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)
@@ -151,6 +146,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	protected JavaStreamingContext getStreamContext() {
 		//Create contexts.
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
+		sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
 		final BroadcastSingleton<FileSystem> fileSystemSingleton =
@@ -217,6 +213,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
 						new JavaSparkContext(trackGroupRDD.context()));
 				
+				trackGroupRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				trackGroupRDD.foreach(new VoidFunction<Tuple2<UUID,Iterable<Track>>>() {
 
 					private static final long serialVersionUID = 5522067102611597772L;
@@ -296,72 +293,18 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							track = trackIterator.next();
 						}
 						
-						long cnt = fs.getContentSummary(new Path(storeRoot)).getDirectoryCount();
+						ContentSummary contentSummary = fs.getContentSummary(new Path(storeRoot));
+						long cnt = contentSummary.getDirectoryCount();
 						if (cnt == numTracks) {
 							loggerSupplier.get().info("Task " + videoURL + "-" + taskID + " finished!");
 							
 							HarFileSystem harFileSystem = new HarFileSystem(fs);
 							// TODO Pack all the results of a task into a HAR.
+							harFileSystem.copyFromLocalFile(true, new Path(storeRoot), new Path(storeRoot + ".har"));
+							harFileSystem.close();
 							
 							loggerSupplier.get().info("Tracks of " + videoURL + "-" + taskID + " packed!");
 						}
-					}
-				});
-			}
-		});;
-		
-		trackBytesDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
-
-			private static final long serialVersionUID = -5882840683065498941L;
-
-			@Override
-			public void call(JavaPairRDD<String, byte[]> trackBytesRDD) throws Exception {
-				
-				final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton.getSupplier(
-						new JavaSparkContext(trackBytesRDD.context()));
-				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
-						new JavaSparkContext(trackBytesRDD.context()));
-				
-				trackBytesRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
-
-					private static final long serialVersionUID = 4997746521142704165L;
-
-					@Override
-					public void call(Iterator<Tuple2<String, byte[]>> trackByteArrays) throws Exception {
-						
-					}
-				});
-				
-				trackBytesRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
-
-					private static final long serialVersionUID = -7729434941232380812L;
-
-					@Override
-					public void call(Tuple2<String, byte[]> trackBytes) throws Exception {
-						Track track = (Track) ByteArrayFactory.getObject(ByteArrayFactory.decompress(trackBytes._2()));
-						
-						String videoURL = track.videoURL;
-						String dst = trackSavingDir + "/" + videoURL;
-						
-						if (verbose) {
-							loggerSupplier.get().info("MetadataSavingApp: Saving track to " + dst);
-						}
-						
-						FileSystem fs = fsSupplier.get();
-						Path dstPath = new Path(dst);
-						
-						FSDataOutputStream outputStream;
-						if (fs.exists(dstPath)) {
-							outputStream = fs.append(dstPath);
-						} else {
-							outputStream = fs.create(dstPath);
-						}
-						
-						//TODO Convert the track group into string.
-						byte[] bytes = track.toString().getBytes();
-						outputStream.write(bytes, 0, bytes.length);
-						
-						outputStream.close();
 					}
 				});
 			}
@@ -397,9 +340,10 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
 						new JavaSparkContext(attrRDD.context()));
 				
-				System.out.println("RDD count: " + attrRDD.count() + " partitions:" + attrRDD.getNumPartitions()
-				+ " " + attrRDD.toString());
-				
+//				System.out.println("RDD count: " + attrRDD.count() + " partitions:" + attrRDD.getNumPartitions()
+//				+ " " + attrRDD.toString());
+
+				attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				attrRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
 
 					private static final long serialVersionUID = -4846631314801254257L;
@@ -413,7 +357,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 							if (verbose) {
 								loggerSupplier.get().info("Metadata saver received attribute: "
-										+ result._1() + "=" + attr.facing);
+										+ "Facing" + "=" + attr.facing + "; Sex=" + attr.sex);
 							}
 						} catch (IOException e) {
 							loggerSupplier.get().error("Exception caught when decompressing attributes", e);

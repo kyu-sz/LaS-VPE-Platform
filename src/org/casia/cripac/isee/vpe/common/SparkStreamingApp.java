@@ -24,8 +24,8 @@ import java.io.Serializable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.api.java.JavaStreamingContextFactory;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,
@@ -59,26 +59,35 @@ public abstract class SparkStreamingApp implements Serializable {
 		
 		SynthesizedLogger logger =
 				new SynthesizedLogger(propertyCenter.messageListenerAddress, propertyCenter.messageListenerPort);
+	
 		logger.info("Using " + propertyCenter.checkpointDir + " as checkpoint directory.");
-		
-		streamingContext = JavaStreamingContext.getOrCreate(propertyCenter.checkpointDir, new JavaStreamingContextFactory() {
-			
-			@Override
-			public JavaStreamingContext create() {
-				JavaStreamingContext context = getStreamContext();
-				try {
-					if (propertyCenter.sparkMaster.contains("local")) {
-						new File(propertyCenter.checkpointDir).mkdirs();
-					} else {
-						FileSystem.get(new Configuration()).mkdirs(new Path(propertyCenter.checkpointDir));
+		streamingContext = JavaStreamingContext.getOrCreate(
+				propertyCenter.checkpointDir,
+				new Function0<JavaStreamingContext>() {
+
+					private static final long serialVersionUID = 1136960093227848775L;
+
+					@Override
+					public JavaStreamingContext call() throws Exception {
+						JavaStreamingContext context = getStreamContext();
+						try {
+							if (propertyCenter.sparkMaster.contains("local")) {
+								File dir = new File(propertyCenter.checkpointDir);
+								dir.delete();
+								dir.mkdirs();
+							} else {
+								FileSystem fs = FileSystem.get(new Configuration());
+								Path dir = new Path(propertyCenter.checkpointDir);
+								fs.delete(dir, true);
+								fs.mkdirs(dir);
+							}
+							context.checkpoint(propertyCenter.checkpointDir);
+						} catch (IllegalArgumentException | IOException e) {
+							e.printStackTrace();
+						}
+						return context;
 					}
-					context.checkpoint(propertyCenter.checkpointDir);
-				} catch (IllegalArgumentException | IOException e) {
-					e.printStackTrace();
-				}
-				return context;
-			}
-		});
+				}, new Configuration(), true);
 	}
 	
 	/**

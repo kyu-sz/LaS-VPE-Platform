@@ -1,1 +1,1 @@
-java -jar bin/vpe-platform.jar -a PedestrianTracking -f system.properties -v -c checkpoint/PedestrianTracking
+java -jar bin/vpe-platform.jar -a PedestrianTracking -f conf/system.properties -v -c checkpoint/PedestrianTracking

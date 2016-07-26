@@ -82,9 +82,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams;
 	private boolean verbose = false;
-	
-	String messageListenerAddr;
-	int messageListenerPort;
+	private String messageListenerAddr;
+	private int messageListenerPort;
 	
 	/**
 	 * The constructor method. It sets the configurations, but does not start the contexts.
@@ -107,30 +106,20 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		trackingTaskProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
 		trackingTaskProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 		
+		SynthesizedLogger logger = new SynthesizedLogger(messageListenerAddr, messageListenerPort);
+		logger.info("MessageHandlingApp: spark.dynamic.allocation.enabled="
+				+ propertyCenter.sparkDynamicAllocationEnabled);
+		logger.info("MessageHandlingApp: spark.streaming.dynamic.allocation.enabled="
+				+ propertyCenter.sparkStreamingDynamicAllocationEnabled);
+		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.minExecutors="
+				+ propertyCenter.sparkStreamingDynamicAllocationMinExecutors);
+		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.maxExecutors="
+				+ propertyCenter.sparkStreamingDynamicAllocationMaxExecutors);
+		
 		//Create contexts.
 		sparkConf = new SparkConf()
-				.setAppName(APPLICATION_NAME);
-		// Use fair sharing between jobs. 
-		sparkConf = sparkConf
-				.set("spark.scheduler.mode",
-						propertyCenter.sparkSchedulerMode)
-				.set("spark.shuffle.service.enabled",
-						propertyCenter.sparkShuffleServiceEnabled)
-				.set("spark.dynamicAllocation.enabled",
-						propertyCenter.sparkDynamicAllocationEnabled)
-				.set("spark.streaming.dynamicAllocation.enabled",
-						propertyCenter.sparkStreamingDynamicAllocationEnabled)
-				.set("spark.streaming.dynamicAllocation.minExecutors",
-						propertyCenter.sparkStreamingDynamicAllocationMinExecutors)
-				.set("spark.streaming.dynamicAllocation.maxExecutors",
-						propertyCenter.sparkStreamingDynamicAllocationMaxExecutors)
-				.set("spark.streaming.dynamicAllocation.debug",
-						propertyCenter.sparkStreamingDynamicAllocationDebug)
-				.set("spark.streaming.dynamicAllocation.delay.rounds",
-						propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
-				.set("spark.executor.memory", propertyCenter.executorMem)
+				.setAppName(APPLICATION_NAME)
 				.set("spark.rdd.compress", "true")
-				.set("spark.storage.memoryFraction", "1")
 				.set("spark.streaming.receiver.writeAheadLog.enable", "true")
 				.set("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
 				.set("spark.streaming.receiver.writeAheadLog.closeFileAfterWrite", "true");
@@ -175,6 +164,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	@Override
 	protected JavaStreamingContext getStreamContext() {
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
+		sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 		
 		//Create KafkaSink for Spark Streaming to output to Kafka.
@@ -194,6 +184,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		 * TODO Create multiple input streams and unite them together for higher receiving speed.
 		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
 		 * TODO Find ways to robustly make use of createDirectStream.
+		 * TODO Fix problem "numRecords must not be negative" when using createDirectStream.
 		 */
 		JavaPairReceiverInputDStream<String, byte[]> messageDStream = KafkaUtils.createStream(
 				streamingContext,
@@ -201,7 +192,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				commonKafkaParams,
 				topicPartitions, 
 				StorageLevel.MEMORY_AND_DISK_SER());
-		
 //		//Create an input DStream using Kafka.
 //		JavaPairInputDStream<String, byte[]> messageDStream =
 //				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
@@ -219,9 +209,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = 
 						loggerSingleton.getSupplier(new JavaSparkContext(messageRDD.context()));
 				
-				System.out.println("RDD count: " + messageRDD.count() + " partitions:" + messageRDD.getNumPartitions()
-				+ " " + messageRDD.toString());
-				
+//				System.out.println(
+//						"RDD count: " + messageRDD.count() + " partitions:" + messageRDD.getNumPartitions()
+//						+ " " + messageRDD.toString());
+				messageRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				messageRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
 
 					private static final long serialVersionUID = -4594138896649250346L;
@@ -229,9 +220,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
 					@Override
 					public void call(Iterator<Tuple2<String, byte[]>> messages) throws Exception {
 						
+						int msgCnt = 0;
+						
 						while (messages.hasNext()) {
 							
 							Tuple2<String, byte[]> message = messages.next();
+							++msgCnt;
 							
 							ExecQueueBuilder execQueueBuilder = new ExecQueueBuilder();
 							
@@ -239,7 +233,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 							byte[] dataQueue = message._2();
 							
 							if (verbose) {
-								loggerSupplier.get().info("MessageHandlingApp: received command \"" + command + "\"");
+								loggerSupplier.get().info("MessageHandlingApp: Received command \"" + command + "\"");
 							}
 							
 							switch (command) {
@@ -285,6 +279,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
 								loggerSupplier.get().error("MessageHandlingApp: Unsupported command!");
 								break;
 							}
+						}
+						
+						if (verbose) {
+							loggerSupplier.get().info("MessageHandlingApp: Received " + msgCnt + " commands.");
 						}
 					}
 				});

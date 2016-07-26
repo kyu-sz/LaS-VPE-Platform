@@ -77,7 +77,7 @@ public class SystemPropertyCenter {
 	public String checkpointDir = "checkpoint";
 	public String sparkMaster = "local[*]";
 	public String sparkDeployMode = "client";
-	public String applicationName = "";
+	public String appName = "";
 	public boolean onYARN = false;
 	public String executorMem = "1G";	//Memory per executor (e.g. 1000M, 2G) (Default: 1G)
 	public int numExecutors = 2; 		//Number of executors to start (Default: 2)
@@ -94,6 +94,8 @@ public class SystemPropertyCenter {
 	public String sparkSchedulerMode = "FAIR";
 	public String sparkShuffleServiceEnabled = "true";
 	public String sparkDynamicAllocationEnabled = "true";
+	public String sparkDynamicAllocationMinExecutors = "0";
+	public String sparkDynamicAllocationMaxExecutors = "100";
 	public String sparkStreamingDynamicAllocationEnabled = "true";
 	public String sparkStreamingDynamicAllocationMinExecutors = "0";
 	public String sparkStreamingDynamicAllocationMaxExecutors = "100";
@@ -113,160 +115,97 @@ public class SystemPropertyCenter {
 	 */
 	public SystemPropertyCenter() { }
 	
+	public String getMainClass() throws NoAppSpecifiedException {
+		switch (appName) {
+		case MessageHandlingApp.APPLICATION_NAME:
+			return "org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp";
+		case MetadataSavingApp.APPLICATION_NAME:
+			return "org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp";
+		case PedestrianAttrRecogApp.APPLICATION_NAME:
+			return "org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp";
+		case PedestrianTrackingApp.APPLICATION_NAME:
+			return "org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp";
+		case CommandGeneratingApp.APPLICATION_NAME:
+			return "org.casia.cripac.isee.vpe.debug.CommandGeneratingApp";
+		default:
+			System.err.printf("No application named \"%s\"!\n", appName);
+		case "":
+			System.out.println("Try using '-h' for more information.");
+			throw new NoAppSpecifiedException();
+		}
+	}
+	
 	/**
 	 * Generate command line options for SparkSubmit client, according to the stored properties.
 	 * @return An array of string with format required by SparkSubmit client.
 	 * @throws NoAppSpecifiedException
 	 */
-	public String[] generateCommandLineOpts() throws NoAppSpecifiedException {
+	public String[] getArgs() throws NoAppSpecifiedException {
 		ArrayList<String> options = new ArrayList<>();
 
 		if (onYARN) {
-			options.add("--files");
-			options.add("log4j.properties");
-			
-			options.add("--num-executors");
-			options.add(new Integer(numExecutors).toString());
-			
-			options.add("--executor-memory");
-			options.add(executorMem);
-
-			options.add("--executor-cores");
-			options.add(new Integer(executorCores).toString());
-			
-			options.add("--driver-memory");
-			options.add(driverMem);
-
-			options.add("--driver-cores");
-			options.add(new Integer(driverCores).toString());
-
-			options.add("--queue");
-			options.add(hadoopQueue);
-			
-			options.add("--name");
-			options.add(applicationName);
-	
-			//Determine which application to start.
-			options.add("--class");
-			switch (applicationName) {
-			case MessageHandlingApp.APPLICATION_NAME:
-				options.add("org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp");
-				break;
-			case MetadataSavingApp.APPLICATION_NAME:
-				options.add("org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp");
-				break;
-			case PedestrianAttrRecogApp.APPLICATION_NAME:
-				options.add("org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp");
-				break;
-			case PedestrianTrackingApp.APPLICATION_NAME:
-				options.add("org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp");
-				break;
-			case CommandGeneratingApp.APPLICATION_NAME:
-				options.add("org.casia.cripac.isee.vpe.debug.CommandGeneratingApp");
-				break;
-			default:
-				System.err.printf("No application named \"%s\"!\n", applicationName);
-			case "":
-				System.out.println("Try using '-h' for more information.");
-				throw new NoAppSpecifiedException();
-			}
-	
-			options.add("--jar");
-			options.add(jarPath);
-	
-			options.add("--arg");
 			if (verbose) {
 				options.add("-v");
 			}
 
-			options.add("--arg");
 			options.add("-b");
-			options.add("--arg");
 			options.add(kafkaBrokers);
 
-			options.add("--arg");
 			options.add("-z");
-			options.add("--arg");
 			options.add(zookeeperConnect);
 
-			options.add("--arg");
 			options.add("-n");
-			options.add("--arg");
 			options.add(hdfsDefaultName);
 
-			options.add("--arg");
 			options.add("-p");
-			options.add("--arg");
 			options.add("" + kafkaPartitions);
 
-			options.add("--arg");
 			options.add("-r");
-			options.add("--arg");
 			options.add("" + kafkaReplicationFactor);
 
-			options.add("--arg");
 			options.add("--kafka-fetch-message-max-bytes");
-			options.add("--arg");
 			options.add("" + kafkaFetchMessageMaxBytes);
 
-			options.add("--arg");
 			options.add("-y");
-			options.add("--arg");
 			options.add(yarnResourceManagerHostname);
 
-			options.add("--arg");
 			options.add("-c");
-			options.add("--arg");
 			options.add(checkpointDir);
-
-			options.add("--arg");
+			
 			options.add("--spark-scheduler-mode");
-			options.add("--arg");
 			options.add(sparkSchedulerMode);
 
-			options.add("--arg");
 			options.add("--spark-shuffle-service-enabled");
-			options.add("--arg");
 			options.add(sparkShuffleServiceEnabled);
 
-			options.add("--arg");
 			options.add("--spark-dynamicAllocation-enabled");
-			options.add("--arg");
 			options.add(sparkDynamicAllocationEnabled);
 
-			options.add("--arg");
+			options.add("--spark-dynamicAllocation-minExecutors");
+			options.add(sparkDynamicAllocationMinExecutors);
+
+			options.add("--spark-dynamicAllocation-maxExecutors");
+			options.add(sparkDynamicAllocationMaxExecutors);
+
 			options.add("--spark-streaming-dynamicAllocation-enabled");
-			options.add("--arg");
 			options.add(sparkStreamingDynamicAllocationEnabled);
 
-			options.add("--arg");
 			options.add("--spark-streaming-dynamicAllocation-minExecutors");
-			options.add("--arg");
 			options.add(sparkStreamingDynamicAllocationMinExecutors);
 
-			options.add("--arg");
 			options.add("--spark-streaming-dynamicAllocation-maxExecutors");
-			options.add("--arg");
 			options.add(sparkStreamingDynamicAllocationMaxExecutors);
 
-			options.add("--arg");
 			options.add("--spark-streaming-dynamicAllocation-debug");
-			options.add("--arg");
 			options.add(sparkStreamingDynamicAllocationDebug);
 
-			options.add("--arg");
 			options.add("--spark-streaming-dynamicAllocation-delay-rounds");
-			options.add("--arg");
 			options.add(sparkStreamingDynamicAllocationDelayRounds);
 			
-			options.add("--arg");
 			options.add("--message-listening-addr");
-			options.add("--arg");
 			options.add(messageListenerAddress);
 			
-			options.add("--arg");
 			options.add("--message-listening-port");
-			options.add("--arg");
 			options.add("" + messageListenerPort);
 		} else {
 			options.add("-f");
@@ -298,15 +237,17 @@ public class SystemPropertyCenter {
 		options.addOption("c", "checkpoint-dir", true, "Checkpoint directory for Spark.");
 		options.addOption("y", "yarn-rm", true, "YARN resource manager hostname.");
 		options.addOption("e", "num-executor", true, "Number of executors to start (Default: 2)");
-		options.addOption("em", "executor-mem", true, "Memory per executor (e.g. 1000M, 2G) (Default: 1G)");
-		options.addOption("ec", "executor-cores", true, "Number of cores per executor (Default: 1)");
-		options.addOption("dm", "driver-mem", true, "Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)");
-		options.addOption("dc", "driver-cores", true, "Number of cores used by the driver (Default: 1).");
+		options.addOption(null, "executor-mem", true, "Memory per executor (e.g. 1000M, 2G) (Default: 1G)");
+		options.addOption(null, "executor-cores", true, "Number of cores per executor (Default: 1)");
+		options.addOption(null, "driver-mem", true, "Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)");
+		options.addOption(null, "driver-cores", true, "Number of cores used by the driver (Default: 1).");
 		options.addOption("q", "hadoop-queue", true, "The hadoop queue to use for allocation requests (Default: 'default')");
 		options.addOption(null, "kafka-fetch-message-max-bytes", true, "");
 		options.addOption(null, "spark-scheduler-mode", true, "");
 		options.addOption(null, "spark-shuffle-service-enabled", true, "");
 		options.addOption(null, "spark-dynamicAllocation-enabled", true, "");
+		options.addOption(null, "spark-dynamicAllocation-minExecutors", true, "");
+		options.addOption(null, "spark-dynamicAllocation-maxExecutors", true, "");
 		options.addOption(null, "spark-streaming-dynamicAllocation-enabled", true, "");
 		options.addOption(null, "spark-streaming-dynamicAllocation-minExecutors", true, "");
 		options.addOption(null, "spark-streaming-dynamicAllocation-maxExecutors", true, "");
@@ -342,9 +283,9 @@ public class SystemPropertyCenter {
 			}
 		}
 		if (commandLine.hasOption('a')) {
-			applicationName = commandLine.getOptionValue('a');
+			appName = commandLine.getOptionValue('a');
 			if (verbose) {
-				System.out.println("To start application " + applicationName + "...");
+				System.out.println("To start application " + appName + "...");
 			}
 		}
 		if (commandLine.hasOption('m')) {
@@ -460,6 +401,12 @@ public class SystemPropertyCenter {
 					case "spark.dynamicAllocation.enabled":
 						sparkDynamicAllocationEnabled = (String) entry.getValue(); 
 						break;
+					case "spark.dynamicAllocation.minExecutors":
+						sparkDynamicAllocationMinExecutors = (String) entry.getValue(); 
+						break;
+					case "spark.dynamicAllocation.maxExecutors":
+						sparkDynamicAllocationMaxExecutors = (String) entry.getValue(); 
+						break;
 					case "spark.streaming.dynamicAllocation.enabled":
 						sparkStreamingDynamicAllocationEnabled = (String) entry.getValue(); 
 						break;
@@ -507,17 +454,17 @@ public class SystemPropertyCenter {
 		if (commandLine.hasOption('e')) {
 			numExecutors = new Integer(commandLine.getOptionValue('e'));
 		}
-		if (commandLine.hasOption("em")) {
-			executorMem = commandLine.getOptionValue("em");
+		if (commandLine.hasOption("executor-mem")) {
+			executorMem = commandLine.getOptionValue("executor-mem");
 		}
-		if (commandLine.hasOption("ec")) {
-			executorCores = new Integer(commandLine.getOptionValue("ec"));
+		if (commandLine.hasOption("executor-cores")) {
+			executorCores = new Integer(commandLine.getOptionValue("executor-cores"));
 		}
-		if (commandLine.hasOption("dm")) {
-			driverMem = commandLine.getOptionValue("dm");
+		if (commandLine.hasOption("driver-mem")) {
+			driverMem = commandLine.getOptionValue("driver-mem");
 		}
-		if (commandLine.hasOption("dc")) {
-			driverCores = new Integer(commandLine.getOptionValue("dc"));
+		if (commandLine.hasOption("driver-cores")) {
+			driverCores = new Integer(commandLine.getOptionValue("driver-cores"));
 		}
 		if (commandLine.hasOption("q")) {
 			hadoopQueue = commandLine.getOptionValue("q");
@@ -530,6 +477,14 @@ public class SystemPropertyCenter {
 		}
 		if (commandLine.hasOption("spark-dynamicAllocation-enabled")) {
 			sparkDynamicAllocationEnabled = commandLine.getOptionValue("spark-dynamicAllocation-enabled");
+		}
+		if (commandLine.hasOption("spark-dynamicAllocation-minExecutors")) {
+			sparkDynamicAllocationMinExecutors =
+					commandLine.getOptionValue("spark-dynamicAllocation-minExecutors");
+		}
+		if (commandLine.hasOption("spark-dynamicAllocation-maxExecutors")) {
+			sparkDynamicAllocationMaxExecutors =
+					commandLine.getOptionValue("spark-dynamicAllocation-maxExecutors");
 		}
 		if (commandLine.hasOption("spark-streaming-dynamicAllocation-enabled")) {
 			sparkStreamingDynamicAllocationEnabled =

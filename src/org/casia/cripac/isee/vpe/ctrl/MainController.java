@@ -24,17 +24,14 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.net.URISyntaxException;
 
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.spark.SparkConf;
-import org.apache.spark.deploy.yarn.Client;
-import org.apache.spark.deploy.yarn.ClientArguments;
+import org.apache.spark.launcher.SparkLauncher;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
-import org.casia.cripac.isee.vpe.common.HadoopUtils;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter.NoAppSpecifiedException;
 import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
@@ -48,8 +45,9 @@ import org.xml.sax.SAXException;
  * 
  */
 public class MainController {
+
+	public static boolean listening = true;
 	
-	@SuppressWarnings("deprecation")
 	public static void main(String[] args) throws NoAppSpecifiedException, URISyntaxException, IOException, ParserConfigurationException, SAXException {
 		
 		//Analyze the command line and store the options into a system property center.
@@ -61,24 +59,12 @@ public class MainController {
 		}
 		TopicManager.checkTopics(propertyCenter);
 
-		SparkConf sparkConf = new SparkConf();
 		//Prepare system configuration.
 		if (propertyCenter.onYARN) {
 			System.setProperty("SPARK_YARN_MODE", "true");
-			sparkConf.set("mapreduce.framework.name", "yarn");
-			sparkConf.set("yarn.resourcemanager.hostname", propertyCenter.yarnResourceManagerHostname);
-			
-			//Load Hadoop configuration from XML files.
-			Configuration hadoopConf = HadoopUtils.getDefaultConf();
-			
-//			arguments = new String[] {
-//				"--name", "SparkPiFromJava",
-//				"--class", "org.apache.spark.examples.SparkPi",
-//				"--jar", "/home/ken/spark-1.6.1-bin-hadoop2.6/lib/spark-examples-1.6.1-hadoop2.6.0.jar",
-//				"--arg", "10"
-//			};
 			
 			DatagramSocket server = new DatagramSocket(0);
+			server.setSoTimeout(1000);
 			
 			//Create a thread to listen to messages.
 			Thread listener = new Thread(new Runnable() {
@@ -87,15 +73,19 @@ public class MainController {
 				public void run() {
 					byte[] recvBuf = new byte[1000];
 					DatagramPacket recvPacket = new DatagramPacket(recvBuf, recvBuf.length);
-					try {
-						while (true) {
+					while (listening) {
+						try {
 							server.receive(recvPacket);
 							String recvStr = new String(recvPacket.getData(), 0, recvPacket.getLength());
 							System.out.println(recvStr);
+						} catch (SocketTimeoutException e) {
+							
+						} catch (IOException e) {
+							e.printStackTrace();
+							break;
 						}
-					} catch (IOException e) {
-						e.printStackTrace();
 					}
+					System.out.println("|INFO|Stop listening!");
 					server.close();
 				}
 			});
@@ -104,9 +94,11 @@ public class MainController {
 			propertyCenter.messageListenerAddress = InetAddress.getLocalHost().getHostName();
 			propertyCenter.messageListenerPort = server.getLocalPort();
 			
-			String[] arguments = propertyCenter.generateCommandLineOpts();
+			String[] arguments = propertyCenter.getArgs();
 			
 			if (propertyCenter.verbose) {
+				System.out.println("Jar path: " + propertyCenter.jarPath);
+				
 				System.out.print("Submitting with args:");
 				for (String arg : arguments) {
 					System.out.print(" " + arg);
@@ -114,16 +106,68 @@ public class MainController {
 				System.out.println("");
 			}
 			
-			//Submit to Spark.
-			ClientArguments yarnClientArguments = new ClientArguments(arguments, sparkConf);
-			new Client(yarnClientArguments, hadoopConf, sparkConf).run();
+			Process sparkLauncherProcess = new SparkLauncher()
+					.setAppResource(propertyCenter.jarPath)
+					.setMainClass(propertyCenter.getMainClass())
+					.setMaster(propertyCenter.sparkMaster)
+					.setAppName(propertyCenter.appName)
+					.setPropertiesFile("conf/spark-defaults.conf")
+					.setVerbose(propertyCenter.verbose)
+					.addFile("conf/log4j.properties")
+					.addFile("conf/vpe-scheduler.xml")
+					.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
+					.setConf(SparkLauncher.EXECUTOR_CORES, "" + propertyCenter.executorCores)
+					.setConf(SparkLauncher.EXECUTOR_MEMORY, propertyCenter.executorMem)
+					.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
+//					.addSparkArg("mapreduce.framework.name", "yarn")
+//					.addSparkArg("yarn.resourcemanager.hostname", propertyCenter.yarnResourceManagerHostname)
+//					.addSparkArg("spark.scheduler.pool", "vpe")
+//					.addSparkArg("spark.scheduler.mode",
+//							propertyCenter.sparkSchedulerMode)
+//					.addSparkArg("spark.shuffle.service.enabled",
+//							propertyCenter.sparkShuffleServiceEnabled)
+//					.addSparkArg("spark.dynamicAllocation.enabled",
+//							propertyCenter.sparkDynamicAllocationEnabled)
+//					.addSparkArg("spark.streaming.dynamicAllocation.enabled",
+//							propertyCenter.sparkStreamingDynamicAllocationEnabled)
+//					.addSparkArg("spark.streaming.dynamicAllocation.minExecutors",
+//							propertyCenter.sparkStreamingDynamicAllocationMinExecutors)
+//					.addSparkArg("spark.streaming.dynamicAllocation.maxExecutors",
+//							propertyCenter.sparkStreamingDynamicAllocationMaxExecutors)
+//					.addSparkArg("spark.streaming.dynamicAllocation.debug",
+//							propertyCenter.sparkStreamingDynamicAllocationDebug)
+//					.addSparkArg("spark.streaming.dynamicAllocation.delay.rounds",
+//							propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
+//					.addSparkArg("spark.executor.memory", propertyCenter.executorMem)
+//					.addSparkArg("spark.rdd.compress", "true")
+//					.addSparkArg("spark.storage.memoryFraction", "1")
+//					.addSparkArg("spark.streaming.receiver.writeAheadLog.enable", "true")
+//					.addSparkArg("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
+//					.addSparkArg("spark.streaming.receiver.writeAheadLog.closeFileAfterWrite", "true")
+					.addAppArgs(propertyCenter.getArgs())
+					.launch();
 			
-			listener.stop();
+			InputStreamReaderRunnable infoStreamReaderRunnable = new InputStreamReaderRunnable(sparkLauncherProcess.getInputStream(), "INFO");
+			Thread infoThread = new Thread(infoStreamReaderRunnable, "LogStreamReader info");
+			infoThread.start();
+			
+			InputStreamReaderRunnable errorStreamReaderRunnable = new InputStreamReaderRunnable(sparkLauncherProcess.getErrorStream(), "ERROR");
+			Thread errorThread = new Thread(errorStreamReaderRunnable, "LogStreamReader error");
+			errorThread.start();
+			
+			try {
+				System.out.println("|INFO| Waiting for finish...");
+				int ret = sparkLauncherProcess.waitFor();
+				System.out.println("|INFO| Finished! Exit code: " + ret);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			listening = false;
 		} else {
-			String[] arguments = propertyCenter.generateCommandLineOpts();
+			String[] arguments = propertyCenter.getArgs();
 			
 			//Run locally.
-			switch (propertyCenter.applicationName) {
+			switch (propertyCenter.appName) {
 			case MessageHandlingApp.APPLICATION_NAME:
 				MessageHandlingApp.main(arguments);
 				break;
@@ -140,7 +184,7 @@ public class MainController {
 				CommandGeneratingApp.main(arguments);
 				break;
 			default:
-				System.err.printf("No application named \"%s\"!\n", propertyCenter.applicationName);
+				System.err.printf("No application named \"%s\"!\n", propertyCenter.appName);
 			case "":
 				System.out.println("Try using '-h' for more information.");
 				throw new NoAppSpecifiedException();

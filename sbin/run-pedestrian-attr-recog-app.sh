@@ -1,1 +1,1 @@
-java -jar bin/vpe-platform.jar -a PedestrianAttributeRecognizing -f system.properties -v -c checkpoint/PedestrianAttributeRecognizing
+java -jar bin/vpe-platform.jar -a PedestrianAttributeRecognizing -f conf/system.properties -v -c checkpoint/PedestrianAttributeRecognizing

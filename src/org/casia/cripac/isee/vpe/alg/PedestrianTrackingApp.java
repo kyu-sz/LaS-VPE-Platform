@@ -101,31 +101,25 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 				"key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
 		trackProducerProperties.put(
 				"value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+		
+		SynthesizedLogger logger = new SynthesizedLogger(messageListenerAddr, messageListenerPort);
+		logger.info("MessageHandlingApp: spark.dynamic.allocation.enabled="
+				+ propertyCenter.sparkDynamicAllocationEnabled);
+		logger.info("MessageHandlingApp: spark.streaming.dynamic.allocation.enabled="
+				+ propertyCenter.sparkStreamingDynamicAllocationEnabled);
+		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.minExecutors="
+				+ propertyCenter.sparkStreamingDynamicAllocationMinExecutors);
+		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.maxExecutors="
+				+ propertyCenter.sparkStreamingDynamicAllocationMaxExecutors);
 
 		//Create contexts.
 		sparkConf = new SparkConf()
-				.setAppName(APPLICATION_NAME);
-		// Use fair sharing between jobs. 
-		sparkConf = sparkConf
-				.set("spark.scheduler.mode",
-						propertyCenter.sparkSchedulerMode)
-				.set("spark.shuffle.service.enabled",
-						propertyCenter.sparkShuffleServiceEnabled)
-				.set("spark.dynamicAllocation.enabled",
-						propertyCenter.sparkDynamicAllocationEnabled)
-				.set("spark.streaming.dynamicAllocation.enabled",
-						propertyCenter.sparkStreamingDynamicAllocationEnabled)
-				.set("spark.streaming.dynamicAllocation.minExecutors",
-						propertyCenter.sparkStreamingDynamicAllocationMinExecutors)
-				.set("spark.streaming.dynamicAllocation.maxExecutors",
-						propertyCenter.sparkStreamingDynamicAllocationMaxExecutors)
-				.set("spark.streaming.dynamicAllocation.debug",
-						propertyCenter.sparkStreamingDynamicAllocationDebug)
-				.set("spark.streaming.dynamicAllocation.delay.rounds",
-						propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
-				.set("spark.executor.memory", propertyCenter.executorMem)
+				.setAppName(APPLICATION_NAME)
 				.set("spark.rdd.compress", "true")
-				.set("spark.storage.memoryFraction", "1");
+				.set("spark.streaming.receiver.writeAheadLog.enable", "true")
+				.set("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
+				.set("spark.streaming.receiver.writeAheadLog.closeFileAfterWrite", "true");
+		
 		if (!propertyCenter.onYARN) {
 			sparkConf = sparkConf
 					.setMaster(propertyCenter.sparkMaster)
@@ -144,7 +138,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	protected JavaStreamingContext getStreamContext() {
 		//Create contexts.	
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
-		sparkContext.setLogLevel("WARN");
+		sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
 		//Create KafkaSink for Spark Streaming to output to Kafka.
@@ -199,7 +193,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						trackerSingleton.getSupplier(new JavaSparkContext(taskRDD.context()));
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = 
 						loggerSingleton.getSupplier(new JavaSparkContext(taskRDD.context()));
-				
+
+				taskRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				taskRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
 
 					private static final long serialVersionUID = 955383087048954689L;

@@ -21,15 +21,14 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-//import org.apache.spark.SparkConf;
-//import org.apache.spark.SparkContext;
-//import org.apache.spark.streaming.Duration;
-//import org.apache.spark.streaming.StreamingContext;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp;
@@ -47,7 +46,7 @@ import org.xml.sax.SAXException;
 public class CommandGeneratingApp implements Serializable {
 	
 	private static final long serialVersionUID = -1221111574183021547L;
-	private transient KafkaProducer<String, byte[]> commandProducer;
+	private volatile KafkaProducer<String, byte[]> commandProducer;
 	
 	public static final String APPLICATION_NAME = "CommandGenerating";
 	
@@ -80,15 +79,26 @@ public class CommandGeneratingApp implements Serializable {
 								ByteArrayFactory.getByteArray(attrRecogArg)));
 		
 		for (int i = 0; i < 3; ++i) {
-			commandProducer.send(new ProducerRecord<String, byte[]>(
+			Future<RecordMetadata> recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
 					MessageHandlingApp.COMMAND_TOPIC,
 					CommandSet.TRACK_AND_RECOG_ATTR,
 					trackArgBytes));
-			System.out.printf(
-					"Command producer: sent to kafka <%s>%s=%s\n",
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR,
-					trackArg);
+			try {
+				System.out.printf(
+						"Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC,
+						"" + recMetadataFuture.get().partition(),
+						"" + recMetadataFuture.get().offset(),
+						CommandSet.TRACK_AND_RECOG_ATTR,
+						trackArg);
+			} catch (InterruptedException | ExecutionException e1) {
+				System.out.printf(
+						"Command producer: sent to kafka <%s - ???>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC,
+						CommandSet.TRACK_AND_RECOG_ATTR,
+						trackArg);
+				e1.printStackTrace();
+			}
 			
 			try {
 				Thread.sleep(2000);
@@ -98,25 +108,47 @@ public class CommandGeneratingApp implements Serializable {
 		}
 		
 		for (int i = 0; i < 3; ++i) {
-			commandProducer.send(new ProducerRecord<String, byte[]>(
+			Future<RecordMetadata> recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
 					MessageHandlingApp.COMMAND_TOPIC,
 					CommandSet.TRACK_AND_RECOG_ATTR,
 					trackArgBytes));
-			System.out.printf(
-					"Command producer: sent to kafka <%s>%s=%s\n",
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR,
-					trackArg);
+			try {
+				System.out.printf(
+						"Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC,
+						"" + recMetadataFuture.get().partition(),
+						"" + recMetadataFuture.get().offset(),
+						CommandSet.TRACK_AND_RECOG_ATTR,
+						trackArg);
+			} catch (InterruptedException | ExecutionException e1) {
+				System.out.printf(
+						"Command producer: sent to kafka <%s - ???>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC,
+						CommandSet.TRACK_AND_RECOG_ATTR,
+						trackArg);
+				e1.printStackTrace();
+			}
 
-			commandProducer.send(new ProducerRecord<String, byte[]>(
+			recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
 					MessageHandlingApp.COMMAND_TOPIC,
 					CommandSet.RECOG_ATTR_ONLY,
 					attrRecogArgBytes));
-			System.out.printf(
-					"Command producer: sent to kafka <%s>%s=%s\n",
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.RECOG_ATTR_ONLY,
-					attrRecogArg);
+			try {
+				System.out.printf(
+						"Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC,
+						"" + recMetadataFuture.get().partition(),
+						"" + recMetadataFuture.get().offset(),
+						CommandSet.RECOG_ATTR_ONLY,
+						attrRecogArg);
+			} catch (InterruptedException | ExecutionException e1) {
+				System.out.printf(
+						"Command producer: sent to kafka <%s - ???>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC,
+						CommandSet.RECOG_ATTR_ONLY,
+						trackArg);
+				e1.printStackTrace();
+			}
 			
 			try {
 				Thread.sleep(2000);
@@ -126,15 +158,26 @@ public class CommandGeneratingApp implements Serializable {
 		}
 		
 		for (int i = 0; i < 3; ++i) {
-			commandProducer.send(new ProducerRecord<String, byte[]>(
+			Future<RecordMetadata> recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
 					MessageHandlingApp.COMMAND_TOPIC,
 					CommandSet.TRACK_ONLY,
 					trackArgBytes));
-			System.out.printf(
-					"Command producer: sent to kafka <%s>%s=%s\n",
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_ONLY,
-					trackArg);
+			try {
+				System.out.printf(
+						"Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC,
+						"" + recMetadataFuture.get().partition(),
+						"" + recMetadataFuture.get().offset(),
+						CommandSet.TRACK_ONLY,
+						trackArg);
+			} catch (InterruptedException | ExecutionException e1) {
+				System.out.printf(
+						"Command producer: sent to kafka <%s - ???>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC,
+						CommandSet.TRACK_ONLY,
+						trackArg);
+				e1.printStackTrace();
+			}
 			
 			try {
 				Thread.sleep(2000);
