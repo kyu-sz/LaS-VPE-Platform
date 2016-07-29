@@ -111,39 +111,14 @@ public class MainController {
 					.setMainClass(propertyCenter.getMainClass())
 					.setMaster(propertyCenter.sparkMaster)
 					.setAppName(propertyCenter.appName)
-					.setPropertiesFile("conf/spark-defaults.conf")
+					.setPropertiesFile(propertyCenter.sparkConfFilePath)
 					.setVerbose(propertyCenter.verbose)
-					.addFile("conf/log4j.properties")
-					.addFile("conf/vpe-scheduler.xml")
+					.addFile(propertyCenter.log4jPropertiesFilePath)
+					.addFile(propertyCenter.systemPropertiesFilePath)
 					.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
 					.setConf(SparkLauncher.EXECUTOR_CORES, "" + propertyCenter.executorCores)
 					.setConf(SparkLauncher.EXECUTOR_MEMORY, propertyCenter.executorMem)
 					.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
-//					.addSparkArg("mapreduce.framework.name", "yarn")
-//					.addSparkArg("yarn.resourcemanager.hostname", propertyCenter.yarnResourceManagerHostname)
-//					.addSparkArg("spark.scheduler.pool", "vpe")
-//					.addSparkArg("spark.scheduler.mode",
-//							propertyCenter.sparkSchedulerMode)
-//					.addSparkArg("spark.shuffle.service.enabled",
-//							propertyCenter.sparkShuffleServiceEnabled)
-//					.addSparkArg("spark.dynamicAllocation.enabled",
-//							propertyCenter.sparkDynamicAllocationEnabled)
-//					.addSparkArg("spark.streaming.dynamicAllocation.enabled",
-//							propertyCenter.sparkStreamingDynamicAllocationEnabled)
-//					.addSparkArg("spark.streaming.dynamicAllocation.minExecutors",
-//							propertyCenter.sparkStreamingDynamicAllocationMinExecutors)
-//					.addSparkArg("spark.streaming.dynamicAllocation.maxExecutors",
-//							propertyCenter.sparkStreamingDynamicAllocationMaxExecutors)
-//					.addSparkArg("spark.streaming.dynamicAllocation.debug",
-//							propertyCenter.sparkStreamingDynamicAllocationDebug)
-//					.addSparkArg("spark.streaming.dynamicAllocation.delay.rounds",
-//							propertyCenter.sparkStreamingDynamicAllocationDelayRounds)
-//					.addSparkArg("spark.executor.memory", propertyCenter.executorMem)
-//					.addSparkArg("spark.rdd.compress", "true")
-//					.addSparkArg("spark.storage.memoryFraction", "1")
-//					.addSparkArg("spark.streaming.receiver.writeAheadLog.enable", "true")
-//					.addSparkArg("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
-//					.addSparkArg("spark.streaming.receiver.writeAheadLog.closeFileAfterWrite", "true")
 					.addAppArgs(propertyCenter.getArgs())
 					.launch();
 			
@@ -168,16 +143,16 @@ public class MainController {
 			
 			//Run locally.
 			switch (propertyCenter.appName) {
-			case MessageHandlingApp.APPLICATION_NAME:
+			case MessageHandlingApp.APP_NAME:
 				MessageHandlingApp.main(arguments);
 				break;
-			case MetadataSavingApp.APPLICATION_NAME:
+			case MetadataSavingApp.APP_NAME:
 				MetadataSavingApp.main(arguments);
 				break;
-			case PedestrianAttrRecogApp.APPLICATION_NAME:
+			case PedestrianAttrRecogApp.APP_NAME:
 				PedestrianAttrRecogApp.main(arguments);
 				break;
-			case PedestrianTrackingApp.APPLICATION_NAME:
+			case PedestrianTrackingApp.APP_NAME:
 				PedestrianTrackingApp.main(arguments);
 				break;
 			case CommandGeneratingApp.APPLICATION_NAME:

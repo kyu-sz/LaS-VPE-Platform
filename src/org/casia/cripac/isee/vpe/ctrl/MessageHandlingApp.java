@@ -18,8 +18,10 @@
 package org.casia.cripac.isee.vpe.ctrl;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
@@ -34,7 +36,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
@@ -74,7 +76,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 	private static final long serialVersionUID = -942388332211825622L;
 
-	public static final String APPLICATION_NAME = "MessageHandling";
+	public static final String APP_NAME = "MessageHandling";
 	public static final String COMMAND_TOPIC = "command";
 	
 	static {
@@ -89,6 +91,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	private boolean verbose = false;
 	private String messageListenerAddr;
 	private int messageListenerPort;
+	private int numRecvStreams;
 	
 	/**
 	 * The constructor method. It sets the configurations, but does not start the contexts.
@@ -103,6 +106,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		messageListenerAddr = propertyCenter.messageListenerAddress;
 		messageListenerPort = propertyCenter.messageListenerPort;
 		
+		numRecvStreams = propertyCenter.numRecvStreams;
+		
 //		topicSet.add(COMMAND_TOPIC);
 		topicPartitions.put(COMMAND_TOPIC, propertyCenter.kafkaPartitions);
 		
@@ -111,19 +116,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		trackingTaskProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
 		trackingTaskProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 		
-		SynthesizedLogger logger = new SynthesizedLogger(messageListenerAddr, messageListenerPort);
-		logger.info("MessageHandlingApp: spark.dynamic.allocation.enabled="
-				+ propertyCenter.sparkDynamicAllocationEnabled);
-		logger.info("MessageHandlingApp: spark.streaming.dynamic.allocation.enabled="
-				+ propertyCenter.sparkStreamingDynamicAllocationEnabled);
-		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.minExecutors="
-				+ propertyCenter.sparkStreamingDynamicAllocationMinExecutors);
-		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.maxExecutors="
-				+ propertyCenter.sparkStreamingDynamicAllocationMaxExecutors);
-		
 		//Create contexts.
 		sparkConf = new SparkConf()
-				.setAppName(APPLICATION_NAME)
+				.setAppName(APP_NAME)
 				.set("spark.rdd.compress", "true")
 				.set("spark.streaming.receiver.writeAheadLog.enable", "true")
 				.set("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
@@ -182,66 +177,68 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				new BroadcastSingleton<>(
 						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
 						SynthesizedLogger.class);
-		
+
 		/**
 		 * Though the "createDirectStream" method is suggested for higher speed,
 		 * we use createStream for auto management of Kafka offsets by Zookeeper.
-		 * TODO Create multiple input streams and unite them together for higher receiving speed.
-		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
 		 * TODO Find ways to robustly make use of createDirectStream.
 		 * TODO Fix problem "numRecords must not be negative" when using createDirectStream.
 		 */
-		JavaPairReceiverInputDStream<String, byte[]> messageDStream = KafkaUtils.createStream(
-				streamingContext,
-				String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
-				commonKafkaParams,
-				topicPartitions, 
-				StorageLevel.MEMORY_AND_DISK_SER());
+		List<JavaPairDStream<String, byte[]>> parCmdStreams = new ArrayList<>(numRecvStreams);
+		for (int i = 0; i < numRecvStreams; i++) {
+			parCmdStreams.add(KafkaUtils.createStream(streamingContext,
+					String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
+					commonKafkaParams,
+					topicPartitions, 
+					StorageLevel.MEMORY_AND_DISK_SER()));
+		}
+		JavaPairDStream<String, byte[]> cmdDStream =
+				streamingContext.union(parCmdStreams.get(0), parCmdStreams.subList(1, parCmdStreams.size()));
 //		//Create an input DStream using Kafka.
 //		JavaPairInputDStream<String, byte[]> messageDStream =
 //				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
 //				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, topicSet);
 		
 		//Handle the messages received from Kafka,
-		messageDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+		cmdDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaPairRDD<String, byte[]> messageRDD) throws Exception {
+			public void call(JavaPairRDD<String, byte[]> cmdRDD) throws Exception {
 
 				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier =
-						producerSingleton.getSupplier(new JavaSparkContext(messageRDD.context()));
+						producerSingleton.getSupplier(new JavaSparkContext(cmdRDD.context()));
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = 
-						loggerSingleton.getSupplier(new JavaSparkContext(messageRDD.context()));
+						loggerSingleton.getSupplier(new JavaSparkContext(cmdRDD.context()));
 				
 //				System.out.println(
 //						"RDD count: " + messageRDD.count() + " partitions:" + messageRDD.getNumPartitions()
 //						+ " " + messageRDD.toString());
-				messageRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-				messageRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
+				cmdRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
+				cmdRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
 
 					private static final long serialVersionUID = -4594138896649250346L;
 
 					@Override
-					public void call(Iterator<Tuple2<String, byte[]>> messages) throws Exception {
+					public void call(Iterator<Tuple2<String, byte[]>> cmdMsg) throws Exception {
 						
 						int msgCnt = 0;
 						
-						while (messages.hasNext()) {
+						while (cmdMsg.hasNext()) {
 							
-							Tuple2<String, byte[]> message = messages.next();
+							Tuple2<String, byte[]> message = cmdMsg.next();
 							++msgCnt;
 							
 							ExecQueueBuilder execQueueBuilder = new ExecQueueBuilder();
 							
-							String command = message._1();
+							String cmd = message._1();
 							byte[] dataQueue = message._2();
 							
 							if (verbose) {
-								loggerSupplier.get().info("MessageHandlingApp: Received command \"" + command + "\"");
+								loggerSupplier.get().info("MessageHandlingApp: Received command \"" + cmd + "\"");
 							}
 							
-							switch (command) {
+							switch (cmd) {
 							case CommandSet.TRACK_ONLY:
 								if (verbose) {
 									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
@@ -295,6 +292,14 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		});
 		
 		return streamingContext;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.casia.cripac.isee.vpe.common.SparkStreamingApp#getAppName()
+	 */
+	@Override
+	public String getAppName() {
+		return APP_NAME;
 	}
 
 	public static void main(String[] args) throws URISyntaxException, ParserConfigurationException, SAXException {

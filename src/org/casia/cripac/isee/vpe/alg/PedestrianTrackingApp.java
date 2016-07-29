@@ -18,7 +18,9 @@
 package org.casia.cripac.isee.vpe.alg;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -34,7 +36,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
@@ -70,7 +72,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
 
-	public static final String APPLICATION_NAME = "PedestrianTracking";
+	public static final String APP_NAME = "PedestrianTracking";
 	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
 	
 	static {
@@ -85,6 +87,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	private boolean verbose = false;
 	private String messageListenerAddr;
 	private int messageListenerPort;
+	private int numRecvStreams;
 
 	public PedestrianTrackingApp(SystemPropertyCenter propertyCenter) {
 		super();
@@ -93,6 +96,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		
 		messageListenerAddr = propertyCenter.messageListenerAddress;
 		messageListenerPort = propertyCenter.messageListenerPort;
+		
+		numRecvStreams = propertyCenter.numRecvStreams;
 		
 //		taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
 		taskTopicPartitions.put(PEDESTRIAN_TRACKING_TASK_TOPIC, propertyCenter.kafkaPartitions);
@@ -105,20 +110,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 				"key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
 		trackProducerProperties.put(
 				"value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
-		
-		SynthesizedLogger logger = new SynthesizedLogger(messageListenerAddr, messageListenerPort);
-		logger.info("MessageHandlingApp: spark.dynamic.allocation.enabled="
-				+ propertyCenter.sparkDynamicAllocationEnabled);
-		logger.info("MessageHandlingApp: spark.streaming.dynamic.allocation.enabled="
-				+ propertyCenter.sparkStreamingDynamicAllocationEnabled);
-		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.minExecutors="
-				+ propertyCenter.sparkStreamingDynamicAllocationMinExecutors);
-		logger.info("MessageHandlingApp: spark.streaming.dynamicAllocation.maxExecutors="
-				+ propertyCenter.sparkStreamingDynamicAllocationMaxExecutors);
 
 		//Create contexts.
 		sparkConf = new SparkConf()
-				.setAppName(APPLICATION_NAME)
+				.setAppName(APP_NAME)
 				.set("spark.rdd.compress", "true")
 				.set("spark.streaming.receiver.writeAheadLog.enable", "true")
 				.set("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
@@ -169,22 +164,24 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		/**
 		 * Though the "createDirectStream" method is suggested for higher speed,
 		 * we use createStream for auto management of Kafka offsets by Zookeeper.
-		 * TODO Create multiple input streams and unite them together for higher receiving speed.
-		 * @link http://spark.apache.org/docs/latest/streaming-programming-guide.html#level-of-parallelism-in-data-receiving
 		 * TODO Find ways to robustly make use of createDirectStream.
 		 */
-		JavaPairReceiverInputDStream<String, byte[]> taskDStream = KafkaUtils.createStream(
-				streamingContext,
-				String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
-				commonKafkaParams,
-				taskTopicPartitions, 
-				StorageLevel.MEMORY_AND_DISK_SER());
+		List<JavaPairDStream<String, byte[]>> parTaskStreams = new ArrayList<>(numRecvStreams);
+		for (int i = 0; i < numRecvStreams; i++) {
+			parTaskStreams.add(KafkaUtils.createStream(streamingContext,
+					String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
+					commonKafkaParams,
+					taskTopicPartitions, 
+					StorageLevel.MEMORY_AND_DISK_SER()));
+		}
+		JavaPairDStream<String, byte[]> taskStream =
+				streamingContext.union(parTaskStreams.get(0), parTaskStreams.subList(1, parTaskStreams.size()));
 //		//Retrieve messages from Kafka.
 //		JavaPairInputDStream<String, byte[]> taskDStream =
 //				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
 //				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, taskTopicsSet);
 		
-		taskDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+		taskStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
 			private static final long serialVersionUID = -6015951200762719085L;
 
@@ -274,6 +271,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		});
 		
 		return streamingContext;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.casia.cripac.isee.vpe.common.SparkStreamingApp#getAppName()
+	 */
+	@Override
+	public String getAppName() {
+		return APP_NAME;
 	}
 
 	/**

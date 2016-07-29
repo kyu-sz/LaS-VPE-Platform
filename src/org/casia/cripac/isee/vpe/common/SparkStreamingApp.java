@@ -51,18 +51,21 @@ public abstract class SparkStreamingApp implements Serializable {
 	 */
 	protected abstract JavaStreamingContext getStreamContext();
 	
+	abstract public String getAppName(); 
+	
 	/**
 	 * Initialize the application.
-	 * @param checkpointDir The directory storing the check points of Spark Streaming context.
+	 * @param checkpointRootDir The directory storing the check points of Spark Streaming context.
 	 */
 	public void initialize(SystemPropertyCenter propertyCenter) {
 		
 		SynthesizedLogger logger =
 				new SynthesizedLogger(propertyCenter.messageListenerAddress, propertyCenter.messageListenerPort);
 	
-		logger.info("Using " + propertyCenter.checkpointDir + " as checkpoint directory.");
+		String checkpointDir = propertyCenter.checkpointRootDir + getAppName();
+		logger.info("Using " + checkpointDir + " as checkpoint directory.");
 		streamingContext = JavaStreamingContext.getOrCreate(
-				propertyCenter.checkpointDir,
+				checkpointDir,
 				new Function0<JavaStreamingContext>() {
 
 					private static final long serialVersionUID = 1136960093227848775L;
@@ -72,16 +75,16 @@ public abstract class SparkStreamingApp implements Serializable {
 						JavaStreamingContext context = getStreamContext();
 						try {
 							if (propertyCenter.sparkMaster.contains("local")) {
-								File dir = new File(propertyCenter.checkpointDir);
+								File dir = new File(checkpointDir);
 								dir.delete();
 								dir.mkdirs();
 							} else {
 								FileSystem fs = FileSystem.get(new Configuration());
-								Path dir = new Path(propertyCenter.checkpointDir);
+								Path dir = new Path(checkpointDir);
 								fs.delete(dir, true);
 								fs.mkdirs(dir);
 							}
-							context.checkpoint(propertyCenter.checkpointDir);
+							context.checkpoint(checkpointDir);
 						} catch (IllegalArgumentException | IOException e) {
 							e.printStackTrace();
 						}
