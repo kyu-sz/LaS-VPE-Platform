@@ -75,6 +75,7 @@ public class SystemPropertyCenter {
 	
 	//Spark properties
 	public String checkpointRootDir = "checkpoint";
+	public String metadataDir = "metadata";
 	public String sparkMaster = "local[*]";
 	public String sparkDeployMode = "client";
 	public String appName = "";
@@ -132,6 +133,12 @@ public class SystemPropertyCenter {
 		} else {
 			options.add(log4jPropertiesFilePath);
 		}
+		
+		options.add("--message-listening-addr");
+		options.add(messageListenerAddress);
+
+		options.add("--message-listening-port");
+		options.add("" + messageListenerPort);
 		
 		return Arrays.copyOf(options.toArray(), options.size(), String[].class);
 	}
@@ -231,8 +238,11 @@ public class SystemPropertyCenter {
 			case "kafka.fetch.message.max.bytes":
 				kafkaFetchMessageMaxBytes = new Integer((String) entry.getValue());
 				break;
-			case "checkpoint.directory":
+			case "spark.checkpoint.dir":
 				checkpointRootDir = (String) entry.getValue(); 
+				break;
+			case "vpe.metadata.dir":
+				metadataDir = (String) entry.getValue(); 
 				break;
 			case "spark.master":
 				sparkMaster = (String) entry.getValue(); 

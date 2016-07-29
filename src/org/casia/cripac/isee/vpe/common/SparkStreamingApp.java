@@ -62,7 +62,7 @@ public abstract class SparkStreamingApp implements Serializable {
 		SynthesizedLogger logger =
 				new SynthesizedLogger(propertyCenter.messageListenerAddress, propertyCenter.messageListenerPort);
 	
-		String checkpointDir = propertyCenter.checkpointRootDir + getAppName();
+		String checkpointDir = propertyCenter.checkpointRootDir + "/" + getAppName();
 		logger.info("Using " + checkpointDir + " as checkpoint directory.");
 		streamingContext = JavaStreamingContext.getOrCreate(
 				checkpointDir,

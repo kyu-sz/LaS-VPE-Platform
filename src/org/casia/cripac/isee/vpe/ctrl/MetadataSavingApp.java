@@ -93,8 +93,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	private Map<String, Integer> attrTopicPartitions = new HashMap<>();
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
-	private String metadataSavingDir;
-	private String trackSavingDir;
+	private String metadataDir;
 	private boolean verbose = false;
 	private String messageListenerAddr;
 	private int messageListenerPort;
@@ -136,11 +135,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		commonKafkaParams.put("auto.offset.reset", "smallest");
 		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 
-//		metadataSavingDir = "hdfs://" + propertyCenter.hdfs + "/metadata";
-		metadataSavingDir = "/metadata";
-		
-		trackSavingDir = metadataSavingDir + "/track";
-		FileSystem.get(new Configuration()).mkdirs(new Path(trackSavingDir));
+		metadataDir = propertyCenter.metadataDir;
 	}
 
 	@Override
@@ -215,7 +210,15 @@ public class MetadataSavingApp extends SparkStreamingApp {
 						new JavaSparkContext(trackGroupRDD.context()));
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
 						new JavaSparkContext(trackGroupRDD.context()));
-				
+
+				if (verbose) {
+					System.out.println(APP_NAME + ": Reading trackGroupRDD...");
+					System.out.println(
+							APP_NAME + ": RDD count=" + trackGroupRDD.count()
+							+ " partitions=" + trackGroupRDD.getNumPartitions()
+							+ " " + trackGroupRDD.toString());
+					System.out.println(APP_NAME + ": Starting trackGroupRDD.foreach...");
+				}
 				trackGroupRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				trackGroupRDD.foreach(new VoidFunction<Tuple2<UUID,Iterable<Track>>>() {
 
@@ -231,7 +234,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 						Track track = trackIterator.next();
 						String videoURL = track.videoURL;
 						int numTracks = track.numTracks;
-						String storeRoot = metadataSavingDir + "/" + videoURL + "/" + taskID.toString();
+						String storeRoot = metadataDir + "/" + videoURL + "/" + taskID.toString();
 						fs.mkdirs(new Path(storeRoot));
 						
 						while (true) {

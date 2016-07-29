@@ -16,9 +16,6 @@
  ************************************************************************/
 
 package org.casia.cripac.isee.vpe.ctrl;
-/**
- * 
- */
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -55,7 +52,7 @@ public class MainController {
 		
 		//Check whether topics required have been created in the Kafka servers.
 		if (propertyCenter.verbose) {
-			System.out.println("Checking required topics...");
+			System.out.println("|INFO|Checking required topics...");
 		}
 		TopicManager.checkTopics(propertyCenter);
 
@@ -97,9 +94,7 @@ public class MainController {
 			String[] arguments = propertyCenter.getArgs();
 			
 			if (propertyCenter.verbose) {
-				System.out.println("Jar path: " + propertyCenter.jarPath);
-				
-				System.out.print("Submitting with args:");
+				System.out.print("|INFO|Submitting with args:");
 				for (String arg : arguments) {
 					System.out.print(" " + arg);
 				}
@@ -131,9 +126,9 @@ public class MainController {
 			errorThread.start();
 			
 			try {
-				System.out.println("|INFO| Waiting for finish...");
+				System.out.println("|INFO|Waiting for finish...");
 				int ret = sparkLauncherProcess.waitFor();
-				System.out.println("|INFO| Finished! Exit code: " + ret);
+				System.out.println("|INFO|Finished! Exit code: " + ret);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}

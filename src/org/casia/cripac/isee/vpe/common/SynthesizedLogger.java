@@ -36,6 +36,7 @@ import org.apache.log4j.PropertyConfigurator;
  *
  */
 public class SynthesizedLogger {
+	
 	private Logger log4jLogger;
 	private DatagramSocket sender;
 	private InetAddress listenerAddr;
@@ -58,12 +59,14 @@ public class SynthesizedLogger {
 			e.printStackTrace();
 			name = "Unknown Host";
 		}
+		
 		try {
 			sender = new DatagramSocket();
 		} catch (SocketException e) {
 			e.printStackTrace();
 			sender = null;
 		}
+		
 		try {
 			listenerAddr = InetAddress.getByName(messageListenerAddr);
 		} catch (UnknownHostException e) {
@@ -71,6 +74,7 @@ public class SynthesizedLogger {
 			listenerAddr = null;
 			sender = null;
 		}
+		
 		listenerPort = messageListenerPort;
 	}
 	
@@ -86,6 +90,7 @@ public class SynthesizedLogger {
 			try {
 				sender.send(sendPacket);
 			} catch (IOException e) {
+				System.out.println("|ERROR|" + name + ":\tError occurred when reporting to " + listenerAddr + ":" + listenerPort);
 				e.printStackTrace();
 				sender = null;
 			}

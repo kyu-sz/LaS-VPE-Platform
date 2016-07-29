@@ -214,6 +214,16 @@ public class MessageHandlingApp extends SparkStreamingApp {
 //				System.out.println(
 //						"RDD count: " + messageRDD.count() + " partitions:" + messageRDD.getNumPartitions()
 //						+ " " + messageRDD.toString());
+				
+				if (verbose) {
+					System.out.println(APP_NAME + ": Reading RDD...");
+					System.out.println(
+							APP_NAME + ": RDD count=" + cmdRDD.count()
+							+ " partitions=" + cmdRDD.getNumPartitions()
+							+ " " + cmdRDD.toString());
+					System.out.println(APP_NAME + ": Starting foreachPartition...");
+				}
+				
 				cmdRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				cmdRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
 
@@ -235,7 +245,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 							byte[] dataQueue = message._2();
 							
 							if (verbose) {
-								loggerSupplier.get().info("MessageHandlingApp: Received command \"" + cmd + "\"");
+								loggerSupplier.get().info(APP_NAME + ": Received command \"" + cmd + "\"");
 							}
 							
 							switch (cmd) {
@@ -278,13 +288,13 @@ public class MessageHandlingApp extends SparkStreamingApp {
 												dataQueue));
 								break;
 							default:
-								loggerSupplier.get().error("MessageHandlingApp: Unsupported command!");
+								loggerSupplier.get().error(APP_NAME + ": Unsupported command!");
 								break;
 							}
 						}
 						
 						if (verbose) {
-							loggerSupplier.get().info("MessageHandlingApp: Received " + msgCnt + " commands.");
+							loggerSupplier.get().info(APP_NAME + ": Received " + msgCnt + " commands.");
 						}
 					}
 				});
