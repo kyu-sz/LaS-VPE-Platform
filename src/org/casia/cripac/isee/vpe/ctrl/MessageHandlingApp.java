@@ -71,11 +71,16 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		public final static String TRACK_AND_RECOG_ATTR = "track-and-recog-attr";
 		public final static String RECOG_ATTR_ONLY = "recog-attr-only";
 	}
-	
-	public final static String COMMAND_TOPIC = "command";
-	public final static String APPLICATION_NAME = "MessageHandling";
 
 	private static final long serialVersionUID = -942388332211825622L;
+
+	public static final String APPLICATION_NAME = "MessageHandling";
+	public static final String COMMAND_TOPIC = "command";
+	
+	static {
+		TopicManager.registerTopic(COMMAND_TOPIC);
+	}
+	
 //	private HashSet<String> topicSet = new HashSet<>();
 	private Map<String, Integer> topicPartitions = new HashMap<>();
 	private Properties trackingTaskProducerProperties;

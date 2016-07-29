@@ -65,22 +65,26 @@ import scala.Tuple2;
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
-	private Properties attrProducerProperties = null;
-	private transient SparkConf sparkConf;
-	private Map<String, String> commonKafkaParams = new HashMap<>();
-	private boolean verbose = false;
-	
-//	private HashSet<String> inputTopicsSet = new HashSet<>();
-//	private HashSet<String> taskTopicsSet = new HashSet<>();
-	private Map<String, Integer> inputTopicPartitions = new HashMap<>();
-	private Map<String, Integer> taskTopicPartitions = new HashMap<>();
-	
-	String messageListenerAddr;
-	int messageListenerPort;
 
 	public static final String APPLICATION_NAME = "PedestrianAttributeRecognizing";
 	public static final String PEDESTRIAN_ATTR_RECOG_TASK_TOPIC = "pedestrian-attr-recog-task";
 	public static final String PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC = "pedestrian-attr-recog-input";
+	
+	static {
+		TopicManager.registerTopic(PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
+		TopicManager.registerTopic(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
+	}
+	
+	private Properties attrProducerProperties = null;
+	private transient SparkConf sparkConf;
+	private Map<String, String> commonKafkaParams = new HashMap<>();
+	private boolean verbose = false;
+//	private HashSet<String> inputTopicsSet = new HashSet<>();
+//	private HashSet<String> taskTopicsSet = new HashSet<>();
+	private Map<String, Integer> inputTopicPartitions = new HashMap<>();
+	private Map<String, Integer> taskTopicPartitions = new HashMap<>();
+	private String messageListenerAddr;
+	private int messageListenerPort;
 
 	public PedestrianAttrRecogApp(SystemPropertyCenter propertyCenter) {
 		super();

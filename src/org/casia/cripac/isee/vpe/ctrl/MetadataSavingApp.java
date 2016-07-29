@@ -75,6 +75,16 @@ import scala.Tuple2;
 public class MetadataSavingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = -4167212422997458537L;
+
+	public static final String APPLICATION_NAME = "MetadataSaving";
+	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
+	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
+	
+	static {
+		TopicManager.registerTopic(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
+		TopicManager.registerTopic(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
+	}
+	
 //	private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
 //	private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
 	private Map<String, Integer> trackTopicPartitions = new HashMap<>();
@@ -86,10 +96,6 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	private boolean verbose = false;
 	private String messageListenerAddr;
 	private int messageListenerPort;
-
-	public static final String APPLICATION_NAME = "MetadataSaving";
-	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
-	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
 	
 	public MetadataSavingApp(SystemPropertyCenter propertyCenter) throws IOException, IllegalArgumentException, ParserConfigurationException, SAXException {
 		

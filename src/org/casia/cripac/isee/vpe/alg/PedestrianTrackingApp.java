@@ -69,18 +69,22 @@ import scala.Tuple2;
 public class PedestrianTrackingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
+
+	public static final String APPLICATION_NAME = "PedestrianTracking";
+	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
+	
+	static {
+		TopicManager.registerTopic(PEDESTRIAN_TRACKING_TASK_TOPIC);
+	}
+	
 //	private HashSet<String> taskTopicsSet = new HashSet<>();
 	private Map<String, Integer> taskTopicPartitions = new HashMap<>();
 	private Properties trackProducerProperties = new Properties();
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private boolean verbose = false;
-	
-	String messageListenerAddr;
-	int messageListenerPort;
-
-	public static final String APPLICATION_NAME = "PedestrianTracking";
-	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
+	private String messageListenerAddr;
+	private int messageListenerPort;
 
 	public PedestrianTrackingApp(SystemPropertyCenter propertyCenter) {
 		super();

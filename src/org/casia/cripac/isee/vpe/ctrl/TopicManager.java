@@ -19,8 +19,6 @@ package org.casia.cripac.isee.vpe.ctrl;
 import java.util.HashSet;
 
 import org.I0Itec.zkclient.ZkClient;
-import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
-import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 
 import kafka.admin.AdminUtils;
@@ -30,17 +28,14 @@ import kafka.admin.AdminUtils;
  *
  */
 public class TopicManager {
+	
+	private static HashSet<String> topics = new HashSet<>();
+	
+	public static void registerTopic(String topic) {
+		topics.add(topic);
+	}
 
 	public static void checkTopics(SystemPropertyCenter propertyCenter) {
-
-		//list topics.
-		HashSet<String> topics = new HashSet<>();
-		topics.add(MessageHandlingApp.COMMAND_TOPIC);
-		topics.add(PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC);
-		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
-		topics.add(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
-		topics.add(MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
-		topics.add(MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		
 		// Check each node of the zookeeper cluster respectively.
 		String[] znodes = propertyCenter.zookeeperConnect.split(",");
