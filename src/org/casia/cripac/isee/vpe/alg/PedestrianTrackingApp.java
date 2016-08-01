@@ -72,9 +72,16 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
 
+	/**
+	 * The name of this application.
+	 */
 	public static final String APP_NAME = "PedestrianTracking";
 	public static final String PEDESTRIAN_TRACKING_TASK_TOPIC = "tracking-task";
-	
+
+	/**
+	 * Register these topics to the TopicManager, so that on the start of the whole system,
+	 * the TopicManager can help register the topics this application needs to Kafka brokers.
+	 */
 	static {
 		TopicManager.registerTopic(PEDESTRIAN_TRACKING_TASK_TOPIC);
 	}

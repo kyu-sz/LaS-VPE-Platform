@@ -78,10 +78,17 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = -4167212422997458537L;
 
+	/**
+	 * The name of this application.
+	 */
 	public static final String APP_NAME = "MetadataSaving";
 	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
 	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
-	
+
+	/**
+	 * Register these topics to the TopicManager, so that on the start of the whole system,
+	 * the TopicManager can help register the topics this application needs to Kafka brokers.
+	 */
 	static {
 		TopicManager.registerTopic(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		TopicManager.registerTopic(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);

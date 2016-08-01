@@ -19,7 +19,18 @@ package org.casia.cripac.isee.pedestrian.attr;
 
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 
+/**
+ * The PedestrianAttrRecognizer class is the base class of all pedestrian attribute recognizing classes.
+ * Any subclass is required to implement a simple 'recognize' method, which takes in a track and returns an attribute.
+ * @author Ken Yu, CRIPAC, 2016
+ *
+ */
 public abstract class PedestrianAttrRecognizer {
 	
+	/**
+	 * Recognize attributes from a track of pedestrian. 
+	 * @param track		A pedestrian track.
+	 * @return			The attributes of the pedestrian specified by the track.
+	 */
 	public abstract Attribute recognize(Track track);
 }

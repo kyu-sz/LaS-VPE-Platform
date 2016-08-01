@@ -63,17 +63,38 @@ import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
+/**
+ * The PedestrianAttrRecogApp class is a Spark Streaming application which performs pedestrian attribute recognition.
+ * @author Ken Yu, CRIPAC, 2016
+ *
+ */
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	
 	private static final long serialVersionUID = 3104859533881615664L;
 
+	/**
+	 * The name of this application.
+	 */
 	public static final String APP_NAME = "PedestrianAttributeRecognizing";
+	/**
+	 * Topic to input attribute recognition tasks.
+	 * The tasks would tell the application to fetch input data from database or hard disks.
+	 */
 	public static final String PEDESTRIAN_ATTR_RECOG_TASK_TOPIC = "pedestrian-attr-recog-task";
-	public static final String PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC = "pedestrian-attr-recog-input";
+	/**
+	 * Topic to input tracks from Kafka.
+	 * The application directly performs recognition on these tracks,
+	 * rather than fetching input data from other sources.
+	 */
+	public static final String PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC = "pedestrian-attr-recog-track-input";
 	
+	/**
+	 * Register these topics to the TopicManager, so that on the start of the whole system,
+	 * the TopicManager can help register the topics this application needs to Kafka brokers.
+	 */
 	static {
 		TopicManager.registerTopic(PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
-		TopicManager.registerTopic(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
+		TopicManager.registerTopic(PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
 	}
 	
 	private Properties attrProducerProperties = null;
@@ -94,7 +115,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 //		taskTopicsSet.add(PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
 //		inputTopicsSet.add(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
 		taskTopicPartitions.put(PEDESTRIAN_ATTR_RECOG_TASK_TOPIC, propertyCenter.kafkaPartitions);
-		inputTopicPartitions.put(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC, propertyCenter.kafkaPartitions);
+		inputTopicPartitions.put(PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC, propertyCenter.kafkaPartitions);
 		
 		verbose = propertyCenter.verbose;
 		

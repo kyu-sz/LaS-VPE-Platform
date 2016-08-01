@@ -76,9 +76,16 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 	private static final long serialVersionUID = -942388332211825622L;
 
+	/**
+	 * The name of this application.
+	 */
 	public static final String APP_NAME = "MessageHandling";
 	public static final String COMMAND_TOPIC = "command";
-	
+
+	/**
+	 * Register these topics to the TopicManager, so that on the start of the whole system,
+	 * the TopicManager can help register the topics this application needs to Kafka brokers.
+	 */
 	static {
 		TopicManager.registerTopic(COMMAND_TOPIC);
 	}
@@ -140,6 +147,14 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 	
+	/**
+	 * Currently, modules can only be executed in a queue.
+	 * This class is used to build such an execution queue.
+	 * However, in the future, modules should be able to be executed in a directed graph.
+	 * TODO Change the mechanism of execution specifying of the whole system from a simple queue to a directed graph.  
+	 * @author Ken Yu, CRIPAC, 2016
+	 *
+	 */
 	private class ExecQueueBuilder {
 		
 		private String buf = "";
@@ -262,7 +277,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 												dataQueue));
 								break;
 							case CommandSet.TRACK_AND_RECOG_ATTR:
-								execQueueBuilder.addTask(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
+								execQueueBuilder.addTask(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
 
 								if (verbose) {
 									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
