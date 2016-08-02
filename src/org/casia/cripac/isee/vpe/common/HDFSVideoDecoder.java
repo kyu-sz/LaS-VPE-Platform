@@ -14,23 +14,14 @@
  * You should have received a copy of the GNU General Public License
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
-
-package org.casia.cripac.isee.pedestrian.tracking;
+package org.casia.cripac.isee.vpe.common;
 
 /**
- * The PedestrianTracker class is the base class of all pedestrian tracking classes.
- * Any subclass is required to implement a simple 'track' method,
- * which takes in a URL of a video and returns a set of track.
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public abstract class PedestrianTracker {
+public abstract class HDFSVideoDecoder {
 	
-	/**
-	 * Read a video from a URL, and perform pedestrian tracking on it.
-	 * TODO One might change this to directly takes in a byte array, representing the data of the video.
-	 * @param videoURL	The URL at which the video is stored.
-	 * @return			A set of tracks of pedestrians.
-	 */
-	public abstract Track[] track(String videoURL);
+	public abstract VideoData decode(String videoURL);
+	
 }
