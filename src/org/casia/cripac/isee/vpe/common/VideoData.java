@@ -26,5 +26,5 @@ public class VideoData {
 	public int width;
 	public int height;
 	public int channels;
-	public List<byte[]> frames;
+	public byte[][] frames;
 }
