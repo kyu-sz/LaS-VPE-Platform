@@ -39,9 +39,10 @@ public class FakeHDFSVideoDecoder extends HDFSVideoDecoder {
 		data.height = 720;
 		data.channels = 3;
 		int numFrames = rand.nextInt(100);
+		data.frames = new byte[numFrames][];
 		for (int i = 0; i < numFrames; ++i) {
 			byte[] frameData = new byte[data.width * data.height * data.channels];
-			data.frames.add(frameData);
+			data.frames[i] = frameData;
 		}
 		return data;
 	}

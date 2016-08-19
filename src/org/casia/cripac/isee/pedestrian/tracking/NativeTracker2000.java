@@ -31,7 +31,9 @@ public class NativeTracker2000 extends PedestrianTracker {
 	private native Track[] nativeTrack(int width, int height, int channels, byte[] conf, byte[][] frames);
 	
 	/**
-	 * 
+	 * Construct a tracker with a configuration.
+	 * The configuration should be provided in a form of byte array.
+	 * @param conf	The byte data of the configuration file. 
 	 */
 	public NativeTracker2000(byte[] conf) {
 		this.videoDecoder = new FakeHDFSVideoDecoder();
@@ -44,8 +46,7 @@ public class NativeTracker2000 extends PedestrianTracker {
 	@Override
 	public Track[] track(String videoURL) {
 		VideoData videoData = videoDecoder.decode(videoURL);
-		return nativeTrack(videoData.width, videoData.height, videoData.channels, conf,
-				(byte[][]) videoData.frames.toArray());
+		return nativeTrack(videoData.width, videoData.height, videoData.channels, conf, videoData.frames);
 	}
 
 }

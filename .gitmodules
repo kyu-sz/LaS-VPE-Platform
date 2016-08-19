@@ -1,0 +1,3 @@
+[submodule "Video-Decoder"]
+	path = Video-Decoder
+	url = https://github.com/YangZhou1994/Video-Decoder.git

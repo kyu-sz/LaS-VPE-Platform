@@ -16,8 +16,6 @@
  ************************************************************************/
 package org.casia.cripac.isee.vpe.common;
 
-import java.util.List;
-
 /**
  * @author Ken Yu, CRIPAC, 2016
  *
@@ -26,5 +24,5 @@ public class VideoData {
 	public int width;
 	public int height;
 	public int channels;
-	public byte[][] frames;
+	public byte[][] frames = null;
 }
