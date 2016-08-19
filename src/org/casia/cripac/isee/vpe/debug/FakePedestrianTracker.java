@@ -17,10 +17,8 @@
 
 package org.casia.cripac.isee.vpe.debug;
 
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Random;
-import java.util.Set;
 
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
@@ -51,22 +49,22 @@ public class FakePedestrianTracker extends PedestrianTracker {
 		return track;
 	}
 	
-	public Set<Track> generateRandomTrackSet(String videoURL) {
-		HashSet<Track> trackSet = new HashSet<>();
+	public Track[] generateRandomTrackSet(String videoURL) {
 		
 		int numTracks = random.nextInt(31) + 1;
+		Track[] tracks = new Track[numTracks];
 		for (int i = 0; i < numTracks; ++i) {
 			Track track = generateRandomTrack(videoURL);
 			track.id = i;
 			track.numTracks = numTracks;
-			trackSet.add(track);
+			tracks[i] = track;
 		}
 		
-		return trackSet;
+		return tracks;
 	}
 
 	@Override
-	public Set<Track> track(String videoURL) {
+	public Track[] track(String videoURL) {
 		return generateRandomTrackSet(videoURL);
 	}
 

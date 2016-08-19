@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.UUID;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -216,7 +215,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						String videoURL = (String) ByteArrayFactory.getObject(parts.head);
 						byte[] restDataQueue = parts.rest;
 						
-						Set<Track> tracks = trackerSupplier.get().track(videoURL);
+						Track[] tracks = trackerSupplier.get().track(videoURL);
 
 						UUID taskID = UUID.randomUUID();
 						
