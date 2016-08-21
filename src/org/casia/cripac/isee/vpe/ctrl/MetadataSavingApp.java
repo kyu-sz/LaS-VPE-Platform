@@ -68,13 +68,14 @@ import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
 /**
- * <br>This class saves meta data to HDFS and Neo4j database.</br>
+ * <br>
+ * This class saves meta data to HDFS and Neo4j database.</br>
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class MetadataSavingApp extends SparkStreamingApp {
-	
+
 	private static final long serialVersionUID = -4167212422997458537L;
 
 	/**
@@ -85,16 +86,17 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
 
 	/**
-	 * Register these topics to the TopicManager, so that on the start of the whole system,
-	 * the TopicManager can help register the topics this application needs to Kafka brokers.
+	 * Register these topics to the TopicManager, so that on the start of the
+	 * whole system, the TopicManager can help register the topics this
+	 * application needs to Kafka brokers.
 	 */
 	static {
 		TopicManager.registerTopic(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		TopicManager.registerTopic(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 	}
-	
-//	private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
-//	private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
+
+	// private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
+	// private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
 	private Map<String, Integer> trackTopicPartitions = new HashMap<>();
 	private Map<String, Integer> attrTopicPartitions = new HashMap<>();
 	private transient SparkConf sparkConf;
@@ -104,36 +106,34 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	private String messageListenerAddr;
 	private int messageListenerPort;
 	private int numRecvStreams;
-	
-	public MetadataSavingApp(SystemPropertyCenter propertyCenter) throws IOException, IllegalArgumentException, ParserConfigurationException, SAXException {
-		
+
+	public MetadataSavingApp(SystemPropertyCenter propertyCenter)
+			throws IOException, IllegalArgumentException, ParserConfigurationException, SAXException {
+
 		verbose = propertyCenter.verbose;
-		
+
 		messageListenerAddr = propertyCenter.messageListenerAddress;
 		messageListenerPort = propertyCenter.messageListenerPort;
-		
+
 		numRecvStreams = propertyCenter.numRecvStreams;
-		
+
 		trackTopicPartitions.put(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, propertyCenter.kafkaPartitions);
 		attrTopicPartitions.put(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC, propertyCenter.kafkaPartitions);
-//		pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
-//		pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
+		// pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
+		// pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 
-		//Create contexts.
-		sparkConf = new SparkConf()
-				.setAppName(APP_NAME)
-				.set("spark.rdd.compress", "true")
+		// Create contexts.
+		sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.rdd.compress", "true")
 				.set("spark.streaming.receiver.writeAheadLog.enable", "true")
 				.set("spark.streaming.driver.writeAheadLog.closeFileAfterWrite", "true")
 				.set("spark.streaming.receiver.writeAheadLog.closeFileAfterWrite", "true");
-		
+
 		if (!propertyCenter.onYARN) {
-			sparkConf = sparkConf
-					.setMaster(propertyCenter.sparkMaster)
-					.set("deploy.mode", propertyCenter.sparkDeployMode);
+			sparkConf = sparkConf.setMaster(propertyCenter.sparkMaster).set("deploy.mode",
+					propertyCenter.sparkDeployMode);
 		}
-		
-		//Common Kafka settings
+
+		// Common Kafka settings
 		commonKafkaParams.put("group.id", "MetadataSavingApp" + UUID.randomUUID());
 		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
@@ -146,13 +146,13 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 	@Override
 	protected JavaStreamingContext getStreamContext() {
-		//Create contexts.
+		// Create contexts.
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
 		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
 
-		final BroadcastSingleton<FileSystem> fileSystemSingleton =
-				new BroadcastSingleton<>(new ObjectFactory<FileSystem>() {
+		final BroadcastSingleton<FileSystem> fileSystemSingleton = new BroadcastSingleton<>(
+				new ObjectFactory<FileSystem>() {
 
 					private static final long serialVersionUID = 300022787313821456L;
 
@@ -168,51 +168,47 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							return null;
 						}
 					}
-				}, FileSystem.class); 
+				}, FileSystem.class);
 
-		final BroadcastSingleton<SynthesizedLogger> loggerSingleton =
-				new BroadcastSingleton<>(
-						new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort),
-						SynthesizedLogger.class);
+		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
+				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
 
 		/**
 		 * Though the "createDirectStream" method is suggested for higher speed,
-		 * we use createStream for auto management of Kafka offsets by Zookeeper.
-		 * TODO Find ways to robustly make use of createDirectStream.
+		 * we use createStream for auto management of Kafka offsets by
+		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
 		 */
 		List<JavaPairDStream<String, byte[]>> parTrackStreams = new ArrayList<>(numRecvStreams);
 		for (int i = 0; i < numRecvStreams; i++) {
-			parTrackStreams.add(KafkaUtils.createStream(streamingContext,
-					String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
-					commonKafkaParams,
-					trackTopicPartitions, 
+			parTrackStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
+					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, trackTopicPartitions,
 					StorageLevel.MEMORY_AND_DISK_SER()));
 		}
-		JavaPairDStream<String, byte[]> trackBytesStream =
-				streamingContext.union(parTrackStreams.get(0), parTrackStreams.subList(1, parTrackStreams.size()));
-//		//Retrieve tracks from Kafka.
-//		JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
-//				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-//				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, pedestrianTrackTopicsSet);
-		
+		JavaPairDStream<String, byte[]> trackBytesStream = streamingContext.union(parTrackStreams.get(0),
+				parTrackStreams.subList(1, parTrackStreams.size()));
+		// //Retrieve tracks from Kafka.
+		// JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
+		// KafkaUtils.createDirectStream(streamingContext, String.class,
+		// byte[].class,
+		// StringDecoder.class, DefaultDecoder.class, commonKafkaParams,
+		// pedestrianTrackTopicsSet);
+
 		trackBytesStream.groupByKey().foreachRDD(new VoidFunction<JavaPairRDD<String, Iterable<byte[]>>>() {
 
 			private static final long serialVersionUID = -6731502755371825010L;
 
 			@Override
 			public void call(JavaPairRDD<String, Iterable<byte[]>> trackGroupRDD) throws Exception {
-				
-				final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton.getSupplier(
-						new JavaSparkContext(trackGroupRDD.context()));
-				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
-						new JavaSparkContext(trackGroupRDD.context()));
+
+				final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton
+						.getSupplier(new JavaSparkContext(trackGroupRDD.context()));
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+						.getSupplier(new JavaSparkContext(trackGroupRDD.context()));
 
 				if (verbose) {
 					System.out.println(APP_NAME + ": Reading trackGroupRDD...");
-					System.out.println(
-							APP_NAME + ": RDD count=" + trackGroupRDD.count()
-							+ " partitions=" + trackGroupRDD.getNumPartitions()
-							+ " " + trackGroupRDD.toString());
+					System.out.println(APP_NAME + ": RDD count=" + trackGroupRDD.count() + " partitions="
+							+ trackGroupRDD.getNumPartitions() + " " + trackGroupRDD.toString());
 					System.out.println(APP_NAME + ": Starting trackGroupRDD.foreach...");
 				}
 				trackGroupRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
@@ -222,9 +218,9 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 					@Override
 					public void call(Tuple2<String, Iterable<byte[]>> trackGroup) throws Exception {
-						
+
 						FileSystem fs = fsSupplier.get();
-						
+
 						String taskID = trackGroup._1();
 						Iterator<byte[]> trackIterator = trackGroup._2().iterator();
 						Track track = (Track) SerializationHelper.deserialized(trackIterator.next());
@@ -232,13 +228,13 @@ public class MetadataSavingApp extends SparkStreamingApp {
 						int numTracks = track.numTracks;
 						String storeRoot = metadataDir + "/" + videoURL + "/" + taskID;
 						fs.mkdirs(new Path(storeRoot));
-						
+
 						while (true) {
 							String storeDir = storeRoot + "/" + track.id;
 							fs.mkdirs(new Path(storeDir));
-							
+
 							int numBBoxes = track.locationSequence.size();
-							
+
 							// Write bounding boxes infos.
 							FSDataOutputStream outputStream = fs.create(new Path(storeDir + "/bbox.txt"));
 							BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream));
@@ -247,11 +243,11 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							writer.write("\t\"startFrameIndex\":" + track.startFrameIndex);
 							writer.newLine();
 							writer.write("\t\"boundingBoxes\":[");
-							
+
 							Iterator<BoundingBox> bboxIter = track.locationSequence.iterator();
 							for (int i = 0; i < numBBoxes; ++i) {
 								BoundingBox bbox = bboxIter.next();
-								
+
 								writer.write("{");
 								writer.newLine();
 								writer.write("\t\t\"x\": " + bbox.x + ",");
@@ -266,9 +262,10 @@ public class MetadataSavingApp extends SparkStreamingApp {
 								if (bboxIter.hasNext()) {
 									writer.write(", ");
 								}
-								
-								// Use JavaCV to encode the image patch into a JPEG, stored in the memory.
-								BytePointer inputPointer = new BytePointer(bbox.patchData); 
+
+								// Use JavaCV to encode the image patch into a
+								// JPEG, stored in the memory.
+								BytePointer inputPointer = new BytePointer(bbox.patchData);
 								Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
 								BytePointer outputPointer = new BytePointer();
 								imencode("jpg", image, outputPointer);
@@ -280,7 +277,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 								imgOutputStream.write(bytes);
 								imgOutputStream.close();
 							}
-							
+
 							writer.write("\t]");
 							writer.newLine();
 							writer.write("}");
@@ -288,23 +285,23 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							writer.flush();
 							writer.close();
 							outputStream.close();
-							
+
 							if (!trackIterator.hasNext()) {
 								break;
 							}
 							track = (Track) SerializationHelper.deserialized(trackIterator.next());
 						}
-						
+
 						ContentSummary contentSummary = fs.getContentSummary(new Path(storeRoot));
 						long cnt = contentSummary.getDirectoryCount();
 						if (cnt == numTracks) {
 							loggerSupplier.get().info("Task " + videoURL + "-" + taskID + " finished!");
-							
+
 							HarFileSystem harFileSystem = new HarFileSystem(fs);
 							// TODO Pack all the results of a task into a HAR.
 							harFileSystem.copyFromLocalFile(true, new Path(storeRoot), new Path(storeRoot + ".har"));
 							harFileSystem.close();
-							
+
 							loggerSupplier.get().info("Tracks of " + videoURL + "-" + taskID + " packed!");
 						}
 					}
@@ -314,38 +311,38 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 		/**
 		 * Though the "createDirectStream" method is suggested for higher speed,
-		 * we use createStream for auto management of Kafka offsets by Zookeeper.
-		 * TODO Find ways to robustly make use of createDirectStream.
+		 * we use createStream for auto management of Kafka offsets by
+		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
 		 */
 		List<JavaPairDStream<String, byte[]>> parAttrStreams = new ArrayList<>(numRecvStreams);
 		for (int i = 0; i < numRecvStreams; i++) {
-			parAttrStreams.add(KafkaUtils.createStream(streamingContext,
-					String.class, byte[].class, StringDecoder.class, DefaultDecoder.class,
-					commonKafkaParams,
-					attrTopicPartitions, 
+			parAttrStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
+					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, attrTopicPartitions,
 					StorageLevel.MEMORY_AND_DISK_SER()));
 		}
-		JavaPairDStream<String, byte[]> attrStream =
-				streamingContext.union(parAttrStreams.get(0), parAttrStreams.subList(1, parAttrStreams.size()));
-//		//Retrieve attributes from Kafka
-//		JavaPairInputDStream<String, byte[]> attrDStream =
-//				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
-//				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, pedestrianAttrTopicsSet);
-		
-		//Display the attributes.
-		//TODO Modify the streaming steps from here to store the meta data.
+		JavaPairDStream<String, byte[]> attrStream = streamingContext.union(parAttrStreams.get(0),
+				parAttrStreams.subList(1, parAttrStreams.size()));
+		// //Retrieve attributes from Kafka
+		// JavaPairInputDStream<String, byte[]> attrDStream =
+		// KafkaUtils.createDirectStream(streamingContext, String.class,
+		// byte[].class,
+		// StringDecoder.class, DefaultDecoder.class, commonKafkaParams,
+		// pedestrianAttrTopicsSet);
+
+		// Display the attributes.
+		// TODO Modify the streaming steps from here to store the meta data.
 		attrStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
 			private static final long serialVersionUID = -715024705240889905L;
 
 			@Override
 			public void call(JavaPairRDD<String, byte[]> attrRDD) throws Exception {
-				
-				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
-						new JavaSparkContext(attrRDD.context()));
+
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+						.getSupplier(new JavaSparkContext(attrRDD.context()));
 
 				attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-				attrRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
+				attrRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
 
 					private static final long serialVersionUID = -4846631314801254257L;
 
@@ -356,22 +353,24 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							attr = (Attribute) SerializationHelper.deserialized(result._2());
 
 							if (verbose) {
-								loggerSupplier.get().info("Metadata saver received attribute: "
-										+ "Facing" + "=" + attr.facing + "; Sex=" + attr.sex);
+								loggerSupplier.get().info("Metadata saver received attribute: " + "Facing" + "="
+										+ attr.facing + "; Sex=" + attr.sex);
 							}
 						} catch (IOException e) {
 							loggerSupplier.get().error("Exception caught when decompressing attributes", e);
 						}
 					}
-					
+
 				});
 			}
 		});
-		
+
 		return streamingContext;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.casia.cripac.isee.vpe.common.SparkStreamingApp#getAppName()
 	 */
 	@Override
@@ -379,21 +378,22 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		return APP_NAME;
 	}
 
-	public static void main(String[] args) throws IOException, URISyntaxException, ParserConfigurationException, SAXException {
-	
+	public static void main(String[] args)
+			throws IOException, URISyntaxException, ParserConfigurationException, SAXException {
+
 		SystemPropertyCenter propertyCenter;
 		if (args.length > 0) {
 			propertyCenter = new SystemPropertyCenter(args);
 		} else {
 			propertyCenter = new SystemPropertyCenter();
 		}
-		
+
 		if (propertyCenter.verbose) {
 			System.out.println("Starting MetadataSavingApp...");
 		}
 
 		TopicManager.checkTopics(propertyCenter);
-		
+
 		MetadataSavingApp metadataSavingApp = new MetadataSavingApp(propertyCenter);
 		metadataSavingApp.initialize(propertyCenter);
 		metadataSavingApp.start();

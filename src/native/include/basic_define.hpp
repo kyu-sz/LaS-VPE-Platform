@@ -11,22 +11,24 @@
 #include <string>
 using namespace std;
 
-typedef struct _bb_t {
-    int x;   // Left
-    int y;   // Top
-    int width;
-    int height;
-    unsigned char* patch_data;
+typedef struct _bb_t
+{
+	int x;   // Left
+	int y;   // Top
+	int width;
+	int height;
+	unsigned char* patch_data;
 } BoundingBox;
 
 typedef vector<BoundingBox> BBList;
 
-typedef struct _track_t {
-    int id;
-    int tracks_num;
-    string video_url;
-    int start_frame_idx;
-    BBList location_sequence;
+typedef struct _track_t
+{
+	int id;
+	int tracks_num;
+	string video_url;
+	int start_frame_idx;
+	BBList location_sequence;
 } Track;
 
 typedef vector<Track> TrackList;

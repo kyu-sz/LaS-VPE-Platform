@@ -27,11 +27,11 @@ import org.casia.cripac.isee.pedestrian.tracking.Track;
 public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
 	Random random = new Random();
-	
+
 	@Override
 	public Attribute recognize(Track track) {
 		Attribute attribute = new Attribute();
-		
+
 		switch (random.nextInt(4)) {
 		case 0:
 			attribute.facing = Facing.FRONT;
@@ -46,8 +46,8 @@ public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 			attribute.facing = Facing.RIGHT;
 			break;
 		}
-		
+
 		return attribute;
 	}
-	
+
 }

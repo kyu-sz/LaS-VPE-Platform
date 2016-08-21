@@ -29,10 +29,10 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,
- * including driver code and executor code.
- * After initialized, it can be used just like a JavaStreamingContext class.
- * Note that you must call the initialize() method after construction and before using it.
- *   
+ * including driver code and executor code. After initialized, it can be used
+ * just like a JavaStreamingContext class. Note that you must call the
+ * initialize() method after construction and before using it.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
@@ -44,76 +44,79 @@ public abstract class SparkStreamingApp implements Serializable {
 	 * Common Spark Streaming context variable.
 	 */
 	private transient JavaStreamingContext streamingContext = null;
-	
+
 	/**
-	 * Implemented by subclasses, this method produces an application-specified Spark Streaming context.
+	 * Implemented by subclasses, this method produces an application-specified
+	 * Spark Streaming context.
+	 * 
 	 * @return An application-specified Spark Streaming context.
 	 */
 	protected abstract JavaStreamingContext getStreamContext();
-	
-	abstract public String getAppName(); 
-	
+
+	abstract public String getAppName();
+
 	/**
 	 * Initialize the application.
-	 * @param checkpointRootDir The directory storing the check points of Spark Streaming context.
+	 * 
+	 * @param checkpointRootDir
+	 *            The directory storing the check points of Spark Streaming
+	 *            context.
 	 */
 	public void initialize(SystemPropertyCenter propertyCenter) {
-		
-		SynthesizedLogger logger =
-				new SynthesizedLogger(propertyCenter.messageListenerAddress, propertyCenter.messageListenerPort);
-	
+
+		SynthesizedLogger logger = new SynthesizedLogger(propertyCenter.messageListenerAddress,
+				propertyCenter.messageListenerPort);
+
 		String checkpointDir = propertyCenter.checkpointRootDir + "/" + getAppName();
 		logger.info("Using " + checkpointDir + " as checkpoint directory.");
-		streamingContext = JavaStreamingContext.getOrCreate(
-				checkpointDir,
-				new Function0<JavaStreamingContext>() {
+		streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, new Function0<JavaStreamingContext>() {
 
-					private static final long serialVersionUID = 1136960093227848775L;
+			private static final long serialVersionUID = 1136960093227848775L;
 
-					@Override
-					public JavaStreamingContext call() throws Exception {
-						JavaStreamingContext context = getStreamContext();
-						try {
-							if (propertyCenter.sparkMaster.contains("local")) {
-								File dir = new File(checkpointDir);
-								dir.delete();
-								dir.mkdirs();
-							} else {
-								FileSystem fs = FileSystem.get(new Configuration());
-								Path dir = new Path(checkpointDir);
-								fs.delete(dir, true);
-								fs.mkdirs(dir);
-							}
-							context.checkpoint(checkpointDir);
-						} catch (IllegalArgumentException | IOException e) {
-							e.printStackTrace();
-						}
-						return context;
+			@Override
+			public JavaStreamingContext call() throws Exception {
+				JavaStreamingContext context = getStreamContext();
+				try {
+					if (propertyCenter.sparkMaster.contains("local")) {
+						File dir = new File(checkpointDir);
+						dir.delete();
+						dir.mkdirs();
+					} else {
+						FileSystem fs = FileSystem.get(new Configuration());
+						Path dir = new Path(checkpointDir);
+						fs.delete(dir, true);
+						fs.mkdirs(dir);
 					}
-				}, new Configuration(), true);
+					context.checkpoint(checkpointDir);
+				} catch (IllegalArgumentException | IOException e) {
+					e.printStackTrace();
+				}
+				return context;
+			}
+		}, new Configuration(), true);
 	}
-	
+
 	/**
 	 * Start the application.
 	 */
 	public void start() {
 		streamingContext.start();
 	}
-	
+
 	/**
 	 * Stop the application.
 	 */
 	public void stop() {
 		streamingContext.stop();
 	}
-	
+
 	/**
 	 * Await termination of the application.
 	 */
 	public void awaitTermination() {
 		streamingContext.awaitTermination();
 	}
-	
+
 	@Override
 	protected void finalize() throws Throwable {
 		if (streamingContext != null) {

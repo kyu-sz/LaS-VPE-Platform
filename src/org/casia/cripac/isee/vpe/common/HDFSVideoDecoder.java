@@ -21,7 +21,7 @@ package org.casia.cripac.isee.vpe.common;
  *
  */
 public abstract class HDFSVideoDecoder {
-	
+
 	public abstract VideoData decode(String videoURL);
-	
+
 }

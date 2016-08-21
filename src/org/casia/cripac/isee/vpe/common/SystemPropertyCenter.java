@@ -45,48 +45,56 @@ import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
 import org.xml.sax.SAXException;
 
 /**
- * The SystemPropertyCenter class is responsible of managing the properties of the systems.
- * There are some properties predefined, and they can be overwritten by command options or an extern property file.
- * It can also generate back command options for uses like SparkSubmit.
+ * The SystemPropertyCenter class is responsible of managing the properties of
+ * the systems. There are some properties predefined, and they can be
+ * overwritten by command options or an extern property file. It can also
+ * generate back command options for uses like SparkSubmit.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class SystemPropertyCenter {
-	
+
 	/**
 	 * Thrown when no application is specified in any possible property sources.
+	 * 
 	 * @author Ken Yu, CRIPAC, 2016
 	 *
 	 */
 	public static class NoAppSpecifiedException extends Exception {
 		private static final long serialVersionUID = -8356206863229009557L;
 	}
-	
-	//Zookeeper properties
+
+	// Zookeeper properties
 	public String zookeeperConnect = "localhost:2181";
 	public int sessionTimeoutMs = 10 * 10000;
 	public int connectionTimeoutMs = 8 * 1000;
-	
-	//Kafka properties
+
+	// Kafka properties
 	public String kafkaBrokers = "localhost:9092";
 	public int kafkaPartitions = 1;
 	public int kafkaReplicationFactor = 1;
 	public int kafkaFetchMessageMaxBytes = 10000000;
-	
-	//Spark properties
+
+	// Spark properties
 	public String checkpointRootDir = "checkpoint";
 	public String metadataDir = "metadata";
 	public String sparkMaster = "local[*]";
 	public String sparkDeployMode = "client";
 	public String appName = "";
 	public boolean onYARN = false;
-	public String executorMem = "1G";	//Memory per executor (e.g. 1000M, 2G) (Default: 1G)
-	public int numExecutors = 2; 		//Number of executors to start (Default: 2)
-	public int executorCores = 1;		//Number of cores per executor (Default: 1)
-	public String driverMem = "1G";		//Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)
-	public int driverCores = 1;			//Number of cores used by the driver (Default: 1).
-	public String hadoopQueue = "default";	//The hadoop queue to use for allocation requests (Default: 'default')
-	
+	public String executorMem = "1G"; // Memory per executor (e.g. 1000M, 2G)
+										// (Default: 1G)
+	public int numExecutors = 2; // Number of executors to start (Default: 2)
+	public int executorCores = 1; // Number of cores per executor (Default: 1)
+	public String driverMem = "1G"; // Memory for driver (e.g. 1000M, 2G)
+									// (Default: 1024 Mb)
+	public int driverCores = 1; // Number of cores used by the driver (Default:
+								// 1).
+	public String hadoopQueue = "default"; // The hadoop queue to use for
+											// allocation requests (Default:
+											// 'default')
+
 	public String systemPropertiesFilePath = "conf/system.properties";
 	public String sparkConfFilePath = "conf/spark-defaults.conf";
 	public String log4jPropertiesFilePath = "conf/log4j.properties";
@@ -97,25 +105,29 @@ public class SystemPropertyCenter {
 
 	public String messageListenerAddress = "localhost";
 	public int messageListenerPort = 0;
-	
+
 	/**
 	 * Whether to print verbose running information.
 	 */
 	public boolean verbose = false;
-	
+
 	/**
-	 * Construction function supporting allocating a SystemPropertyCenter then filling in the properties manually.
+	 * Construction function supporting allocating a SystemPropertyCenter then
+	 * filling in the properties manually.
 	 */
-	public SystemPropertyCenter() { }
-	
+	public SystemPropertyCenter() {
+	}
+
 	/**
-	 * Generate command line options for SparkSubmit client, according to the stored properties.
+	 * Generate command line options for SparkSubmit client, according to the
+	 * stored properties.
+	 * 
 	 * @return An array of string with format required by SparkSubmit client.
 	 * @throws NoAppSpecifiedException
 	 */
 	public String[] getArgs() throws NoAppSpecifiedException {
 		ArrayList<String> options = new ArrayList<>();
-		
+
 		if (verbose) {
 			options.add("-v");
 		}
@@ -126,23 +138,23 @@ public class SystemPropertyCenter {
 		} else {
 			options.add(systemPropertiesFilePath);
 		}
-		
+
 		options.add("--log4j-properties-file");
 		if (onYARN) {
 			options.add("log4j.properties");
 		} else {
 			options.add(log4jPropertiesFilePath);
 		}
-		
+
 		options.add("--message-listening-addr");
 		options.add(messageListenerAddress);
 
 		options.add("--message-listening-port");
 		options.add("" + messageListenerPort);
-		
+
 		return Arrays.copyOf(options.toArray(), options.size(), String[].class);
 	}
-	
+
 	public SystemPropertyCenter(String[] args) throws URISyntaxException, ParserConfigurationException, SAXException {
 
 		CommandLineParser parser = new BasicParser();
@@ -155,28 +167,28 @@ public class SystemPropertyCenter {
 		options.addOption(null, "message-listening-addr", true, "");
 		options.addOption(null, "message-listening-port", true, "");
 		CommandLine commandLine;
-		
+
 		try {
 			commandLine = parser.parse(options, args);
 		} catch (ParseException e) {
 			e.printStackTrace();
 			System.out.println("Try using '-h' for more information.");
-		    System.exit(0);
-		    return;
+			System.exit(0);
+			return;
 		}
 
 		if (commandLine.hasOption('v')) {
 			System.out.println("Verbosity enabled!");
 			verbose = true;
 		}
-		
+
 		if (commandLine.hasOption('a')) {
 			appName = commandLine.getOptionValue('a');
 			if (verbose) {
 				System.out.println("To start application " + appName + "...");
 			}
 		}
-		
+
 		if (commandLine.hasOption("system-properties-file")) {
 			systemPropertiesFilePath = commandLine.getOptionValue("system-properties-file");
 		}
@@ -184,68 +196,70 @@ public class SystemPropertyCenter {
 		if (commandLine.hasOption("log4j-properties-file")) {
 			log4jPropertiesFilePath = commandLine.getOptionValue("log4j-properties-file");
 		}
-		
+
 		if (commandLine.hasOption("spark-properties-file")) {
 			sparkConfFilePath = commandLine.getOptionValue("spark-properties-file");
 		}
 
-		//Load the property file.
+		// Load the property file.
 		Properties systemProperties = new Properties();
 		BufferedInputStream propInputStream;
 		try {
 			if (systemPropertiesFilePath.contains("hdfs:/")) {
 				if (verbose) {
-					System.out.println("Loading properties using HDFS platform from " + systemPropertiesFilePath + "...");
+					System.out
+							.println("Loading properties using HDFS platform from " + systemPropertiesFilePath + "...");
 				}
-				
+
 				FileSystem fileSystem = FileSystem.get(new URI(systemPropertiesFilePath), HadoopUtils.getDefaultConf());
-				FSDataInputStream hdfsInputStream = fileSystem.open(new Path(systemPropertiesFilePath)); 
+				FSDataInputStream hdfsInputStream = fileSystem.open(new Path(systemPropertiesFilePath));
 				propInputStream = new BufferedInputStream(hdfsInputStream);
 			} else {
 				if (verbose) {
 					System.out.println("Loading properties locally from " + systemPropertiesFilePath + "...");
 				}
-				
+
 				propInputStream = new BufferedInputStream(new FileInputStream(systemPropertiesFilePath));
 			}
 			systemProperties.load(propInputStream);
 		} catch (IOException e) {
 			e.printStackTrace();
-			System.err.printf("Cannot load system property file at specified path: \"%s\"!\n", systemPropertiesFilePath);
+			System.err.printf("Cannot load system property file at specified path: \"%s\"!\n",
+					systemPropertiesFilePath);
 			System.out.println("Try use '-h' for more information.");
-		    System.exit(0);
-		    return;
+			System.exit(0);
+			return;
 		}
-		
-		//Digest the settings.
+
+		// Digest the settings.
 		for (Entry<Object, Object> entry : systemProperties.entrySet()) {
 			if (verbose) {
 				System.out.println("Read from property file: " + entry.getKey() + "=" + entry.getValue());
 			}
 			switch ((String) entry.getKey()) {
 			case "zookeeper.connect":
-				zookeeperConnect = (String) entry.getValue(); 
+				zookeeperConnect = (String) entry.getValue();
 				break;
 			case "kafka.brokers":
-				kafkaBrokers = (String) entry.getValue(); 
+				kafkaBrokers = (String) entry.getValue();
 				break;
 			case "kafka.partitions":
-				kafkaPartitions = new Integer((String) entry.getValue()); 
+				kafkaPartitions = new Integer((String) entry.getValue());
 				break;
 			case "kafka.replication.factor":
-				kafkaReplicationFactor = new Integer((String) entry.getValue()); 
+				kafkaReplicationFactor = new Integer((String) entry.getValue());
 				break;
 			case "kafka.fetch.message.max.bytes":
 				kafkaFetchMessageMaxBytes = new Integer((String) entry.getValue());
 				break;
 			case "spark.checkpoint.dir":
-				checkpointRootDir = (String) entry.getValue(); 
+				checkpointRootDir = (String) entry.getValue();
 				break;
 			case "vpe.metadata.dir":
-				metadataDir = (String) entry.getValue(); 
+				metadataDir = (String) entry.getValue();
 				break;
 			case "spark.master":
-				sparkMaster = (String) entry.getValue(); 
+				sparkMaster = (String) entry.getValue();
 				break;
 			case "spark.deploy.mode":
 				sparkDeployMode = (String) entry.getValue();
@@ -260,38 +274,36 @@ public class SystemPropertyCenter {
 				hdfsDefaultName = (String) entry.getValue();
 				break;
 			case "executor.num":
-				numExecutors = new Integer((String) entry.getValue()); 
+				numExecutors = new Integer((String) entry.getValue());
 				break;
 			case "executor.memory":
 				executorMem = (String) entry.getValue();
 				break;
 			case "executor.cores":
-				executorCores = new Integer((String) entry.getValue()); 
+				executorCores = new Integer((String) entry.getValue());
 				break;
 			case "driver.memory":
 				driverMem = (String) entry.getValue();
 				break;
 			case "driver.cores":
-				driverCores = new Integer((String) entry.getValue()); 
+				driverCores = new Integer((String) entry.getValue());
 				break;
 			case "hadoop.queue":
-				hadoopQueue = (String) entry.getValue(); 
+				hadoopQueue = (String) entry.getValue();
 				break;
 			case "vpe.recv.parallel":
-				numRecvStreams = new Integer((String) entry.getValue()); 
+				numRecvStreams = new Integer((String) entry.getValue());
 				break;
 			}
 		}
-		
+
 		if (commandLine.hasOption("message-listening-addr")) {
-			messageListenerAddress =
-					commandLine.getOptionValue("message-listening-addr");
+			messageListenerAddress = commandLine.getOptionValue("message-listening-addr");
 		}
 		if (commandLine.hasOption("message-listening-port")) {
-			messageListenerPort =
-					new Integer(commandLine.getOptionValue("message-listening-port"));
+			messageListenerPort = new Integer(commandLine.getOptionValue("message-listening-port"));
 		}
-		
+
 		if (sparkMaster.contains("yarn") && !onYARN) {
 			onYARN = true;
 			if (verbose) {
@@ -299,7 +311,7 @@ public class SystemPropertyCenter {
 			}
 		}
 	}
-	
+
 	public String getMainClass() throws NoAppSpecifiedException {
 		switch (appName) {
 		case MessageHandlingApp.APP_NAME:

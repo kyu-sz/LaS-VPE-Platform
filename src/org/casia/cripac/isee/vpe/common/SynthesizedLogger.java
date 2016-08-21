@@ -29,43 +29,45 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
 /**
- * The SynthesizedLogger class synthesizes various logging methods,
- * like log4j, raw console, socket...
- * It welcomes modification by developers with their own demands.  
+ * The SynthesizedLogger class synthesizes various logging methods, like log4j,
+ * raw console, socket... It welcomes modification by developers with their own
+ * demands.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  */
 public class SynthesizedLogger {
-	
+
 	private Logger log4jLogger;
 	private DatagramSocket sender;
 	private InetAddress listenerAddr;
 	private String name;
 	private int listenerPort;
-	
+
 	/**
 	 * Currently only creates a log4j logger.
-	 * @throws UnknownHostException 
-	 * @throws SocketException 
+	 * 
+	 * @throws UnknownHostException
+	 * @throws SocketException
 	 */
 	public SynthesizedLogger(String messageListenerAddr, int messageListenerPort) {
 		PropertyConfigurator.configure("log4j.properties");
 		log4jLogger = LogManager.getRootLogger();
 		log4jLogger.setLevel(Level.INFO);
-		
+
 		try {
 			name = InetAddress.getLocalHost().getHostName();
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 			name = "Unknown Host";
 		}
-		
+
 		try {
 			sender = new DatagramSocket();
 		} catch (SocketException e) {
 			e.printStackTrace();
 			sender = null;
 		}
-		
+
 		try {
 			listenerAddr = InetAddress.getByName(messageListenerAddr);
 		} catch (UnknownHostException e) {
@@ -73,23 +75,20 @@ public class SynthesizedLogger {
 			listenerAddr = null;
 			sender = null;
 		}
-		
+
 		listenerPort = messageListenerPort;
 	}
-	
+
 	private void send(String message) {
 		if (sender != null) {
 			byte[] sendBuf = message.getBytes();
-			DatagramPacket sendPacket = new DatagramPacket(
-					sendBuf,
-					sendBuf.length,
-					listenerAddr, 
-					listenerPort);
+			DatagramPacket sendPacket = new DatagramPacket(sendBuf, sendBuf.length, listenerAddr, listenerPort);
 			System.out.println("|INFO|" + name + ":\tReporting to " + listenerAddr + ":" + listenerPort);
 			try {
 				sender.send(sendPacket);
 			} catch (IOException e) {
-				System.out.println("|ERROR|" + name + ":\tError occurred when reporting to " + listenerAddr + ":" + listenerPort);
+				System.out.println(
+						"|ERROR|" + name + ":\tError occurred when reporting to " + listenerAddr + ":" + listenerPort);
 				e.printStackTrace();
 				sender = null;
 			}
@@ -97,13 +96,14 @@ public class SynthesizedLogger {
 			System.out.println("|ERROR|" + name + ":\tSender dead!");
 		}
 	}
-	
+
 	public void debug(Object message) {
 		log4jLogger.debug(message);
 		String richMsg = "|DEBUG|" + name + ":\t" + message;
 		System.out.println(richMsg);
 		send((String) richMsg);
 	}
+
 	public void debug(Object message, Throwable t) {
 		log4jLogger.debug(message, t);
 		String richMsg = "|DEBUG|" + name + ":\t" + message;
@@ -117,13 +117,14 @@ public class SynthesizedLogger {
 		}
 		send(stackTraceMsg);
 	}
-	
+
 	public void info(Object message) {
 		log4jLogger.info(message);
 		String richMsg = "|INFO|" + name + ":\t" + message;
 		System.out.println(richMsg);
 		send(richMsg);
 	}
+
 	public void info(Object message, Throwable t) {
 		log4jLogger.info(message, t);
 		String richMsg = "|INFO|" + name + ":\t" + message;
@@ -137,13 +138,14 @@ public class SynthesizedLogger {
 		}
 		send(stackTraceMsg);
 	}
-	
+
 	public void error(Object message) {
 		log4jLogger.error(message);
 		String richMsg = "|ERROR|" + name + ":\t" + message;
 		System.err.println(richMsg);
 		send(richMsg);
 	}
+
 	public void error(Object message, Throwable t) {
 		log4jLogger.error(message, t);
 		String richMsg = "|ERROR|" + name + ":\t" + message;
@@ -157,13 +159,14 @@ public class SynthesizedLogger {
 		}
 		send(stackTraceMsg);
 	}
-	
+
 	public void fatal(Object message) {
 		log4jLogger.fatal(message);
 		String richMsg = "|FATAL|" + name + ":\t" + message;
 		System.err.println(richMsg);
 		send(richMsg);
 	}
+
 	public void fatal(Object message, Throwable t) {
 		log4jLogger.fatal(message, t);
 		String richMsg = "|FATAL|" + name + ":\t" + message;

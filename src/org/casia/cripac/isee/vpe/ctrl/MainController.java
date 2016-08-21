@@ -35,8 +35,9 @@ import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
 import org.xml.sax.SAXException;
 
 /**
- * The MainController class initializes the system environment (currently only checks the required topics),
- * and provides entrance to start any spark streaming applications.
+ * The MainController class initializes the system environment (currently only
+ * checks the required topics), and provides entrance to start any spark
+ * streaming applications.
  * 
  * @author Ken Yu, CRIPAC, 2016
  * 
@@ -44,28 +45,30 @@ import org.xml.sax.SAXException;
 public class MainController {
 
 	public static boolean listening = true;
-	
-	public static void main(String[] args) throws NoAppSpecifiedException, URISyntaxException, IOException, ParserConfigurationException, SAXException {
-		
-		//Analyze the command line and store the options into a system property center.
+
+	public static void main(String[] args) throws NoAppSpecifiedException, URISyntaxException, IOException,
+			ParserConfigurationException, SAXException {
+
+		// Analyze the command line and store the options into a system property
+		// center.
 		SystemPropertyCenter propertyCenter = new SystemPropertyCenter(args);
-		
-		//Check whether topics required have been created in the Kafka servers.
+
+		// Check whether topics required have been created in the Kafka servers.
 		if (propertyCenter.verbose) {
 			System.out.println("|INFO|Checking required topics...");
 		}
 		TopicManager.checkTopics(propertyCenter);
 
-		//Prepare system configuration.
+		// Prepare system configuration.
 		if (propertyCenter.onYARN) {
 			System.setProperty("SPARK_YARN_MODE", "true");
-			
+
 			DatagramSocket server = new DatagramSocket(0);
 			server.setSoTimeout(1000);
-			
-			//Create a thread to listen to messages.
+
+			// Create a thread to listen to messages.
 			Thread listener = new Thread(new Runnable() {
-				
+
 				@Override
 				public void run() {
 					byte[] recvBuf = new byte[1000];
@@ -76,7 +79,7 @@ public class MainController {
 							String recvStr = new String(recvPacket.getData(), 0, recvPacket.getLength());
 							System.out.println(recvStr);
 						} catch (SocketTimeoutException e) {
-							
+
 						} catch (IOException e) {
 							e.printStackTrace();
 							break;
@@ -87,12 +90,12 @@ public class MainController {
 				}
 			});
 			listener.start();
-			
+
 			propertyCenter.messageListenerAddress = InetAddress.getLocalHost().getHostName();
 			propertyCenter.messageListenerPort = server.getLocalPort();
-			
+
 			String[] arguments = propertyCenter.getArgs();
-			
+
 			if (propertyCenter.verbose) {
 				System.out.print("|INFO|Submitting with args:");
 				for (String arg : arguments) {
@@ -100,31 +103,28 @@ public class MainController {
 				}
 				System.out.println("");
 			}
-			
-			Process sparkLauncherProcess = new SparkLauncher()
-					.setAppResource(propertyCenter.jarPath)
-					.setMainClass(propertyCenter.getMainClass())
-					.setMaster(propertyCenter.sparkMaster)
-					.setAppName(propertyCenter.appName)
-					.setPropertiesFile(propertyCenter.sparkConfFilePath)
-					.setVerbose(propertyCenter.verbose)
-					.addFile(propertyCenter.log4jPropertiesFilePath)
+
+			Process sparkLauncherProcess = new SparkLauncher().setAppResource(propertyCenter.jarPath)
+					.setMainClass(propertyCenter.getMainClass()).setMaster(propertyCenter.sparkMaster)
+					.setAppName(propertyCenter.appName).setPropertiesFile(propertyCenter.sparkConfFilePath)
+					.setVerbose(propertyCenter.verbose).addFile(propertyCenter.log4jPropertiesFilePath)
 					.addFile(propertyCenter.systemPropertiesFilePath)
 					.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
 					.setConf(SparkLauncher.EXECUTOR_CORES, "" + propertyCenter.executorCores)
 					.setConf(SparkLauncher.EXECUTOR_MEMORY, propertyCenter.executorMem)
-					.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
-					.addAppArgs(propertyCenter.getArgs())
+					.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem).addAppArgs(propertyCenter.getArgs())
 					.launch();
-			
-			InputStreamReaderRunnable infoStreamReaderRunnable = new InputStreamReaderRunnable(sparkLauncherProcess.getInputStream(), "INFO");
+
+			InputStreamReaderRunnable infoStreamReaderRunnable = new InputStreamReaderRunnable(
+					sparkLauncherProcess.getInputStream(), "INFO");
 			Thread infoThread = new Thread(infoStreamReaderRunnable, "LogStreamReader info");
 			infoThread.start();
-			
-			InputStreamReaderRunnable errorStreamReaderRunnable = new InputStreamReaderRunnable(sparkLauncherProcess.getErrorStream(), "ERROR");
+
+			InputStreamReaderRunnable errorStreamReaderRunnable = new InputStreamReaderRunnable(
+					sparkLauncherProcess.getErrorStream(), "ERROR");
 			Thread errorThread = new Thread(errorStreamReaderRunnable, "LogStreamReader error");
 			errorThread.start();
-			
+
 			try {
 				System.out.println("|INFO|Waiting for finish...");
 				int ret = sparkLauncherProcess.waitFor();
@@ -135,8 +135,8 @@ public class MainController {
 			listening = false;
 		} else {
 			String[] arguments = propertyCenter.getArgs();
-			
-			//Run locally.
+
+			// Run locally.
 			switch (propertyCenter.appName) {
 			case MessageHandlingApp.APP_NAME:
 				MessageHandlingApp.main(arguments);

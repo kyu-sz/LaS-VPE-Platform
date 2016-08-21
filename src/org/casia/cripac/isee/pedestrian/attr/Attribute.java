@@ -20,37 +20,42 @@ package org.casia.cripac.isee.pedestrian.attr;
 import java.io.Serializable;
 
 /**
- * The Attribute class stores all the pre-defined attributes of a pedestrian at one moment in a track.
- * In other words, each attribute object correspond to one bounding box in a track. 
- * TODO: Design how to associate an attribute to the track it belongs to.
- * TODO: Fill the pre-defined attributes.
+ * The Attribute class stores all the pre-defined attributes of a pedestrian at
+ * one moment in a track. In other words, each attribute object correspond to
+ * one bounding box in a track. TODO: Design how to associate an attribute to
+ * the track it belongs to. TODO: Fill the pre-defined attributes.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class Attribute implements Serializable {
-	
+
 	private static final long serialVersionUID = -7873269416770994896L;
 
 	/**
 	 * Enumeration of possible facing status.
+	 * 
 	 * @author Ken Yu, CRIPAC, 2016
 	 */
 	public enum Facing {
 		LEFT, RIGHT, FRONT, BACK
 	}
+
 	/**
 	 * The direction the pedestrian is facing at this moment.
 	 */
 	public Facing facing;
-	
+
 	/**
 	 * Enumeration of possible sexes.
+	 * 
 	 * @author Ken Yu, CRIPAC, 2016
 	 *
 	 */
 	public enum Sex {
 		MALE, FEMALE, UNDETERMINED
 	}
+
 	/**
 	 * The sex of the pedestrian in the track.
 	 */

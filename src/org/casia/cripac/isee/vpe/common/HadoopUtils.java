@@ -28,13 +28,14 @@ import org.xml.sax.SAXException;
 
 /**
  * The HadoopUtils class provides utilities for Hadoop usage.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  */
 public class HadoopUtils {
-	
+
 	public static Configuration getDefaultConf() throws ParserConfigurationException, SAXException, IOException {
-		
-		//Load Hadoop configuration from XML files.
+
+		// Load Hadoop configuration from XML files.
 		Configuration hadoopConf = new Configuration();
 		Map<String, String> propMap;
 		String hadoopHome = System.getenv("HADOOP_HOME");

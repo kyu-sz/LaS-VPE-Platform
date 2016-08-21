@@ -37,142 +37,106 @@ import org.casia.cripac.isee.vpe.ctrl.TopicManager;
 import org.xml.sax.SAXException;
 
 /**
- * The CommandGenerator class is for simulating commands sent to the message handling application
- * through Kafka.
+ * The CommandGenerator class is for simulating commands sent to the message
+ * handling application through Kafka.
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class CommandGeneratingApp implements Serializable {
-	
+
 	private static final long serialVersionUID = -1221111574183021547L;
 	private volatile KafkaProducer<String, byte[]> commandProducer;
-	
+
 	public static final String APPLICATION_NAME = "CommandGenerating";
-	
+
 	public CommandGeneratingApp(SystemPropertyCenter propertyCenter) {
 		Properties commandProducerProperties = new Properties();
 		commandProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
-		commandProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer"); 
+		commandProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 		commandProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 		commandProducer = new KafkaProducer<String, byte[]>(commandProducerProperties);
 	}
-	
+
 	@Override
 	protected void finalize() throws Throwable {
 		commandProducer.close();
 		super.finalize();
 	}
-	
+
 	public void generatePresetCommand() throws IOException {
-		
+
 		String trackArg = "video123";
 		byte[] trackArgBytes = SerializationHelper.serialize(trackArg);
 
 		String attrRecogArg = "video123:12";
 		byte[] attrRecogArgBytes = SerializationHelper.serialize(attrRecogArg);
-		
+
 		for (int i = 0; i < 3; ++i) {
 			Future<RecordMetadata> recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR,
-					trackArgBytes));
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.TRACK_AND_RECOG_ATTR, trackArgBytes));
 			try {
-				System.out.printf(
-						"Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
-						MessageHandlingApp.COMMAND_TOPIC,
-						"" + recMetadataFuture.get().partition(),
-						"" + recMetadataFuture.get().offset(),
-						CommandSet.TRACK_AND_RECOG_ATTR,
-						trackArg);
+				System.out.printf("Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
+						"" + recMetadataFuture.get().offset(), CommandSet.TRACK_AND_RECOG_ATTR, trackArg);
 			} catch (InterruptedException | ExecutionException e1) {
-				System.out.printf(
-						"Command producer: sent to kafka <%s - ???>%s=%s\n",
-						MessageHandlingApp.COMMAND_TOPIC,
-						CommandSet.TRACK_AND_RECOG_ATTR,
-						trackArg);
+				System.out.printf("Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
+						CommandSet.TRACK_AND_RECOG_ATTR, trackArg);
 				e1.printStackTrace();
 			}
-			
+
 			try {
 				Thread.sleep(2000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
-		
+
 		for (int i = 0; i < 3; ++i) {
 			Future<RecordMetadata> recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR,
-					trackArgBytes));
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.TRACK_AND_RECOG_ATTR, trackArgBytes));
 			try {
-				System.out.printf(
-						"Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
-						MessageHandlingApp.COMMAND_TOPIC,
-						"" + recMetadataFuture.get().partition(),
-						"" + recMetadataFuture.get().offset(),
-						CommandSet.TRACK_AND_RECOG_ATTR,
-						trackArg);
+				System.out.printf("Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
+						"" + recMetadataFuture.get().offset(), CommandSet.TRACK_AND_RECOG_ATTR, trackArg);
 			} catch (InterruptedException | ExecutionException e1) {
-				System.out.printf(
-						"Command producer: sent to kafka <%s - ???>%s=%s\n",
-						MessageHandlingApp.COMMAND_TOPIC,
-						CommandSet.TRACK_AND_RECOG_ATTR,
-						trackArg);
+				System.out.printf("Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
+						CommandSet.TRACK_AND_RECOG_ATTR, trackArg);
 				e1.printStackTrace();
 			}
 
 			recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.RECOG_ATTR_ONLY,
-					attrRecogArgBytes));
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.RECOG_ATTR_ONLY, attrRecogArgBytes));
 			try {
-				System.out.printf(
-						"Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
-						MessageHandlingApp.COMMAND_TOPIC,
-						"" + recMetadataFuture.get().partition(),
-						"" + recMetadataFuture.get().offset(),
-						CommandSet.RECOG_ATTR_ONLY,
-						attrRecogArg);
+				System.out.printf("Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
+						"" + recMetadataFuture.get().offset(), CommandSet.RECOG_ATTR_ONLY, attrRecogArg);
 			} catch (InterruptedException | ExecutionException e1) {
-				System.out.printf(
-						"Command producer: sent to kafka <%s - ???>%s=%s\n",
-						MessageHandlingApp.COMMAND_TOPIC,
-						CommandSet.RECOG_ATTR_ONLY,
-						trackArg);
+				System.out.printf("Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
+						CommandSet.RECOG_ATTR_ONLY, trackArg);
 				e1.printStackTrace();
 			}
-			
+
 			try {
 				Thread.sleep(2000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
-		
+
 		for (int i = 0; i < 3; ++i) {
 			Future<RecordMetadata> recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-					MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_ONLY,
-					trackArgBytes));
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.TRACK_ONLY, trackArgBytes));
 			try {
-				System.out.printf(
-						"Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
-						MessageHandlingApp.COMMAND_TOPIC,
-						"" + recMetadataFuture.get().partition(),
-						"" + recMetadataFuture.get().offset(),
-						CommandSet.TRACK_ONLY,
-						trackArg);
+				System.out.printf("Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
+						MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
+						"" + recMetadataFuture.get().offset(), CommandSet.TRACK_ONLY, trackArg);
 			} catch (InterruptedException | ExecutionException e1) {
-				System.out.printf(
-						"Command producer: sent to kafka <%s - ???>%s=%s\n",
-						MessageHandlingApp.COMMAND_TOPIC,
-						CommandSet.TRACK_ONLY,
-						trackArg);
+				System.out.printf("Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
+						CommandSet.TRACK_ONLY, trackArg);
 				e1.printStackTrace();
 			}
-			
+
 			try {
 				Thread.sleep(2000);
 			} catch (InterruptedException e) {
@@ -180,8 +144,9 @@ public class CommandGeneratingApp implements Serializable {
 			}
 		}
 	}
-	
-	public static void main(String[] args) throws IOException, URISyntaxException, ParserConfigurationException, SAXException {
+
+	public static void main(String[] args)
+			throws IOException, URISyntaxException, ParserConfigurationException, SAXException {
 
 		SystemPropertyCenter propertyCenter;
 		if (args.length > 0) {
@@ -191,13 +156,15 @@ public class CommandGeneratingApp implements Serializable {
 		}
 
 		TopicManager.checkTopics(propertyCenter);
-		
+
 		CommandGeneratingApp app = new CommandGeneratingApp(propertyCenter);
 		app.generatePresetCommand();
-		
-//		SparkContext context = new SparkContext(new SparkConf().setAppName("CommandGeneratingApp"));
-//		StreamingContext streamingContext = new StreamingContext(context, new Duration(10));
-//		streamingContext.start();
-//		streamingContext.stop(true);
+
+		// SparkContext context = new SparkContext(new
+		// SparkConf().setAppName("CommandGeneratingApp"));
+		// StreamingContext streamingContext = new StreamingContext(context, new
+		// Duration(10));
+		// streamingContext.start();
+		// streamingContext.stop(true);
 	}
 }

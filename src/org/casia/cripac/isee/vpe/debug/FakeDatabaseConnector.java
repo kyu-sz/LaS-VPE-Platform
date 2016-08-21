@@ -25,7 +25,7 @@ import org.casia.cripac.isee.pedestrian.tracking.Track;
  *
  */
 public class FakeDatabaseConnector implements Serializable {
-	
+
 	private static final long serialVersionUID = 355205529406170579L;
 
 	public Track getTracks(String videoURL, String trackID) {

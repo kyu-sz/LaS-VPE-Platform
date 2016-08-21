@@ -33,25 +33,27 @@ import org.xml.sax.SAXException;
 
 /**
  * The HadoopXMLParser class helps parsing Hadoop configuration files in XML.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  */
 public class HadoopXMLParser {
-	
-	public static Map<String, String> getPropsFromXML(File xmlFile) throws ParserConfigurationException, SAXException, IOException {
+
+	public static Map<String, String> getPropsFromXML(File xmlFile)
+			throws ParserConfigurationException, SAXException, IOException {
 
 		Map<String, String> propMap = new HashMap<>();
-		
+
 		DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
 		DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
 		Document doc = documentBuilder.parse(xmlFile);
-		
+
 		Element root = doc.getDocumentElement();
 		if (null != root && root.getNodeName().equals("configuration")) {
 			NodeList nodeList = root.getChildNodes();
 			for (int i = 0; i < nodeList.getLength(); ++i) {
 				String key = null;
 				String value = null;
-				
+
 				Node props = nodeList.item(i);
 				NodeList keyList = props.getChildNodes();
 				for (int j = 0; j < keyList.getLength(); ++j) {
@@ -62,13 +64,13 @@ public class HadoopXMLParser {
 						value = item.getFirstChild().getNodeValue();
 					}
 				}
-				
+
 				if (key != null && value != null) {
 					propMap.put(key, value);
 				}
 			}
 		}
-		
+
 		return propMap;
 	}
 }

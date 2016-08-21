@@ -59,7 +59,7 @@ public class TaskData implements Serializable, Cloneable {
 			 * The data for this execution.
 			 */
 			public Serializable executionData = null;
-			
+
 			/**
 			 * Counter for unexecuted predecessors.
 			 */
@@ -85,7 +85,8 @@ public class TaskData implements Serializable, Cloneable {
 			 *            The input topic of the module to be executed in the
 			 *            node.
 			 * @param executionData
-			 *            The data for execution, which is a serializable object.
+			 *            The data for execution, which is a serializable
+			 *            object.
 			 */
 			public Node(String topic, Serializable executionData) {
 				this.topic = topic;
@@ -189,11 +190,12 @@ public class TaskData implements Serializable, Cloneable {
 			linkNodes(head, numNodes);
 			return numNodes++;
 		}
-		
+
 		/**
-		 * Get the IDs of all startable nodes.
-		 * A node is startable when all its predecessors have been executed. 
-		 * @return	IDs of all startable nodes.
+		 * Get the IDs of all startable nodes. A node is startable when all its
+		 * predecessors have been executed.
+		 * 
+		 * @return IDs of all startable nodes.
 		 */
 		public Set<Integer> getStartableNodes() {
 			Set<Integer> startableNodes = new HashSet<>();
@@ -250,7 +252,7 @@ public class TaskData implements Serializable, Cloneable {
 				successors[nodeID] = null;
 				nodes[nodeID] = null;
 				executed[nodeID] = true;
-				
+
 				for (int successorID : successors[nodeID]) {
 					--nodes[successorID].unexecutedPredecessorCnt;
 				}
@@ -382,7 +384,8 @@ public class TaskData implements Serializable, Cloneable {
 	 * @param executionPlan
 	 *            A global execution plan.
 	 * @param predecessorResult
-	 *            Result of the predecessor node, which is a serializable object.
+	 *            Result of the predecessor node, which is a serializable
+	 *            object.
 	 */
 	public TaskData(int currentNodeID, ExecutionPlan executionPlan, Serializable predecessorResult) {
 		this.currentNodeID = currentNodeID;

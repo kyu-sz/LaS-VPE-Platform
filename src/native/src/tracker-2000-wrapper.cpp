@@ -5,8 +5,9 @@
 //TODO Implement this function
 char* getBytesFromJNI(jbyteArray array);
 
-JNIEXPORT jobjectArray JNICALL Java_org_casia_cripac_isee_pedestrian_tracking_NativeTracker2000_nativeTrack
-  (JNIEnv *env, jobject obj, jint width, jint height, jint channels, jbyteArray jconfig, jobjectArray jframes)
+JNIEXPORT jobjectArray JNICALL Java_org_casia_cripac_isee_pedestrian_tracking_NativeTracker2000_nativeTrack(
+		JNIEnv *env, jobject obj, jint width, jint height, jint channels,
+		jbyteArray jconfig, jobjectArray jframes)
 {
 	char* config = getBytesFromJNI(jconfig);
 	ObjTracking tracker = new ObjTracking();
@@ -33,7 +34,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_casia_cripac_isee_pedestrian_tracking_Na
 	int numTracks = tracker.getTargets(trackList);
 
 	jobjectArray jtracks;
-	
+
 	//TODO Transfer C++ tracks to JNI.
 
 	return jtracks;

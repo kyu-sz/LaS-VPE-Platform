@@ -28,35 +28,29 @@ import kafka.admin.AdminUtils;
  *
  */
 public class TopicManager {
-	
+
 	private static HashSet<String> topics = new HashSet<>();
-	
+
 	public static void registerTopic(String topic) {
 		topics.add(topic);
 	}
 
 	public static void checkTopics(SystemPropertyCenter propertyCenter) {
-		
+
 		// Check each node of the zookeeper cluster respectively.
 		String[] znodes = propertyCenter.zookeeperConnect.split(",");
 		for (String znode : znodes) {
 			// Initialize the system environment.
 			System.out.println("Connecting to zookeeper: " + znode);
-			ZkClient zkClient = new ZkClient(
-					znode,
-					propertyCenter.sessionTimeoutMs,
+			ZkClient zkClient = new ZkClient(znode, propertyCenter.sessionTimeoutMs,
 					propertyCenter.connectionTimeoutMs);
 			for (String topic : topics) {
 				System.out.println("Checking topic: " + topic);
 				if (!AdminUtils.topicExists(zkClient, topic)) {
 					System.out.println("Creating topic: " + topic);
-					kafka.admin.TopicCommand.main(new String[]{
-							"--create",
-							"--zookeeper", znode,
-							"--topic", topic,
-							"--partitions", "" + propertyCenter.kafkaPartitions,
-							"--replication-factor", "" + propertyCenter.kafkaReplicationFactor
-							});
+					kafka.admin.TopicCommand.main(new String[] { "--create", "--zookeeper", znode, "--topic", topic,
+							"--partitions", "" + propertyCenter.kafkaPartitions, "--replication-factor",
+							"" + propertyCenter.kafkaReplicationFactor });
 				}
 			}
 		}

@@ -5,15 +5,16 @@
 #ifndef _Included_org_casia_cripac_isee_pedestrian_tracking_NativeTracker2000
 #define _Included_org_casia_cripac_isee_pedestrian_tracking_NativeTracker2000
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 /*
  * Class:     org_casia_cripac_isee_pedestrian_tracking_NativeTracker2000
  * Method:    nativeTrack
  * Signature: (III[B[[B)[Lorg/casia/cripac/isee/pedestrian/tracking/Track;
  */
-JNIEXPORT jobjectArray JNICALL Java_org_casia_cripac_isee_pedestrian_tracking_NativeTracker2000_nativeTrack
-  (JNIEnv *, jobject, jint, jint, jint, jbyteArray, jobjectArray);
+JNIEXPORT jobjectArray JNICALL Java_org_casia_cripac_isee_pedestrian_tracking_NativeTracker2000_nativeTrack(
+		JNIEnv *, jobject, jint, jint, jint, jbyteArray, jobjectArray);
 
 #ifdef __cplusplus
 }

@@ -27,10 +27,13 @@ import org.casia.cripac.isee.vpe.common.VideoData;
  */
 public class FakeHDFSVideoDecoder extends HDFSVideoDecoder {
 
-	private static Random rand = new Random(); 
-	
-	/* (non-Javadoc)
-	 * @see org.casia.cripac.isee.vpe.common.HDFSVideoDecoder#decode(java.lang.String)
+	private static Random rand = new Random();
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.casia.cripac.isee.vpe.common.HDFSVideoDecoder#decode(java.lang.
+	 * String)
 	 */
 	@Override
 	public VideoData decode(String videoURL) {

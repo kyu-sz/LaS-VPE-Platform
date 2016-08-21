@@ -18,19 +18,23 @@
 package org.casia.cripac.isee.pedestrian.tracking;
 
 /**
- * The PedestrianTracker class is the base class of all pedestrian tracking classes.
- * Any subclass is required to implement a simple 'track' method,
- * which takes in a URL of a video and returns a set of track.
+ * The PedestrianTracker class is the base class of all pedestrian tracking
+ * classes. Any subclass is required to implement a simple 'track' method, which
+ * takes in a URL of a video and returns a set of track.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public abstract class PedestrianTracker {
-	
+
 	/**
-	 * Read a video from a URL, and perform pedestrian tracking on it.
-	 * TODO One might change this to directly takes in a byte array, representing the data of the video.
-	 * @param videoURL	The URL at which the video is stored.
-	 * @return			A set of tracks of pedestrians.
+	 * Read a video from a URL, and perform pedestrian tracking on it. TODO One
+	 * might change this to directly takes in a byte array, representing the
+	 * data of the video.
+	 * 
+	 * @param videoURL
+	 *            The URL at which the video is stored.
+	 * @return A set of tracks of pedestrians.
 	 */
 	public abstract Track[] track(String videoURL);
 }

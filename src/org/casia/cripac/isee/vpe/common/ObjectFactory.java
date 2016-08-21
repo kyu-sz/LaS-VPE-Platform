@@ -20,20 +20,20 @@ import java.io.Serializable;
 
 /**
  * <br>
- * The ObjectFactory class can produce objects in a fixed manner.
- * It is usually used in a combination with the ObjectSink class.
- * </br>
+ * The ObjectFactory class can produce objects in a fixed manner. It is usually
+ * used in a combination with the ObjectSink class. </br>
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public abstract class ObjectFactory<T> implements Serializable {
-	
+
 	private static final long serialVersionUID = -7931301716101856732L;
 
 	/**
 	 * Produce a new object.
-	 * @return	An object newly produced.
+	 * 
+	 * @return An object newly produced.
 	 */
 	public abstract T getObject();
 }

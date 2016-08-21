@@ -25,12 +25,15 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 
 /**
- * The BroadcastSingleton class is an ultimate solution for using unserializable objects in Spark Streaming!
+ * The BroadcastSingleton class is an ultimate solution for using unserializable
+ * objects in Spark Streaming!
+ * 
  * @author Ken Yu, CRIPAC, 2016
- * @param <T>	The type of the object.
+ * @param <T>
+ *            The type of the object.
  */
 public class BroadcastSingleton<T> implements Serializable {
-	
+
 	private static final long serialVersionUID = -7565726994857167434L;
 
 	/**
@@ -40,12 +43,15 @@ public class BroadcastSingleton<T> implements Serializable {
 	private static volatile Map<Class, Broadcast<Object>> broadcastPool = null;
 	private ObjectFactory<T> objectFactory = null;
 	final private Class<T> typeParameterClass;
-	
+
 	/**
 	 * Constructor of BroadcastSingleton.
-	 * @param objFactory	Factory that provides method to generate a new object. 
-	 * @param clazz			The class of the object.
-	 * TODO: Check whether clazz here is the class type of T.
+	 * 
+	 * @param objFactory
+	 *            Factory that provides method to generate a new object.
+	 * @param clazz
+	 *            The class of the object. TODO: Check whether clazz here is the
+	 *            class type of T.
 	 */
 	@SuppressWarnings("unchecked")
 	public BroadcastSingleton(ObjectFactory<T> objFactory, @SuppressWarnings("rawtypes") Class clazz) {
@@ -54,12 +60,15 @@ public class BroadcastSingleton<T> implements Serializable {
 	}
 
 	/**
-	 * Get a supplier of the object.
-	 * The supplier is broadcast over the cluster, and provides a singleton of the object.
-	 * The broadcast is lazy-evaluated, so it cannot be checkpointed by Spark Streaming.
-	 * Every time the application starts or recovers, the first call of this method would broadcast a supplier.
-	 * @param sparkContext	The Spark context for broadcasting.
-	 * @return				A supplier for the object.
+	 * Get a supplier of the object. The supplier is broadcast over the cluster,
+	 * and provides a singleton of the object. The broadcast is lazy-evaluated,
+	 * so it cannot be checkpointed by Spark Streaming. Every time the
+	 * application starts or recovers, the first call of this method would
+	 * broadcast a supplier.
+	 * 
+	 * @param sparkContext
+	 *            The Spark context for broadcasting.
+	 * @return A supplier for the object.
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public ObjectSupplier<T> getSupplier(JavaSparkContext sparkContext) {

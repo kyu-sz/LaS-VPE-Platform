@@ -24,27 +24,33 @@ import java.io.InputStreamReader;
 /**
  * The InputStreamReaderRunnable class is designed for running a thread
  * continuously reading from an input stream then display to the console.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  */
 public class InputStreamReaderRunnable implements Runnable {
 
 	private BufferedReader reader;
-	
+
 	private String name;
 	private boolean errorStream = false;
-	
+
 	/**
 	 * Create a thread to read from a input stream and print it to the console.
-	 * @param is	The input stream to read.
-	 * @param name	The name of the stream.
+	 * 
+	 * @param is
+	 *            The input stream to read.
+	 * @param name
+	 *            The name of the stream.
 	 */
 	public InputStreamReaderRunnable(InputStream is, String name) {
 		this.reader = new BufferedReader(new InputStreamReader(is));
 		this.name = name;
 		errorStream = name.toLowerCase().contains("error");
 	}
-	
-	/* (non-Javadoc)
+
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Runnable#run()
 	 */
 	@Override

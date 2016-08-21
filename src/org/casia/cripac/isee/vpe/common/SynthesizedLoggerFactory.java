@@ -17,25 +17,41 @@
 package org.casia.cripac.isee.vpe.common;
 
 /**
+ * Object factory of SynthesizedLogger.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class SynthesizedLoggerFactory extends ObjectFactory<SynthesizedLogger> {
 
 	private static final long serialVersionUID = -6857919300875993611L;
-	
-	String addr;
-	int port;
-	
+
 	/**
-	 * 
+	 * The address the logger may need to send logs to.
 	 */
-	public SynthesizedLoggerFactory(String messageListenerAddr, int messageListenerPort) {
-		addr = messageListenerAddr;
-		port = messageListenerPort;
+	String addr;
+
+	/**
+	 * The port the logger may need to send logs to.
+	 */
+	int port;
+
+	/**
+	 * Constructor of SynthesizedLoggerFactory with fixed log listener settings.
+	 * 
+	 * @param logListenerAddr
+	 *            The address the logger may need to send logs to.
+	 * @param logListenerPort
+	 *            The port the logger may need to send logs to.
+	 */
+	public SynthesizedLoggerFactory(String logListenerAddr, int logListenerPort) {
+		addr = logListenerAddr;
+		port = logListenerPort;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject()
 	 */
 	@Override

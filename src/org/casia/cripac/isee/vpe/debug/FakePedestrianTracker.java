@@ -25,9 +25,9 @@ import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox;
 
 public class FakePedestrianTracker extends PedestrianTracker {
-	
+
 	private Random random = new Random();
-	
+
 	public Track generateRandomTrack(String videoURL) {
 		Track track = new Track();
 		track.startFrameIndex = random.nextInt(10000) + 1;
@@ -42,15 +42,15 @@ public class FakePedestrianTracker extends PedestrianTracker {
 			bbox.x = random.nextInt(bbox.width) + 1;
 			bbox.y = random.nextInt(bbox.height) + 1;
 			bbox.patchData = new byte[bbox.x * bbox.y * 3];
-			
+
 			track.locationSequence.add(bbox);
 		}
-		
+
 		return track;
 	}
-	
+
 	public Track[] generateRandomTrackSet(String videoURL) {
-		
+
 		int numTracks = random.nextInt(31) + 1;
 		Track[] tracks = new Track[numTracks];
 		for (int i = 0; i < numTracks; ++i) {
@@ -59,7 +59,7 @@ public class FakePedestrianTracker extends PedestrianTracker {
 			track.numTracks = numTracks;
 			tracks[i] = track;
 		}
-		
+
 		return tracks;
 	}
 

@@ -32,7 +32,7 @@ public class KafkaProducerFactory<K, V> extends ObjectFactory<KafkaProducer<K, V
 	 * Configuration for constructing the object.
 	 */
 	private Properties config;
-	
+
 	/**
 	 * Input a property for constructing the Kafka producer.
 	 */
@@ -40,8 +40,11 @@ public class KafkaProducerFactory<K, V> extends ObjectFactory<KafkaProducer<K, V
 		this.config = prop;
 	}
 
-	/* (non-Javadoc)
-	 * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject(java.util.Properties)
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject(java.util.
+	 * Properties)
 	 */
 	@Override
 	public KafkaProducer<K, V> getObject() {

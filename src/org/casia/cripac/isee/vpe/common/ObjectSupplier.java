@@ -22,30 +22,35 @@ import java.util.function.Supplier;
 
 /**
  * Wrapper for any object to make them lazy-evaluated.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class ObjectSupplier<T> implements Serializable, Supplier<T> {
-	
+
 	private static final long serialVersionUID = 4084371413129601845L;
 	/**
 	 * An instance of the object.
 	 */
 	private volatile T instance = null;
 	/**
-	 * The factory to be used to produce an object. 
+	 * The factory to be used to produce an object.
 	 */
 	private ObjectFactory<T> factory = null;
-	
+
 	/**
 	 * Constructor of ObjectSupplier that require an object factory specified.
-	 * @param factory	A factory to be used to produce an object. 
+	 * 
+	 * @param factory
+	 *            A factory to be used to produce an object.
 	 */
 	public ObjectSupplier(ObjectFactory<T> factory) {
 		this.factory = factory;
 	}
-	
-	/* (non-Javadoc)
+
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#finalize()
 	 */
 	@Override
@@ -56,7 +61,9 @@ public class ObjectSupplier<T> implements Serializable, Supplier<T> {
 		super.finalize();
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.util.function.Supplier#get()
 	 */
 	@Override

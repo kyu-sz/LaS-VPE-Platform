@@ -13,42 +13,42 @@ import org.casia.cripac.isee.vpe.common.HDFSVideoDecoder;
 import org.casia.cripac.isee.vpe.common.VideoData;
 
 /**
- *	@author : Yang Zhou 
+ * @author : Yang Zhou
  */
 public class Test_HDFSVideoDecoder extends HDFSVideoDecoder {
 
-	private native VideoData videodecoder(int buffer_len,byte[] fsbuffer);
-	
+	private native VideoData videodecoder(int buffer_len, byte[] fsbuffer);
+
 	public VideoData decode(String videoURL) {
-		String local="";
+		String local = "";
 		VideoData data = new VideoData();
-		Configuration conf=new Configuration();
-		
+		Configuration conf = new Configuration();
+
 		try {
 			byte[] fsbuffer;
-			FileSystem localFile=FileSystem.getLocal(conf);
-			Path input=new Path(local);
-			FileStatus[] inputFile=localFile.listStatus(input);
-			
-			for(int i=0;i<inputFile.length;i++) {
+			FileSystem localFile = FileSystem.getLocal(conf);
+			Path input = new Path(local);
+			FileStatus[] inputFile = localFile.listStatus(input);
+
+			for (int i = 0; i < inputFile.length; i++) {
 				System.out.println(inputFile[i].getPath().getName());
-				
-				FSDataInputStream in=localFile.open(inputFile[i].getPath());
-				ByteArrayOutputStream output=new ByteArrayOutputStream();
-				byte[] buffer=new byte[1024];
-				int bytesRead=0;
-				while((bytesRead=in.read(buffer))!=-1) {
-					output.write(buffer,0,bytesRead);
+
+				FSDataInputStream in = localFile.open(inputFile[i].getPath());
+				ByteArrayOutputStream output = new ByteArrayOutputStream();
+				byte[] buffer = new byte[1024];
+				int bytesRead = 0;
+				while ((bytesRead = in.read(buffer)) != -1) {
+					output.write(buffer, 0, bytesRead);
 				}
-				fsbuffer=output.toByteArray();
+				fsbuffer = output.toByteArray();
 				in.close();
-				int buffer_len=fsbuffer.length;
+				int buffer_len = fsbuffer.length;
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+
 		return null;
 	}
 }

@@ -219,9 +219,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		 */
 		List<JavaPairDStream<String, byte[]>> parJobStreams = new ArrayList<>(numRecvStreams);
 		for (int i = 0; i < numRecvStreams; i++) {
-			parJobStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
-					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, taskTopicPartitions,
-					StorageLevel.MEMORY_AND_DISK_SER()));
+			parJobStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
+					DefaultDecoder.class, commonKafkaParams, taskTopicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
 		}
 		JavaPairDStream<String, byte[]> jobStream = streamingContext.union(parJobStreams.get(0),
 				parJobStreams.subList(1, parJobStreams.size()));
