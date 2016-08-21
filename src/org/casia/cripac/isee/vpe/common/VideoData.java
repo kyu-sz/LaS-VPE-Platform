@@ -17,12 +17,29 @@
 package org.casia.cripac.isee.vpe.common;
 
 /**
+ * The VideoData class wraps decoded data of a video.
+ * It is assumed that the width, height and channels of each frame in a video are fixed.
  * @author Ken Yu, CRIPAC, 2016
- *
  */
 public class VideoData {
+	/**
+	 * The width of each frame.
+	 */
 	public int width;
+	
+	/**
+	 * The height of each frame.
+	 */
 	public int height;
+	
+	/**
+	 * The channels of each frame.
+	 */
 	public int channels;
+	
+	/**
+	 * All the decoded frames.
+	 * The data of each frame is stored in a byte array. 
+	 */
 	public byte[][] frames = null;
 }

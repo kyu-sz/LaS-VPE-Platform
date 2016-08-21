@@ -36,6 +36,26 @@ public class TaskData implements Serializable, Cloneable {
 	 */
 	public static class ExecutionPlan implements Serializable, Cloneable {
 
+		/**
+		 * Each node represents an execution of a module.
+		 * @author Ken Yu, CRIPAC, 2016
+		 *
+		 */
+		public static class Node implements Serializable, Cloneable {
+
+			private static final long serialVersionUID = 1111630850962155197L;
+
+			/**
+			 * The invoking topic of the module corresponding to this node.
+			 */
+			public String topic;
+			
+			/**
+			 * The data for this execution.
+			 */
+			public byte[] executionData = null;
+		}
+
 		private static final long serialVersionUID = -4268794570615111388L;
 
 		/**
@@ -69,26 +89,6 @@ public class TaskData implements Serializable, Cloneable {
 			successors = new Set[numNodes];
 			executed = new boolean[numNodes];
 			currentNode = 0;
-		}
-
-		/**
-		 * Each node represents an execution of a module.
-		 * @author Ken Yu, CRIPAC, 2016
-		 *
-		 */
-		public static class Node implements Serializable {
-
-			private static final long serialVersionUID = 1111630850962155197L;
-
-			/**
-			 * The invoking topic of the module corresponding to this node.
-			 */
-			public String topic;
-			
-			/**
-			 * The data for this execution.
-			 */
-			public byte[] executionData = null;
 		}
 		
 		/* (non-Javadoc)
@@ -196,12 +196,12 @@ public class TaskData implements Serializable, Cloneable {
 	}
 
 	/**
-	 * 
+	 * The global execution plan.
 	 */
 	public ExecutionPlan executionPlan;
 	
 	/**
-	 * The result of the predecessorResult.
+	 * The result of the predecessor.
 	 */
 	public Object predecessorResult; 
 	

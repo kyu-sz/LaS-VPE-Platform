@@ -27,8 +27,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.xml.sax.SAXException;
 
 /**
+ * The HadoopUtils class provides utilities for Hadoop usage.
  * @author Ken Yu, CRIPAC, 2016
- *
  */
 public class HadoopUtils {
 	

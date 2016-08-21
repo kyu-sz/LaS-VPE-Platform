@@ -27,7 +27,6 @@ import org.apache.spark.broadcast.Broadcast;
 /**
  * The BroadcastSingleton class is an ultimate solution for using unserializable objects in Spark Streaming!
  * @author Ken Yu, CRIPAC, 2016
- *
  * @param <T>	The type of the object.
  */
 public class BroadcastSingleton<T> implements Serializable {

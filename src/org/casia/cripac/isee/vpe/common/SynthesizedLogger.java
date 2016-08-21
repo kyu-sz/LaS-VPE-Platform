@@ -33,7 +33,6 @@ import org.apache.log4j.PropertyConfigurator;
  * like log4j, raw console, socket...
  * It welcomes modification by developers with their own demands.  
  * @author Ken Yu, CRIPAC, 2016
- *
  */
 public class SynthesizedLogger {
 	

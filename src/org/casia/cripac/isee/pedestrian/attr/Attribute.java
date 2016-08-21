@@ -34,7 +34,6 @@ public class Attribute implements Serializable {
 	/**
 	 * Enumeration of possible facing status.
 	 * @author Ken Yu, CRIPAC, 2016
-	 *
 	 */
 	public enum Facing {
 		LEFT, RIGHT, FRONT, BACK

@@ -28,10 +28,8 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * <br>  
  * The ByteArrayFactory class provides functions for transformation between objects and byte arrays,
  * and byte array managing functions.
- * </br>
  * @author Ken Yu, CRIPAC, 2016
  *
  */

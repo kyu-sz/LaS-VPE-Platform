@@ -31,5 +31,9 @@ public abstract class ObjectFactory<T> implements Serializable {
 	
 	private static final long serialVersionUID = -7931301716101856732L;
 
+	/**
+	 * Produce a new object.
+	 * @return	An object newly produced.
+	 */
 	public abstract T getObject();
 }

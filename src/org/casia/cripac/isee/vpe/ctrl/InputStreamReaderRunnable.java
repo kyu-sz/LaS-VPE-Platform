@@ -22,8 +22,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 /**
+ * The InputStreamReaderRunnable class is designed for running a thread
+ * continuously reading from an input stream then display to the console.
  * @author Ken Yu, CRIPAC, 2016
- *
  */
 public class InputStreamReaderRunnable implements Runnable {
 

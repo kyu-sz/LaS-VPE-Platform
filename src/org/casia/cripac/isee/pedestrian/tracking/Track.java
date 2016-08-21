@@ -35,7 +35,6 @@ public class Track implements Serializable {
 	/**
 	 * The BoundingBox class stores the location of an object in a single static frame.
 	 * @author Ken Yu, CRIPAC, 2016
-	 *
 	 */
 	public class BoundingBox implements Serializable {
 		
