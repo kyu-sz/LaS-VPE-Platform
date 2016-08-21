@@ -29,7 +29,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
+import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp.CommandSet;
@@ -67,16 +67,10 @@ public class CommandGeneratingApp implements Serializable {
 	public void generatePresetCommand() throws IOException {
 		
 		String trackArg = "video123";
-		byte[] trackArgBytes =
-				ByteArrayFactory.compress(
-						ByteArrayFactory.appendLengthToHead(
-								ByteArrayFactory.getByteArray(trackArg)));
+		byte[] trackArgBytes = SerializationHelper.serialize(trackArg);
 
 		String attrRecogArg = "video123:12";
-		byte[] attrRecogArgBytes = 
-				ByteArrayFactory.compress(
-						ByteArrayFactory.appendLengthToHead(
-								ByteArrayFactory.getByteArray(attrRecogArg)));
+		byte[] attrRecogArgBytes = SerializationHelper.serialize(attrRecogArg);
 		
 		for (int i = 0; i < 3; ++i) {
 			Future<RecordMetadata> recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(

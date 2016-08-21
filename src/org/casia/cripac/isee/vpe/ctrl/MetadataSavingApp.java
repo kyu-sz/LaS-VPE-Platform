@@ -42,7 +42,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
@@ -55,9 +54,9 @@ import org.casia.cripac.isee.pedestrian.attr.Attribute;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
-import org.casia.cripac.isee.vpe.common.ByteArrayFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
+import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
@@ -196,22 +195,12 @@ public class MetadataSavingApp extends SparkStreamingApp {
 //				KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class,
 //				StringDecoder.class, DefaultDecoder.class, commonKafkaParams, pedestrianTrackTopicsSet);
 		
-		trackBytesStream.mapToPair(new PairFunction<Tuple2<String,byte[]>, UUID, Track>() {
-
-			private static final long serialVersionUID = -9140201497081719411L;
-
-			@Override
-			public Tuple2<UUID, Track> call(Tuple2<String, byte[]> trackBytes) throws Exception {
-				Track track = (Track) ByteArrayFactory.getObject(ByteArrayFactory.decompress(trackBytes._2()));
-				return new Tuple2<UUID, Track>(track.taskID, track);
-			}
-			
-		}).groupByKey().foreachRDD(new VoidFunction<JavaPairRDD<UUID, Iterable<Track>>>() {
+		trackBytesStream.groupByKey().foreachRDD(new VoidFunction<JavaPairRDD<String, Iterable<byte[]>>>() {
 
 			private static final long serialVersionUID = -6731502755371825010L;
 
 			@Override
-			public void call(JavaPairRDD<UUID, Iterable<Track>> trackGroupRDD) throws Exception {
+			public void call(JavaPairRDD<String, Iterable<byte[]>> trackGroupRDD) throws Exception {
 				
 				final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton.getSupplier(
 						new JavaSparkContext(trackGroupRDD.context()));
@@ -227,21 +216,21 @@ public class MetadataSavingApp extends SparkStreamingApp {
 					System.out.println(APP_NAME + ": Starting trackGroupRDD.foreach...");
 				}
 				trackGroupRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-				trackGroupRDD.foreach(new VoidFunction<Tuple2<UUID,Iterable<Track>>>() {
+				trackGroupRDD.foreach(new VoidFunction<Tuple2<String, Iterable<byte[]>>>() {
 
 					private static final long serialVersionUID = 5522067102611597772L;
 
 					@Override
-					public void call(Tuple2<UUID, Iterable<Track>> trackGroup) throws Exception {
+					public void call(Tuple2<String, Iterable<byte[]>> trackGroup) throws Exception {
 						
 						FileSystem fs = fsSupplier.get();
 						
-						UUID taskID = trackGroup._1();
-						Iterator<Track> trackIterator = trackGroup._2().iterator();
-						Track track = trackIterator.next();
+						String taskID = trackGroup._1();
+						Iterator<byte[]> trackIterator = trackGroup._2().iterator();
+						Track track = (Track) SerializationHelper.deserialized(trackIterator.next());
 						String videoURL = track.videoURL;
 						int numTracks = track.numTracks;
-						String storeRoot = metadataDir + "/" + videoURL + "/" + taskID.toString();
+						String storeRoot = metadataDir + "/" + videoURL + "/" + taskID;
 						fs.mkdirs(new Path(storeRoot));
 						
 						while (true) {
@@ -303,7 +292,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							if (!trackIterator.hasNext()) {
 								break;
 							}
-							track = trackIterator.next();
+							track = (Track) SerializationHelper.deserialized(trackIterator.next());
 						}
 						
 						ContentSummary contentSummary = fs.getContentSummary(new Path(storeRoot));
@@ -354,9 +343,6 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton.getSupplier(
 						new JavaSparkContext(attrRDD.context()));
-				
-//				System.out.println("RDD count: " + attrRDD.count() + " partitions:" + attrRDD.getNumPartitions()
-//				+ " " + attrRDD.toString());
 
 				attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				attrRDD.foreach(new VoidFunction<Tuple2<String,byte[]>>() {
@@ -367,8 +353,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 					public void call(Tuple2<String, byte[]> result) throws Exception {
 						Attribute attr;
 						try {
-							attr = (Attribute) ByteArrayFactory.getObject(
-									ByteArrayFactory.decompress(result._2()));
+							attr = (Attribute) SerializationHelper.deserialized(result._2());
 
 							if (verbose) {
 								loggerSupplier.get().info("Metadata saver received attribute: "

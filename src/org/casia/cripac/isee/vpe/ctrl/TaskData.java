@@ -17,27 +17,32 @@
 package org.casia.cripac.isee.vpe.ctrl;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
- * The TaskData class contains a global execution plan and the execution result of the predecessor node.
+ * The TaskData class contains a global execution plan and the execution result
+ * of the predecessor node.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  */
 public class TaskData implements Serializable, Cloneable {
-	
+
 	private static final long serialVersionUID = -7488783279604501871L;
-	
+
 	/**
-	 * The ExecutionPlan class represents a directed acyclic graph of the execution flows of modules.
-	 * Each node is an execution of a module.
-	 * Each link represents that an execution should output to a next execution node.
+	 * The ExecutionPlan class represents a directed acyclic graph of the
+	 * execution flows of modules. Each node is an execution of a module. Each
+	 * link represents that an execution should output to a next execution node.
 	 * One module may exist multiple times in a graph.
+	 * 
 	 * @author Ken Yu, CRIPAC, 2016
 	 */
 	public static class ExecutionPlan implements Serializable, Cloneable {
 
 		/**
 		 * Each node represents an execution of a module.
+		 * 
 		 * @author Ken Yu, CRIPAC, 2016
 		 *
 		 */
@@ -46,14 +51,46 @@ public class TaskData implements Serializable, Cloneable {
 			private static final long serialVersionUID = 1111630850962155197L;
 
 			/**
-			 * The invoking topic of the module corresponding to this node.
+			 * The input topic of the module to be executed in the node.
 			 */
 			public String topic;
-			
+
 			/**
 			 * The data for this execution.
 			 */
-			public byte[] executionData = null;
+			public Serializable executionData = null;
+			
+			/**
+			 * Counter for unexecuted predecessors.
+			 */
+			public int unexecutedPredecessorCnt = 0;
+
+			/**
+			 * Create a node specifying only the input topic of the module to be
+			 * executed in the node.
+			 * 
+			 * @param topic
+			 *            The input topic of the module to be executed in the
+			 *            node.
+			 */
+			public Node(String topic) {
+				this.topic = topic;
+			}
+
+			/**
+			 * Create a node specifying the input topic of the module to be
+			 * executed in the node and the data for execution.
+			 * 
+			 * @param topic
+			 *            The input topic of the module to be executed in the
+			 *            node.
+			 * @param executionData
+			 *            The data for execution, which is a serializable object.
+			 */
+			public Node(String topic, Serializable executionData) {
+				this.topic = topic;
+				this.executionData = executionData;
+			}
 		}
 
 		private static final long serialVersionUID = -4268794570615111388L;
@@ -62,43 +99,135 @@ public class TaskData implements Serializable, Cloneable {
 		 * Each node represents a module to execute.
 		 */
 		private Node[] nodes;
-		
+
+		private int numNodes = 0;
+
 		/**
-		 * Each node has its own successor nodes, each organized in a set.
-		 * The indexes of the sets correspond to that of the nodes.
+		 * Each node has its own successor nodes, each organized in a set. The
+		 * indexes of the sets correspond to that of the nodes.
 		 */
 		private Set<Integer>[] successors;
-		
-		/**
-		 * The ID of the current node.
-		 */
-		private int currentNode;
-		
+
 		/**
 		 * Markers recording whether each node has been executed.
 		 */
 		private boolean[] executed;
 
 		/**
-		 * Initialize an execution plan specifying the total number of nodes. 
-		 * @param numNodes	Number of nodes.
+		 * Create a link from the head node to the tail node.
+		 * 
+		 * @param head
+		 *            The ID of the head node.
+		 * @param tail
+		 *            The ID of the tail node.
 		 */
-		@SuppressWarnings("unchecked")
-		public ExecutionPlan(int numNodes) {
-			nodes = new Node[numNodes];
-			successors = new Set[numNodes];
-			executed = new boolean[numNodes];
-			currentNode = 0;
+		public void linkNodes(int head, int tail) {
+			successors[head].add(tail);
+			if (!executed[head]) {
+				nodes[tail].unexecutedPredecessorCnt++;
+			}
+		}
+
+		/**
+		 * Add a node specifying only the input topic of the module to be
+		 * executed in the node.
+		 * 
+		 * @param topic
+		 *            The input topic of the module to be executed in the node.
+		 * @return The ID of the node.
+		 */
+		public int addNode(String topic) {
+			nodes[numNodes] = new Node(topic);
+			return numNodes++;
+		}
+
+		/**
+		 * Add a node specifying the input topic of the module to be executed in
+		 * the node and the data for execution.
+		 * 
+		 * @param topic
+		 *            The input topic of the module to be executed in the node.
+		 * @param executionData
+		 *            The data for execution, which is a serializable object.
+		 * @return The ID of the node.
+		 */
+		public int addNode(String topic, Serializable executionData) {
+			nodes[numNodes] = new Node(topic, executionData);
+			return numNodes++;
+		}
+
+		/**
+		 * Append a node to a head node specifying only the input topic of the
+		 * module to be executed in the node.
+		 * 
+		 * @param head
+		 *            The ID of the head node.
+		 * @param topic
+		 *            The input topic of the module to be executed in the node.
+		 * @return The ID of the node.
+		 */
+		public int appendNode(int head, String topic) {
+			nodes[numNodes] = new Node(topic);
+			linkNodes(head, numNodes);
+			return numNodes++;
+		}
+
+		/**
+		 * Append a node to a head node specifying the input topic of the module
+		 * to be executed in the node and the data for execution.
+		 * 
+		 * @param head
+		 *            The ID of the head node.
+		 * @param topic
+		 *            The input topic of the module to be executed in the node.
+		 * @param executionData
+		 *            The data for execution, which is a serializable object.
+		 * @return The ID of the node.
+		 */
+		public int appendNode(int head, String topic, Serializable executionData) {
+			nodes[numNodes] = new Node(topic, executionData);
+			linkNodes(head, numNodes);
+			return numNodes++;
 		}
 		
-		/* (non-Javadoc)
+		/**
+		 * Get the IDs of all startable nodes.
+		 * A node is startable when all its predecessors have been executed. 
+		 * @return	IDs of all startable nodes.
+		 */
+		public Set<Integer> getStartableNodes() {
+			Set<Integer> startableNodes = new HashSet<>();
+			for (int i = 0; i < nodes.length; ++i) {
+				if (!executed[i] && nodes[i].unexecutedPredecessorCnt == 0) {
+					startableNodes.add(i);
+				}
+			}
+			return startableNodes;
+		}
+
+		/**
+		 * Initialize an execution plan specifying the total number of nodes.
+		 * 
+		 * @param maxNumNodes
+		 *            Maximum number of nodes.
+		 */
+		@SuppressWarnings("unchecked")
+		public ExecutionPlan(int maxNumNodes) {
+			nodes = new Node[maxNumNodes];
+			successors = new Set[maxNumNodes];
+			executed = new boolean[maxNumNodes];
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
 		 * @see java.lang.Object#clone()
 		 */
 		@Override
 		protected Object clone() {
 			ExecutionPlan clonedPlan = null;
 			try {
-				clonedPlan = (ExecutionPlan)super.clone();
+				clonedPlan = (ExecutionPlan) super.clone();
 			} catch (CloneNotSupportedException e) {
 				e.printStackTrace();
 				return null;
@@ -108,66 +237,88 @@ public class TaskData implements Serializable, Cloneable {
 			clonedPlan.executed = this.executed.clone();
 			return clonedPlan;
 		}
-		
+
 		/**
-		 * Recommended to call before the getPlanForNextNode method to save computation resource.
+		 * Recommended to call before the getPlanForNextNode method to save
+		 * computation resource.
+		 * 
+		 * @param nodeID
+		 *            The ID of the node to be marked executed.
 		 */
-		public void markExecuted() {
-			successors[currentNode] = null;
-			nodes[currentNode] = null;
-			executed[currentNode] = true;
+		public void markExecuted(int nodeID) {
+			if (!executed[nodeID]) {
+				successors[nodeID] = null;
+				nodes[nodeID] = null;
+				executed[nodeID] = true;
+				
+				for (int successorID : successors[nodeID]) {
+					--nodes[successorID].unexecutedPredecessorCnt;
+				}
+			}
 		}
-		
+
 		/**
-		 * Get the execution plan for the execution of a successor node of the current node.
-		 * The id should be retrieved from the successor set of the current node.
-		 * @param nodeID	The ID of the next node to execute.
-		 * @return			The plan for that execution.
+		 * Get the execution plan for the execution of a successor node of the
+		 * current node. The id should be retrieved from the successor set of
+		 * the current node.
+		 * 
+		 * @param currentNodeID
+		 *            The ID of the current node.
+		 * @param nextNodeID
+		 *            The ID of the next node to execute. Should be retrieved
+		 *            from the successor set of the current node.
+		 * @return The plan for that execution.
 		 */
-		public ExecutionPlan getPlanForNextNode(int nodeID, Object result) {
+		public ExecutionPlan getPlanForNextNode(int currentNodeID, int nodeID, Object result) {
 			// Clone a plan.
 			ExecutionPlan plan = (ExecutionPlan) this.clone();
-			
-			// Remove 
-			if (plan.successors[currentNode] != null)
-				plan.successors[currentNode] = null;
-			if (plan.nodes[currentNode] != null)
-				plan.nodes[currentNode] = null;
-			plan.executed[currentNode] = true;
-			
-			plan.currentNode = nodeID;
-			
+
+			// Remove current node.
+			plan.markExecuted(currentNodeID);
+
 			return plan;
 		}
-		
+
 		/**
-		 * To invoke a node, we only need to know one of the input topics of the module corresponding to it.
-		 * @param nodeID	The ID of the node.
-		 * @return			The name of a topic specified in the execution plan for the current module to output to.
+		 * To invoke a node, we only need to know one of the input topics of the
+		 * module corresponding to it.
+		 * 
+		 * @param nodeID
+		 *            The ID of the node.
+		 * @return The name of a topic specified in the execution plan for the
+		 *         current module to output to.
 		 */
 		public String getInputTopicName(int nodeID) {
 			return nodes[nodeID].topic;
 		}
-		
+
 		/**
-		 * Get the successor nodes of the current node.
-		 * @return	A set of the successor nodes.
+		 * Get the successor nodes of a node.
+		 * 
+		 * @param nodeID
+		 *            The ID of the node.
+		 * @return A set of the successor nodes.
 		 */
-		public Set<Integer> getSuccessors() {
-			return successors[currentNode];
+		public Set<Integer> getSuccessors(int nodeID) {
+			return successors[nodeID];
 		}
-		
+
 		/**
-		 * Get the execution data for the current node.
-		 * @return	Execution data in byte array.
+		 * Get the execution data of a node.
+		 * 
+		 * @param nodeID
+		 *            The ID of the node.
+		 * @return Execution data in byte array.
 		 */
-		public byte[] getExecutionData() {
-			return nodes[currentNode].executionData;
+		public Serializable getExecutionData(int nodeID) {
+			return nodes[nodeID].executionData;
 		}
-		
+
 		/**
 		 * Combine another execution plan.
-		 * @param plan	A plan to combine to the current plan.
+		 * 
+		 * @param plan
+		 *            A plan to combine to the current plan.
 		 */
 		public void combine(ExecutionPlan plan) {
 			for (int i = 0; i < nodes.length; ++i) {
@@ -180,14 +331,14 @@ public class TaskData implements Serializable, Cloneable {
 						nodes[i] = plan.nodes[i];
 					} else {
 						if (plan.nodes[i] != null) {
-							assert(nodes[i].equals(plan.nodes[i]));
+							assert (nodes[i].equals(plan.nodes[i]));
 						}
 					}
 					if (successors[i] == null) {
 						successors[i] = plan.successors[i];
 					} else {
 						if (plan.successors[i] != null) {
-							assert(successors[i].equals(plan.successors[i]));
+							assert (successors[i].equals(plan.successors[i]));
 						}
 					}
 				}
@@ -196,21 +347,46 @@ public class TaskData implements Serializable, Cloneable {
 	}
 
 	/**
+	 * The ID of the current node.
+	 */
+	public int currentNodeID;
+
+	/**
 	 * The global execution plan.
 	 */
-	public ExecutionPlan executionPlan;
-	
+	public ExecutionPlan executionPlan = null;
+
 	/**
 	 * The result of the predecessor.
 	 */
-	public Object predecessorResult; 
-	
+	public Serializable predecessorResult = null;
+
 	/**
-	 * Initialize while specifying the total number of nodes for initializing the execution plan. 
-	 * @param numNodes	Number of nodes.
+	 * Create a task with an execution plan with no predecessor result.
+	 * 
+	 * @param currentNodeID
+	 *            The ID of the current node to execute.
+	 * @param executionPlan
+	 *            A global execution plan.
 	 */
-	public TaskData(int numNodes) {
-		executionPlan = new ExecutionPlan(0);
-		predecessorResult = null;
+	public TaskData(int currentNodeID, ExecutionPlan executionPlan) {
+		this.currentNodeID = currentNodeID;
+		this.executionPlan = executionPlan;
+	}
+
+	/**
+	 * Create a task with an execution plan with predecessor result.
+	 * 
+	 * @param currentNodeID
+	 *            The ID of the current node to execute.
+	 * @param executionPlan
+	 *            A global execution plan.
+	 * @param predecessorResult
+	 *            Result of the predecessor node, which is a serializable object.
+	 */
+	public TaskData(int currentNodeID, ExecutionPlan executionPlan, Serializable predecessorResult) {
+		this.currentNodeID = currentNodeID;
+		this.executionPlan = executionPlan;
+		this.predecessorResult = predecessorResult;
 	}
 }

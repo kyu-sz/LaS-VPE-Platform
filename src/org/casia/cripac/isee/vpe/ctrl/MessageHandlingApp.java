@@ -17,6 +17,8 @@
 
 package org.casia.cripac.isee.vpe.ctrl;
 
+import java.io.IOException;
+import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -44,10 +47,12 @@ import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
+import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
+import org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.xml.sax.SAXException;
 
 import kafka.serializer.DefaultDecoder;
@@ -147,33 +152,38 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 	
-	/**
-	 * Currently, modules can only be executed in a queue.
-	 * This class is used to build such an execution queue.
-	 * However, in the future, modules should be able to be executed in a directed graph.
-	 * TODO Change the mechanism of execution specifying of the whole system from a simple queue to a directed graph.  
-	 * @author Ken Yu, CRIPAC, 2016
-	 *
-	 */
-	private class ExecQueueBuilder {
+	public static class UnsupportedCommandException extends Exception {
+
+		private static final long serialVersionUID = -940732652485656739L;
 		
-		private String buf = "";
+	}
+	
+	private ExecutionPlan createPlanByCommand(String cmd, byte[] data) throws UnsupportedCommandException, ClassNotFoundException, IOException {
+		ExecutionPlan plan = null;
 		
-		public void addTask(String... topics) {
-			if (buf.length() > 0 && topics.length > 0) {
-				buf = buf.concat("|");
-			}
-			for (int i = 0; i < topics.length; ++i) {
-				buf = buf.concat(topics[i]);
-				if (i < topics.length - 1) {
-					buf = buf.concat(",");
-				}
-			}
+		switch (cmd) {
+		case CommandSet.TRACK_ONLY:
+			plan = new ExecutionPlan(1);
+			plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
+					(Serializable) SerializationHelper.deserialized(data));
+			break;
+		case CommandSet.TRACK_AND_RECOG_ATTR:
+			plan = new ExecutionPlan(2);
+			int trackingID = plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
+					(Serializable) SerializationHelper.deserialized(data));
+			int attrRecogID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+			plan.linkNodes(trackingID, attrRecogID);
+			break;
+		case CommandSet.RECOG_ATTR_ONLY:
+			plan = new ExecutionPlan(1);
+			plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_JOB_TOPIC,
+					(Serializable) SerializationHelper.deserialized(data));
+			break;
+		default:
+			throw new UnsupportedCommandException();
 		}
 		
-		public String getQueue() {
-			return buf;
-		}
+		return plan;
 	}
 
 	@Override
@@ -226,10 +236,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = 
 						loggerSingleton.getSupplier(new JavaSparkContext(cmdRDD.context()));
 				
-//				System.out.println(
-//						"RDD count: " + messageRDD.count() + " partitions:" + messageRDD.getNumPartitions()
-//						+ " " + messageRDD.toString());
-				
 				if (verbose) {
 					System.out.println(APP_NAME + ": Reading RDD...");
 					System.out.println(
@@ -240,6 +246,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				}
 				
 				cmdRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
+				
 				cmdRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String,byte[]>>>() {
 
 					private static final long serialVersionUID = -4594138896649250346L;
@@ -247,65 +254,33 @@ public class MessageHandlingApp extends SparkStreamingApp {
 					@Override
 					public void call(Iterator<Tuple2<String, byte[]>> cmdMsg) throws Exception {
 						
-						int msgCnt = 0;
+						int msgCnt = 0;	// For diagnose.
 						
 						while (cmdMsg.hasNext()) {
-							
+							// Get a next command message.
 							Tuple2<String, byte[]> message = cmdMsg.next();
 							++msgCnt;
-							
-							ExecQueueBuilder execQueueBuilder = new ExecQueueBuilder();
+
+							UUID taskID = UUID.randomUUID();
 							
 							String cmd = message._1();
-							byte[] dataQueue = message._2();
+							byte[] data = message._2();
 							
 							if (verbose) {
 								loggerSupplier.get().info(APP_NAME + ": Received command \"" + cmd + "\"");
 							}
-							
-							switch (cmd) {
-							case CommandSet.TRACK_ONLY:
-								if (verbose) {
-									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
-											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
-											execQueueBuilder.getQueue() + "...");
-								}
-								producerSupplier.get().send(
-										new ProducerRecord<String, byte[]>(
-												PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-												execQueueBuilder.getQueue(),
-												dataQueue));
-								break;
-							case CommandSet.TRACK_AND_RECOG_ATTR:
-								execQueueBuilder.addTask(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
 
-								if (verbose) {
-									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
-											PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC + ">" +
-											execQueueBuilder.getQueue() + "...");
-								}
+							ExecutionPlan plan = createPlanByCommand(cmd, data);
+
+							Set<Integer> startableNodes = plan.getStartableNodes();
+							for (int nodeID : startableNodes) {
 								producerSupplier.get().send(
 										new ProducerRecord<String, byte[]>(
-												PedestrianTrackingApp.PEDESTRIAN_TRACKING_TASK_TOPIC,
-												execQueueBuilder.getQueue(),
-												dataQueue));
-								break;
-							case CommandSet.RECOG_ATTR_ONLY:
-								if (verbose) {
-									loggerSupplier.get().info("MessageHandlingApp: sending to Kafka <" +
-											PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC + ">" +
-											execQueueBuilder.getQueue() + "...");
-								}
-								producerSupplier.get().send(
-										new ProducerRecord<String, byte[]>(
-												PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TASK_TOPIC,
-												execQueueBuilder.getQueue(),
-												dataQueue));
-								break;
-							default:
-								loggerSupplier.get().error(APP_NAME + ": Unsupported command!");
-								break;
+												plan.getInputTopicName(nodeID),
+												taskID.toString(),
+												SerializationHelper.serialize(new TaskData(nodeID, plan))));
 							}
+							
 						}
 						
 						if (verbose) {

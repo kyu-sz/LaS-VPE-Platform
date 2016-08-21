@@ -19,7 +19,6 @@ package org.casia.cripac.isee.pedestrian.tracking;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * The Track class stores a sequence of bounding boxes,
@@ -100,12 +99,6 @@ public class Track implements Serializable {
 	 * Its default value is -1, meaning the index has not been determined yet.
 	 */
 	public int startFrameIndex = -1;
-	
-	/**
-	 * This field should be filled in case that following steps need to group tracks generated in one task.
-	 * Track generators do not need to fill in this field. 
-	 */
-	public UUID taskID = null;
 	
 	/**
 	 * Storing the locations with the BoundingBox class at each moment, sorted by time.
