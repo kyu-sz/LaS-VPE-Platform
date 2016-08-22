@@ -14,50 +14,36 @@
  * You should have received a copy of the GNU General Public License
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
-
-package org.casia.cripac.isee.pedestrian.attr;
+package org.casia.cripac.isee.vpe.common;
 
 import java.io.Serializable;
 
+import org.casia.cripac.isee.pedestrian.attr.Attributes;
+import org.casia.cripac.isee.pedestrian.tracking.Track;
+
 /**
- * The Attribute class stores all the pre-defined attributes of a pedestrian at
- * one moment in a track. In other words, each attribute object correspond to
- * one bounding box in a track. TODO: Design how to associate an attribute to
- * the track it belongs to. TODO: Fill the pre-defined attributes.
+ * A wrapper for a track and the attributes of it.
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class Attribute implements Serializable {
+public class TrackWithAttributes implements Serializable, Cloneable {
 
-	private static final long serialVersionUID = -7873269416770994896L;
+	private static final long serialVersionUID = 5845993089063557863L;
+	
+	public Track track = null;
+	public Attributes attr = null;
 
 	/**
-	 * Enumeration of possible facing status.
+	 * Constructor with track and attribute specified at the beginning.
 	 * 
-	 * @author Ken Yu, CRIPAC, 2016
+	 * @param track
+	 *            A track.
+	 * @param attr
+	 *            Attributes recognized from the track.
 	 */
-	public enum Facing {
-		LEFT, RIGHT, FRONT, BACK
+	public TrackWithAttributes(Track track, Attributes attr) {
+		this.track = track;
+		this.attr = attr;
 	}
-
-	/**
-	 * The direction the pedestrian is facing at this moment.
-	 */
-	public Facing facing;
-
-	/**
-	 * Enumeration of possible sexes.
-	 * 
-	 * @author Ken Yu, CRIPAC, 2016
-	 *
-	 */
-	public enum Sex {
-		MALE, FEMALE, UNDETERMINED
-	}
-
-	/**
-	 * The sex of the pedestrian in the track.
-	 */
-	public Sex sex;
 }

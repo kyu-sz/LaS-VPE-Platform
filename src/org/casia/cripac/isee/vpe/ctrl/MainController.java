@@ -150,7 +150,7 @@ public class MainController {
 			case PedestrianTrackingApp.APP_NAME:
 				PedestrianTrackingApp.main(arguments);
 				break;
-			case CommandGeneratingApp.APPLICATION_NAME:
+			case CommandGeneratingApp.APP_NAME:
 				CommandGeneratingApp.main(arguments);
 				break;
 			default:

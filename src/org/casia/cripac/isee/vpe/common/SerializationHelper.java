@@ -74,7 +74,7 @@ public class SerializationHelper {
 	 * @throws ClassNotFoundException
 	 * @throws IOException
 	 */
-	public static Object deserialized(byte[] byteArray) throws ClassNotFoundException, IOException {
+	public static Object deserialize(byte[] byteArray) throws ClassNotFoundException, IOException {
 		ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
 		ObjectInput objectInput = null;
 		try {

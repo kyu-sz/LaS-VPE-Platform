@@ -36,5 +36,5 @@ public abstract class PedestrianAttrRecognizer {
 	 *            A pedestrian track.
 	 * @return The attributes of the pedestrian specified by the track.
 	 */
-	public abstract Attribute recognize(Track track);
+	public abstract Attributes recognize(Track track);
 }

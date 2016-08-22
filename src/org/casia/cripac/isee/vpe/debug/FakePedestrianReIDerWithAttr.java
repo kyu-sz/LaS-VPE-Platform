@@ -16,35 +16,26 @@
  ************************************************************************/
 package org.casia.cripac.isee.vpe.debug;
 
-import java.io.Serializable;
+import java.util.Random;
 
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
+import org.casia.cripac.isee.pedestrian.reid.PedestrianReIDerWithAttr;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
-import org.casia.cripac.isee.vpe.common.TrackWithAttributes;
 
 /**
- * Simulate a database connector that provides tracks and attributes.
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class FakeDatabaseConnector implements Serializable {
+public class FakePedestrianReIDerWithAttr extends PedestrianReIDerWithAttr {
+
+	Random rand = new Random();
 	
-
-	private static final long serialVersionUID = 355205529406170579L;
-
-	/**
-	 * Get a particular track from the database.
-	 * @param videoURL
-	 * @param trackID
-	 * @return
+	/* (non-Javadoc)
+	 * @see org.casia.cripac.isee.pedestrian.reid.PedestrianReIDerWithAttr#reid(org.casia.cripac.isee.pedestrian.tracking.Track, org.casia.cripac.isee.pedestrian.attr.Attribute)
 	 */
-	public Track getTrack(String videoURL, String trackID) {
-		return new FakePedestrianTracker().generateRandomTrack(videoURL);
+	@Override
+	public int reid(Track track, Attributes attr) {
+		return rand.nextInt(100);
 	}
-	
-	public TrackWithAttributes getTrackWithAttr(String videoURL, String trackID) {
-		Track track = new FakePedestrianTracker().generateRandomTrack(videoURL);
-		Attributes attr = new FakePedestrianAttrRecognizer().recognize(track);
-		return new TrackWithAttributes(track, attr);
-	}
+
 }

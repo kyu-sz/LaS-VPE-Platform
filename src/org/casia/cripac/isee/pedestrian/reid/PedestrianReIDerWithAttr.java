@@ -14,37 +14,27 @@
  * You should have received a copy of the GNU General Public License
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
-package org.casia.cripac.isee.vpe.debug;
-
-import java.io.Serializable;
+package org.casia.cripac.isee.pedestrian.reid;
 
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
-import org.casia.cripac.isee.vpe.common.TrackWithAttributes;
 
 /**
- * Simulate a database connector that provides tracks and attributes.
+ * The PedestrianReIDerWithAttr class is the base class for pedestrian
+ * re-identifiers using attributes. Any subclass is required to implement a
+ * simple 'reid' method, which takes in a track and attributes of it, and
+ * returns the ID of the pedestrian.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class FakeDatabaseConnector implements Serializable {
+public abstract class PedestrianReIDerWithAttr {
 	
-
-	private static final long serialVersionUID = 355205529406170579L;
-
 	/**
-	 * Get a particular track from the database.
-	 * @param videoURL
-	 * @param trackID
-	 * @return
+	 * Perform re-identification on a track with attributes recognized on it.
+	 * @param track	A track of a pedestrian.
+	 * @param attr	Attributes recognized from the pedestrian in the track.
+	 * @return		The ID of the pedestrian.
 	 */
-	public Track getTrack(String videoURL, String trackID) {
-		return new FakePedestrianTracker().generateRandomTrack(videoURL);
-	}
-	
-	public TrackWithAttributes getTrackWithAttr(String videoURL, String trackID) {
-		Track track = new FakePedestrianTracker().generateRandomTrack(videoURL);
-		Attributes attr = new FakePedestrianAttrRecognizer().recognize(track);
-		return new TrackWithAttributes(track, attr);
-	}
+	public abstract int reid(Track track, Attributes attr);
 }

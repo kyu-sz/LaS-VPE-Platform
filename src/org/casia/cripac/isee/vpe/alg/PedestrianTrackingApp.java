@@ -76,7 +76,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	 * The name of this application.
 	 */
 	public static final String APP_NAME = "PedestrianTracking";
-	public static final String PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC = "tracking-task";
+	public static final String PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC = "pedestrian-tracking-job";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
@@ -88,7 +88,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	}
 
 	// private HashSet<String> taskTopicsSet = new HashSet<>();
-	private Map<String, Integer> taskTopicPartitions = new HashMap<>();
+	private Map<String, Integer> jobTopicPartitions = new HashMap<>();
 	private Properties trackProducerProperties = new Properties();
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
@@ -97,6 +97,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	private int messageListenerPort;
 	private int numRecvStreams;
 
+	/**
+	 * Constructor of the application, configuring properties read from a property center.
+	 * @param propertyCenter	A class saving all the properties this application may need.
+	 */
 	public PedestrianTrackingApp(SystemPropertyCenter propertyCenter) {
 		super();
 
@@ -108,7 +112,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		numRecvStreams = propertyCenter.numRecvStreams;
 
 		// taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
-		taskTopicPartitions.put(PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC, propertyCenter.kafkaPartitions);
+		jobTopicPartitions.put(PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC, propertyCenter.kafkaPartitions);
 
 		trackProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
 		trackProducerProperties.put("producer.type", "sync");
@@ -136,6 +140,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * org.casia.cripac.isee.vpe.common.SparkStreamingApp#getStreamContext()
+	 */
 	@Override
 	protected JavaStreamingContext getStreamContext() {
 		// Create contexts.
@@ -168,7 +178,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		List<JavaPairDStream<String, byte[]>> parJobStreams = new ArrayList<>(numRecvStreams);
 		for (int i = 0; i < numRecvStreams; i++) {
 			parJobStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
-					DefaultDecoder.class, commonKafkaParams, taskTopicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
+					DefaultDecoder.class, commonKafkaParams, jobTopicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
 		}
 		JavaPairDStream<String, byte[]> jobStream = streamingContext.union(parJobStreams.get(0),
 				parJobStreams.subList(1, parJobStreams.size()));
@@ -201,7 +211,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 					@Override
 					public void call(Tuple2<String, byte[]> task) throws Exception {
 						// Get the task data.
-						TaskData taskData = (TaskData) SerializationHelper.deserialized(task._2());
+						TaskData taskData = (TaskData) SerializationHelper.deserialize(task._2());
 						// Get the URL of the video to process from the
 						// execution data of this node.
 						String videoURL = (String) taskData.executionPlan.getExecutionData(taskData.currentNodeID);

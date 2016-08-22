@@ -2,6 +2,9 @@
 # Now push dependent libraries to the Git using LFS.
 #lib/*
 
+# Auto-generated files
+/doc/
+
 # Temporary files #
 checkpoint/
 *.log

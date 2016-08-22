@@ -50,7 +50,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.opencv_core.Mat;
-import org.casia.cripac.isee.pedestrian.attr.Attribute;
+import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
@@ -84,6 +84,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	public static final String APP_NAME = "MetadataSaving";
 	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
 	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
+	public static final String PEDESTRIAN_ID_SAVING_INPUT_TOPIC = "pedestrian-id-saving-input";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
@@ -93,6 +94,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	static {
 		TopicManager.registerTopic(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		TopicManager.registerTopic(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
+		TopicManager.registerTopic(PEDESTRIAN_ID_SAVING_INPUT_TOPIC);
 	}
 
 	// private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
@@ -223,7 +225,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 						String taskID = trackGroup._1();
 						Iterator<byte[]> trackIterator = trackGroup._2().iterator();
-						Track track = (Track) SerializationHelper.deserialized(trackIterator.next());
+						Track track = (Track) SerializationHelper.deserialize(trackIterator.next());
 						String videoURL = track.videoURL;
 						int numTracks = track.numTracks;
 						String storeRoot = metadataDir + "/" + videoURL + "/" + taskID;
@@ -289,7 +291,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							if (!trackIterator.hasNext()) {
 								break;
 							}
-							track = (Track) SerializationHelper.deserialized(trackIterator.next());
+							track = (Track) SerializationHelper.deserialize(trackIterator.next());
 						}
 
 						ContentSummary contentSummary = fs.getContentSummary(new Path(storeRoot));
@@ -348,9 +350,9 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 					@Override
 					public void call(Tuple2<String, byte[]> result) throws Exception {
-						Attribute attr;
+						Attributes attr;
 						try {
-							attr = (Attribute) SerializationHelper.deserialized(result._2());
+							attr = (Attributes) SerializationHelper.deserialize(result._2());
 
 							if (verbose) {
 								loggerSupplier.get().info("Metadata saver received attribute: " + "Facing" + "="
@@ -358,6 +360,47 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							}
 						} catch (IOException e) {
 							loggerSupplier.get().error("Exception caught when decompressing attributes", e);
+						}
+					}
+
+				});
+			}
+		});
+
+		List<JavaPairDStream<String, byte[]>> parIDStreams = new ArrayList<>(numRecvStreams);
+		for (int i = 0; i < numRecvStreams; i++) {
+			parIDStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
+					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, attrTopicPartitions,
+					StorageLevel.MEMORY_AND_DISK_SER()));
+		}
+		JavaPairDStream<String, byte[]> idStream = streamingContext.union(parIDStreams.get(0),
+				parIDStreams.subList(1, parAttrStreams.size()));
+		idStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+
+			private static final long serialVersionUID = -715024705240889905L;
+
+			@Override
+			public void call(JavaPairRDD<String, byte[]> attrRDD) throws Exception {
+
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+						.getSupplier(new JavaSparkContext(attrRDD.context()));
+
+				attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
+				attrRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
+
+					private static final long serialVersionUID = -4846631314801254257L;
+
+					@Override
+					public void call(Tuple2<String, byte[]> result) throws Exception {
+						int id;
+						try {
+							id = (Integer) SerializationHelper.deserialize(result._2());
+
+							if (verbose) {
+								loggerSupplier.get().info("Metadata saver received ID:" + id);
+							}
+						} catch (IOException e) {
+							loggerSupplier.get().error("Exception caught when decompressing ID", e);
 						}
 					}
 

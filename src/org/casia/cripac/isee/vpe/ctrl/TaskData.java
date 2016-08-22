@@ -317,34 +317,40 @@ public class TaskData implements Serializable, Cloneable {
 		}
 
 		/**
-		 * Combine another execution plan.
+		 * Combine another execution plan to form a new plan. This function does
+		 * not affect the original plan.
 		 * 
 		 * @param plan
 		 *            A plan to combine to the current plan.
+		 * @return A new plan combining the current plan and the given plan.
 		 */
-		public void combine(ExecutionPlan plan) {
-			for (int i = 0; i < nodes.length; ++i) {
-				if (executed[i] || plan.executed[i]) {
-					executed[i] = true;
-					nodes[i] = null;
-					successors[i] = null;
-				} else {
-					if (nodes[i] == null) {
-						nodes[i] = plan.nodes[i];
+		public ExecutionPlan combine(ExecutionPlan plan) {
+			ExecutionPlan combinedPlan = (ExecutionPlan) this.clone();
+			if (plan != null) {
+				for (int i = 0; i < combinedPlan.nodes.length; ++i) {
+					if (combinedPlan.executed[i] || plan.executed[i]) {
+						combinedPlan.executed[i] = true;
+						combinedPlan.nodes[i] = null;
+						combinedPlan.successors[i] = null;
 					} else {
-						if (plan.nodes[i] != null) {
-							assert (nodes[i].equals(plan.nodes[i]));
+						if (combinedPlan.nodes[i] == null) {
+							combinedPlan.nodes[i] = plan.nodes[i];
+						} else {
+							if (plan.nodes[i] != null) {
+								assert (combinedPlan.nodes[i].equals(plan.nodes[i]));
+							}
 						}
-					}
-					if (successors[i] == null) {
-						successors[i] = plan.successors[i];
-					} else {
-						if (plan.successors[i] != null) {
-							assert (successors[i].equals(plan.successors[i]));
+						if (combinedPlan.successors[i] == null) {
+							combinedPlan.successors[i] = plan.successors[i];
+						} else {
+							if (plan.successors[i] != null) {
+								assert (combinedPlan.successors[i].equals(plan.successors[i]));
+							}
 						}
 					}
 				}
 			}
+			return combinedPlan;
 		}
 	}
 

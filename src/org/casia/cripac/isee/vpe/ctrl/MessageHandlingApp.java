@@ -43,6 +43,7 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
+import org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
@@ -79,6 +80,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		public final static String TRACK_ONLY = "track-only";
 		public final static String TRACK_AND_RECOG_ATTR = "track-and-recog-attr";
 		public final static String RECOG_ATTR_ONLY = "recog-attr-only";
+		public final static String REID_ONLY = "reid-only";
+		public final static String RECOG_ATTR_AND_REID = "recog-attr-and-reid";
+		public final static String TRACK_AND_RECOG_ATTR_AND_REID = "track-and-recog-attr-and-reid";
 	}
 
 	private static final long serialVersionUID = -942388332211825622L;
@@ -170,20 +174,43 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		case CommandSet.TRACK_ONLY:
 			plan = new ExecutionPlan(1);
 			plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
-					(Serializable) SerializationHelper.deserialized(data));
-			break;
-		case CommandSet.TRACK_AND_RECOG_ATTR:
-			plan = new ExecutionPlan(2);
-			int trackingID = plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
-					(Serializable) SerializationHelper.deserialized(data));
-			int attrRecogID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
-			plan.linkNodes(trackingID, attrRecogID);
+					(Serializable) SerializationHelper.deserialize(data));
 			break;
 		case CommandSet.RECOG_ATTR_ONLY:
 			plan = new ExecutionPlan(1);
 			plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_JOB_TOPIC,
-					(Serializable) SerializationHelper.deserialized(data));
+					(Serializable) SerializationHelper.deserialize(data));
 			break;
+		case CommandSet.TRACK_AND_RECOG_ATTR: {
+			plan = new ExecutionPlan(2);
+			int trackingNodeID = plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
+					(Serializable) SerializationHelper.deserialize(data));
+			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+			plan.linkNodes(trackingNodeID, attrRecogNodeID);
+			break;
+		}
+		case CommandSet.REID_ONLY:
+			plan = new ExecutionPlan(1);
+			plan.addNode(PedestrianReIDWithAttrApp.PEDESTRIAN_REID_JOB_TOPIC,
+					(Serializable) SerializationHelper.deserialize(data));
+			break;
+		case CommandSet.RECOG_ATTR_AND_REID: {
+			plan = new ExecutionPlan(2);
+			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+			int reidNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+			plan.linkNodes(attrRecogNodeID, reidNodeID);
+			break;
+		}
+		case CommandSet.TRACK_AND_RECOG_ATTR_AND_REID: {
+			plan = new ExecutionPlan(3);
+			int trackingNodeID = plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
+					(Serializable) SerializationHelper.deserialize(data));
+			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+			int reidNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+			plan.linkNodes(trackingNodeID, attrRecogNodeID);
+			plan.linkNodes(attrRecogNodeID, reidNodeID);
+			break;
+		}
 		default:
 			throw new UnsupportedCommandException();
 		}
@@ -204,13 +231,15 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
 				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
 
-		/**
+		/*********************************************************************************
 		 * Though the "createDirectStream" method is suggested for higher speed,
 		 * we use createStream for auto management of Kafka offsets by
 		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
+		 * 
+		 * <br>
 		 * TODO Fix problem "numRecords must not be negative" when using
-		 * createDirectStream.
-		 */
+		 * createDirectStream.</br>
+		 *********************************************************************************/
 		List<JavaPairDStream<String, byte[]>> parCmdStreams = new ArrayList<>(numRecvStreams);
 		for (int i = 0; i < numRecvStreams; i++) {
 			parCmdStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,

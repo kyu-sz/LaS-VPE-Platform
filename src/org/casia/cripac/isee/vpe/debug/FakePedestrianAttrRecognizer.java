@@ -19,18 +19,18 @@ package org.casia.cripac.isee.vpe.debug;
 
 import java.util.Random;
 
-import org.casia.cripac.isee.pedestrian.attr.Attribute;
+import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
-import org.casia.cripac.isee.pedestrian.attr.Attribute.Facing;
+import org.casia.cripac.isee.pedestrian.attr.Attributes.Facing;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 
 public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
-	Random random = new Random();
+	private Random random = new Random();
 
 	@Override
-	public Attribute recognize(Track track) {
-		Attribute attribute = new Attribute();
+	public Attributes recognize(Track track) {
+		Attributes attribute = new Attributes();
 
 		switch (random.nextInt(4)) {
 		case 0:

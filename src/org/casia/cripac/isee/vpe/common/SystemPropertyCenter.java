@@ -38,6 +38,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
+import org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp;
 import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
@@ -322,7 +323,9 @@ public class SystemPropertyCenter {
 			return "org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp";
 		case PedestrianTrackingApp.APP_NAME:
 			return "org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp";
-		case CommandGeneratingApp.APPLICATION_NAME:
+		case PedestrianReIDWithAttrApp.APP_NAME:
+			return "org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp";
+		case CommandGeneratingApp.APP_NAME:
 			return "org.casia.cripac.isee.vpe.debug.CommandGeneratingApp";
 		default:
 			System.err.printf("No application named \"%s\"!\n", appName);

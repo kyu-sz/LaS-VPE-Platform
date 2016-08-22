@@ -28,9 +28,11 @@ package org.casia.cripac.isee.pedestrian.tracking;
 public abstract class PedestrianTracker {
 
 	/**
-	 * Read a video from a URL, and perform pedestrian tracking on it. TODO One
-	 * might change this to directly takes in a byte array, representing the
-	 * data of the video.
+	 * Read a video from a URL, and perform pedestrian tracking on it.
+	 * 
+	 * <br>
+	 * TODO One might change this to directly takes in a byte array,
+	 * representing the data of the video.</br>
 	 * 
 	 * @param videoURL
 	 *            The URL at which the video is stored.
