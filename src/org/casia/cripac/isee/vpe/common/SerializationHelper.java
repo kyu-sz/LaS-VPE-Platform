@@ -23,6 +23,7 @@ import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
 /**
  * The SerializationHelper class provides functions for serializing and
@@ -74,12 +75,12 @@ public class SerializationHelper {
 	 * @throws ClassNotFoundException
 	 * @throws IOException
 	 */
-	public static Object deserialize(byte[] byteArray) throws ClassNotFoundException, IOException {
+	public static Serializable deserialize(byte[] byteArray) throws ClassNotFoundException, IOException {
 		ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
 		ObjectInput objectInput = null;
 		try {
 			objectInput = new ObjectInputStream(byteArrayInputStream);
-			return objectInput.readObject();
+			return (Serializable) objectInput.readObject();
 		} finally {
 			try {
 				if (objectInput != null) {

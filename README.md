@@ -59,4 +59,6 @@ A new module may be based on some algorithms whose codes are written in other la
 
 See an application such as [PedestrianTrackingApp](src/org/casia/cripac/isee/pedestrian/tracking/PedestrianTracker.java), etc. for example of how to write an application module. Write your own module then add it to this project. Also register its class name to the [AppManager](src/org/casia/cripac/isee/vpe/ctrl/AppManager.java) by adding a line in the static block, similar to other lines.
 
+You may also need to extend the [CommandGeneratingApp](src/org/casia/cripac/isee/vpe/debug/CommandGeneratingApp.java), [MessageHandlingApp](src/org/casia/cripac/isee/vpe/ctrl/MessageHandlingApp.java), [DataFeedingApp](src/org/casia/cripac/isee/vpe/data/DataFeedingApp.java) and [MetadataSavingApp](src/org/casia/cripac/isee/vpe/data/MetadataSavingApp.java) for support of the module.
+
 Pack the modified project into a new JAR, upload it to your cluster, and start the particular module. It need not restart other modules! Now your module runs together with the original modules.

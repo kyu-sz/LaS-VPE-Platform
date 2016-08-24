@@ -19,7 +19,6 @@ package org.casia.cripac.isee.vpe.alg;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,10 +52,9 @@ import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
-import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.ctrl.TaskData;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
-import org.casia.cripac.isee.vpe.debug.FakeDatabaseConnector;
+import org.casia.cripac.isee.vpe.data.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.xml.sax.SAXException;
 
@@ -79,19 +77,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	 * The name of this application.
 	 */
 	public static final String APP_NAME = "PedestrianAttributeRecognizing";
-	
-	/**
-	 * Topic to input attribute recognition tasks. The tasks would tell the
-	 * application to fetch input data from database or hard disks.
-	 */
-	public static final String PEDESTRIAN_ATTR_RECOG_JOB_TOPIC = "pedestrian-attr-recog-job";
-	
+
 	/**
 	 * Topic to input tracks from Kafka. The application directly performs
 	 * recognition on these tracks, rather than fetching input data from other
 	 * sources.
 	 */
-	public static final String PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC = "pedestrian-attr-recog-track-input";
+	public static final String TRACK_TOPIC = "pedestrian-track-for-attr-recog";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
@@ -99,33 +91,29 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	 * application needs to Kafka brokers.
 	 */
 	static {
-		TopicManager.registerTopic(PEDESTRIAN_ATTR_RECOG_JOB_TOPIC);
-		TopicManager.registerTopic(PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+		TopicManager.registerTopic(TRACK_TOPIC);
 	}
 
-	private Properties attrProducerProperties = null;
+	private Properties producerProperties = null;
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private boolean verbose = false;
-	// private HashSet<String> inputTopicsSet = new HashSet<>();
-	// private HashSet<String> taskTopicsSet = new HashSet<>();
 	private Map<String, Integer> trackTopicPartitions = new HashMap<>();
-	private Map<String, Integer> jobTopicPartitions = new HashMap<>();
 	private String messageListenerAddr;
 	private int messageListenerPort;
 	private int numRecvStreams;
 
 	/**
-	 * Constructor of the application, configuring properties read from a property center.
-	 * @param propertyCenter	A class saving all the properties this application may need.
+	 * Constructor of the application, configuring properties read from a
+	 * property center.
+	 * 
+	 * @param propertyCenter
+	 *            A class saving all the properties this application may need.
 	 */
 	public PedestrianAttrRecogApp(SystemPropertyCenter propertyCenter) {
 		super();
 
-		// taskTopicsSet.add(PEDESTRIAN_ATTR_RECOG_TASK_TOPIC);
-		// inputTopicsSet.add(PEDESTRIAN_ATTR_RECOG_INPUT_TOPIC);
-		jobTopicPartitions.put(PEDESTRIAN_ATTR_RECOG_JOB_TOPIC, propertyCenter.kafkaPartitions);
-		trackTopicPartitions.put(PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC, propertyCenter.kafkaPartitions);
+		trackTopicPartitions.put(TRACK_TOPIC, propertyCenter.kafkaPartitions);
 
 		verbose = propertyCenter.verbose;
 
@@ -134,13 +122,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 		numRecvStreams = propertyCenter.numRecvStreams;
 
-		attrProducerProperties = new Properties();
-		attrProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
-		attrProducerProperties.put("producer.type", "sync");
-		attrProducerProperties.put("request.required.acks", "1");
-		attrProducerProperties.put("compression.codec", "gzip");
-		attrProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-		attrProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+		producerProperties = new Properties();
+		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
+		producerProperties.put("producer.type", "sync");
+		producerProperties.put("request.required.acks", "1");
+		producerProperties.put("compression.codec", "gzip");
+		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+		producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
 		// Create contexts.
 		sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.rdd.compress", "true")
@@ -177,7 +165,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 		// Create KafkaSink for Spark Streaming to output to Kafka.
 		final BroadcastSingleton<KafkaProducer<String, byte[]>> broadcastKafkaSink = new BroadcastSingleton<>(
-				new KafkaProducerFactory<String, byte[]>(attrProducerProperties), KafkaProducer.class);
+				new KafkaProducerFactory<String, byte[]>(producerProperties), KafkaProducer.class);
 		// Create ResourceSink for any other unserializable components.
 		final BroadcastSingleton<PedestrianAttrRecognizer> attrRecognizerSingleton = new BroadcastSingleton<>(
 				new ObjectFactory<PedestrianAttrRecognizer>() {
@@ -213,55 +201,15 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		// inputTopicsSet);
 
 		// Extract tracks from the data.
-		JavaPairDStream<String, TaskData> trackStreamFromKafka = trackBytesStream
-				.mapValues(new Function<byte[], TaskData>() {
+		JavaPairDStream<String, TaskData> trackStream = trackBytesStream.mapValues(new Function<byte[], TaskData>() {
 
-					private static final long serialVersionUID = -2138675698164723884L;
-
-					@Override
-					public TaskData call(byte[] taskDataBytes) throws Exception {
-						return (TaskData) SerializationHelper.deserialize(taskDataBytes);
-					}
-				});
-
-		/**
-		 * Though the "createDirectStream" method is suggested for higher speed,
-		 * we use createStream for auto management of Kafka offsets by
-		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
-		 */
-		List<JavaPairDStream<String, byte[]>> parJobStreams = new ArrayList<>(numRecvStreams);
-		for (int i = 0; i < numRecvStreams; i++) {
-			parJobStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
-					DefaultDecoder.class, commonKafkaParams, jobTopicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
-		}
-		JavaPairDStream<String, byte[]> jobStream = streamingContext.union(parJobStreams.get(0),
-				parJobStreams.subList(1, parJobStreams.size()));
-		// //Get tasks from Kafka.
-		// JavaPairInputDStream<String, byte[]> taskDStream =
-		// KafkaUtils.createDirectStream(streamingContext, String.class,
-		// byte[].class,
-		// StringDecoder.class, DefaultDecoder.class, commonKafkaParams,
-		// taskTopicsSet);
-
-		// Retrieve tracks from database.
-		FakeDatabaseConnector databaseConnector = new FakeDatabaseConnector();
-		JavaPairDStream<String, TaskData> trackStreamFromJob = jobStream.mapValues(new Function<byte[], TaskData>() {
-
-			private static final long serialVersionUID = 2423448095433148528L;
+			private static final long serialVersionUID = -2138675698164723884L;
 
 			@Override
 			public TaskData call(byte[] taskDataBytes) throws Exception {
-				TaskData taskData = (TaskData) SerializationHelper.deserialize(taskDataBytes);
-				String jobParam = (String) taskData.predecessorResult;
-				String[] paramParts = jobParam.split(":");
-				Track track = databaseConnector.getTrack(paramParts[0], paramParts[1]);
-				taskData.predecessorResult = track;
-				return taskData;
+				return (TaskData) SerializationHelper.deserialize(taskDataBytes);
 			}
 		});
-
-		JavaPairDStream<String, TaskData> trackStream = streamingContext.union(trackStreamFromKafka,
-				Arrays.asList(trackStreamFromJob));
 
 		// Recognize attributes from the tracks, then send them to the metadata
 		// saving application.
@@ -317,11 +265,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						// Always send to the meta data saving application.
 						if (verbose) {
 							loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka: <"
-									+ MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC + ">" + "Attributes");
+									+ MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC + ">" + "Attributes");
 						}
 						producerSupplier.get()
 								.send(new ProducerRecord<String, byte[]>(
-										MetadataSavingApp.PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC,
+										MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC,
 										SerializationHelper.serialize(attributes)));
 
 						System.gc();

@@ -31,6 +31,7 @@ import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter.NoAppSpecifiedException;
+import org.casia.cripac.isee.vpe.data.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
 import org.xml.sax.SAXException;
 

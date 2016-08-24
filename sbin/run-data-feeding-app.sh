@@ -1,0 +1,1 @@
+java -jar bin/vpe-platform.jar -a DataFeeding -v

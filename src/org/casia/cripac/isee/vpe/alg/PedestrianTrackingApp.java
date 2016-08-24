@@ -50,9 +50,9 @@ import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
-import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.ctrl.TaskData;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
+import org.casia.cripac.isee.vpe.data.MetadataSavingApp;
 import org.casia.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.xml.sax.SAXException;
 
@@ -76,7 +76,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	 * The name of this application.
 	 */
 	public static final String APP_NAME = "PedestrianTracking";
-	public static final String PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC = "pedestrian-tracking-job";
+	public static final String VIDEO_URL_TOPIC = "video-url-for-tracking";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
@@ -84,12 +84,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	 * application needs to Kafka brokers.
 	 */
 	static {
-		TopicManager.registerTopic(PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC);
+		TopicManager.registerTopic(VIDEO_URL_TOPIC);
 	}
 
-	// private HashSet<String> taskTopicsSet = new HashSet<>();
-	private Map<String, Integer> jobTopicPartitions = new HashMap<>();
-	private Properties trackProducerProperties = new Properties();
+	private Map<String, Integer> videoURLTopicPartitions = new HashMap<>();
+	private Properties producerProperties = new Properties();
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private boolean verbose = false;
@@ -112,14 +111,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		numRecvStreams = propertyCenter.numRecvStreams;
 
 		// taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
-		jobTopicPartitions.put(PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC, propertyCenter.kafkaPartitions);
+		videoURLTopicPartitions.put(VIDEO_URL_TOPIC, propertyCenter.kafkaPartitions);
 
-		trackProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
-		trackProducerProperties.put("producer.type", "sync");
-		trackProducerProperties.put("request.required.acks", "1");
-		trackProducerProperties.put("compression.codec", "gzip");
-		trackProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-		trackProducerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
+		producerProperties.put("producer.type", "sync");
+		producerProperties.put("request.required.acks", "1");
+		producerProperties.put("compression.codec", "gzip");
+		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+		producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
 		// Create contexts.
 		sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.rdd.compress", "true")
@@ -155,7 +154,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
 		// Create KafkaSink for Spark Streaming to output to Kafka.
 		final BroadcastSingleton<KafkaProducer<String, byte[]>> producerSingleton = new BroadcastSingleton<KafkaProducer<String, byte[]>>(
-				new KafkaProducerFactory<>(trackProducerProperties), KafkaProducer.class);
+				new KafkaProducerFactory<>(producerProperties), KafkaProducer.class);
 		// Create ResourceSink for any other unserializable components.
 		final BroadcastSingleton<PedestrianTracker> trackerSingleton = new BroadcastSingleton<PedestrianTracker>(
 				new ObjectFactory<PedestrianTracker>() {
@@ -178,7 +177,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		List<JavaPairDStream<String, byte[]>> parJobStreams = new ArrayList<>(numRecvStreams);
 		for (int i = 0; i < numRecvStreams; i++) {
 			parJobStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
-					DefaultDecoder.class, commonKafkaParams, jobTopicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
+					DefaultDecoder.class, commonKafkaParams, videoURLTopicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
 		}
 		JavaPairDStream<String, byte[]> jobStream = streamingContext.union(parJobStreams.get(0),
 				parJobStreams.subList(1, parJobStreams.size()));
@@ -214,7 +213,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						TaskData taskData = (TaskData) SerializationHelper.deserialize(task._2());
 						// Get the URL of the video to process from the
 						// execution data of this node.
-						String videoURL = (String) taskData.executionPlan.getExecutionData(taskData.currentNodeID);
+						String videoURL = (String) taskData.predecessorResult;
 						// Get the IDs of successor nodes.
 						Set<Integer> successorIDs = taskData.executionPlan.getSuccessors(taskData.currentNodeID);
 						// Mark the current node as executed in advance.
@@ -242,11 +241,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 							// Always send to the meta data saving application.
 							if (verbose) {
 								loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka: <"
-										+ MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC + ">" + "A track");
+										+ MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC + ">" + "A track");
 							}
 							producerSupplier.get()
 									.send(new ProducerRecord<String, byte[]>(
-											MetadataSavingApp.PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC,
+											MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC,
 											SerializationHelper.serialize(track)));
 						}
 

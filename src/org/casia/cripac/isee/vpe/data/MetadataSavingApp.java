@@ -15,7 +15,7 @@
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.casia.cripac.isee.vpe.ctrl;
+package org.casia.cripac.isee.vpe.data;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
@@ -61,6 +61,7 @@ import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
+import org.casia.cripac.isee.vpe.ctrl.TopicManager;
 import org.xml.sax.SAXException;
 
 import kafka.serializer.DefaultDecoder;
@@ -82,9 +83,9 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	 * The name of this application.
 	 */
 	public static final String APP_NAME = "MetadataSaving";
-	public static final String PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC = "pedestrian-track-saving-input";
-	public static final String PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC = "pedestrian-attr-saving-input";
-	public static final String PEDESTRIAN_ID_SAVING_INPUT_TOPIC = "pedestrian-id-saving-input";
+	public static final String PEDESTRIAN_TRACK_TOPIC = "pedestrian-track-for-saving";
+	public static final String PEDESTRIAN_ATTR_TOPIC = "pedestrian-attr-for-saving";
+	public static final String PEDESTRIAN_ID_TOPIC = "pedestrian-id-for-saving";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
@@ -92,9 +93,9 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	 * application needs to Kafka brokers.
 	 */
 	static {
-		TopicManager.registerTopic(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
-		TopicManager.registerTopic(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
-		TopicManager.registerTopic(PEDESTRIAN_ID_SAVING_INPUT_TOPIC);
+		TopicManager.registerTopic(PEDESTRIAN_TRACK_TOPIC);
+		TopicManager.registerTopic(PEDESTRIAN_ATTR_TOPIC);
+		TopicManager.registerTopic(PEDESTRIAN_ID_TOPIC);
 	}
 
 	// private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
@@ -119,8 +120,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 		numRecvStreams = propertyCenter.numRecvStreams;
 
-		trackTopicPartitions.put(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC, propertyCenter.kafkaPartitions);
-		attrTopicPartitions.put(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC, propertyCenter.kafkaPartitions);
+		trackTopicPartitions.put(PEDESTRIAN_TRACK_TOPIC, propertyCenter.kafkaPartitions);
+		attrTopicPartitions.put(PEDESTRIAN_ATTR_TOPIC, propertyCenter.kafkaPartitions);
 		// pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		// pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 

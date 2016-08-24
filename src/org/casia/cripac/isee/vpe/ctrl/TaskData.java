@@ -17,6 +17,7 @@
 package org.casia.cripac.isee.vpe.ctrl;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -46,14 +47,14 @@ public class TaskData implements Serializable, Cloneable {
 		 * @author Ken Yu, CRIPAC, 2016
 		 *
 		 */
-		public static class Node implements Serializable, Cloneable {
+		public class Node implements Serializable, Cloneable {
 
 			private static final long serialVersionUID = 1111630850962155197L;
 
 			/**
 			 * The input topic of the module to be executed in the node.
 			 */
-			public String topic;
+			public String topic = null;
 
 			/**
 			 * The data for this execution.
@@ -64,6 +65,17 @@ public class TaskData implements Serializable, Cloneable {
 			 * Counter for unexecuted predecessors.
 			 */
 			public int unexecutedPredecessorCnt = 0;
+
+			/**
+			 * Each node has its own successor nodes, each organized in a set. The
+			 * indexes of the set correspond to that of the nodes.
+			 */
+			public Set<Integer> successors = null;
+
+			/**
+			 * Marker recording whether the node has been executed.
+			 */
+			boolean executed = false;
 
 			/**
 			 * Create a node specifying only the input topic of the module to be
@@ -91,6 +103,43 @@ public class TaskData implements Serializable, Cloneable {
 			public Node(String topic, Serializable executionData) {
 				this.topic = topic;
 				this.executionData = executionData;
+				this.successors = new HashSet<>();
+			}
+			
+			/**
+			 * Create an empty node for saving memory.
+			 */
+			public Node() {}
+			
+			/**
+			 * Check whether the node is empty.
+			 * @return	A boolean marker indicating whether the node is empty.
+			 */
+			public boolean isEmpty() {
+				return (this.successors == null && this.topic == null && this.executionData == null);
+			}
+			
+			/**
+			 * Empty the data in the node for saving memory.
+			 */
+			public void makeEmpty() {
+				this.successors = null;
+				this.topic = null;
+				this.executionData = null;
+			}
+			
+			/**
+			 * Mark the node as executed and clear its data.
+			 * Update its successors' unexecutedPredecessorCnt field.
+			 */
+			public void markExecuted() {
+				if (!executed) {
+					executed = true;
+					for (int successorID : successors) {
+						--nodes.get(successorID).unexecutedPredecessorCnt;
+					}
+					makeEmpty();
+				}
 			}
 		}
 
@@ -99,20 +148,7 @@ public class TaskData implements Serializable, Cloneable {
 		/**
 		 * Each node represents a module to execute.
 		 */
-		private Node[] nodes;
-
-		private int numNodes = 0;
-
-		/**
-		 * Each node has its own successor nodes, each organized in a set. The
-		 * indexes of the sets correspond to that of the nodes.
-		 */
-		private Set<Integer>[] successors;
-
-		/**
-		 * Markers recording whether each node has been executed.
-		 */
-		private boolean[] executed;
+		private ArrayList<Node> nodes = new ArrayList<>();
 
 		/**
 		 * Create a link from the head node to the tail node.
@@ -123,9 +159,10 @@ public class TaskData implements Serializable, Cloneable {
 		 *            The ID of the tail node.
 		 */
 		public void linkNodes(int head, int tail) {
-			successors[head].add(tail);
-			if (!executed[head]) {
-				nodes[tail].unexecutedPredecessorCnt++;
+			Node headNode = nodes.get(head);
+			headNode.successors.add(tail);
+			if (!headNode.executed) {
+				nodes.get(tail).unexecutedPredecessorCnt++;
 			}
 		}
 
@@ -138,8 +175,8 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return The ID of the node.
 		 */
 		public int addNode(String topic) {
-			nodes[numNodes] = new Node(topic);
-			return numNodes++;
+			nodes.add(new Node(topic));
+			return nodes.size() - 1;
 		}
 
 		/**
@@ -153,8 +190,8 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return The ID of the node.
 		 */
 		public int addNode(String topic, Serializable executionData) {
-			nodes[numNodes] = new Node(topic, executionData);
-			return numNodes++;
+			nodes.add(new Node(topic, executionData));
+			return nodes.size() - 1;
 		}
 
 		/**
@@ -168,9 +205,10 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return The ID of the node.
 		 */
 		public int appendNode(int head, String topic) {
-			nodes[numNodes] = new Node(topic);
-			linkNodes(head, numNodes);
-			return numNodes++;
+			nodes.add(new Node(topic));
+			int id = nodes.size() - 1;
+			linkNodes(head, id);
+			return id;
 		}
 
 		/**
@@ -186,9 +224,10 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return The ID of the node.
 		 */
 		public int appendNode(int head, String topic, Serializable executionData) {
-			nodes[numNodes] = new Node(topic, executionData);
-			linkNodes(head, numNodes);
-			return numNodes++;
+			nodes.add(new Node(topic, executionData));
+			int id = nodes.size() - 1;
+			linkNodes(head, id);
+			return id;
 		}
 
 		/**
@@ -199,25 +238,13 @@ public class TaskData implements Serializable, Cloneable {
 		 */
 		public Set<Integer> getStartableNodes() {
 			Set<Integer> startableNodes = new HashSet<>();
-			for (int i = 0; i < nodes.length; ++i) {
-				if (!executed[i] && nodes[i].unexecutedPredecessorCnt == 0) {
+			for (int i = 0; i < nodes.size(); ++i) {
+				Node node = nodes.get(i);
+				if (!node.executed && node.unexecutedPredecessorCnt == 0) {
 					startableNodes.add(i);
 				}
 			}
 			return startableNodes;
-		}
-
-		/**
-		 * Initialize an execution plan specifying the total number of nodes.
-		 * 
-		 * @param maxNumNodes
-		 *            Maximum number of nodes.
-		 */
-		@SuppressWarnings("unchecked")
-		public ExecutionPlan(int maxNumNodes) {
-			nodes = new Node[maxNumNodes];
-			successors = new Set[maxNumNodes];
-			executed = new boolean[maxNumNodes];
 		}
 
 		/*
@@ -225,6 +252,7 @@ public class TaskData implements Serializable, Cloneable {
 		 * 
 		 * @see java.lang.Object#clone()
 		 */
+		@SuppressWarnings("unchecked")
 		@Override
 		protected Object clone() {
 			ExecutionPlan clonedPlan = null;
@@ -234,13 +262,12 @@ public class TaskData implements Serializable, Cloneable {
 				e.printStackTrace();
 				return null;
 			}
-			clonedPlan.successors = this.successors.clone();
-			clonedPlan.nodes = this.nodes.clone();
-			clonedPlan.executed = this.executed.clone();
+			clonedPlan.nodes = (ArrayList<Node>) this.nodes.clone();
 			return clonedPlan;
 		}
 
 		/**
+		 * Mark a node as executed.
 		 * Recommended to call before the getPlanForNextNode method to save
 		 * computation resource.
 		 * 
@@ -248,15 +275,7 @@ public class TaskData implements Serializable, Cloneable {
 		 *            The ID of the node to be marked executed.
 		 */
 		public void markExecuted(int nodeID) {
-			if (!executed[nodeID]) {
-				successors[nodeID] = null;
-				nodes[nodeID] = null;
-				executed[nodeID] = true;
-
-				for (int successorID : successors[nodeID]) {
-					--nodes[successorID].unexecutedPredecessorCnt;
-				}
-			}
+			nodes.get(nodeID).markExecuted();;
 		}
 
 		/**
@@ -291,7 +310,7 @@ public class TaskData implements Serializable, Cloneable {
 		 *         current module to output to.
 		 */
 		public String getInputTopicName(int nodeID) {
-			return nodes[nodeID].topic;
+			return nodes.get(nodeID).topic;
 		}
 
 		/**
@@ -302,7 +321,7 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return A set of the successor nodes.
 		 */
 		public Set<Integer> getSuccessors(int nodeID) {
-			return successors[nodeID];
+			return nodes.get(nodeID).successors;
 		}
 
 		/**
@@ -313,38 +332,32 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return Execution data in byte array.
 		 */
 		public Serializable getExecutionData(int nodeID) {
-			return nodes[nodeID].executionData;
+			return nodes.get(nodeID).executionData;
 		}
 
 		/**
 		 * Combine another execution plan to form a new plan. This function does
 		 * not affect the original plan.
 		 * 
-		 * @param plan
+		 * @param externPlan
 		 *            A plan to combine to the current plan.
 		 * @return A new plan combining the current plan and the given plan.
 		 */
-		public ExecutionPlan combine(ExecutionPlan plan) {
+		public ExecutionPlan combine(ExecutionPlan externPlan) {
 			ExecutionPlan combinedPlan = (ExecutionPlan) this.clone();
-			if (plan != null) {
-				for (int i = 0; i < combinedPlan.nodes.length; ++i) {
-					if (combinedPlan.executed[i] || plan.executed[i]) {
-						combinedPlan.executed[i] = true;
-						combinedPlan.nodes[i] = null;
-						combinedPlan.successors[i] = null;
+			if (externPlan != null) {
+				assert(externPlan.nodes.size() == combinedPlan.nodes.size());
+				for (int i = 0; i < combinedPlan.nodes.size(); ++i) {
+					Node combinedNode = combinedPlan.nodes.get(i);
+					Node externNode = externPlan.nodes.get(i);
+					if (combinedNode.executed || externNode.executed) {
+						combinedNode.markExecuted();
 					} else {
-						if (combinedPlan.nodes[i] == null) {
-							combinedPlan.nodes[i] = plan.nodes[i];
+						if (combinedNode.isEmpty()) {
+							combinedPlan.nodes.set(i, externNode);
 						} else {
-							if (plan.nodes[i] != null) {
-								assert (combinedPlan.nodes[i].equals(plan.nodes[i]));
-							}
-						}
-						if (combinedPlan.successors[i] == null) {
-							combinedPlan.successors[i] = plan.successors[i];
-						} else {
-							if (plan.successors[i] != null) {
-								assert (combinedPlan.successors[i].equals(plan.successors[i]));
+							if (!externNode.isEmpty()) {
+								assert (combinedNode.equals(externNode));
 							}
 						}
 					}

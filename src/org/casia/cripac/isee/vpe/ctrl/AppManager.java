@@ -23,6 +23,8 @@ import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter.NoAppSpecifiedException;
+import org.casia.cripac.isee.vpe.data.DataFeedingApp;
+import org.casia.cripac.isee.vpe.data.MetadataSavingApp;
 
 /**
  * @author Ken Yu, CRIPAC, 2016
@@ -38,6 +40,7 @@ public class AppManager {
 		classNameMap.put(PedestrianAttrRecogApp.APP_NAME, PedestrianAttrRecogApp.class.getName());
 		classNameMap.put(MetadataSavingApp.APP_NAME, MetadataSavingApp.class.getName());
 		classNameMap.put(MessageHandlingApp.APP_NAME, MessageHandlingApp.class.getName());
+		classNameMap.put(DataFeedingApp.APP_NAME, DataFeedingApp.class.getName());
 	}
 
 	public static String getMainClassName(String appName) throws NoAppSpecifiedException {

@@ -18,7 +18,6 @@
 package org.casia.cripac.isee.vpe.ctrl;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,6 +53,7 @@ import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
+import org.casia.cripac.isee.vpe.data.DataFeedingApp;
 import org.xml.sax.SAXException;
 
 import kafka.serializer.DefaultDecoder;
@@ -172,43 +172,54 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 		switch (cmd) {
 		case CommandSet.TRACK_ONLY:
-			plan = new ExecutionPlan(1);
-			plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
-					(Serializable) SerializationHelper.deserialize(data));
+			plan = new ExecutionPlan();
+			// Do tracking only.
+			plan.addNode(PedestrianTrackingApp.VIDEO_URL_TOPIC);
 			break;
-		case CommandSet.RECOG_ATTR_ONLY:
-			plan = new ExecutionPlan(1);
-			plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_JOB_TOPIC,
-					(Serializable) SerializationHelper.deserialize(data));
+		case CommandSet.RECOG_ATTR_ONLY: {
+			plan = new ExecutionPlan();
+			// Retrieve track data, then feed it to attr recog module.
+			int trackDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
+			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
+			plan.linkNodes(trackDataNodeID, attrRecogNodeID);
 			break;
+		}
 		case CommandSet.TRACK_AND_RECOG_ATTR: {
-			plan = new ExecutionPlan(2);
-			int trackingNodeID = plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
-					(Serializable) SerializationHelper.deserialize(data));
-			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+			plan = new ExecutionPlan();
+			// Do tracking, then output to attr recog module.
+			int trackingNodeID = plan.addNode(PedestrianTrackingApp.VIDEO_URL_TOPIC);
+			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
 			plan.linkNodes(trackingNodeID, attrRecogNodeID);
 			break;
 		}
-		case CommandSet.REID_ONLY:
-			plan = new ExecutionPlan(1);
-			plan.addNode(PedestrianReIDWithAttrApp.PEDESTRIAN_REID_JOB_TOPIC,
-					(Serializable) SerializationHelper.deserialize(data));
+		case CommandSet.REID_ONLY: {
+			plan = new ExecutionPlan();
+			// Retrieve track and attr data integrally, then feed them to ReID module.
+			int trackWithAttrDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_WITH_ATTR_RTRV_JOB_TOPIC);
+			int reidNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_WTH_ATTR_TOPIC);
+			plan.linkNodes(trackWithAttrDataNodeID, reidNodeID);
 			break;
+		}
 		case CommandSet.RECOG_ATTR_AND_REID: {
-			plan = new ExecutionPlan(2);
-			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
-			int reidNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
-			plan.linkNodes(attrRecogNodeID, reidNodeID);
+			plan = new ExecutionPlan();
+			int trackDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
+			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
+			int reidTrackNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
+			int reidAttrNodeID = plan.addNode(PedestrianReIDWithAttrApp.ATTR_TOPIC);
+			plan.linkNodes(trackDataNodeID, attrRecogNodeID);
+			plan.linkNodes(trackDataNodeID, reidTrackNodeID);
+			plan.linkNodes(attrRecogNodeID, reidAttrNodeID);
 			break;
 		}
 		case CommandSet.TRACK_AND_RECOG_ATTR_AND_REID: {
-			plan = new ExecutionPlan(3);
-			int trackingNodeID = plan.addNode(PedestrianTrackingApp.PEDESTRIAN_TRACKING_JOB_TOPIC_TOPIC,
-					(Serializable) SerializationHelper.deserialize(data));
-			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
-			int reidNodeID = plan.addNode(PedestrianAttrRecogApp.PEDESTRIAN_ATTR_RECOG_TRACK_INPUT_TOPIC);
+			plan = new ExecutionPlan();
+			int trackingNodeID = plan.addNode(PedestrianTrackingApp.VIDEO_URL_TOPIC);
+			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
+			int reidTrackNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_TOPIC);
+			int reidAttrNodeID = plan.addNode(PedestrianReIDWithAttrApp.ATTR_TOPIC);
 			plan.linkNodes(trackingNodeID, attrRecogNodeID);
-			plan.linkNodes(attrRecogNodeID, reidNodeID);
+			plan.linkNodes(trackingNodeID, reidTrackNodeID);
+			plan.linkNodes(attrRecogNodeID, reidAttrNodeID);
 			break;
 		}
 		default:
@@ -302,10 +313,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 							Set<Integer> startableNodes = plan.getStartableNodes();
 							for (int nodeID : startableNodes) {
-								producerSupplier.get()
-										.send(new ProducerRecord<String, byte[]>(plan.getInputTopicName(nodeID),
-												taskID.toString(),
-												SerializationHelper.serialize(new TaskData(nodeID, plan))));
+								producerSupplier.get().send(new ProducerRecord<String, byte[]>(
+										plan.getInputTopicName(nodeID), taskID.toString(),
+										SerializationHelper.serialize(
+												new TaskData(nodeID, plan, SerializationHelper.deserialize(data)))));
 							}
 
 						}
