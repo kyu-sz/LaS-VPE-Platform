@@ -18,8 +18,8 @@ package org.casia.cripac.isee.vpe.debug;
 
 import java.util.Random;
 
-import org.casia.cripac.isee.vpe.common.HDFSVideoDecoder;
 import org.casia.cripac.isee.vpe.common.VideoData;
+import org.casia.cripac.isee.vpe.util.hdfs.HDFSVideoDecoder;
 
 /**
  * @author Ken Yu, CRIPAC, 2016

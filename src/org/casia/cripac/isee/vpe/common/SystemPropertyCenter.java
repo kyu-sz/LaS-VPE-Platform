@@ -37,6 +37,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.casia.cripac.isee.vpe.util.hdfs.HadoopUtils;
 import org.xml.sax.SAXException;
 
 /**

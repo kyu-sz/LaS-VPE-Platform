@@ -21,6 +21,8 @@ import java.util.Properties;
 import org.apache.kafka.clients.producer.KafkaProducer;
 
 /**
+ * Object factory for producing Kafka producers with a fixed configuration.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */

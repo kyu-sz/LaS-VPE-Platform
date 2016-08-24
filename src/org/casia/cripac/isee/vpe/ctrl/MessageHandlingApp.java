@@ -49,11 +49,11 @@ import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
-import org.casia.cripac.isee.vpe.common.SynthesizedLogger;
-import org.casia.cripac.isee.vpe.common.SynthesizedLoggerFactory;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.casia.cripac.isee.vpe.data.DataFeedingApp;
+import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
+import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
 
 import kafka.serializer.DefaultDecoder;

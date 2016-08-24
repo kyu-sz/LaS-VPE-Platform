@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,

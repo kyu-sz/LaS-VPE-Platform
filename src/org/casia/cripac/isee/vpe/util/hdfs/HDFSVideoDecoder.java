@@ -14,9 +14,13 @@
  * You should have received a copy of the GNU General Public License
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
-package org.casia.cripac.isee.vpe.common;
+package org.casia.cripac.isee.vpe.util.hdfs;
+
+import org.casia.cripac.isee.vpe.common.VideoData;
 
 /**
+ * The base class for any HDFS video decoders.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */

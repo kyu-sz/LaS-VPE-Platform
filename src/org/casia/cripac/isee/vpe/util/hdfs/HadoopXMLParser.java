@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
-package org.casia.cripac.isee.vpe.common;
+package org.casia.cripac.isee.vpe.util.hdfs;
 
 import java.io.File;
 import java.io.IOException;

@@ -9,8 +9,8 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import java.io.IOException;
 
-import org.casia.cripac.isee.vpe.common.HDFSVideoDecoder;
 import org.casia.cripac.isee.vpe.common.VideoData;
+import org.casia.cripac.isee.vpe.util.hdfs.HDFSVideoDecoder;
 
 /**
  * @author : Yang Zhou
