@@ -77,7 +77,7 @@ public class SystemPropertyCenter {
 	public String metadataDir = "metadata";
 	public String sparkMaster = "local[*]";
 	public String sparkDeployMode = "client";
-	public String appName = "";
+	public String[] appsToStart = null;
 	public boolean onYARN = false;
 	public String executorMem = "1G"; // Memory per executor (e.g. 1000M, 2G)
 										// (Default: 1G)
@@ -179,9 +179,12 @@ public class SystemPropertyCenter {
 		}
 
 		if (commandLine.hasOption('a')) {
-			appName = commandLine.getOptionValue('a');
+			appsToStart = commandLine.getOptionValues('a');
 			if (verbose) {
-				System.out.println("To start application " + appName + "...");
+				System.out.println("|INFO|To start application:");
+				for (String app : appsToStart) {
+					System.out.println("\t\t" + app);
+				}
 			}
 		}
 
