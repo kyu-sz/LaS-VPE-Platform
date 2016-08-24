@@ -53,12 +53,6 @@ public class MainController {
 		// center.
 		SystemPropertyCenter propertyCenter = new SystemPropertyCenter(args);
 
-		// Check whether topics required have been created in the Kafka servers.
-		if (propertyCenter.verbose) {
-			System.out.println("|INFO|Checking required topics...");
-		}
-		TopicManager.checkTopics(propertyCenter);
-
 		// Prepare system configuration.
 		if (propertyCenter.onYARN) {
 			System.setProperty("SPARK_YARN_MODE", "true");
@@ -105,7 +99,8 @@ public class MainController {
 			}
 
 			Process sparkLauncherProcess = new SparkLauncher().setAppResource(propertyCenter.jarPath)
-					.setMainClass(propertyCenter.getMainClass()).setMaster(propertyCenter.sparkMaster)
+					.setMainClass(AppManager.getMainClassName(propertyCenter.appName))
+					.setMaster(propertyCenter.sparkMaster)
 					.setAppName(propertyCenter.appName).setPropertiesFile(propertyCenter.sparkConfFilePath)
 					.setVerbose(propertyCenter.verbose).addFile(propertyCenter.log4jPropertiesFilePath)
 					.addFile(propertyCenter.systemPropertiesFilePath)

@@ -41,11 +41,11 @@ public class TopicManager {
 		String[] znodes = propertyCenter.zookeeperConnect.split(",");
 		for (String znode : znodes) {
 			// Initialize the system environment.
-			System.out.println("Connecting to zookeeper: " + znode);
+			System.out.println("|INFO|Connecting to zookeeper: " + znode);
 			ZkClient zkClient = new ZkClient(znode, propertyCenter.sessionTimeoutMs,
 					propertyCenter.connectionTimeoutMs);
 			for (String topic : topics) {
-				System.out.println("Checking topic: " + topic);
+				System.out.println("|INFO|Checking topic: " + topic);
 				if (!AdminUtils.topicExists(zkClient, topic)) {
 					System.out.println("Creating topic: " + topic);
 					kafka.admin.TopicCommand.main(new String[] { "--create", "--zookeeper", znode, "--topic", topic,
@@ -54,6 +54,6 @@ public class TopicManager {
 				}
 			}
 		}
-		System.out.println("Topics checked!");
+		System.out.println("|INFO|Topics checked!");
 	}
 }

@@ -125,7 +125,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 	}
 
 	private Properties idProducerProperties = null;
-	private volatile SparkConf sparkConf;
+	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private boolean verbose = false;
 	private Map<String, Integer> jobTopicPartitions = new HashMap<>();
@@ -155,6 +155,10 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		messageListenerPort = propertyCenter.messageListenerPort;
 
 		numRecvStreams = propertyCenter.numRecvStreams;
+		if (verbose) {
+			System.out.println(
+					"|INFO|Will start " + numRecvStreams + " streams concurrently to receive messgaes from Kafka.");
+		}
 
 		idProducerProperties = new Properties();
 		idProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
@@ -242,13 +246,13 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		// Read attribute bytes in parallel from Kafka.
 		List<JavaPairDStream<String, byte[]>> parAttrBytesStreams = new ArrayList<>(numRecvStreams);
 		for (int i = 0; i < numRecvStreams; i++) {
-			parTrackBytesStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
+			parAttrBytesStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
 					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, attrTopicPartitions,
 					StorageLevel.MEMORY_AND_DISK_SER()));
 		}
 		// Union the parallel attribute bytes streams.
 		JavaPairDStream<String, byte[]> attrBytesStream = streamingContext.union(parAttrBytesStreams.get(0),
-				parTrackBytesStreams.subList(1, parTrackBytesStreams.size()));
+				parAttrBytesStreams.subList(1, parAttrBytesStreams.size()));
 		// Recover attributes from the bytes and extract the ID of the track the
 		// attributes belong to.
 		JavaPairDStream<Tuple2<String, Integer>, TaskData> attrStream = attrBytesStream
@@ -342,7 +346,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 						String taskID = taskWithTrackAndAttr._1();
 						TaskData taskData = taskWithTrackAndAttr._2();
 						TrackWithAttributes trackWithAttr = (TrackWithAttributes) taskData.predecessorResult;
-						
+
 						// Perform ReID.
 						int pedestrianID = reIDerSupplier.get().reid(trackWithAttr.track, trackWithAttr.attr);
 

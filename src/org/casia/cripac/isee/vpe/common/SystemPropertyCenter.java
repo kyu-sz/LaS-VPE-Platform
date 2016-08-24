@@ -37,12 +37,6 @@ import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
-import org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp;
-import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
-import org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp;
-import org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp;
-import org.casia.cripac.isee.vpe.debug.CommandGeneratingApp;
 import org.xml.sax.SAXException;
 
 /**
@@ -208,8 +202,8 @@ public class SystemPropertyCenter {
 		try {
 			if (systemPropertiesFilePath.contains("hdfs:/")) {
 				if (verbose) {
-					System.out
-							.println("Loading properties using HDFS platform from " + systemPropertiesFilePath + "...");
+					System.out.println(
+							"|INFO|Loading properties using HDFS platform from " + systemPropertiesFilePath + "...");
 				}
 
 				FileSystem fileSystem = FileSystem.get(new URI(systemPropertiesFilePath), HadoopUtils.getDefaultConf());
@@ -217,7 +211,7 @@ public class SystemPropertyCenter {
 				propInputStream = new BufferedInputStream(hdfsInputStream);
 			} else {
 				if (verbose) {
-					System.out.println("Loading properties locally from " + systemPropertiesFilePath + "...");
+					System.out.println("|INFO|Loading properties locally from " + systemPropertiesFilePath + "...");
 				}
 
 				propInputStream = new BufferedInputStream(new FileInputStream(systemPropertiesFilePath));
@@ -225,9 +219,9 @@ public class SystemPropertyCenter {
 			systemProperties.load(propInputStream);
 		} catch (IOException e) {
 			e.printStackTrace();
-			System.err.printf("Cannot load system property file at specified path: \"%s\"!\n",
+			System.err.printf("|ERROR|Cannot load system property file at specified path: \"%s\"!\n",
 					systemPropertiesFilePath);
-			System.out.println("Try use '-h' for more information.");
+			System.out.println("|ERROR|Try use '-h' for more information.");
 			System.exit(0);
 			return;
 		}
@@ -235,7 +229,7 @@ public class SystemPropertyCenter {
 		// Digest the settings.
 		for (Entry<Object, Object> entry : systemProperties.entrySet()) {
 			if (verbose) {
-				System.out.println("Read from property file: " + entry.getKey() + "=" + entry.getValue());
+				System.out.println("|INFO|Read from property file: " + entry.getKey() + "=" + entry.getValue());
 			}
 			switch ((String) entry.getKey()) {
 			case "zookeeper.connect":
@@ -308,30 +302,8 @@ public class SystemPropertyCenter {
 		if (sparkMaster.contains("yarn") && !onYARN) {
 			onYARN = true;
 			if (verbose) {
-				System.out.println("To run on YARN...");
+				System.out.println("|INFO|To run on YARN...");
 			}
-		}
-	}
-
-	public String getMainClass() throws NoAppSpecifiedException {
-		switch (appName) {
-		case MessageHandlingApp.APP_NAME:
-			return "org.casia.cripac.isee.vpe.ctrl.MessageHandlingApp";
-		case MetadataSavingApp.APP_NAME:
-			return "org.casia.cripac.isee.vpe.ctrl.MetadataSavingApp";
-		case PedestrianAttrRecogApp.APP_NAME:
-			return "org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp";
-		case PedestrianTrackingApp.APP_NAME:
-			return "org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp";
-		case PedestrianReIDWithAttrApp.APP_NAME:
-			return "org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp";
-		case CommandGeneratingApp.APP_NAME:
-			return "org.casia.cripac.isee.vpe.debug.CommandGeneratingApp";
-		default:
-			System.err.printf("No application named \"%s\"!\n", appName);
-		case "":
-			System.out.println("Try using '-h' for more information.");
-			throw new NoAppSpecifiedException();
 		}
 	}
 }

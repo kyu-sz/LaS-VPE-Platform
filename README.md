@@ -52,3 +52,11 @@ Then, configure your master node to be a proxy server using Squid. Tutors can be
 Finally, configure your browser to use the proxy provided by you master node. Then it would be able to access pages on slave nodes.
 
 In Firefox, it is recommended to use the AutoProxy plugin for enabling proxy. Beside obvious configurations, you need to first access *about:config*, then set *network.proxy.socks_remote_dns* as *true*.
+
+# How to add a new module
+
+A new module may be based on some algorithms whose codes are written in other languages, so you first need to wrap them into JAVA using JNI.
+
+See an application such as [PedestrianTrackingApp](src/org/casia/cripac/isee/pedestrian/tracking/PedestrianTracker.java), etc. for example of how to write an application module. Write your own module then add it to this project. Also register its class name to the [AppManager](src/org/casia/cripac/isee/vpe/ctrl/AppManager.java) by adding a line in the static block, similar to other lines.
+
+Pack the modified project into a new JAR, upload it to your cluster, and start the particular module. It need not restart other modules! Now your module runs together with the original modules.
