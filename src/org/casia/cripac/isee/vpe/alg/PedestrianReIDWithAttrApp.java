@@ -17,10 +17,8 @@
 package org.casia.cripac.isee.vpe.alg;
 
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -36,11 +34,9 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.casia.cripac.isee.pedestrian.reid.PedestrianReIDerWithAttr;
@@ -62,8 +58,6 @@ import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
 
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
 /**
@@ -203,15 +197,8 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
 
 		// Read track bytes in parallel from Kafka.
-		List<JavaPairDStream<String, byte[]>> parTrackBytesStreams = new ArrayList<>(numRecvStreams);
-		for (int i = 0; i < numRecvStreams; i++) {
-			parTrackBytesStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
-					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, trackTopicPartitions,
-					StorageLevel.MEMORY_AND_DISK_SER()));
-		}
-		// Union the parallel track bytes streams.
-		JavaPairDStream<String, byte[]> trackBytesStream = streamingContext.union(parTrackBytesStreams.get(0),
-				parTrackBytesStreams.subList(1, parTrackBytesStreams.size()));
+		JavaPairDStream<String, byte[]> trackBytesStream = buildParBytesRecvStream(streamingContext, numRecvStreams,
+				commonKafkaParams, trackTopicPartitions);
 		// Recover track from the bytes and extract the ID of the track.
 		JavaPairDStream<Tuple2<String, Integer>, TaskData> trackStream = trackBytesStream
 				.mapToPair(new PairFunction<Tuple2<String, byte[]>, Tuple2<String, Integer>, TaskData>() {
@@ -228,15 +215,8 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 				});
 
 		// Read attribute bytes in parallel from Kafka.
-		List<JavaPairDStream<String, byte[]>> parAttrBytesStreams = new ArrayList<>(numRecvStreams);
-		for (int i = 0; i < numRecvStreams; i++) {
-			parAttrBytesStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
-					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, attrTopicPartitions,
-					StorageLevel.MEMORY_AND_DISK_SER()));
-		}
-		// Union the parallel attribute bytes streams.
-		JavaPairDStream<String, byte[]> attrBytesStream = streamingContext.union(parAttrBytesStreams.get(0),
-				parAttrBytesStreams.subList(1, parAttrBytesStreams.size()));
+		JavaPairDStream<String, byte[]> attrBytesStream = buildParBytesRecvStream(streamingContext, numRecvStreams,
+				commonKafkaParams, attrTopicPartitions);
 		// Recover attributes from the bytes and extract the ID of the track the
 		// attributes belong to.
 		JavaPairDStream<Tuple2<String, Integer>, TaskData> attrStream = attrBytesStream
@@ -273,16 +253,8 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 				});
 
 		// Read track with attribute bytes in parallel from Kafka.
-		List<JavaPairDStream<String, byte[]>> parTrackWithAttrBytesStreams = new ArrayList<>(numRecvStreams);
-		for (int i = 0; i < numRecvStreams; i++) {
-			parAttrBytesStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
-					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, attrTopicPartitions,
-					StorageLevel.MEMORY_AND_DISK_SER()));
-		}
-		// Union the parallel attribute bytes streams.
-		JavaPairDStream<String, byte[]> trackWithAttrBytesStream = streamingContext.union(
-				parTrackWithAttrBytesStreams.get(0),
-				parTrackWithAttrBytesStreams.subList(1, parTrackWithAttrBytesStreams.size()));
+		JavaPairDStream<String, byte[]> trackWithAttrBytesStream = buildParBytesRecvStream(streamingContext,
+				numRecvStreams, commonKafkaParams, trackWithAttrTopicPartitions);
 		// Recover attributes from the bytes and extract the ID of the track the
 		// attributes belong to.
 		JavaPairDStream<String, TaskData> trackWithAttrIntegralStream = trackWithAttrBytesStream
@@ -351,14 +323,11 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 								// Always send to the meta data saving
 								// application.
 								if (verbose) {
-									loggerSupplier.get()
-											.info("PedestrianAttrRecogApp: Sending to Kafka: <"
-													+ MetadataSavingApp.PEDESTRIAN_ID_TOPIC + ">"
-													+ "An attribute");
+									loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka: <"
+											+ MetadataSavingApp.PEDESTRIAN_ID_TOPIC + ">" + "An attribute");
 								}
 								producerSupplier.get()
-										.send(new ProducerRecord<String, byte[]>(
-												MetadataSavingApp.PEDESTRIAN_ID_TOPIC,
+										.send(new ProducerRecord<String, byte[]>(MetadataSavingApp.PEDESTRIAN_ID_TOPIC,
 												SerializationHelper.serialize(pedestrianID)));
 
 								System.gc();

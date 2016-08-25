@@ -20,13 +20,22 @@ package org.casia.cripac.isee.vpe.common;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.api.java.function.Function0;
+import org.apache.spark.storage.StorageLevel;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
+
+import kafka.serializer.DefaultDecoder;
+import kafka.serializer.StringDecoder;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,
@@ -124,5 +133,32 @@ public abstract class SparkStreamingApp implements Serializable {
 			streamingContext.close();
 		}
 		super.finalize();
+	}
+
+	/**
+	 * Utilization function for all applications to receive messages with byte
+	 * array values from Kafka in parallel.
+	 * 
+	 * @param streamingContext
+	 *            The streaming context of the applications.
+	 * @param numRecvStreams
+	 *            Number of streams to use for parallelization.
+	 * @param kafkaParams
+	 *            Parameters for reading from Kafka.
+	 * @param topicPartitions
+	 *            A map specifying topics to read from, each assigned number of
+	 *            partitions for the topic.
+	 * @return
+	 */
+	protected static JavaPairDStream<String, byte[]> buildParBytesRecvStream(JavaStreamingContext streamingContext,
+			int numRecvStreams, Map<String, String> kafkaParams, Map<String, Integer> topicPartitions) {
+		// Read track bytes in parallel from Kafka.
+		List<JavaPairDStream<String, byte[]>> parStreams = new ArrayList<>(numRecvStreams);
+		for (int i = 0; i < numRecvStreams; i++) {
+			parStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
+					DefaultDecoder.class, kafkaParams, topicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
+		}
+		// Union the parallel track bytes streams.
+		return streamingContext.union(parStreams.get(0), parStreams.subList(1, parStreams.size()));
 	}
 }

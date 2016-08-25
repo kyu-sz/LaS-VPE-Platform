@@ -133,10 +133,12 @@ public class MainController {
 				errorThread.start();
 			}
 
+			for (ProcessWithName processWithName : processesWithNames) {
+				System.out.println("|INFO|Waiting for process " + processWithName.name + " to finish...");
+			}
 			while (!processesWithNames.isEmpty()) {
 				for (ProcessWithName processWithName : processesWithNames) {
 					try {
-						System.out.println("|INFO|Waiting for process " + processWithName.name + " to finish...");
 						boolean exited = processWithName.process.waitFor(100, TimeUnit.MILLISECONDS);
 						if (exited) {
 							System.out.println("|INFO|Process " + processWithName.name + "finished! Exit code: "

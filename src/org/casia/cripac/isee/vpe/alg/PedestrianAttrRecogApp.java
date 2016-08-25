@@ -18,9 +18,7 @@
 package org.casia.cripac.isee.vpe.alg;
 
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -35,11 +33,9 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
@@ -58,8 +54,6 @@ import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
 
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
 /**
@@ -185,14 +179,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		 * we use createStream for auto management of Kafka offsets by
 		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
 		 */
-		List<JavaPairDStream<String, byte[]>> parTrackBytesStreams = new ArrayList<>(numRecvStreams);
-		for (int i = 0; i < numRecvStreams; i++) {
-			parTrackBytesStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class,
-					StringDecoder.class, DefaultDecoder.class, commonKafkaParams, trackTopicPartitions,
-					StorageLevel.MEMORY_AND_DISK_SER()));
-		}
-		JavaPairDStream<String, byte[]> trackBytesStream = streamingContext.union(parTrackBytesStreams.get(0),
-				parTrackBytesStreams.subList(1, parTrackBytesStreams.size()));
+		JavaPairDStream<String, byte[]> trackBytesStream = buildParBytesRecvStream(streamingContext,
+				numRecvStreams, commonKafkaParams, trackTopicPartitions);
 		// //Retrieve data from Kafka.
 		// JavaPairInputDStream<String, byte[]> trackBytesDStream =
 		// KafkaUtils.createDirectStream(streamingContext, String.class,
@@ -264,8 +252,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 						// Always send to the meta data saving application.
 						if (verbose) {
-							loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka: <"
-									+ MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC + ">" + "Attributes");
+							loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka <"
+									+ MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC + ">: " + "Attributes");
 						}
 						producerSupplier.get()
 								.send(new ProducerRecord<String, byte[]>(

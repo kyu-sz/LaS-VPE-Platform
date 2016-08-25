@@ -19,10 +19,8 @@ package org.casia.cripac.isee.vpe.ctrl;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -36,11 +34,9 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
@@ -56,8 +52,6 @@ import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
 
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
 /**
@@ -103,7 +97,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	}
 
 	// private HashSet<String> topicSet = new HashSet<>();
-	private Map<String, Integer> topicPartitions = new HashMap<>();
+	private Map<String, Integer> cmdTopicPartitions = new HashMap<>();
 	private Properties trackingTaskProducerProperties;
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams;
@@ -131,7 +125,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		numRecvStreams = propertyCenter.numRecvStreams;
 
 		// topicSet.add(COMMAND_TOPIC);
-		topicPartitions.put(COMMAND_TOPIC, propertyCenter.kafkaPartitions);
+		cmdTopicPartitions.put(COMMAND_TOPIC, propertyCenter.kafkaPartitions);
 
 		trackingTaskProducerProperties = new Properties();
 		trackingTaskProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
@@ -251,13 +245,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		 * TODO Fix problem "numRecords must not be negative" when using
 		 * createDirectStream.</br>
 		 *********************************************************************************/
-		List<JavaPairDStream<String, byte[]>> parCmdStreams = new ArrayList<>(numRecvStreams);
-		for (int i = 0; i < numRecvStreams; i++) {
-			parCmdStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
-					DefaultDecoder.class, commonKafkaParams, topicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
-		}
-		JavaPairDStream<String, byte[]> cmdDStream = streamingContext.union(parCmdStreams.get(0),
-				parCmdStreams.subList(1, parCmdStreams.size()));
+		JavaPairDStream<String, byte[]> cmdDStream = buildParBytesRecvStream(streamingContext,
+				numRecvStreams, commonKafkaParams, cmdTopicPartitions);
 		// //Create an input DStream using Kafka.
 		// JavaPairInputDStream<String, byte[]> messageDStream =
 		// KafkaUtils.createDirectStream(streamingContext, String.class,
@@ -313,6 +302,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 							Set<Integer> startableNodes = plan.getStartableNodes();
 							for (int nodeID : startableNodes) {
+								if (verbose) {
+									loggerSupplier.get().info(APP_NAME + ": Sending initial task to " + plan.getInputTopicName(nodeID));
+								}
 								producerSupplier.get().send(new ProducerRecord<String, byte[]>(
 										plan.getInputTopicName(nodeID), taskID.toString(),
 										SerializationHelper.serialize(

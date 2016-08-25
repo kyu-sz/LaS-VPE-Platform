@@ -87,6 +87,7 @@ public class TaskData implements Serializable, Cloneable {
 			 */
 			public Node(String topic) {
 				this.topic = topic;
+				this.successors = new HashSet<>();
 			}
 
 			/**

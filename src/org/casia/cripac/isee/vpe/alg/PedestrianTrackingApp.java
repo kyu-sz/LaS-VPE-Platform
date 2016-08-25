@@ -18,9 +18,7 @@
 package org.casia.cripac.isee.vpe.alg;
 
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -34,18 +32,16 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
-import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
 import org.casia.cripac.isee.vpe.common.ObjectSupplier;
+import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.TaskData;
@@ -56,8 +52,6 @@ import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
 
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import scala.Tuple2;
 
 /**
@@ -174,13 +168,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		 * we use createStream for auto management of Kafka offsets by
 		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
 		 */
-		List<JavaPairDStream<String, byte[]>> parJobStreams = new ArrayList<>(numRecvStreams);
-		for (int i = 0; i < numRecvStreams; i++) {
-			parJobStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
-					DefaultDecoder.class, commonKafkaParams, videoURLTopicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
-		}
-		JavaPairDStream<String, byte[]> jobStream = streamingContext.union(parJobStreams.get(0),
-				parJobStreams.subList(1, parJobStreams.size()));
+		JavaPairDStream<String, byte[]> jobStream = buildParBytesRecvStream(streamingContext,
+				numRecvStreams, commonKafkaParams, videoURLTopicPartitions);
 		// //Retrieve messages from Kafka.
 		// JavaPairInputDStream<String, byte[]> taskDStream =
 		// KafkaUtils.createDirectStream(streamingContext, String.class,
