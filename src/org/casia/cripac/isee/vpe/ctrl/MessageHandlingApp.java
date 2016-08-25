@@ -89,18 +89,17 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
-	 * whole system, the TopicManager can help register the topics this
+	 * module, the TopicManager can help register the topics this
 	 * application needs to Kafka brokers.
 	 */
 	static {
 		TopicManager.registerTopic(COMMAND_TOPIC);
 	}
 
-	// private HashSet<String> topicSet = new HashSet<>();
-	private Map<String, Integer> cmdTopicPartitions = new HashMap<>();
+	private Map<String, Integer> cmdTopicMap = new HashMap<>();
 	private Properties trackingTaskProducerProperties;
 	private transient SparkConf sparkConf;
-	private Map<String, String> commonKafkaParams;
+	private Map<String, String> kafkaParams;
 	private boolean verbose = false;
 	private String messageListenerAddr;
 	private int messageListenerPort;
@@ -119,13 +118,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 		verbose = propertyCenter.verbose;
 
-		messageListenerAddr = propertyCenter.messageListenerAddress;
-		messageListenerPort = propertyCenter.messageListenerPort;
+		messageListenerAddr = propertyCenter.reportListenerAddress;
+		messageListenerPort = propertyCenter.reportListenerPort;
 
 		numRecvStreams = propertyCenter.numRecvStreams;
 
-		// topicSet.add(COMMAND_TOPIC);
-		cmdTopicPartitions.put(COMMAND_TOPIC, propertyCenter.kafkaPartitions);
+		cmdTopicMap.put(COMMAND_TOPIC, propertyCenter.kafkaPartitions);
 
 		trackingTaskProducerProperties = new Properties();
 		trackingTaskProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
@@ -144,14 +142,14 @@ public class MessageHandlingApp extends SparkStreamingApp {
 					propertyCenter.sparkDeployMode);
 		}
 
-		commonKafkaParams = new HashMap<>();
-		System.out.println("MessageHandlingApp: metadata.broker.list=" + propertyCenter.kafkaBrokers);
-		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
-		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
-		commonKafkaParams.put("group.id", "MessageHandlingApp" + UUID.randomUUID());
+		kafkaParams = new HashMap<>();
+		System.out.println("|INFO|MessageHandlingApp: metadata.broker.list=" + propertyCenter.kafkaBrokers);
+		kafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
+		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		kafkaParams.put("group.id", "MessageHandlingApp" + UUID.randomUUID());
 		// Determine where the stream starts (default: largest)
-		commonKafkaParams.put("auto.offset.reset", "smallest");
-		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
+		kafkaParams.put("auto.offset.reset", "smallest");
+		kafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 
 	public static class UnsupportedCommandException extends Exception {
@@ -236,23 +234,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
 				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
 
-		/*********************************************************************************
-		 * Though the "createDirectStream" method is suggested for higher speed,
-		 * we use createStream for auto management of Kafka offsets by
-		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
-		 * 
-		 * <br>
-		 * TODO Fix problem "numRecords must not be negative" when using
-		 * createDirectStream.</br>
-		 *********************************************************************************/
-		JavaPairDStream<String, byte[]> cmdDStream = buildParBytesRecvStream(streamingContext,
-				numRecvStreams, commonKafkaParams, cmdTopicPartitions);
-		// //Create an input DStream using Kafka.
-		// JavaPairInputDStream<String, byte[]> messageDStream =
-		// KafkaUtils.createDirectStream(streamingContext, String.class,
-		// byte[].class,
-		// StringDecoder.class, DefaultDecoder.class, commonKafkaParams,
-		// topicSet);
+		JavaPairDStream<String, byte[]> cmdDStream = buildBytesDirectInputStream(streamingContext,
+				numRecvStreams, kafkaParams, cmdTopicMap);
 
 		// Handle the messages received from Kafka,
 		cmdDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {

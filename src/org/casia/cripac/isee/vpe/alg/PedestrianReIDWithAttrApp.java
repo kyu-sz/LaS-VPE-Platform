@@ -62,7 +62,7 @@ import scala.Tuple2;
 
 /**
  * The PedestrianReIDApp class is a Spark Streaming application which performs
- * pedestrian re-identification with attribute.
+ * pedestrian re-identification with attributes.
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
@@ -74,27 +74,27 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 	/**
 	 * The name of this application.
 	 */
-	public static final String APP_NAME = "PedestrianReIDWithAttr";
+	public static final String APP_NAME = "PedestrianReIDWithAttributes";
 
 	/**
-	 * Topic to input tracks from Kafka.
+	 * Topic to input pedestrian tracks from Kafka.
 	 */
-	public static final String TRACK_TOPIC = "track-for-reid-with-attr";
+	public static final String TRACK_TOPIC = "pedestrian-track-for-pedestrian-reid-with-attr";
 
 	/**
 	 * Topic to input pedestrian attributes from Kafka.
 	 */
-	public static final String ATTR_TOPIC = "attr-for-reid-with-attr";
+	public static final String ATTR_TOPIC = "pedestrian-attr-pedestrian-for-reid-with-attr";
 
 	/**
 	 * Topic to input pedestrian track with attributes from Kafka.
 	 */
-	public static final String TRACK_WTH_ATTR_TOPIC = "track-with-attr-for-reid-with-attr";
+	public static final String TRACK_WTH_ATTR_TOPIC = "pedestrian-track-with-attr-for-pedestrian-reid-with-attr";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
-	 * whole system, the TopicManager can help register the topics this
-	 * application needs to Kafka brokers.
+	 * module, the TopicManager can help register the topics this application
+	 * needs to Kafka brokers.
 	 */
 	static {
 		TopicManager.registerTopic(TRACK_TOPIC);
@@ -102,15 +102,49 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		TopicManager.registerTopic(TRACK_WTH_ATTR_TOPIC);
 	}
 
+	/**
+	 * Properties of Kafka producer.
+	 */
 	private Properties producerProperties = null;
+	/**
+	 * Configuration for Spark.
+	 */
 	private transient SparkConf sparkConf;
-	private Map<String, String> commonKafkaParams = new HashMap<>();
+	/**
+	 * Kafka parameters for creating input streams pulling messages from Kafka
+	 * Brokers.
+	 */
+	private Map<String, String> kafkaParams = new HashMap<>();
+	/**
+	 * Whether to output verbose informations.
+	 */
 	private boolean verbose = false;
-	private Map<String, Integer> trackTopicPartitions = new HashMap<>();
-	private Map<String, Integer> attrTopicPartitions = new HashMap<>();
-	private Map<String, Integer> trackWithAttrTopicPartitions = new HashMap<>();
-	private String messageListenerAddr;
-	private int messageListenerPort;
+	/**
+	 * Topics for inputting tracks. Each assigned a number of threads the Kafka
+	 * consumer should use.
+	 */
+	private Map<String, Integer> trackTopicMap = new HashMap<>();
+	/**
+	 * Topics for inputting attributes. Each assigned a number of threads the
+	 * Kafka consumer should use.
+	 */
+	private Map<String, Integer> attrTopicMap = new HashMap<>();
+	/**
+	 * Topics for inputting tracks with attributes. Each assigned a number of
+	 * threads the Kafka consumer should use. partitions.
+	 */
+	private Map<String, Integer> trackWithAttrTopicMap = new HashMap<>();
+	/**
+	 * The address listening to reports.
+	 */
+	private String reportListenerAddr;
+	/**
+	 * The port of the address listening to reports.
+	 */
+	private int reportListenerPort;
+	/**
+	 * Number of parallel streams pulling messages from Kafka Brokers.
+	 */
 	private int numRecvStreams;
 
 	/**
@@ -123,14 +157,14 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 	public PedestrianReIDWithAttrApp(SystemPropertyCenter propertyCenter) {
 		super();
 
-		trackTopicPartitions.put(TRACK_TOPIC, propertyCenter.kafkaPartitions);
-		attrTopicPartitions.put(ATTR_TOPIC, propertyCenter.kafkaPartitions);
-		trackWithAttrTopicPartitions.put(TRACK_WTH_ATTR_TOPIC, propertyCenter.kafkaPartitions);
+		trackTopicMap.put(TRACK_TOPIC, propertyCenter.kafkaPartitions);
+		attrTopicMap.put(ATTR_TOPIC, propertyCenter.kafkaPartitions);
+		trackWithAttrTopicMap.put(TRACK_WTH_ATTR_TOPIC, propertyCenter.kafkaPartitions);
 
 		verbose = propertyCenter.verbose;
 
-		messageListenerAddr = propertyCenter.messageListenerAddress;
-		messageListenerPort = propertyCenter.messageListenerPort;
+		reportListenerAddr = propertyCenter.reportListenerAddress;
+		reportListenerPort = propertyCenter.reportListenerPort;
 
 		numRecvStreams = propertyCenter.numRecvStreams;
 		if (verbose) {
@@ -140,9 +174,6 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 
 		producerProperties = new Properties();
 		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
-		producerProperties.put("producer.type", "sync");
-		producerProperties.put("request.required.acks", "1");
-		producerProperties.put("compression.codec", "gzip");
 		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 		producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
@@ -158,12 +189,12 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		}
 
 		// Common kafka settings.
-		commonKafkaParams.put("group.id", "PedestrianAttrRecogApp" + UUID.randomUUID());
-		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
+		kafkaParams.put("group.id", "PedestrianReIDWithAttrApp" + UUID.randomUUID());
+		kafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		// Determine where the stream starts (default: largest)
-		commonKafkaParams.put("auto.offset.reset", "smallest");
-		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
-		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
+		kafkaParams.put("auto.offset.reset", "smallest");
+		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		kafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 
 	/*
@@ -194,11 +225,11 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 					}
 				}, PedestrianAttrRecognizer.class);
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
-				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
+				new SynthesizedLoggerFactory(reportListenerAddr, reportListenerPort), SynthesizedLogger.class);
 
 		// Read track bytes in parallel from Kafka.
-		JavaPairDStream<String, byte[]> trackBytesStream = buildParBytesRecvStream(streamingContext, numRecvStreams,
-				commonKafkaParams, trackTopicPartitions);
+		JavaPairDStream<String, byte[]> trackBytesStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+				kafkaParams, trackTopicMap);
 		// Recover track from the bytes and extract the ID of the track.
 		JavaPairDStream<Tuple2<String, Integer>, TaskData> trackStream = trackBytesStream
 				.mapToPair(new PairFunction<Tuple2<String, byte[]>, Tuple2<String, Integer>, TaskData>() {
@@ -209,14 +240,18 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 					public Tuple2<Tuple2<String, Integer>, TaskData> call(Tuple2<String, byte[]> taskDataBytes)
 							throws Exception {
 						TaskData taskData = (TaskData) SerializationHelper.deserialize(taskDataBytes._2());
+						if (verbose) {
+							System.out.println("|INFO|Received track of " + taskDataBytes._1() + "-"
+									+ ((Track) taskData.predecessorResult).id);
+						}
 						return new Tuple2<Tuple2<String, Integer>, TaskData>(new Tuple2<String, Integer>(
 								taskDataBytes._1(), ((Track) taskData.predecessorResult).id), taskData);
 					}
 				});
 
 		// Read attribute bytes in parallel from Kafka.
-		JavaPairDStream<String, byte[]> attrBytesStream = buildParBytesRecvStream(streamingContext, numRecvStreams,
-				commonKafkaParams, attrTopicPartitions);
+		JavaPairDStream<String, byte[]> attrBytesStream = buildBytesParRecvStream(streamingContext, numRecvStreams,
+				kafkaParams, attrTopicMap);
 		// Recover attributes from the bytes and extract the ID of the track the
 		// attributes belong to.
 		JavaPairDStream<Tuple2<String, Integer>, TaskData> attrStream = attrBytesStream
@@ -228,6 +263,10 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 					public Tuple2<Tuple2<String, Integer>, TaskData> call(Tuple2<String, byte[]> taskDataBytes)
 							throws Exception {
 						TaskData taskData = (TaskData) SerializationHelper.deserialize(taskDataBytes._2());
+						if (verbose) {
+							System.out.println("|INFO|Received attributes of " + taskDataBytes._1() + "-"
+									+ ((Attributes) taskData.predecessorResult).trackID);
+						}
 						return new Tuple2<Tuple2<String, Integer>, TaskData>(new Tuple2<String, Integer>(
 								taskDataBytes._1(), ((Attributes) taskData.predecessorResult).trackID), taskData);
 					}
@@ -244,17 +283,19 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 						String taskID = pack._1()._1();
 						TaskData track = pack._2()._1();
 						TaskData attr = pack._2()._2();
-						ExecutionPlan combinedPlan = track.executionPlan.combine(attr.executionPlan);
-						TaskData combinedTaskData = new TaskData(track.currentNodeID, combinedPlan,
-								new TrackWithAttributes((Track) track.predecessorResult,
-										(Attributes) attr.predecessorResult));
-						return new Tuple2<String, TaskData>(taskID, combinedTaskData);
+						ExecutionPlan asmPlan = track.executionPlan.combine(attr.executionPlan);
+						TaskData asmTaskData = new TaskData(track.currentNodeID, asmPlan, new TrackWithAttributes(
+								(Track) track.predecessorResult, (Attributes) attr.predecessorResult));
+						if (verbose) {
+							System.out.println("|INFO|Assembled track and attr of " + taskID + "-" + pack._1()._2());
+						}
+						return new Tuple2<String, TaskData>(taskID, asmTaskData);
 					}
 				});
 
 		// Read track with attribute bytes in parallel from Kafka.
-		JavaPairDStream<String, byte[]> trackWithAttrBytesStream = buildParBytesRecvStream(streamingContext,
-				numRecvStreams, commonKafkaParams, trackWithAttrTopicPartitions);
+		JavaPairDStream<String, byte[]> trackWithAttrBytesStream = buildBytesParRecvStream(streamingContext,
+				numRecvStreams, kafkaParams, trackWithAttrTopicMap);
 		// Recover attributes from the bytes and extract the ID of the track the
 		// attributes belong to.
 		JavaPairDStream<String, TaskData> trackWithAttrIntegralStream = trackWithAttrBytesStream
@@ -264,7 +305,12 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 
 					@Override
 					public TaskData call(byte[] taskDataBytes) throws Exception {
-						return (TaskData) SerializationHelper.deserialize(taskDataBytes);
+						TaskData taskData = (TaskData) SerializationHelper.deserialize(taskDataBytes);
+						if (verbose) {
+							System.out.println("|INFO|Received tracks with attributes of "
+									+ ((Track) taskData.predecessorResult).id);
+						}
+						return taskData;
 					}
 				});
 
@@ -297,10 +343,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 								// Perform ReID.
 								int pedestrianID = reIDerSupplier.get().reid(trackWithAttr.track, trackWithAttr.attr);
 
-								// Prepare new task data.
-								// Stored the track in the task data, which can
-								// be
-								// cyclic utilized.
+								// Prepare new task data with the pedestrian ID.
 								taskData.predecessorResult = pedestrianID;
 								// Get the IDs of successor nodes.
 								Set<Integer> successorIDs = taskData.executionPlan
@@ -314,7 +357,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 
 									if (verbose) {
 										loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka <" + topic
-												+ "> :" + "An attribute");
+												+ "> :" + "Pedestrian ID." + pedestrianID);
 									}
 									producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, taskID,
 											SerializationHelper.serialize(taskData)));
@@ -323,8 +366,10 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 								// Always send to the meta data saving
 								// application.
 								if (verbose) {
-									loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka: <"
-											+ MetadataSavingApp.PEDESTRIAN_ID_TOPIC + ">" + "An attribute");
+									loggerSupplier.get()
+											.info("PedestrianAttrRecogApp: Sending to Kafka: <"
+													+ MetadataSavingApp.PEDESTRIAN_ID_TOPIC + ">" + "Pedestrian ID."
+													+ pedestrianID + " of " + taskID + "-" + trackWithAttr.track.id);
 								}
 								producerSupplier.get()
 										.send(new ProducerRecord<String, byte[]>(MetadataSavingApp.PEDESTRIAN_ID_TOPIC,

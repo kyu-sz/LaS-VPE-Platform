@@ -99,8 +99,8 @@ public class SystemPropertyCenter {
 	public String jarPath = "bin/vpe-platform.jar";
 	public int numRecvStreams = 5;
 
-	public String messageListenerAddress = "localhost";
-	public int messageListenerPort = 0;
+	public String reportListenerAddress = "localhost";
+	public int reportListenerPort = 0;
 
 	/**
 	 * Whether to print verbose running information.
@@ -142,11 +142,11 @@ public class SystemPropertyCenter {
 			options.add(log4jPropertiesFilePath);
 		}
 
-		options.add("--message-listening-addr");
-		options.add(messageListenerAddress);
+		options.add("--report-listening-addr");
+		options.add(reportListenerAddress);
 
-		options.add("--message-listening-port");
-		options.add("" + messageListenerPort);
+		options.add("--report-listening-port");
+		options.add("" + reportListenerPort);
 
 		return Arrays.copyOf(options.toArray(), options.size(), String[].class);
 	}
@@ -160,8 +160,8 @@ public class SystemPropertyCenter {
 		options.addOption(null, "spark-properties-file", true, "File path of the spark property file.");
 		options.addOption(null, "system-properties-file", true, "File path of the system property file.");
 		options.addOption(null, "log4j-properties-file", true, "File path of the log4j property file.");
-		options.addOption(null, "message-listening-addr", true, "");
-		options.addOption(null, "message-listening-port", true, "");
+		options.addOption(null, "report-listening-addr", true, "");
+		options.addOption(null, "report-listening-port", true, "");
 		CommandLine commandLine;
 
 		try {
@@ -296,11 +296,11 @@ public class SystemPropertyCenter {
 			}
 		}
 
-		if (commandLine.hasOption("message-listening-addr")) {
-			messageListenerAddress = commandLine.getOptionValue("message-listening-addr");
+		if (commandLine.hasOption("report-listening-addr")) {
+			reportListenerAddress = commandLine.getOptionValue("report-listening-addr");
 		}
-		if (commandLine.hasOption("message-listening-port")) {
-			messageListenerPort = new Integer(commandLine.getOptionValue("message-listening-port"));
+		if (commandLine.hasOption("report-listening-port")) {
+			reportListenerPort = new Integer(commandLine.getOptionValue("report-listening-port"));
 		}
 
 		if (sparkMaster.contains("yarn") && !onYARN) {

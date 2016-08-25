@@ -70,47 +70,77 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	 * The name of this application.
 	 */
 	public static final String APP_NAME = "PedestrianTracking";
-	public static final String VIDEO_URL_TOPIC = "video-url-for-tracking";
+
+	/**
+	 * Topic to input video URLs from Kafka.
+	 */
+	public static final String VIDEO_URL_TOPIC = "video-url-for-pedestrian-tracking";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
-	 * whole system, the TopicManager can help register the topics this
-	 * application needs to Kafka brokers.
+	 * module, the TopicManager can help register the topics this application
+	 * needs to Kafka brokers.
 	 */
 	static {
 		TopicManager.registerTopic(VIDEO_URL_TOPIC);
 	}
 
-	private Map<String, Integer> videoURLTopicPartitions = new HashMap<>();
+	/**
+	 * Properties of Kafka producer.
+	 */
 	private Properties producerProperties = new Properties();
+	/**
+	 * Configuration for Spark.
+	 */
 	private transient SparkConf sparkConf;
-	private Map<String, String> commonKafkaParams = new HashMap<>();
+	/**
+	 * Kafka parameters for creating input streams pulling messages from Kafka
+	 * Brokers.
+	 */
+	private Map<String, String> kafkaParams = new HashMap<>();
+	/**
+	 * Whether to output verbose informations.
+	 */
 	private boolean verbose = false;
-	private String messageListenerAddr;
-	private int messageListenerPort;
+	/**
+	 * Topics for inputting video URLs. Each assigned a number of threads the
+	 * Kafka consumer should use.
+	 */
+	private Map<String, Integer> videoURLTopicMap = new HashMap<>();
+	/**
+	 * The address listening to reports.
+	 */
+	private String reportListenerAddr;
+	/**
+	 * The port of the address listening to reports.
+	 */
+	private int reportListenerPort;
+	/**
+	 * Number of parallel streams pulling messages from Kafka Brokers.
+	 */
 	private int numRecvStreams;
 
 	/**
-	 * Constructor of the application, configuring properties read from a property center.
-	 * @param propertyCenter	A class saving all the properties this application may need.
+	 * Constructor of the application, configuring properties read from a
+	 * property center.
+	 * 
+	 * @param propertyCenter
+	 *            A class saving all the properties this application may need.
 	 */
 	public PedestrianTrackingApp(SystemPropertyCenter propertyCenter) {
 		super();
 
 		verbose = propertyCenter.verbose;
 
-		messageListenerAddr = propertyCenter.messageListenerAddress;
-		messageListenerPort = propertyCenter.messageListenerPort;
+		reportListenerAddr = propertyCenter.reportListenerAddress;
+		reportListenerPort = propertyCenter.reportListenerPort;
 
 		numRecvStreams = propertyCenter.numRecvStreams;
 
 		// taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
-		videoURLTopicPartitions.put(VIDEO_URL_TOPIC, propertyCenter.kafkaPartitions);
+		videoURLTopicMap.put(VIDEO_URL_TOPIC, propertyCenter.kafkaPartitions);
 
 		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
-		producerProperties.put("producer.type", "sync");
-		producerProperties.put("request.required.acks", "1");
-		producerProperties.put("compression.codec", "gzip");
 		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 		producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
@@ -125,12 +155,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 					propertyCenter.sparkDeployMode);
 		}
 
-		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
-		commonKafkaParams.put("group.id", "PedestrianTrackingApp" + UUID.randomUUID());
-		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
+		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		kafkaParams.put("group.id", "PedestrianTrackingApp" + UUID.randomUUID());
+		kafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		// Determine where the stream starts (default: largest)
-		commonKafkaParams.put("auto.offset.reset", "smallest");
-		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
+		kafkaParams.put("auto.offset.reset", "smallest");
+		kafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 
 	/*
@@ -161,15 +191,15 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 					}
 				}, PedestrianTracker.class);
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
-				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
+				new SynthesizedLoggerFactory(reportListenerAddr, reportListenerPort), SynthesizedLogger.class);
 
 		/**
 		 * Though the "createDirectStream" method is suggested for higher speed,
 		 * we use createStream for auto management of Kafka offsets by
 		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
 		 */
-		JavaPairDStream<String, byte[]> jobStream = buildParBytesRecvStream(streamingContext,
-				numRecvStreams, commonKafkaParams, videoURLTopicPartitions);
+		JavaPairDStream<String, byte[]> jobStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+				kafkaParams, videoURLTopicMap);
 		// //Retrieve messages from Kafka.
 		// JavaPairInputDStream<String, byte[]> taskDStream =
 		// KafkaUtils.createDirectStream(streamingContext, String.class,
@@ -220,8 +250,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 								String topic = taskData.executionPlan.getInputTopicName(successorID);
 
 								if (verbose) {
-									loggerSupplier.get().info(
-											"PedestrianTrackingApp: Sending to Kafka <" + topic + "> :" + "A track");
+									loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka <" + topic
+											+ ">: " + "Track of " + task._1() + "-" + track.id);
 								}
 								producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, task._1(),
 										SerializationHelper.serialize(taskData)));
@@ -229,13 +259,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
 							// Always send to the meta data saving application.
 							if (verbose) {
-								loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka: <"
-										+ MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC + ">" + "A track");
+								loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka <"
+										+ MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC + ">: " + "Track");
 							}
-							producerSupplier.get()
-									.send(new ProducerRecord<String, byte[]>(
-											MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC,
-											SerializationHelper.serialize(track)));
+							producerSupplier.get().send(new ProducerRecord<String, byte[]>(
+									MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC, SerializationHelper.serialize(track)));
 						}
 
 						System.gc();

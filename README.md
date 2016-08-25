@@ -61,4 +61,10 @@ See an application such as [PedestrianTrackingApp](src/org/casia/cripac/isee/ped
 
 You may also need to extend the [CommandGeneratingApp](src/org/casia/cripac/isee/vpe/debug/CommandGeneratingApp.java), [MessageHandlingApp](src/org/casia/cripac/isee/vpe/ctrl/MessageHandlingApp.java), [DataFeedingApp](src/org/casia/cripac/isee/vpe/data/DataFeedingApp.java) and [MetadataSavingApp](src/org/casia/cripac/isee/vpe/data/MetadataSavingApp.java) for support of the module.
 
-Pack the modified project into a new JAR, upload it to your cluster, and start the particular module. It need not restart other modules! Now your module runs together with the original modules.
+# How to deploy a new version of the platform
+
+Pack the new or modified project into a new JAR, upload it to your cluster, and start the particular module. It need not restart other modules! Now your module runs together with the original modules.
+
+However, for modified modules, if you have run them once with checkpoint enabled, you should clean the old checkpoint directory or use a new one, so that the system can run new contexts rather than recovering old ones.
+
+Sometimes you may also need to clean Kafka and Zookeeper logs, which are stored in the /tmp folder in each executor.

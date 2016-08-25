@@ -74,8 +74,8 @@ public abstract class SparkStreamingApp implements Serializable {
 	 */
 	public void initialize(SystemPropertyCenter propertyCenter) {
 
-		SynthesizedLogger logger = new SynthesizedLogger(propertyCenter.messageListenerAddress,
-				propertyCenter.messageListenerPort);
+		SynthesizedLogger logger = new SynthesizedLogger(propertyCenter.reportListenerAddress,
+				propertyCenter.reportListenerPort);
 
 		String checkpointDir = propertyCenter.checkpointRootDir + "/" + getAppName();
 		logger.info("Using " + checkpointDir + " as checkpoint directory.");
@@ -145,20 +145,41 @@ public abstract class SparkStreamingApp implements Serializable {
 	 *            Number of streams to use for parallelization.
 	 * @param kafkaParams
 	 *            Parameters for reading from Kafka.
-	 * @param topicPartitions
+	 * @param numPartitionsPerTopic
 	 *            A map specifying topics to read from, each assigned number of
 	 *            partitions for the topic.
 	 * @return
 	 */
-	protected static JavaPairDStream<String, byte[]> buildParBytesRecvStream(JavaStreamingContext streamingContext,
-			int numRecvStreams, Map<String, String> kafkaParams, Map<String, Integer> topicPartitions) {
-		// Read track bytes in parallel from Kafka.
+	protected static JavaPairDStream<String, byte[]> buildBytesParRecvStream(JavaStreamingContext streamingContext,
+			int numRecvStreams, Map<String, String> kafkaParams, Map<String, Integer> numPartitionsPerTopic) {
+		// Read bytes in parallel from Kafka.
 		List<JavaPairDStream<String, byte[]>> parStreams = new ArrayList<>(numRecvStreams);
 		for (int i = 0; i < numRecvStreams; i++) {
 			parStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
-					DefaultDecoder.class, kafkaParams, topicPartitions, StorageLevel.MEMORY_AND_DISK_SER()));
+					DefaultDecoder.class, kafkaParams, numPartitionsPerTopic, StorageLevel.MEMORY_AND_DISK_SER()));
 		}
-		// Union the parallel track bytes streams.
+		// Union the parallel bytes streams.
 		return streamingContext.union(parStreams.get(0), parStreams.subList(1, parStreams.size()));
+	}
+
+	/**
+	 * Utilization function for all applications to receive messages with byte
+	 * array values from Kafka with direct stream.
+	 * 
+	 * @param streamingContext
+	 *            The streaming context of the applications.
+	 * @param numRecvStreams
+	 *            Number of streams to use for parallelization.
+	 * @param kafkaParams
+	 *            Parameters for reading from Kafka.
+	 * @param numPartitionsPerTopic
+	 *            A map specifying topics to read from, each assigned number of
+	 *            partitions for the topic.
+	 * @return
+	 */
+	protected static JavaPairDStream<String, byte[]> buildBytesDirectInputStream(JavaStreamingContext streamingContext,
+			int numRecvStreams, Map<String, String> kafkaParams, Map<String, Integer> numPartitionsPerTopic) {
+		return KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class, StringDecoder.class,
+					DefaultDecoder.class, kafkaParams, numPartitionsPerTopic.keySet());
 	}
 }

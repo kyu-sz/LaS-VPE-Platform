@@ -86,8 +86,8 @@ public class MainController {
 			});
 			listener.start();
 
-			propertyCenter.messageListenerAddress = InetAddress.getLocalHost().getHostName();
-			propertyCenter.messageListenerPort = server.getLocalPort();
+			propertyCenter.reportListenerAddress = InetAddress.getLocalHost().getHostName();
+			propertyCenter.reportListenerPort = server.getLocalPort();
 
 			String[] arguments = propertyCenter.getArgs();
 
@@ -118,7 +118,7 @@ public class MainController {
 						.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
 						.setConf(SparkLauncher.EXECUTOR_CORES, "" + propertyCenter.executorCores)
 						.setConf(SparkLauncher.EXECUTOR_MEMORY, propertyCenter.executorMem)
-						.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
+						.setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
 						.addAppArgs(propertyCenter.getArgs()).launch();
 				processesWithNames.add(new ProcessWithName(sparkLauncherProcess, appName));
 

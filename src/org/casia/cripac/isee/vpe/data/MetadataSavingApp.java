@@ -94,15 +94,15 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 	// private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
 	// private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
-	private Map<String, Integer> trackTopicPartitions = new HashMap<>();
-	private Map<String, Integer> attrTopicPartitions = new HashMap<>();
-	private Map<String, Integer> idTopicPartitions = new HashMap<>();
+	private Map<String, Integer> trackTopicMap = new HashMap<>();
+	private Map<String, Integer> attrTopicMap = new HashMap<>();
+	private Map<String, Integer> idTopicMap = new HashMap<>();
 	private transient SparkConf sparkConf;
-	private Map<String, String> commonKafkaParams = new HashMap<>();
+	private Map<String, String> kafkaParams = new HashMap<>();
 	private String metadataDir;
 	private boolean verbose = false;
-	private String messageListenerAddr;
-	private int messageListenerPort;
+	private String reportListenerAddr;
+	private int reportListenerPort;
 	private int numRecvStreams;
 
 	public MetadataSavingApp(SystemPropertyCenter propertyCenter)
@@ -110,14 +110,14 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 		verbose = propertyCenter.verbose;
 
-		messageListenerAddr = propertyCenter.messageListenerAddress;
-		messageListenerPort = propertyCenter.messageListenerPort;
+		reportListenerAddr = propertyCenter.reportListenerAddress;
+		reportListenerPort = propertyCenter.reportListenerPort;
 
 		numRecvStreams = propertyCenter.numRecvStreams;
 
-		trackTopicPartitions.put(PEDESTRIAN_TRACK_TOPIC, propertyCenter.kafkaPartitions);
-		attrTopicPartitions.put(PEDESTRIAN_ATTR_TOPIC, propertyCenter.kafkaPartitions);
-		idTopicPartitions.put(PEDESTRIAN_ID_TOPIC, propertyCenter.kafkaPartitions);
+		trackTopicMap.put(PEDESTRIAN_TRACK_TOPIC, propertyCenter.kafkaPartitions);
+		attrTopicMap.put(PEDESTRIAN_ATTR_TOPIC, propertyCenter.kafkaPartitions);
+		idTopicMap.put(PEDESTRIAN_ID_TOPIC, propertyCenter.kafkaPartitions);
 		// pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		// pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 
@@ -133,12 +133,12 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		}
 
 		// Common Kafka settings
-		commonKafkaParams.put("group.id", "MetadataSavingApp" + UUID.randomUUID());
-		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
-		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		kafkaParams.put("group.id", "MetadataSavingApp" + UUID.randomUUID());
+		kafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
+		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
 		// Determine where the stream starts (default: largest)
-		commonKafkaParams.put("auto.offset.reset", "smallest");
-		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
+		kafkaParams.put("auto.offset.reset", "smallest");
+		kafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 
 		metadataDir = propertyCenter.metadataDir;
 	}
@@ -170,21 +170,10 @@ public class MetadataSavingApp extends SparkStreamingApp {
 				}, FileSystem.class);
 
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
-				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
+				new SynthesizedLoggerFactory(reportListenerAddr, reportListenerPort), SynthesizedLogger.class);
 
-		/**
-		 * Though the "createDirectStream" method is suggested for higher speed,
-		 * we use createStream for auto management of Kafka offsets by
-		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
-		 */
-		JavaPairDStream<String, byte[]> trackBytesStream = buildParBytesRecvStream(streamingContext,
-				numRecvStreams, commonKafkaParams, trackTopicPartitions);
-		// //Retrieve tracks from Kafka.
-		// JavaPairInputDStream<String, byte[]> trackByteArrayDStream =
-		// KafkaUtils.createDirectStream(streamingContext, String.class,
-		// byte[].class,
-		// StringDecoder.class, DefaultDecoder.class, commonKafkaParams,
-		// pedestrianTrackTopicsSet);
+		JavaPairDStream<String, byte[]> trackBytesStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+				kafkaParams, trackTopicMap);
 
 		trackBytesStream.groupByKey().foreachRDD(new VoidFunction<JavaPairRDD<String, Iterable<byte[]>>>() {
 
@@ -307,8 +296,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		 * we use createStream for auto management of Kafka offsets by
 		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
 		 */
-		JavaPairDStream<String, byte[]> attrStream = buildParBytesRecvStream(streamingContext,
-				numRecvStreams, commonKafkaParams, attrTopicPartitions);
+		JavaPairDStream<String, byte[]> attrStream = buildBytesParRecvStream(streamingContext, numRecvStreams,
+				kafkaParams, attrTopicMap);
 		// //Retrieve attributes from Kafka
 		// JavaPairInputDStream<String, byte[]> attrDStream =
 		// KafkaUtils.createDirectStream(streamingContext, String.class,
@@ -352,8 +341,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 			}
 		});
 
-		JavaPairDStream<String, byte[]> idStream = buildParBytesRecvStream(streamingContext,
-				numRecvStreams, commonKafkaParams, idTopicPartitions);
+		JavaPairDStream<String, byte[]> idStream = buildBytesParRecvStream(streamingContext, numRecvStreams,
+				kafkaParams, idTopicMap);
 		idStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
 			private static final long serialVersionUID = -715024705240889905L;

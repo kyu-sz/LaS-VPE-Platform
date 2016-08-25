@@ -36,22 +36,16 @@ public class TopicManager {
 	}
 
 	public static void checkTopics(SystemPropertyCenter propertyCenter) {
-
-		// Check each node of the zookeeper cluster respectively.
-		String[] znodes = propertyCenter.zookeeperConnect.split(",");
-		for (String znode : znodes) {
-			// Initialize the system environment.
-			System.out.println("|INFO|Connecting to zookeeper: " + znode);
-			ZkClient zkClient = new ZkClient(znode, propertyCenter.sessionTimeoutMs,
-					propertyCenter.connectionTimeoutMs);
-			for (String topic : topics) {
-				System.out.println("|INFO|Checking topic: " + topic);
-				if (!AdminUtils.topicExists(zkClient, topic)) {
-					System.out.println("Creating topic: " + topic);
-					kafka.admin.TopicCommand.main(new String[] { "--create", "--zookeeper", znode, "--topic", topic,
-							"--partitions", "" + propertyCenter.kafkaPartitions, "--replication-factor",
-							"" + propertyCenter.kafkaReplicationFactor });
-				}
+		System.out.println("|INFO|Connecting to zookeeper: " + propertyCenter.zookeeperConnect);
+		ZkClient zkClient = new ZkClient(propertyCenter.zookeeperConnect, propertyCenter.sessionTimeoutMs,
+				propertyCenter.connectionTimeoutMs);
+		for (String topic : topics) {
+			System.out.println("|INFO|Checking topic: " + topic);
+			if (!AdminUtils.topicExists(zkClient, topic)) {
+				System.out.println("|INFO|Creating topic: " + topic);
+				kafka.admin.TopicCommand.main(new String[] { "--create", "--zookeeper", propertyCenter.zookeeperConnect,
+						"--topic", topic, "--partitions", "" + propertyCenter.kafkaPartitions, "--replication-factor",
+						"" + propertyCenter.kafkaReplicationFactor });
 			}
 		}
 		System.out.println("|INFO|Topics checked!");

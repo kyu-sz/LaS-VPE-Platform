@@ -73,28 +73,52 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	public static final String APP_NAME = "PedestrianAttributeRecognizing";
 
 	/**
-	 * Topic to input tracks from Kafka. The application directly performs
-	 * recognition on these tracks, rather than fetching input data from other
-	 * sources.
+	 * Topic to input tracks from Kafka.
 	 */
-	public static final String TRACK_TOPIC = "pedestrian-track-for-attr-recog";
+	public static final String TRACK_TOPIC = "pedestrian-track-for-pedestrian-attr-recog";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
-	 * whole system, the TopicManager can help register the topics this
-	 * application needs to Kafka brokers.
+	 * module, the TopicManager can help register the topics this application
+	 * needs to Kafka brokers.
 	 */
 	static {
 		TopicManager.registerTopic(TRACK_TOPIC);
 	}
 
+	/**
+	 * Properties of Kafka producer.
+	 */
 	private Properties producerProperties = null;
+	/**
+	 * Configuration for Spark.
+	 */
 	private transient SparkConf sparkConf;
-	private Map<String, String> commonKafkaParams = new HashMap<>();
+	/**
+	 * Kafka parameters for creating input streams pulling messages from Kafka
+	 * Brokers.
+	 */
+	private Map<String, String> kafkaParams = new HashMap<>();
+	/**
+	 * Whether to output verbose informations.
+	 */
 	private boolean verbose = false;
-	private Map<String, Integer> trackTopicPartitions = new HashMap<>();
-	private String messageListenerAddr;
-	private int messageListenerPort;
+	/**
+	 * Topics for inputting tracks. Each assigned a number of threads the Kafka
+	 * consumer should use.
+	 */
+	private Map<String, Integer> trackTopicMap = new HashMap<>();
+	/**
+	 * The address listening to reports.
+	 */
+	private String reportListenerAddr;
+	/**
+	 * The port of the address listening to reports.
+	 */
+	private int reportListenerPort;
+	/**
+	 * Number of parallel streams pulling messages from Kafka Brokers.
+	 */
 	private int numRecvStreams;
 
 	/**
@@ -107,20 +131,17 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	public PedestrianAttrRecogApp(SystemPropertyCenter propertyCenter) {
 		super();
 
-		trackTopicPartitions.put(TRACK_TOPIC, propertyCenter.kafkaPartitions);
+		trackTopicMap.put(TRACK_TOPIC, propertyCenter.kafkaPartitions);
 
 		verbose = propertyCenter.verbose;
 
-		messageListenerAddr = propertyCenter.messageListenerAddress;
-		messageListenerPort = propertyCenter.messageListenerPort;
+		reportListenerAddr = propertyCenter.reportListenerAddress;
+		reportListenerPort = propertyCenter.reportListenerPort;
 
 		numRecvStreams = propertyCenter.numRecvStreams;
 
 		producerProperties = new Properties();
 		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
-		producerProperties.put("producer.type", "sync");
-		producerProperties.put("request.required.acks", "1");
-		producerProperties.put("compression.codec", "gzip");
 		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 		producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
@@ -136,12 +157,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		}
 
 		// Common kafka settings.
-		commonKafkaParams.put("group.id", "PedestrianAttrRecogApp" + UUID.randomUUID());
-		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
+		kafkaParams.put("group.id", "PedestrianAttrRecogApp" + UUID.randomUUID());
+		kafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		// Determine where the stream starts (default: largest)
-		commonKafkaParams.put("auto.offset.reset", "smallest");
-		commonKafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
-		commonKafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
+		kafkaParams.put("auto.offset.reset", "smallest");
+		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
+		kafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
 	}
 
 	/*
@@ -172,15 +193,15 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 					}
 				}, PedestrianAttrRecognizer.class);
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
-				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
+				new SynthesizedLoggerFactory(reportListenerAddr, reportListenerPort), SynthesizedLogger.class);
 
 		/**
 		 * Though the "createDirectStream" method is suggested for higher speed,
 		 * we use createStream for auto management of Kafka offsets by
 		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
 		 */
-		JavaPairDStream<String, byte[]> trackBytesStream = buildParBytesRecvStream(streamingContext,
-				numRecvStreams, commonKafkaParams, trackTopicPartitions);
+		JavaPairDStream<String, byte[]> trackBytesStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+				kafkaParams, trackTopicMap);
 		// //Retrieve data from Kafka.
 		// JavaPairInputDStream<String, byte[]> trackBytesDStream =
 		// KafkaUtils.createDirectStream(streamingContext, String.class,
@@ -243,8 +264,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 							String topic = taskData.executionPlan.getInputTopicName(successorID);
 
 							if (verbose) {
-								loggerSupplier.get().info(
-										"PedestrianTrackingApp: Sending to Kafka <" + topic + "> :" + "Attributes");
+								loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka <" + topic + ">: "
+										+ "Attributes of " + taskID + "-" + track.id);
 							}
 							producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, taskID,
 									SerializationHelper.serialize(taskData)));
@@ -255,10 +276,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 							loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka <"
 									+ MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC + ">: " + "Attributes");
 						}
-						producerSupplier.get()
-								.send(new ProducerRecord<String, byte[]>(
-										MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC,
-										SerializationHelper.serialize(attributes)));
+						producerSupplier.get().send(new ProducerRecord<String, byte[]>(
+								MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC, SerializationHelper.serialize(attributes)));
 
 						System.gc();
 					}

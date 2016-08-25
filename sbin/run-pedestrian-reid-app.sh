@@ -1,1 +1,0 @@
-java -jar bin/vpe-platform.jar -a PedestrianReIDWithAttr -v

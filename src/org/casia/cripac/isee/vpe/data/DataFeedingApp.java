@@ -67,8 +67,8 @@ public class DataFeedingApp extends SparkStreamingApp {
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
-	 * whole system, the TopicManager can help register the topics this
-	 * application needs to Kafka brokers.
+	 * module, the TopicManager can help register the topics this application
+	 * needs to Kafka brokers.
 	 */
 	static {
 		TopicManager.registerTopic(PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
@@ -79,8 +79,8 @@ public class DataFeedingApp extends SparkStreamingApp {
 	private transient SparkConf sparkConf;
 	private Map<String, String> commonKafkaParams = new HashMap<>();
 	private boolean verbose = false;
-	private Map<String, Integer> trackRtrvJobTopicPartitions = new HashMap<>();
-	private Map<String, Integer> trackWithAttrRtrvJobTopicPartitions = new HashMap<>();
+	private Map<String, Integer> trackRtrvJobTopicMap = new HashMap<>();
+	private Map<String, Integer> trackWithAttrRtrvJobTopicMap = new HashMap<>();
 	private String messageListenerAddr;
 	private int messageListenerPort;
 	private int numRecvStreams;
@@ -95,14 +95,13 @@ public class DataFeedingApp extends SparkStreamingApp {
 	public DataFeedingApp(SystemPropertyCenter propertyCenter) {
 		super();
 
-		trackRtrvJobTopicPartitions.put(PEDESTRIAN_TRACK_RTRV_JOB_TOPIC, propertyCenter.kafkaPartitions);
-		trackWithAttrRtrvJobTopicPartitions.put(PEDESTRIAN_TRACK_WITH_ATTR_RTRV_JOB_TOPIC,
-				propertyCenter.kafkaPartitions);
+		trackRtrvJobTopicMap.put(PEDESTRIAN_TRACK_RTRV_JOB_TOPIC, propertyCenter.kafkaPartitions);
+		trackWithAttrRtrvJobTopicMap.put(PEDESTRIAN_TRACK_WITH_ATTR_RTRV_JOB_TOPIC, propertyCenter.kafkaPartitions);
 
 		verbose = propertyCenter.verbose;
 
-		messageListenerAddr = propertyCenter.messageListenerAddress;
-		messageListenerPort = propertyCenter.messageListenerPort;
+		messageListenerAddr = propertyCenter.reportListenerAddress;
+		messageListenerPort = propertyCenter.reportListenerPort;
 
 		numRecvStreams = propertyCenter.numRecvStreams;
 		if (verbose) {
@@ -112,9 +111,6 @@ public class DataFeedingApp extends SparkStreamingApp {
 
 		producerProperties = new Properties();
 		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
-		producerProperties.put("producer.type", "sync");
-		producerProperties.put("request.required.acks", "1");
-		producerProperties.put("compression.codec", "gzip");
 		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 		producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
@@ -130,7 +126,7 @@ public class DataFeedingApp extends SparkStreamingApp {
 		}
 
 		// Common kafka settings.
-		commonKafkaParams.put("group.id", "PedestrianAttrRecogApp" + UUID.randomUUID());
+		commonKafkaParams.put("group.id", "DataFeedingApp" + UUID.randomUUID());
 		commonKafkaParams.put("zookeeper.connect", propertyCenter.zookeeperConnect);
 		// Determine where the stream starts (default: largest)
 		commonKafkaParams.put("auto.offset.reset", "smallest");
@@ -161,7 +157,7 @@ public class DataFeedingApp extends SparkStreamingApp {
 				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
 
 		// Read track retrieving jobs in parallel from Kafka.
-		buildParBytesRecvStream(streamingContext, numRecvStreams, commonKafkaParams, trackRtrvJobTopicPartitions)
+		buildBytesDirectInputStream(streamingContext, numRecvStreams, commonKafkaParams, trackRtrvJobTopicMap)
 				// Retrieve and deliever tracks.
 				.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
@@ -199,8 +195,8 @@ public class DataFeedingApp extends SparkStreamingApp {
 									String topic = taskData.executionPlan.getInputTopicName(successorID);
 
 									if (verbose) {
-										loggerSupplier.get().info(
-												"DataRetrievingApp: Sending to Kafka <" + topic + "> :" + "Track");
+										loggerSupplier.get().info("DataFeedingApp: Sending to Kafka <" + topic + "> :"
+												+ "Track of " + job._1() + "-" + track.id);
 									}
 									producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, job._1(),
 											SerializationHelper.serialize(taskData)));
@@ -211,56 +207,57 @@ public class DataFeedingApp extends SparkStreamingApp {
 				});
 
 		// Read track with attributes retrieving jobs in parallel from Kafka.
-		buildParBytesRecvStream(streamingContext, numRecvStreams, commonKafkaParams,
-				trackWithAttrRtrvJobTopicPartitions)
-						// Retrieve and deliever tracks with attributes.
-						.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+		buildBytesDirectInputStream(streamingContext, numRecvStreams, commonKafkaParams, trackWithAttrRtrvJobTopicMap)
+				// Retrieve and deliever tracks with attributes.
+				.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
-							private static final long serialVersionUID = 2398785978507302303L;
+					private static final long serialVersionUID = 2398785978507302303L;
+
+					@Override
+					public void call(JavaPairRDD<String, byte[]> jobRDD) throws Exception {
+
+						final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = broadcastKafkaSink
+								.getSupplier(new JavaSparkContext(jobRDD.context()));
+						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+								.getSupplier(new JavaSparkContext(jobRDD.context()));
+
+						jobRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
+						jobRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
+
+							private static final long serialVersionUID = -3787928455732734520L;
 
 							@Override
-							public void call(JavaPairRDD<String, byte[]> jobRDD) throws Exception {
+							public void call(Tuple2<String, byte[]> job) throws Exception {
+								TaskData taskData = (TaskData) SerializationHelper.deserialize(job._2());
+								String jobParam = (String) taskData.predecessorResult;
+								String[] paramParts = jobParam.split(":");
+								TrackWithAttributes trackWithAttr = databaseConnector.getTrackWithAttr(paramParts[0],
+										paramParts[1]);
+								taskData.predecessorResult = trackWithAttr;
 
-								final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = broadcastKafkaSink
-										.getSupplier(new JavaSparkContext(jobRDD.context()));
-								final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
-										.getSupplier(new JavaSparkContext(jobRDD.context()));
+								// Get the IDs of successor nodes.
+								Set<Integer> successorIDs = taskData.executionPlan
+										.getSuccessors(taskData.currentNodeID);
+								// Mark the current node as executed.
+								taskData.executionPlan.markExecuted(taskData.currentNodeID);
+								// Send to all the successor nodes.
+								for (int successorID : successorIDs) {
+									taskData.currentNodeID = successorID;
+									String topic = taskData.executionPlan.getInputTopicName(successorID);
 
-								jobRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-								jobRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
-
-									private static final long serialVersionUID = -3787928455732734520L;
-
-									@Override
-									public void call(Tuple2<String, byte[]> job) throws Exception {
-										TaskData taskData = (TaskData) SerializationHelper.deserialize(job._2());
-										String jobParam = (String) taskData.predecessorResult;
-										String[] paramParts = jobParam.split(":");
-										TrackWithAttributes trackWithAttr = databaseConnector
-												.getTrackWithAttr(paramParts[0], paramParts[1]);
-										taskData.predecessorResult = trackWithAttr;
-
-										// Get the IDs of successor nodes.
-										Set<Integer> successorIDs = taskData.executionPlan
-												.getSuccessors(taskData.currentNodeID);
-										// Mark the current node as executed.
-										taskData.executionPlan.markExecuted(taskData.currentNodeID);
-										// Send to all the successor nodes.
-										for (int successorID : successorIDs) {
-											taskData.currentNodeID = successorID;
-											String topic = taskData.executionPlan.getInputTopicName(successorID);
-
-											if (verbose) {
-												loggerSupplier.get().info("DataRetrievingApp: Sending to Kafka <"
-														+ topic + "> :" + "Track with attributes");
-											}
-											producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic,
-													job._1(), SerializationHelper.serialize(taskData)));
-										}
+									if (verbose) {
+										loggerSupplier.get()
+												.info("DataFeedingApp: Sending to Kafka <" + topic + "> :"
+														+ "Track with attributes of " + job._1() + "-"
+														+ trackWithAttr.track.id);
 									}
-								});
+									producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, job._1(),
+											SerializationHelper.serialize(taskData)));
+								}
 							}
 						});
+					}
+				});
 
 		return streamingContext;
 	}

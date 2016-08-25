@@ -28,7 +28,7 @@ public class FakePedestrianTracker extends PedestrianTracker {
 
 	private Random random = new Random();
 
-	public Track generateRandomTrack(String videoURL) {
+	private Track generateRandomTrack(String videoURL) {
 		Track track = new Track();
 		track.startFrameIndex = random.nextInt(10000) + 1;
 		track.videoURL = videoURL;

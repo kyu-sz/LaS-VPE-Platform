@@ -17,6 +17,8 @@
 package org.casia.cripac.isee.vpe.debug;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
@@ -31,6 +33,8 @@ public class FakeDatabaseConnector implements Serializable {
 	
 
 	private static final long serialVersionUID = 355205529406170579L;
+	
+	private Map<String, Track[]> storage = new HashMap<>(); 
 
 	/**
 	 * Get a particular track from the database.
@@ -39,11 +43,19 @@ public class FakeDatabaseConnector implements Serializable {
 	 * @return
 	 */
 	public Track getTrack(String videoURL, String trackID) {
-		return new FakePedestrianTracker().generateRandomTrack(videoURL);
+		if (!storage.containsKey(videoURL)) {
+			storage.put(videoURL, new FakePedestrianTracker().generateRandomTrackSet(videoURL));
+		}
+		Track[] tracks = storage.get(videoURL);
+		return tracks[0];
 	}
 	
 	public TrackWithAttributes getTrackWithAttr(String videoURL, String trackID) {
-		Track track = new FakePedestrianTracker().generateRandomTrack(videoURL);
+		if (!storage.containsKey(videoURL)) {
+			storage.put(videoURL, new FakePedestrianTracker().generateRandomTrackSet(videoURL));
+		}
+		Track[] tracks = storage.get(videoURL);
+		Track track = tracks[0];
 		Attributes attr = new FakePedestrianAttrRecognizer().recognize(track);
 		return new TrackWithAttributes(track, attr);
 	}
