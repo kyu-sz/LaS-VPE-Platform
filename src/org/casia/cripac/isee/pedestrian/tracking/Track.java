@@ -18,7 +18,6 @@
 package org.casia.cripac.isee.pedestrian.tracking;
 
 import java.io.Serializable;
-import java.util.List;
 
 /**
  * The Track class stores a sequence of bounding boxes, representing the track
@@ -98,7 +97,7 @@ public class Track implements Serializable {
 	/**
 	 * The URL indicating where the source video is stored.
 	 */
-	public String videoURL = null;
+	public char[] videoURL = null;
 
 	/**
 	 * The starting frame index of this track in the source video. User can use
@@ -112,5 +111,5 @@ public class Track implements Serializable {
 	 * Storing the locations with the BoundingBox class at each moment, sorted
 	 * by time.
 	 */
-	public List<BoundingBox> locationSequence = null;
+	public BoundingBox[] locationSequence = null;
 }

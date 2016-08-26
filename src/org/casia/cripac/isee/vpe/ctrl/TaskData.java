@@ -18,8 +18,7 @@ package org.casia.cripac.isee.vpe.ctrl;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Iterator;
 
 /**
  * The TaskData class contains a global execution plan and the execution result
@@ -39,7 +38,7 @@ public class TaskData implements Serializable, Cloneable {
 	 * 
 	 * @author Ken Yu, CRIPAC, 2016
 	 */
-	public static class ExecutionPlan implements Serializable, Cloneable {
+	public static abstract class ExecutionPlan implements Serializable, Cloneable {
 
 		/**
 		 * Each node represents an execution of a module.
@@ -47,30 +46,24 @@ public class TaskData implements Serializable, Cloneable {
 		 * @author Ken Yu, CRIPAC, 2016
 		 *
 		 */
-		public class Node implements Serializable, Cloneable {
+		public abstract class Node implements Serializable, Cloneable {
 
-			private static final long serialVersionUID = 1111630850962155197L;
+			private static final long serialVersionUID = 4538251384004287468L;
 
 			/**
 			 * The input topic of the module to be executed in the node.
 			 */
-			public String topic = null;
+			private String topic = null;
 
 			/**
 			 * The data for this execution.
 			 */
-			public Serializable executionData = null;
+			private Serializable executionData = null;
 
 			/**
 			 * Counter for unexecuted predecessors.
 			 */
-			public int unexecutedPredecessorCnt = 0;
-
-			/**
-			 * Each node has its own successor nodes, each organized in a set. The
-			 * indexes of the set correspond to that of the nodes.
-			 */
-			public Set<Integer> successors = null;
+			private int unexecutedPredecessorCnt = 0;
 
 			/**
 			 * Marker recording whether the node has been executed.
@@ -87,7 +80,12 @@ public class TaskData implements Serializable, Cloneable {
 			 */
 			public Node(String topic) {
 				this.topic = topic;
-				this.successors = new HashSet<>();
+			}
+
+			/**
+			 * Create an empty node for saving memory.
+			 */
+			public Node() {
 			}
 
 			/**
@@ -104,52 +102,439 @@ public class TaskData implements Serializable, Cloneable {
 			public Node(String topic, Serializable executionData) {
 				this.topic = topic;
 				this.executionData = executionData;
-				this.successors = new HashSet<>();
 			}
-			
+
 			/**
-			 * Create an empty node for saving memory.
+			 * @return the topic
 			 */
-			public Node() {}
-			
+			public String getTopic() {
+				return topic;
+			}
+
+			/**
+			 * @return the executionData
+			 */
+			public Serializable getExecutionData() {
+				return executionData;
+			}
+
+			/**
+			 * @return The number of unexecuted predecessor nodes.
+			 */
+			public int getNumUnexecutedPredecessor() {
+				return unexecutedPredecessorCnt;
+			}
+
+			/**
+			 * @return Whether the node has been executed.
+			 */
+			public boolean isExecuted() {
+				return executed;
+			}
+
 			/**
 			 * Check whether the node is empty.
-			 * @return	A boolean marker indicating whether the node is empty.
+			 * 
+			 * @return Whether the node is empty.
 			 */
 			public boolean isEmpty() {
-				return (this.successors == null && this.topic == null && this.executionData == null);
+				return (this.topic == null && this.executionData == null);
 			}
-			
+
 			/**
 			 * Empty the data in the node for saving memory.
 			 */
 			public void makeEmpty() {
-				this.successors = null;
 				this.topic = null;
 				this.executionData = null;
 			}
-			
+
 			/**
-			 * Mark the node as executed and clear its data.
-			 * Update its successors' unexecutedPredecessorCnt field.
+			 * Mark the node as executed and clear its data. Update its
+			 * successors' unexecutedPredecessorCnt field.
 			 */
 			public void markExecuted() {
 				if (!executed) {
 					executed = true;
-					for (int successorID : successors) {
-						--nodes.get(successorID).unexecutedPredecessorCnt;
+					for (int successorID : getSuccessors()) {
+						--getNode(successorID).unexecutedPredecessorCnt;
 					}
 					makeEmpty();
 				}
 			}
+
+			/**
+			 * @return IDs of successor nodes of this node.
+			 */
+			public abstract int[] getSuccessors();
 		}
+		
+		/**
+		 * Each node represents an execution of a module.
+		 * 
+		 * @author Ken Yu, CRIPAC, 2016
+		 *
+		 */
+		public class MutableNode extends Node {
+
+			private static final long serialVersionUID = 1111630850962155197L;
+
+			/**
+			 * Each node has its own successor nodes, each organized in a list.
+			 * The indexes of the set correspond to that of the nodes.
+			 */
+			private ArrayList<Integer> successorList = null;
+
+			/**
+			 * Create a node specifying only the input topic of the module to be
+			 * executed in the node.
+			 * 
+			 * @param topic
+			 *            The input topic of the module to be executed in the
+			 *            node.
+			 */
+			public MutableNode(String topic) {
+				super(topic);
+				this.successorList = new ArrayList<>();
+			}
+
+			/**
+			 * Create a node specifying the input topic of the module to be
+			 * executed in the node and the data for execution.
+			 * 
+			 * @param topic
+			 *            The input topic of the module to be executed in the
+			 *            node.
+			 * @param executionData
+			 *            The data for execution, which is a serializable
+			 *            object.
+			 */
+			public MutableNode(String topic, Serializable executionData) {
+				super(topic, executionData);
+				this.successorList = new ArrayList<>();
+			}
+
+			/**
+			 * Create an empty node for saving memory.
+			 */
+			public MutableNode() {
+			}
+
+			@Override
+			public boolean isEmpty() {
+				return (this.successorList == null && super.isEmpty());
+			}
+
+			@Override
+			public void makeEmpty() {
+				this.successorList = null;
+				super.makeEmpty();
+			}
+
+			/*
+			 * (non-Javadoc)
+			 * 
+			 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan.Node#
+			 * getSuccessors()
+			 */
+			@Override
+			public int[] getSuccessors() {
+				int[] res = new int[successorList.size()];
+				Iterator<Integer> successorListIter = successorList.iterator();
+				for (int i = 0; i < successorList.size(); ++i) {
+					res[i] = successorListIter.next();
+				}
+				return res;
+			}
+
+			/**
+			 * @return	An immutable copy of this node.
+			 */
+			public ImmutableNode createImmutableCopy() {
+				return new ImmutableNode(getTopic(), getExecutionData(), getSuccessors());
+			}
+			
+			/**
+			 * Add a node to the successor set of this node.
+			 * @param nodeID	The ID of the node to add.
+			 */
+			public void addSuccessor(int nodeID) {
+				successorList.add(nodeID);
+			}
+			
+			/* (non-Javadoc)
+			 * @see java.lang.Object#clone()
+			 */
+			@SuppressWarnings("unchecked")
+			@Override
+			protected Object clone() throws CloneNotSupportedException {
+				MutableNode clonedPlan = null;
+				try {
+					clonedPlan = (MutableNode) super.clone();
+				} catch (CloneNotSupportedException e) {
+					e.printStackTrace();
+					return null;
+				}
+				this.successorList = (ArrayList<Integer>) this.successorList.clone();
+				return clonedPlan;
+			}
+		}
+
+		public class ImmutableNode extends Node {
+
+			private static final long serialVersionUID = 6094926375767352113L;
+
+			private int[] successors = null;
+
+			/*
+			 * (non-Javadoc)
+			 * 
+			 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan.Node#
+			 * getSuccessors()
+			 */
+			@Override
+			public int[] getSuccessors() {
+				return successors;
+			}
+
+			/**
+			 * Create a node specifying only the input topic of the module to be
+			 * executed in the node.
+			 * 
+			 * @param topic
+			 *            The input topic of the module to be executed in the
+			 *            node.
+			 * @param successors
+			 *            Successor nodes of this node.
+			 */
+			public ImmutableNode(String topic, int[] successors) {
+				super(topic);
+				this.successors = successors;
+			}
+
+			/**
+			 * Create a node specifying the input topic of the module to be
+			 * executed in the node and the data for execution.
+			 * 
+			 * @param topic
+			 *            The input topic of the module to be executed in the
+			 *            node.
+			 * @param executionData
+			 *            The data for execution, which is a serializable
+			 *            object.
+			 * @param successors
+			 *            Successor nodes of this node.
+			 */
+			public ImmutableNode(String topic, Serializable executionData, int[] successors) {
+				super(topic, executionData);
+				this.successors = successors;
+			}
+
+			/**
+			 * Create an empty node for saving memory.
+			 */
+			public ImmutableNode() {
+			}
+			
+			/* (non-Javadoc)
+			 * @see java.lang.Object#clone()
+			 */
+			@Override
+			protected Object clone() throws CloneNotSupportedException {
+				MutableNode clonedPlan = null;
+				try {
+					clonedPlan = (MutableNode) super.clone();
+				} catch (CloneNotSupportedException e) {
+					e.printStackTrace();
+					return null;
+				}
+				this.successors = this.successors.clone();
+				return clonedPlan;
+			}
+		}
+
+		private static final long serialVersionUID = 1359845978045759483L;
+
+		/**
+		 * Get the IDs of all startable nodes. A node is startable when all its
+		 * predecessors have been executed.
+		 * 
+		 * @return IDs of all startable nodes.
+		 */
+		public Integer[] getStartableNodes() {
+			ArrayList<Integer> startableNodes = new ArrayList<>();
+			for (int i = 0; i < getNumNodes(); ++i) {
+				Node node = getNode(i);
+				if (!node.executed && node.unexecutedPredecessorCnt == 0) {
+					startableNodes.add(i);
+				}
+			}
+			Integer[] nodes = new Integer[startableNodes.size()];
+			return startableNodes.toArray(nodes);
+		}
+
+		/**
+		 * Mark a node as executed. Recommended to call before the
+		 * getPlanForNextNode method to save computation resource.
+		 * 
+		 * @param nodeID
+		 *            The ID of the node to be marked executed.
+		 */
+		public void markExecuted(int nodeID) {
+			getNode(nodeID).markExecuted();
+		}
+
+		/**
+		 * Get the execution plan for the execution of a successor node of the
+		 * current node. The id should be retrieved from the successor set of
+		 * the current node.
+		 * 
+		 * @param currentNodeID
+		 *            The ID of the current node.
+		 * @param nextNodeID
+		 *            The ID of the next node to execute. Should be retrieved
+		 *            from the successor set of the current node.
+		 * @return The plan for that execution.
+		 */
+		public ExecutionPlan getPlanForNextNode(int currentNodeID, int nodeID, Object result) {
+			// Clone a plan.
+			ExecutionPlan plan = (ExecutionPlan) this.clone();
+			// Remove current node.
+			plan.markExecuted(currentNodeID);
+			return plan;
+		}
+		
+		/* (non-Javadoc)
+		 * @see java.lang.Object#clone()
+		 */
+		@Override
+		protected Object clone() {
+			try {
+				return super.clone();
+			} catch (CloneNotSupportedException e) {
+				e.printStackTrace();
+				return null;
+			}
+		}
+
+		/**
+		 * Combine another execution plan to form a new plan. This function does
+		 * not affect the original plan.
+		 * 
+		 * @param externPlan
+		 *            A plan to combine to the current plan.
+		 * @return A new plan combining the current plan and the given plan.
+		 */
+		public ExecutionPlan combine(ExecutionPlan externPlan) {
+			ExecutionPlan combinedPlan = (ExecutionPlan) this.clone();
+			if (externPlan != null) {
+				assert (externPlan.getNumNodes() == combinedPlan.getNumNodes());
+				for (int i = 0; i < combinedPlan.getNumNodes(); ++i) {
+					Node combinedNode = combinedPlan.getNode(i);
+					Node externNode = externPlan.getNode(i);
+					if (combinedNode.executed || externNode.executed) {
+						combinedNode.markExecuted();
+					} else {
+						if (combinedNode.isEmpty()) {
+							combinedPlan.updateNode(i, externNode);
+						} else {
+							if (!externNode.isEmpty()) {
+								assert (combinedNode.equals(externNode));
+							}
+						}
+					}
+				}
+			}
+			return combinedPlan;
+		}
+		
+		/**
+		 * Get a node by ID.
+		 * @param nodeID	The ID of the node.
+		 * @return			Node with this ID.
+		 */
+		public abstract Node getNode(int nodeID);
+		
+		/**
+		 * @return	The number of nodes.
+		 */
+		public abstract int getNumNodes(); 
+		
+		/**
+		 * Update a node.
+		 * @param nodeID	The ID of the node to be updated.
+		 * @param node		The new node.
+		 */
+		public abstract void updateNode(int nodeID, Node node);
+	}
+	
+	public static class ImmutableExecutionPlan extends ExecutionPlan {
+
+		private static final long serialVersionUID = 2678777741259466998L;
+		/**
+		 * Each node represents a module to execute.
+		 */
+		private Node[] nodes = null;
+		
+		/**
+		 * Create an immutable execution plan with nodes specified.
+		 * @param nodes
+		 */
+		public ImmutableExecutionPlan(ImmutableNode[] nodes) {
+			this.nodes = nodes;
+		}
+
+		/* (non-Javadoc)
+		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNode(int)
+		 */
+		@Override
+		public Node getNode(int nodeID) {
+			return nodes[nodeID];
+		}
+
+		@Override
+		public int getNumNodes() {
+			return nodes.length;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#clone()
+		 */
+		@Override
+		protected Object clone() {
+			ImmutableExecutionPlan clonedPlan = (ImmutableExecutionPlan) super.clone();
+			clonedPlan.nodes = this.nodes.clone();
+			return clonedPlan;
+		}
+		
+		public ImmutableNode adapt(Node node) {
+			if (node instanceof ImmutableNode) {
+				return (ImmutableNode)node;
+			} else {
+				return ((MutableNode) node).createImmutableCopy();
+			}
+		}
+
+		/* (non-Javadoc)
+		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#updateNode(int, org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan.Node)
+		 */
+		@Override
+		public void updateNode(int nodeID, Node node) {
+			nodes[nodeID] = node;
+			
+		}
+	}
+
+	public static class MutableExecutionPlan extends ExecutionPlan {
 
 		private static final long serialVersionUID = -4268794570615111388L;
 
 		/**
 		 * Each node represents a module to execute.
 		 */
-		private ArrayList<Node> nodes = new ArrayList<>();
+		private ArrayList<MutableNode> nodes = new ArrayList<>();
 
 		/**
 		 * Create a link from the head node to the tail node.
@@ -160,10 +545,10 @@ public class TaskData implements Serializable, Cloneable {
 		 *            The ID of the tail node.
 		 */
 		public void linkNodes(int head, int tail) {
-			Node headNode = nodes.get(head);
-			headNode.successors.add(tail);
+			MutableNode headNode = nodes.get(head);
+			headNode.addSuccessor(tail);
 			if (!headNode.executed) {
-				nodes.get(tail).unexecutedPredecessorCnt++;
+				++getNode(head).unexecutedPredecessorCnt;
 			}
 		}
 
@@ -176,7 +561,7 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return The ID of the node.
 		 */
 		public int addNode(String topic) {
-			nodes.add(new Node(topic));
+			nodes.add(new MutableNode(topic));
 			return nodes.size() - 1;
 		}
 
@@ -191,7 +576,7 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return The ID of the node.
 		 */
 		public int addNode(String topic, Serializable executionData) {
-			nodes.add(new Node(topic, executionData));
+			nodes.add(new MutableNode(topic, executionData));
 			return nodes.size() - 1;
 		}
 
@@ -206,7 +591,7 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return The ID of the node.
 		 */
 		public int appendNode(int head, String topic) {
-			nodes.add(new Node(topic));
+			nodes.add(new MutableNode(topic));
 			int id = nodes.size() - 1;
 			linkNodes(head, id);
 			return id;
@@ -225,27 +610,10 @@ public class TaskData implements Serializable, Cloneable {
 		 * @return The ID of the node.
 		 */
 		public int appendNode(int head, String topic, Serializable executionData) {
-			nodes.add(new Node(topic, executionData));
+			nodes.add(new MutableNode(topic, executionData));
 			int id = nodes.size() - 1;
 			linkNodes(head, id);
 			return id;
-		}
-
-		/**
-		 * Get the IDs of all startable nodes. A node is startable when all its
-		 * predecessors have been executed.
-		 * 
-		 * @return IDs of all startable nodes.
-		 */
-		public Set<Integer> getStartableNodes() {
-			Set<Integer> startableNodes = new HashSet<>();
-			for (int i = 0; i < nodes.size(); ++i) {
-				Node node = nodes.get(i);
-				if (!node.executed && node.unexecutedPredecessorCnt == 0) {
-					startableNodes.add(i);
-				}
-			}
-			return startableNodes;
 		}
 
 		/*
@@ -256,115 +624,59 @@ public class TaskData implements Serializable, Cloneable {
 		@SuppressWarnings("unchecked")
 		@Override
 		protected Object clone() {
-			ExecutionPlan clonedPlan = null;
-			try {
-				clonedPlan = (ExecutionPlan) super.clone();
-			} catch (CloneNotSupportedException e) {
-				e.printStackTrace();
-				return null;
-			}
-			clonedPlan.nodes = (ArrayList<Node>) this.nodes.clone();
+			MutableExecutionPlan clonedPlan = (MutableExecutionPlan) super.clone();
+			clonedPlan.nodes = (ArrayList<MutableNode>) this.nodes.clone();
 			return clonedPlan;
 		}
 
-		/**
-		 * Mark a node as executed.
-		 * Recommended to call before the getPlanForNextNode method to save
-		 * computation resource.
-		 * 
-		 * @param nodeID
-		 *            The ID of the node to be marked executed.
+		/* (non-Javadoc)
+		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNode(int)
 		 */
-		public void markExecuted(int nodeID) {
-			nodes.get(nodeID).markExecuted();;
+		@Override
+		public Node getNode(int nodeID) {
+			// TODO Auto-generated method stub
+			return null;
 		}
 
-		/**
-		 * Get the execution plan for the execution of a successor node of the
-		 * current node. The id should be retrieved from the successor set of
-		 * the current node.
-		 * 
-		 * @param currentNodeID
-		 *            The ID of the current node.
-		 * @param nextNodeID
-		 *            The ID of the next node to execute. Should be retrieved
-		 *            from the successor set of the current node.
-		 * @return The plan for that execution.
+		/* (non-Javadoc)
+		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNumNodes()
 		 */
-		public ExecutionPlan getPlanForNextNode(int currentNodeID, int nodeID, Object result) {
-			// Clone a plan.
-			ExecutionPlan plan = (ExecutionPlan) this.clone();
-
-			// Remove current node.
-			plan.markExecuted(currentNodeID);
-
-			return plan;
+		@Override
+		public int getNumNodes() {
+			// TODO Auto-generated method stub
+			return 0;
 		}
-
+		
 		/**
-		 * To invoke a node, we only need to know one of the input topics of the
-		 * module corresponding to it.
-		 * 
-		 * @param nodeID
-		 *            The ID of the node.
-		 * @return The name of a topic specified in the execution plan for the
-		 *         current module to output to.
+		 * @return	An immutable copy of this plan.
 		 */
-		public String getInputTopicName(int nodeID) {
-			return nodes.get(nodeID).topic;
-		}
-
-		/**
-		 * Get the successor nodes of a node.
-		 * 
-		 * @param nodeID
-		 *            The ID of the node.
-		 * @return A set of the successor nodes.
-		 */
-		public Set<Integer> getSuccessors(int nodeID) {
-			return nodes.get(nodeID).successors;
-		}
-
-		/**
-		 * Get the execution data of a node.
-		 * 
-		 * @param nodeID
-		 *            The ID of the node.
-		 * @return Execution data in byte array.
-		 */
-		public Serializable getExecutionData(int nodeID) {
-			return nodes.get(nodeID).executionData;
-		}
-
-		/**
-		 * Combine another execution plan to form a new plan. This function does
-		 * not affect the original plan.
-		 * 
-		 * @param externPlan
-		 *            A plan to combine to the current plan.
-		 * @return A new plan combining the current plan and the given plan.
-		 */
-		public ExecutionPlan combine(ExecutionPlan externPlan) {
-			ExecutionPlan combinedPlan = (ExecutionPlan) this.clone();
-			if (externPlan != null) {
-				assert(externPlan.nodes.size() == combinedPlan.nodes.size());
-				for (int i = 0; i < combinedPlan.nodes.size(); ++i) {
-					Node combinedNode = combinedPlan.nodes.get(i);
-					Node externNode = externPlan.nodes.get(i);
-					if (combinedNode.executed || externNode.executed) {
-						combinedNode.markExecuted();
-					} else {
-						if (combinedNode.isEmpty()) {
-							combinedPlan.nodes.set(i, externNode);
-						} else {
-							if (!externNode.isEmpty()) {
-								assert (combinedNode.equals(externNode));
-							}
-						}
-					}
-				}
+		public ImmutableExecutionPlan createImmutableCopy() {
+			ImmutableNode[] immutableNodes = new ImmutableNode[nodes.size()];
+			Iterator<MutableNode> nodeIter = nodes.iterator();
+			for (int i = 0; i < nodes.size(); ++i) {
+				immutableNodes[i] = nodeIter.next().createImmutableCopy();
 			}
-			return combinedPlan;
+			return new ImmutableExecutionPlan(immutableNodes);
+		}
+		
+		public MutableNode adapt(Node node) {
+			if (node instanceof MutableNode) {
+				return (MutableNode) node;
+			} else {
+				MutableNode mutableNode = new MutableNode(node.getTopic(), node.getExecutionData());
+				for (int successor : node.getSuccessors()) {
+					mutableNode.successorList.add(successor);
+				}
+				return mutableNode;
+			}
+		}
+
+		/* (non-Javadoc)
+		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#updateNode(org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan.Node, int)
+		 */
+		@Override
+		public void updateNode(int nodeID, Node node) {
+			nodes.set(nodeID, adapt(node));
 		}
 	}
 

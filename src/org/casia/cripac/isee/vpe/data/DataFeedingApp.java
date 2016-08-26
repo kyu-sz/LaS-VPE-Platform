@@ -20,13 +20,14 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Future;
 
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -185,21 +186,25 @@ public class DataFeedingApp extends SparkStreamingApp {
 								taskData.predecessorResult = track;
 
 								// Get the IDs of successor nodes.
-								Set<Integer> successorIDs = taskData.executionPlan
-										.getSuccessors(taskData.currentNodeID);
+								int[] successorIDs = taskData.executionPlan.getNode(taskData.currentNodeID)
+										.getSuccessors();
 								// Mark the current node as executed.
 								taskData.executionPlan.markExecuted(taskData.currentNodeID);
 								// Send to all the successor nodes.
 								for (int successorID : successorIDs) {
 									taskData.currentNodeID = successorID;
-									String topic = taskData.executionPlan.getInputTopicName(successorID);
+									String topic = taskData.executionPlan.getNode(successorID).getTopic();
 
+									Future<RecordMetadata> future = producerSupplier.get()
+											.send(new ProducerRecord<String, byte[]>(topic, job._1(),
+													SerializationHelper.serialize(taskData)));
+									RecordMetadata metadata = future.get();
 									if (verbose) {
-										loggerSupplier.get().info("DataFeedingApp: Sending to Kafka <" + topic + "> :"
-												+ "Track of " + job._1() + "-" + track.id);
+										loggerSupplier.get()
+												.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
+														+ metadata.partition() + "-" + metadata.offset()
+														+ ">: Track of " + job._1() + "-" + track.id);
 									}
-									producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, job._1(),
-											SerializationHelper.serialize(taskData)));
 								}
 							}
 						});
@@ -236,23 +241,26 @@ public class DataFeedingApp extends SparkStreamingApp {
 								taskData.predecessorResult = trackWithAttr;
 
 								// Get the IDs of successor nodes.
-								Set<Integer> successorIDs = taskData.executionPlan
-										.getSuccessors(taskData.currentNodeID);
+								int[] successorIDs = taskData.executionPlan.getNode(taskData.currentNodeID)
+										.getSuccessors();
 								// Mark the current node as executed.
 								taskData.executionPlan.markExecuted(taskData.currentNodeID);
 								// Send to all the successor nodes.
 								for (int successorID : successorIDs) {
 									taskData.currentNodeID = successorID;
-									String topic = taskData.executionPlan.getInputTopicName(successorID);
+									String topic = taskData.executionPlan.getNode(successorID).getTopic();
 
+									Future<RecordMetadata> future = producerSupplier.get()
+											.send(new ProducerRecord<String, byte[]>(topic, job._1(),
+													SerializationHelper.serialize(taskData)));
+									RecordMetadata metadata = future.get();
 									if (verbose) {
 										loggerSupplier.get()
-												.info("DataFeedingApp: Sending to Kafka <" + topic + "> :"
+												.info("DataFeedingApp: Sent to Kafka <" + metadata.topic() + "-"
+														+ metadata.partition() + "-" + metadata.offset() + "> :"
 														+ "Track with attributes of " + job._1() + "-"
 														+ trackWithAttr.track.id);
 									}
-									producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, job._1(),
-											SerializationHelper.serialize(taskData)));
 								}
 							}
 						});

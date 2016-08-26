@@ -206,7 +206,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 						String taskID = trackGroup._1();
 						Iterator<byte[]> trackIterator = trackGroup._2().iterator();
 						Track track = (Track) SerializationHelper.deserialize(trackIterator.next());
-						String videoURL = track.videoURL;
+						String videoURL = new String(track.videoURL);
 						int numTracks = track.numTracks;
 						String storeRoot = metadataDir + "/" + videoURL + "/" + taskID;
 						fs.mkdirs(new Path(storeRoot));
@@ -215,9 +215,9 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							String storeDir = storeRoot + "/" + track.id;
 							fs.mkdirs(new Path(storeDir));
 
-							int numBBoxes = track.locationSequence.size();
+							int numBBoxes = track.locationSequence.length;
 
-							// Write bounding boxes infos.
+							// Write bounding boxes infomations.
 							FSDataOutputStream outputStream = fs.create(new Path(storeDir + "/bbox.txt"));
 							BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream));
 							writer.write("{");
@@ -226,9 +226,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							writer.newLine();
 							writer.write("\t\"boundingBoxes\":[");
 
-							Iterator<BoundingBox> bboxIter = track.locationSequence.iterator();
 							for (int i = 0; i < numBBoxes; ++i) {
-								BoundingBox bbox = bboxIter.next();
+								BoundingBox bbox = track.locationSequence[i];
 
 								writer.write("{");
 								writer.newLine();
@@ -241,7 +240,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 								writer.write("\t\t\"height\": " + bbox.height);
 								writer.newLine();
 								writer.write("\t}");
-								if (bboxIter.hasNext()) {
+								if (i + 1 < numBBoxes) {
 									writer.write(", ");
 								}
 

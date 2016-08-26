@@ -17,7 +17,6 @@
 
 package org.casia.cripac.isee.vpe.debug;
 
-import java.util.LinkedList;
 import java.util.Random;
 
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
@@ -28,13 +27,13 @@ public class FakePedestrianTracker extends PedestrianTracker {
 
 	private Random random = new Random();
 
-	private Track generateRandomTrack(String videoURL) {
+	private Track generateRandomTrack(char[] videoURL) {
 		Track track = new Track();
 		track.startFrameIndex = random.nextInt(10000) + 1;
 		track.videoURL = videoURL;
 
-		track.locationSequence = new LinkedList<>();
 		int appearSpan = random.nextInt(31) + 1;
+		track.locationSequence = new BoundingBox[appearSpan];
 		for (int i = 0; i < appearSpan; ++i) {
 			BoundingBox bbox = track.new BoundingBox();
 			bbox.width = random.nextInt(640) + 1;
@@ -43,13 +42,13 @@ public class FakePedestrianTracker extends PedestrianTracker {
 			bbox.y = random.nextInt(bbox.height) + 1;
 			bbox.patchData = new byte[bbox.x * bbox.y * 3];
 
-			track.locationSequence.add(bbox);
+			track.locationSequence[i] = bbox;
 		}
 
 		return track;
 	}
 
-	public Track[] generateRandomTrackSet(String videoURL) {
+	private Track[] generateRandomTrackSet(char[] videoURL) {
 
 		int numTracks = random.nextInt(31) + 1;
 		Track[] tracks = new Track[numTracks];
@@ -65,7 +64,7 @@ public class FakePedestrianTracker extends PedestrianTracker {
 
 	@Override
 	public Track[] track(String videoURL) {
-		return generateRandomTrackSet(videoURL);
+		return generateRandomTrackSet(videoURL.toCharArray());
 	}
 
 }

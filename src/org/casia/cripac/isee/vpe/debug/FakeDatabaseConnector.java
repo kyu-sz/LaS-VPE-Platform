@@ -44,7 +44,7 @@ public class FakeDatabaseConnector implements Serializable {
 	 */
 	public Track getTrack(String videoURL, String trackID) {
 		if (!storage.containsKey(videoURL)) {
-			storage.put(videoURL, new FakePedestrianTracker().generateRandomTrackSet(videoURL));
+			storage.put(videoURL, new FakePedestrianTracker().track(videoURL));
 		}
 		Track[] tracks = storage.get(videoURL);
 		return tracks[0];
@@ -52,7 +52,7 @@ public class FakeDatabaseConnector implements Serializable {
 	
 	public TrackWithAttributes getTrackWithAttr(String videoURL, String trackID) {
 		if (!storage.containsKey(videoURL)) {
-			storage.put(videoURL, new FakePedestrianTracker().generateRandomTrackSet(videoURL));
+			storage.put(videoURL, new FakePedestrianTracker().track(videoURL));
 		}
 		Track[] tracks = storage.get(videoURL);
 		Track track = tracks[0];

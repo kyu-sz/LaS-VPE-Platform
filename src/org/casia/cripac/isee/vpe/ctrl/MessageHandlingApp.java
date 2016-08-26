@@ -23,13 +23,14 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Future;
 
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -47,6 +48,7 @@ import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
+import org.casia.cripac.isee.vpe.ctrl.TaskData.MutableExecutionPlan;
 import org.casia.cripac.isee.vpe.data.DataFeedingApp;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -89,8 +91,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
-	 * module, the TopicManager can help register the topics this
-	 * application needs to Kafka brokers.
+	 * module, the TopicManager can help register the topics this application
+	 * needs to Kafka brokers.
 	 */
 	static {
 		TopicManager.registerTopic(COMMAND_TOPIC);
@@ -153,23 +155,21 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	}
 
 	public static class UnsupportedCommandException extends Exception {
-
 		private static final long serialVersionUID = -940732652485656739L;
-
 	}
 
 	private ExecutionPlan createPlanByCommand(String cmd, byte[] data)
 			throws UnsupportedCommandException, ClassNotFoundException, IOException {
-		ExecutionPlan plan = null;
+		MutableExecutionPlan plan = null;
 
 		switch (cmd) {
 		case CommandSet.TRACK_ONLY:
-			plan = new ExecutionPlan();
+			plan = new MutableExecutionPlan();
 			// Do tracking only.
 			plan.addNode(PedestrianTrackingApp.VIDEO_URL_TOPIC);
 			break;
 		case CommandSet.RECOG_ATTR_ONLY: {
-			plan = new ExecutionPlan();
+			plan = new MutableExecutionPlan();
 			// Retrieve track data, then feed it to attr recog module.
 			int trackDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
@@ -177,7 +177,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			break;
 		}
 		case CommandSet.TRACK_AND_RECOG_ATTR: {
-			plan = new ExecutionPlan();
+			plan = new MutableExecutionPlan();
 			// Do tracking, then output to attr recog module.
 			int trackingNodeID = plan.addNode(PedestrianTrackingApp.VIDEO_URL_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
@@ -185,15 +185,16 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			break;
 		}
 		case CommandSet.REID_ONLY: {
-			plan = new ExecutionPlan();
-			// Retrieve track and attr data integrally, then feed them to ReID module.
+			plan = new MutableExecutionPlan();
+			// Retrieve track and attr data integrally, then feed them to ReID
+			// module.
 			int trackWithAttrDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_WITH_ATTR_RTRV_JOB_TOPIC);
 			int reidNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_WTH_ATTR_TOPIC);
 			plan.linkNodes(trackWithAttrDataNodeID, reidNodeID);
 			break;
 		}
 		case CommandSet.RECOG_ATTR_AND_REID: {
-			plan = new ExecutionPlan();
+			plan = new MutableExecutionPlan();
 			int trackDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
 			int reidTrackNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
@@ -204,7 +205,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			break;
 		}
 		case CommandSet.TRACK_AND_RECOG_ATTR_AND_REID: {
-			plan = new ExecutionPlan();
+			plan = new MutableExecutionPlan();
 			int trackingNodeID = plan.addNode(PedestrianTrackingApp.VIDEO_URL_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
 			int reidTrackNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_TOPIC);
@@ -218,7 +219,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			throw new UnsupportedCommandException();
 		}
 
-		return plan;
+		return plan.createImmutableCopy();
 	}
 
 	@Override
@@ -234,8 +235,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
 				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
 
-		JavaPairDStream<String, byte[]> cmdDStream = buildBytesDirectInputStream(streamingContext,
-				numRecvStreams, kafkaParams, cmdTopicMap);
+		JavaPairDStream<String, byte[]> cmdDStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+				kafkaParams, cmdTopicMap);
 
 		// Handle the messages received from Kafka,
 		cmdDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
@@ -283,15 +284,19 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 							ExecutionPlan plan = createPlanByCommand(cmd, data);
 
-							Set<Integer> startableNodes = plan.getStartableNodes();
+							Integer[] startableNodes = plan.getStartableNodes();
 							for (int nodeID : startableNodes) {
+								Future<RecordMetadata> future = producerSupplier.get()
+										.send(new ProducerRecord<String, byte[]>(plan.getNode(nodeID).getTopic(),
+												taskID.toString(), SerializationHelper.serialize(new TaskData(nodeID,
+														plan, SerializationHelper.deserialize(data)))));
+								RecordMetadata metadata = future.get();
 								if (verbose) {
-									loggerSupplier.get().info(APP_NAME + ": Sending initial task to " + plan.getInputTopicName(nodeID));
+									loggerSupplier.get()
+											.info(APP_NAME + ": Sent initial task to <" + metadata.topic() + "-"
+													+ metadata.partition() + "-" + metadata.offset() + ">: Task "
+													+ taskID.toString());
 								}
-								producerSupplier.get().send(new ProducerRecord<String, byte[]>(
-										plan.getInputTopicName(nodeID), taskID.toString(),
-										SerializationHelper.serialize(
-												new TaskData(nodeID, plan, SerializationHelper.deserialize(data)))));
 							}
 
 						}

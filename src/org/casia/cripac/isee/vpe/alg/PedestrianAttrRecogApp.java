@@ -23,11 +23,13 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Future;
 
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -63,6 +65,7 @@ import scala.Tuple2;
  * @author Ken Yu, CRIPAC, 2016
  *
  */
+@SuppressWarnings("unused")
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 	private static final long serialVersionUID = 3104859533881615664L;
@@ -255,29 +258,34 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 						// cyclic utilized.
 						taskData.predecessorResult = attributes;
 						// Get the IDs of successor nodes.
-						Set<Integer> successorIDs = taskData.executionPlan.getSuccessors(taskData.currentNodeID);
+						int[] successorIDs = taskData.executionPlan.getNode(taskData.currentNodeID).getSuccessors();
 						// Mark the current node as executed.
 						taskData.executionPlan.markExecuted(taskData.currentNodeID);
 						// Send to all the successor nodes.
 						for (int successorID : successorIDs) {
 							taskData.currentNodeID = successorID;
-							String topic = taskData.executionPlan.getInputTopicName(successorID);
+							String topic = taskData.executionPlan.getNode(successorID).getTopic();
 
+							Future<RecordMetadata> future = producerSupplier.get()
+									.send(new ProducerRecord<String, byte[]>(topic, taskID,
+											SerializationHelper.serialize(taskData)));
+							RecordMetadata metadata = future.get();
 							if (verbose) {
-								loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka <" + topic + ">: "
-										+ "Attributes of " + taskID + "-" + track.id);
+								loggerSupplier.get()
+										.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
+												+ metadata.partition() + "-" + metadata.offset() + ">: "
+												+ "Attributes of " + taskID + "-" + track.id);
 							}
-							producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, taskID,
-									SerializationHelper.serialize(taskData)));
 						}
 
 						// Always send to the meta data saving application.
-						if (verbose) {
-							loggerSupplier.get().info("PedestrianAttrRecogApp: Sending to Kafka <"
-									+ MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC + ">: " + "Attributes");
-						}
-						producerSupplier.get().send(new ProducerRecord<String, byte[]>(
+						Future<RecordMetadata> future = producerSupplier.get().send(new ProducerRecord<String, byte[]>(
 								MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC, SerializationHelper.serialize(attributes)));
+						RecordMetadata metadata = future.get();
+						if (verbose) {
+							loggerSupplier.get().info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
+									+ metadata.partition() + "-" + metadata.offset() + ">: " + "Attributes");
+						}
 
 						System.gc();
 					}

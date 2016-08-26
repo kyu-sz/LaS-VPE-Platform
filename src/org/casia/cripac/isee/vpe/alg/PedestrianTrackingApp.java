@@ -21,13 +21,14 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Future;
 
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -234,7 +235,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						// execution data of this node.
 						String videoURL = (String) taskData.predecessorResult;
 						// Get the IDs of successor nodes.
-						Set<Integer> successorIDs = taskData.executionPlan.getSuccessors(taskData.currentNodeID);
+						int[] successorIDs = taskData.executionPlan.getNode(taskData.currentNodeID).getSuccessors();
 						// Mark the current node as executed in advance.
 						taskData.executionPlan.markExecuted(taskData.currentNodeID);
 						// Do tracking.
@@ -247,23 +248,29 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 							// Send to all the successor nodes.
 							for (int successorID : successorIDs) {
 								taskData.currentNodeID = successorID;
-								String topic = taskData.executionPlan.getInputTopicName(successorID);
+								String topic = taskData.executionPlan.getNode(successorID).getTopic();
 
+								Future<RecordMetadata> future = producerSupplier.get()
+										.send(new ProducerRecord<String, byte[]>(topic, task._1(),
+												SerializationHelper.serialize(taskData)));
+								RecordMetadata metadata = future.get();
 								if (verbose) {
-									loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka <" + topic
-											+ ">: " + "Track of " + task._1() + "-" + track.id);
+									loggerSupplier.get()
+											.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
+													+ metadata.partition() + "-" + metadata.offset() + ">: "
+													+ "Track of " + task._1() + "-" + track.id);
 								}
-								producerSupplier.get().send(new ProducerRecord<String, byte[]>(topic, task._1(),
-										SerializationHelper.serialize(taskData)));
 							}
 
 							// Always send to the meta data saving application.
+							Future<RecordMetadata> future = producerSupplier.get()
+									.send(new ProducerRecord<String, byte[]>(MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC,
+											SerializationHelper.serialize(track)));
+							RecordMetadata metadata = future.get();
 							if (verbose) {
-								loggerSupplier.get().info("PedestrianTrackingApp: Sending to Kafka <"
-										+ MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC + ">: " + "Track");
+								loggerSupplier.get().info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
+										+ metadata.partition() + "-" + metadata.offset() + ">: " + "Track");
 							}
-							producerSupplier.get().send(new ProducerRecord<String, byte[]>(
-									MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC, SerializationHelper.serialize(track)));
 						}
 
 						System.gc();
