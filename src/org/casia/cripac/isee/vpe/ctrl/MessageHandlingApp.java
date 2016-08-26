@@ -99,7 +99,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	}
 
 	private Map<String, Integer> cmdTopicMap = new HashMap<>();
-	private Properties trackingTaskProducerProperties;
+	private Properties producerProperties;
 	private transient SparkConf sparkConf;
 	private Map<String, String> kafkaParams;
 	private boolean verbose = false;
@@ -127,10 +127,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 		cmdTopicMap.put(COMMAND_TOPIC, propertyCenter.kafkaPartitions);
 
-		trackingTaskProducerProperties = new Properties();
-		trackingTaskProducerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
-		trackingTaskProducerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-		trackingTaskProducerProperties.put("value.serializer",
+		producerProperties = new Properties();
+		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
+		producerProperties.put("compression.codec", "1");
+		producerProperties.put("max.request.size", "10000000");
+		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+		producerProperties.put("value.serializer",
 				"org.apache.kafka.common.serialization.ByteArraySerializer");
 
 		// Create contexts.
@@ -230,7 +232,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 		// Create KafkaSink for Spark Streaming to output to Kafka.
 		final BroadcastSingleton<KafkaProducer<String, byte[]>> producerSingleton = new BroadcastSingleton<KafkaProducer<String, byte[]>>(
-				new KafkaProducerFactory<>(trackingTaskProducerProperties), KafkaProducer.class);
+				new KafkaProducerFactory<>(producerProperties), KafkaProducer.class);
 
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
 				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
@@ -249,13 +251,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 						.getSupplier(new JavaSparkContext(cmdRDD.context()));
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
 						.getSupplier(new JavaSparkContext(cmdRDD.context()));
-
-				if (verbose) {
-					System.out.println(APP_NAME + ": Reading RDD...");
-					System.out.println(APP_NAME + ": RDD count=" + cmdRDD.count() + " partitions="
-							+ cmdRDD.getNumPartitions() + " " + cmdRDD.toString());
-					System.out.println(APP_NAME + ": Starting foreachPartition...");
-				}
 
 				cmdRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 
@@ -277,10 +272,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
 							String cmd = message._1();
 							byte[] data = message._2();
-
-							if (verbose) {
-								loggerSupplier.get().info(APP_NAME + ": Received command \"" + cmd + "\"");
-							}
 
 							ExecutionPlan plan = createPlanByCommand(cmd, data);
 

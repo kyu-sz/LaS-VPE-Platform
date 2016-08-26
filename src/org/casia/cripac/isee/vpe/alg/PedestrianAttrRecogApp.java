@@ -145,6 +145,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 		producerProperties = new Properties();
 		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
+		producerProperties.put("compression.codec", "1");
+		producerProperties.put("max.request.size", "10000000");
 		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 		producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 

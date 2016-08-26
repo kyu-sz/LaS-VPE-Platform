@@ -53,7 +53,7 @@ public class TaskData implements Serializable, Cloneable {
 			/**
 			 * The input topic of the module to be executed in the node.
 			 */
-			private String topic = null;
+			private char[] topic = null;
 
 			/**
 			 * The data for this execution.
@@ -79,7 +79,7 @@ public class TaskData implements Serializable, Cloneable {
 			 *            node.
 			 */
 			public Node(String topic) {
-				this.topic = topic;
+				this.topic = topic.toCharArray();
 			}
 
 			/**
@@ -100,7 +100,7 @@ public class TaskData implements Serializable, Cloneable {
 			 *            object.
 			 */
 			public Node(String topic, Serializable executionData) {
-				this.topic = topic;
+				this.topic = topic.toCharArray();
 				this.executionData = executionData;
 			}
 
@@ -108,7 +108,7 @@ public class TaskData implements Serializable, Cloneable {
 			 * @return the topic
 			 */
 			public String getTopic() {
-				return topic;
+				return new String(topic);
 			}
 
 			/**
@@ -168,7 +168,7 @@ public class TaskData implements Serializable, Cloneable {
 			 */
 			public abstract int[] getSuccessors();
 		}
-		
+
 		/**
 		 * Each node represents an execution of a module.
 		 * 
@@ -248,21 +248,25 @@ public class TaskData implements Serializable, Cloneable {
 			}
 
 			/**
-			 * @return	An immutable copy of this node.
+			 * @return An immutable copy of this node.
 			 */
 			public ImmutableNode createImmutableCopy() {
 				return new ImmutableNode(getTopic(), getExecutionData(), getSuccessors());
 			}
-			
+
 			/**
 			 * Add a node to the successor set of this node.
-			 * @param nodeID	The ID of the node to add.
+			 * 
+			 * @param nodeID
+			 *            The ID of the node to add.
 			 */
 			public void addSuccessor(int nodeID) {
 				successorList.add(nodeID);
 			}
-			
-			/* (non-Javadoc)
+
+			/*
+			 * (non-Javadoc)
+			 * 
 			 * @see java.lang.Object#clone()
 			 */
 			@SuppressWarnings("unchecked")
@@ -335,8 +339,10 @@ public class TaskData implements Serializable, Cloneable {
 			 */
 			public ImmutableNode() {
 			}
-			
-			/* (non-Javadoc)
+
+			/*
+			 * (non-Javadoc)
+			 * 
 			 * @see java.lang.Object#clone()
 			 */
 			@Override
@@ -403,8 +409,10 @@ public class TaskData implements Serializable, Cloneable {
 			plan.markExecuted(currentNodeID);
 			return plan;
 		}
-		
-		/* (non-Javadoc)
+
+		/*
+		 * (non-Javadoc)
+		 * 
 		 * @see java.lang.Object#clone()
 		 */
 		@Override
@@ -447,27 +455,32 @@ public class TaskData implements Serializable, Cloneable {
 			}
 			return combinedPlan;
 		}
-		
+
 		/**
 		 * Get a node by ID.
-		 * @param nodeID	The ID of the node.
-		 * @return			Node with this ID.
+		 * 
+		 * @param nodeID
+		 *            The ID of the node.
+		 * @return Node with this ID.
 		 */
 		public abstract Node getNode(int nodeID);
-		
+
 		/**
-		 * @return	The number of nodes.
+		 * @return The number of nodes.
 		 */
-		public abstract int getNumNodes(); 
-		
+		public abstract int getNumNodes();
+
 		/**
 		 * Update a node.
-		 * @param nodeID	The ID of the node to be updated.
-		 * @param node		The new node.
+		 * 
+		 * @param nodeID
+		 *            The ID of the node to be updated.
+		 * @param node
+		 *            The new node.
 		 */
 		public abstract void updateNode(int nodeID, Node node);
 	}
-	
+
 	public static class ImmutableExecutionPlan extends ExecutionPlan {
 
 		private static final long serialVersionUID = 2678777741259466998L;
@@ -475,17 +488,21 @@ public class TaskData implements Serializable, Cloneable {
 		 * Each node represents a module to execute.
 		 */
 		private Node[] nodes = null;
-		
+
 		/**
 		 * Create an immutable execution plan with nodes specified.
+		 * 
 		 * @param nodes
 		 */
 		public ImmutableExecutionPlan(ImmutableNode[] nodes) {
 			this.nodes = nodes;
 		}
 
-		/* (non-Javadoc)
-		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNode(int)
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNode(int)
 		 */
 		@Override
 		public Node getNode(int nodeID) {
@@ -508,22 +525,25 @@ public class TaskData implements Serializable, Cloneable {
 			clonedPlan.nodes = this.nodes.clone();
 			return clonedPlan;
 		}
-		
+
 		public ImmutableNode adapt(Node node) {
 			if (node instanceof ImmutableNode) {
-				return (ImmutableNode)node;
+				return (ImmutableNode) node;
 			} else {
 				return ((MutableNode) node).createImmutableCopy();
 			}
 		}
 
-		/* (non-Javadoc)
-		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#updateNode(int, org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan.Node)
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#updateNode(int,
+		 * org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan.Node)
 		 */
 		@Override
 		public void updateNode(int nodeID, Node node) {
 			nodes[nodeID] = node;
-			
 		}
 	}
 
@@ -629,26 +649,30 @@ public class TaskData implements Serializable, Cloneable {
 			return clonedPlan;
 		}
 
-		/* (non-Javadoc)
-		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNode(int)
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNode(int)
 		 */
 		@Override
 		public Node getNode(int nodeID) {
-			// TODO Auto-generated method stub
-			return null;
+			return nodes.get(nodeID);
 		}
 
-		/* (non-Javadoc)
-		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNumNodes()
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#getNumNodes()
 		 */
 		@Override
 		public int getNumNodes() {
-			// TODO Auto-generated method stub
-			return 0;
+			return nodes.size();
 		}
-		
+
 		/**
-		 * @return	An immutable copy of this plan.
+		 * @return An immutable copy of this plan.
 		 */
 		public ImmutableExecutionPlan createImmutableCopy() {
 			ImmutableNode[] immutableNodes = new ImmutableNode[nodes.size()];
@@ -658,7 +682,7 @@ public class TaskData implements Serializable, Cloneable {
 			}
 			return new ImmutableExecutionPlan(immutableNodes);
 		}
-		
+
 		public MutableNode adapt(Node node) {
 			if (node instanceof MutableNode) {
 				return (MutableNode) node;
@@ -671,8 +695,12 @@ public class TaskData implements Serializable, Cloneable {
 			}
 		}
 
-		/* (non-Javadoc)
-		 * @see org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#updateNode(org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan.Node, int)
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan#updateNode(org.
+		 * casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan.Node, int)
 		 */
 		@Override
 		public void updateNode(int nodeID, Node node) {
