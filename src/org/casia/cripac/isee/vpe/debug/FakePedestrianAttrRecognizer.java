@@ -22,6 +22,7 @@ import java.util.Random;
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.casia.cripac.isee.pedestrian.attr.Attributes.Facing;
+import org.casia.cripac.isee.pedestrian.attr.Attributes.Sex;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 
 public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
@@ -44,6 +45,18 @@ public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 			break;
 		case 3:
 			attribute.facing = Facing.RIGHT;
+			break;
+		}
+		
+		switch (random.nextInt(3)) {
+		case 0:
+			attribute.sex = Sex.FEMALE;
+			break;
+		case 1:
+			attribute.sex = Sex.MALE;
+			break;
+		case 2:
+			attribute.sex = Sex.UNDETERMINED;
 			break;
 		}
 

@@ -250,10 +250,17 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 					public void call(Tuple2<String, TaskData> taskWithTrack) throws Exception {
 						String taskID = taskWithTrack._1();
 						TaskData taskData = taskWithTrack._2();
+
+						if (!(taskData.predecessorResult instanceof Track)) {
+							loggerSupplier.get().fatal("Predecessor result is expected to be a track, but received \""
+									+ taskData.predecessorResult + "\"!");
+						}
+
 						Track track = (Track) taskData.predecessorResult;
 
 						// Recognize attributes.
 						Attributes attributes = recognizerSupplier.get().recognize(track);
+						attributes.trackID = track.id;
 
 						// Prepare new task data.
 						// Stored the track in the task data, which can be
@@ -275,18 +282,20 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 							if (verbose) {
 								loggerSupplier.get()
 										.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
-												+ metadata.partition() + "-" + metadata.offset() + ">: "
-												+ "Attributes of " + taskID + "-" + track.id);
+												+ metadata.partition() + "-" + metadata.offset() + ">: " + taskID + ": "
+												+ taskData);
 							}
 						}
 
 						// Always send to the meta data saving application.
-						Future<RecordMetadata> future = producerSupplier.get().send(new ProducerRecord<String, byte[]>(
-								MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC, SerializationHelper.serialize(attributes)));
+						Future<RecordMetadata> future = producerSupplier.get()
+								.send(new ProducerRecord<String, byte[]>(MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC,
+										taskID, SerializationHelper.serialize(attributes)));
 						RecordMetadata metadata = future.get();
 						if (verbose) {
-							loggerSupplier.get().info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
-									+ metadata.partition() + "-" + metadata.offset() + ">: " + "Attributes");
+							loggerSupplier.get()
+									.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-" + metadata.partition()
+											+ "-" + metadata.offset() + ">: " + taskID + ": " + attributes);
 						}
 
 						System.gc();

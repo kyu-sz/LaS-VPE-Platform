@@ -157,7 +157,7 @@ public class TaskData implements Serializable, Cloneable {
 				if (!executed) {
 					executed = true;
 					for (int successorID : getSuccessors()) {
-						--getNode(successorID).unexecutedPredecessorCnt;
+						getNode(successorID).decreaseUnexecutedPredecessorCnt();
 					}
 					makeEmpty();
 				}
@@ -167,6 +167,18 @@ public class TaskData implements Serializable, Cloneable {
 			 * @return IDs of successor nodes of this node.
 			 */
 			public abstract int[] getSuccessors();
+
+			public void setUnexecutedPredecessorCnt(int cnt) {
+				unexecutedPredecessorCnt = cnt;
+			}
+
+			public void increaseUnexecutedPredecessorCnt() {
+				++unexecutedPredecessorCnt;
+			}
+
+			public void decreaseUnexecutedPredecessorCnt() {
+				--unexecutedPredecessorCnt;
+			}
 		}
 
 		/**
@@ -251,7 +263,9 @@ public class TaskData implements Serializable, Cloneable {
 			 * @return An immutable copy of this node.
 			 */
 			public ImmutableNode createImmutableCopy() {
-				return new ImmutableNode(getTopic(), getExecutionData(), getSuccessors());
+				ImmutableNode immutableCopy = new ImmutableNode(getTopic(), getExecutionData(), getSuccessors());
+				immutableCopy.setUnexecutedPredecessorCnt(getNumUnexecutedPredecessor());
+				return immutableCopy;
 			}
 
 			/**
@@ -479,6 +493,16 @@ public class TaskData implements Serializable, Cloneable {
 		 *            The new node.
 		 */
 		public abstract void updateNode(int nodeID, Node node);
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return "|ExecutionPlan-" + getNumNodes() + " nodes|";
+		}
 	}
 
 	public static class ImmutableExecutionPlan extends ExecutionPlan {
@@ -567,8 +591,9 @@ public class TaskData implements Serializable, Cloneable {
 		public void linkNodes(int head, int tail) {
 			MutableNode headNode = nodes.get(head);
 			headNode.addSuccessor(tail);
-			if (!headNode.executed) {
-				++getNode(head).unexecutedPredecessorCnt;
+			MutableNode tailNode = nodes.get(tail);
+			if (!tailNode.executed) {
+				tailNode.increaseUnexecutedPredecessorCnt();
 			}
 		}
 
@@ -751,5 +776,16 @@ public class TaskData implements Serializable, Cloneable {
 		this.currentNodeID = currentNodeID;
 		this.executionPlan = executionPlan;
 		this.predecessorResult = predecessorResult;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "|TaskData-node=" + currentNodeID + "-ExecutionPlan=" + executionPlan
+				+ "-PredecessorRes=" + predecessorResult + "|";
 	}
 }

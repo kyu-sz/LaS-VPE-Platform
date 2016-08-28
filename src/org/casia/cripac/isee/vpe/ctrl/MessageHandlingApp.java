@@ -18,6 +18,7 @@
 package org.casia.cripac.isee.vpe.ctrl;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -132,8 +133,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		producerProperties.put("compression.codec", "1");
 		producerProperties.put("max.request.size", "10000000");
 		producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-		producerProperties.put("value.serializer",
-				"org.apache.kafka.common.serialization.ByteArraySerializer");
+		producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
 		// Create contexts.
 		sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.rdd.compress", "true")
@@ -160,7 +160,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		private static final long serialVersionUID = -940732652485656739L;
 	}
 
-	private ExecutionPlan createPlanByCommand(String cmd, byte[] data)
+	private ExecutionPlan createPlanByCommand(String cmd, Serializable data)
 			throws UnsupportedCommandException, ClassNotFoundException, IOException {
 		MutableExecutionPlan plan = null;
 
@@ -199,7 +199,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			plan = new MutableExecutionPlan();
 			int trackDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
-			int reidTrackNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
+			int reidTrackNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_TOPIC);
 			int reidAttrNodeID = plan.addNode(PedestrianReIDWithAttrApp.ATTR_TOPIC);
 			plan.linkNodes(trackDataNodeID, attrRecogNodeID);
 			plan.linkNodes(trackDataNodeID, reidTrackNodeID);
@@ -261,39 +261,33 @@ public class MessageHandlingApp extends SparkStreamingApp {
 					@Override
 					public void call(Iterator<Tuple2<String, byte[]>> cmdMsg) throws Exception {
 
-						int msgCnt = 0; // For diagnose.
-
 						while (cmdMsg.hasNext()) {
 							// Get a next command message.
 							Tuple2<String, byte[]> message = cmdMsg.next();
-							++msgCnt;
 
 							UUID taskID = UUID.randomUUID();
 
 							String cmd = message._1();
-							byte[] data = message._2();
+							Serializable data = SerializationHelper.deserialize(message._2());
 
 							ExecutionPlan plan = createPlanByCommand(cmd, data);
 
 							Integer[] startableNodes = plan.getStartableNodes();
 							for (int nodeID : startableNodes) {
+								TaskData taskData = new TaskData(nodeID, plan, data);
 								Future<RecordMetadata> future = producerSupplier.get()
 										.send(new ProducerRecord<String, byte[]>(plan.getNode(nodeID).getTopic(),
-												taskID.toString(), SerializationHelper.serialize(new TaskData(nodeID,
-														plan, SerializationHelper.deserialize(data)))));
+												taskID.toString(), SerializationHelper.serialize(taskData)));
 								RecordMetadata metadata = future.get();
 								if (verbose) {
 									loggerSupplier.get()
-											.info(APP_NAME + ": Sent initial task to <" + metadata.topic() + "-"
-													+ metadata.partition() + "-" + metadata.offset() + ">: Task "
-													+ taskID.toString());
+											.info(APP_NAME + ": Sent initial task for command " + cmd + " to <"
+													+ metadata.topic() + "-" + metadata.partition() + "-"
+													+ metadata.offset() + ">: Task " + taskID.toString() + " with "
+													+ taskData.predecessorResult);
 								}
 							}
 
-						}
-
-						if (verbose) {
-							loggerSupplier.get().info(APP_NAME + ": Received " + msgCnt + " commands.");
 						}
 					}
 				});

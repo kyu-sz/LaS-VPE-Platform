@@ -204,8 +204,8 @@ public class DataFeedingApp extends SparkStreamingApp {
 									if (verbose) {
 										loggerSupplier.get()
 												.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
-														+ metadata.partition() + "-" + metadata.offset()
-														+ ">: Track of " + job._1() + "-" + track.id);
+														+ metadata.partition() + "-" + metadata.offset() + ">: "
+														+ job._1() + ": " + taskData);
 									}
 								}
 							}
@@ -258,10 +258,9 @@ public class DataFeedingApp extends SparkStreamingApp {
 									RecordMetadata metadata = future.get();
 									if (verbose) {
 										loggerSupplier.get()
-												.info("DataFeedingApp: Sent to Kafka <" + metadata.topic() + "-"
+												.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
 														+ metadata.partition() + "-" + metadata.offset() + "> :"
-														+ "Track with attributes of " + job._1() + "-"
-														+ trackWithAttr.track.id);
+														+ job._1() + ": " + taskData);
 									}
 								}
 							}

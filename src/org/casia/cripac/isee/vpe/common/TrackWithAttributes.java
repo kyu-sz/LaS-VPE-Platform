@@ -46,4 +46,12 @@ public class TrackWithAttributes implements Serializable, Cloneable {
 		this.track = track;
 		this.attr = attr;
 	}
+	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "|" + track + "|" + attr + "|";
+	}
 }

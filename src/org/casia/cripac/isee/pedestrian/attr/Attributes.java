@@ -68,4 +68,14 @@ public class Attributes implements Serializable {
 	 * Attribute generating algorithms do not need to fill in this field.
 	 */
 	public int trackID = -1;
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "|Attributes-track=" + trackID + "-facing=" + facing + "-sex=" + sex + "|";
+	}
 }

@@ -112,4 +112,14 @@ public class Track implements Serializable {
 	 * by time.
 	 */
 	public BoundingBox[] locationSequence = null;
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "|Track-" + id + "/" + numTracks + "-" + new String(videoURL) + "|";
+	}
 }

@@ -83,17 +83,17 @@ public class SynthesizedLogger {
 		if (sender != null) {
 			byte[] sendBuf = message.getBytes();
 			DatagramPacket sendPacket = new DatagramPacket(sendBuf, sendBuf.length, listenerAddr, listenerPort);
-			System.out.println("|INFO|" + name + ":\tReporting to " + listenerAddr + ":" + listenerPort);
+//			System.out.println("|INFO|" + name + ":\tReporting to " + listenerAddr + ":" + listenerPort);
 			try {
 				sender.send(sendPacket);
 			} catch (IOException e) {
-				System.out.println(
+				System.err.println(
 						"|ERROR|" + name + ":\tError occurred when reporting to " + listenerAddr + ":" + listenerPort);
 				e.printStackTrace();
 				sender = null;
 			}
 		} else {
-			System.out.println("|ERROR|" + name + ":\tSender dead!");
+			System.err.println("|ERROR|" + name + ":\tSender dead!");
 		}
 	}
 

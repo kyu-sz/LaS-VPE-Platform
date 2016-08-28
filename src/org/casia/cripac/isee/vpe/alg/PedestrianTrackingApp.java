@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -32,10 +33,13 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.HasOffsetRanges;
+import org.apache.spark.streaming.kafka.OffsetRange;
 import org.casia.cripac.isee.pedestrian.tracking.PedestrianTracker;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
@@ -174,6 +178,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 	 */
 	@Override
 	protected JavaStreamingContext getStreamContext() {
+		// Hold a reference to the current offset ranges, so it can be used
+		// downstream
+		final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<>();
+
 		// Create contexts.
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
@@ -203,14 +211,18 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		 */
 		JavaPairDStream<String, byte[]> jobStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
 				kafkaParams, videoURLTopicMap);
-		// //Retrieve messages from Kafka.
-		// JavaPairInputDStream<String, byte[]> taskDStream =
-		// KafkaUtils.createDirectStream(streamingContext, String.class,
-		// byte[].class,
-		// StringDecoder.class, DefaultDecoder.class, commonKafkaParams,
-		// taskTopicsSet);
 
-		jobStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+		jobStream.transformToPair(new Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>() {
+
+			private static final long serialVersionUID = 8191931885274342083L;
+
+			@Override
+			public JavaPairRDD<String, byte[]> call(JavaPairRDD<String, byte[]> rdd) throws Exception {
+				OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+				offsetRanges.set(offsets);
+				return rdd;
+			}
+		}).foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
 			private static final long serialVersionUID = -6015951200762719085L;
 
@@ -223,6 +235,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 						.getSupplier(new JavaSparkContext(taskRDD.context()));
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
 						.getSupplier(new JavaSparkContext(taskRDD.context()));
+
+				// TODO Update Zookeeper.
+				for (OffsetRange o : offsetRanges.get()) {
+					System.out.println("|INFO|Kafka offset range: " + o.topic() + " " + o.partition() + " "
+							+ o.fromOffset() + " " + o.untilOffset());
+				}
 
 				taskRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				taskRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
@@ -259,19 +277,21 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 								if (verbose) {
 									loggerSupplier.get()
 											.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
-													+ metadata.partition() + "-" + metadata.offset() + ">: "
-													+ "Track of " + task._1() + "-" + track.id);
+													+ metadata.partition() + "-" + metadata.offset() + ">: " + task._1()
+													+ ": " + taskData);
 								}
 							}
 
 							// Always send to the meta data saving application.
 							Future<RecordMetadata> future = producerSupplier.get()
 									.send(new ProducerRecord<String, byte[]>(MetadataSavingApp.PEDESTRIAN_TRACK_TOPIC,
-											SerializationHelper.serialize(track)));
+											task._1(), SerializationHelper.serialize(track)));
 							RecordMetadata metadata = future.get();
 							if (verbose) {
-								loggerSupplier.get().info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
-										+ metadata.partition() + "-" + metadata.offset() + ">: " + "Track");
+								loggerSupplier.get()
+										.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
+												+ metadata.partition() + "-" + metadata.offset() + ">: " + task._1()
+												+ ": " + track);
 							}
 						}
 

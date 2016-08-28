@@ -69,7 +69,7 @@ public class CommandGeneratingApp implements Serializable {
 		String videoURL = "video123";
 		byte[] videoURLBytes = SerializationHelper.serialize(videoURL);
 
-		String videoURLWithTrackID = "video123:12";
+		String videoURLWithTrackID = "video123:1";
 		byte[] videoURLWithTrackIDBytes = SerializationHelper.serialize(videoURLWithTrackID);
 
 		Future<RecordMetadata> recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(

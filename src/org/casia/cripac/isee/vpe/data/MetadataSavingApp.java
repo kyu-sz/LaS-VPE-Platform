@@ -45,7 +45,10 @@ import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.bytedeco.javacpp.BytePointer;
+import org.bytedeco.javacpp.Loader;
+import org.bytedeco.javacpp.helper.opencv_core;
 import org.bytedeco.javacpp.opencv_core.Mat;
+import org.bytedeco.javacpp.opencv_imgproc;
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox;
@@ -201,6 +204,11 @@ public class MetadataSavingApp extends SparkStreamingApp {
 					@Override
 					public void call(Tuple2<String, Iterable<byte[]>> trackGroup) throws Exception {
 
+						// RuntimeException: No native JavaCPP library in
+						// memory. (Has Loader.load() been called?)
+						Loader.load(opencv_core.class);
+						Loader.load(opencv_imgproc.class);
+
 						FileSystem fs = fsSupplier.get();
 
 						String taskID = trackGroup._1();
@@ -249,7 +257,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 								BytePointer inputPointer = new BytePointer(bbox.patchData);
 								Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
 								BytePointer outputPointer = new BytePointer();
-								imencode("jpg", image, outputPointer);
+								imencode(".jpg", image, outputPointer);
 								byte[] bytes = new byte[(int) outputPointer.limit()];
 								outputPointer.get(bytes);
 
@@ -257,6 +265,10 @@ public class MetadataSavingApp extends SparkStreamingApp {
 								FSDataOutputStream imgOutputStream = fs.create(new Path(storeDir + "/" + i + ".jpg"));
 								imgOutputStream.write(bytes);
 								imgOutputStream.close();
+
+								image.release();
+								inputPointer.deallocate();
+								outputPointer.deallocate();
 							}
 
 							writer.write("\t]");
@@ -285,6 +297,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 							loggerSupplier.get().info("Tracks of " + videoURL + "-" + taskID + " packed!");
 						}
+
+						System.gc();
 					}
 				});
 			}
@@ -295,7 +309,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		 * we use createStream for auto management of Kafka offsets by
 		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
 		 */
-		JavaPairDStream<String, byte[]> attrStream = buildBytesParRecvStream(streamingContext, numRecvStreams,
+		JavaPairDStream<String, byte[]> attrStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
 				kafkaParams, attrTopicMap);
 		// //Retrieve attributes from Kafka
 		// JavaPairInputDStream<String, byte[]> attrDStream =
@@ -328,8 +342,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							attr = (Attributes) SerializationHelper.deserialize(result._2());
 
 							if (verbose) {
-								loggerSupplier.get().info("Metadata saver received attribute: " + "Facing" + "="
-										+ attr.facing + "; Sex=" + attr.sex);
+								loggerSupplier.get().info("Metadata saver received " + result._1() + ": " + attr);
 							}
 						} catch (IOException e) {
 							loggerSupplier.get().error("Exception caught when decompressing attributes", e);
@@ -340,7 +353,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 			}
 		});
 
-		JavaPairDStream<String, byte[]> idStream = buildBytesParRecvStream(streamingContext, numRecvStreams,
+		JavaPairDStream<String, byte[]> idStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
 				kafkaParams, idTopicMap);
 		idStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
@@ -364,7 +377,8 @@ public class MetadataSavingApp extends SparkStreamingApp {
 							id = (Integer) SerializationHelper.deserialize(result._2());
 
 							if (verbose) {
-								loggerSupplier.get().info("Metadata saver received ID:" + id);
+								loggerSupplier.get()
+										.info("Metadata saver received: " + result._1() + ": Pedestrian." + id);
 							}
 						} catch (IOException e) {
 							loggerSupplier.get().error("Exception caught when decompressing ID", e);
