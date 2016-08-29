@@ -35,13 +35,12 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
-import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
-import org.casia.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
-import org.casia.cripac.isee.pedestrian.reid.PedestrianReIDerWithAttr;
+import org.casia.cripac.isee.pedestrian.reid.PedestrianInfo;
+import org.casia.cripac.isee.pedestrian.reid.PedestrianReIDer;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
@@ -50,7 +49,6 @@ import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
-import org.casia.cripac.isee.vpe.common.TrackWithAttributes;
 import org.casia.cripac.isee.vpe.ctrl.TaskData;
 import org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
@@ -210,6 +208,17 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 			this.taskID = taskID;
 			this.trackID = trackID;
 		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#equals(java.lang.Object)
+		 */
+		@Override
+		public boolean equals(Object obj) {
+			AbsoluteTrackID id = (AbsoluteTrackID) obj;
+			return super.equals(obj) && taskID.equals(id.taskID) && (trackID == id.trackID);
+		}
 	}
 
 	/*
@@ -229,16 +238,16 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		final BroadcastSingleton<KafkaProducer<String, byte[]>> broadcastKafkaSink = new BroadcastSingleton<>(
 				new KafkaProducerFactory<String, byte[]>(producerProperties), KafkaProducer.class);
 		// Create ResourceSink for any other unserializable components.
-		final BroadcastSingleton<PedestrianReIDerWithAttr> reIDerSingleton = new BroadcastSingleton<>(
-				new ObjectFactory<PedestrianReIDerWithAttr>() {
+		final BroadcastSingleton<PedestrianReIDer> reIDerSingleton = new BroadcastSingleton<>(
+				new ObjectFactory<PedestrianReIDer>() {
 
 					private static final long serialVersionUID = -5422299243899032592L;
 
 					@Override
-					public PedestrianReIDerWithAttr getObject() {
+					public PedestrianReIDer getObject() {
 						return new FakePedestrianReIDerWithAttr();
 					}
-				}, PedestrianAttrRecognizer.class);
+				}, PedestrianReIDer.class);
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
 				new SynthesizedLoggerFactory(reportListenerAddr, reportListenerPort), SynthesizedLogger.class);
 
@@ -296,8 +305,9 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 					}
 				});
 
-		JavaPairDStream<UUID, TaskData> trackWithAttrAssembledStream = trackStream.window(new Duration(30000))
-				.join(attrStream.window(new Duration(30000)))
+		JavaPairDStream<UUID, TaskData> trackWithAttrAssembledStream = trackStream
+				.window(Durations.seconds(30), Durations.seconds(10))
+				.join(attrStream.window(Durations.seconds(30), Durations.seconds(10)))
 				.mapToPair(new PairFunction<Tuple2<AbsoluteTrackID, Tuple2<TaskData, TaskData>>, UUID, TaskData>() {
 
 					private static final long serialVersionUID = -4988916606490559467L;
@@ -311,7 +321,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 						ExecutionPlan asmPlan = taskDataWithTrack.executionPlan.combine(taskDataWithAttr.executionPlan);
 
 						TaskData asmTaskData = new TaskData(taskDataWithTrack.currentNodeID, asmPlan,
-								new TrackWithAttributes((Track) taskDataWithTrack.predecessorResult,
+								new PedestrianInfo((Track) taskDataWithTrack.predecessorResult,
 										(Attributes) taskDataWithAttr.predecessorResult));
 						if (verbose) {
 							System.out.println("|INFO|Assembled track and attr of " + taskID + "-" + pack._1().trackID);
@@ -348,7 +358,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 					@Override
 					public void call(JavaPairRDD<UUID, TaskData> trackWithAttrRDD) throws Exception {
 
-						final ObjectSupplier<PedestrianReIDerWithAttr> reIDerSupplier = reIDerSingleton
+						final ObjectSupplier<PedestrianReIDer> reIDerSupplier = reIDerSingleton
 								.getSupplier(new JavaSparkContext(trackWithAttrRDD.context()));
 						final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = broadcastKafkaSink
 								.getSupplier(new JavaSparkContext(trackWithAttrRDD.context()));
@@ -364,13 +374,13 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 							public void call(Tuple2<UUID, TaskData> taskWithTrackAndAttr) throws Exception {
 								String taskID = taskWithTrackAndAttr._1().toString();
 								TaskData taskData = taskWithTrackAndAttr._2();
-								TrackWithAttributes trackWithAttr = (TrackWithAttributes) taskData.predecessorResult;
+								PedestrianInfo trackWithAttr = (PedestrianInfo) taskData.predecessorResult;
 
 								// Perform ReID.
-								int pedestrianID = reIDerSupplier.get().reid(trackWithAttr.track, trackWithAttr.attr);
+								int[] idRank = reIDerSupplier.get().reid(trackWithAttr);
 
 								// Prepare new task data with the pedestrian ID.
-								taskData.predecessorResult = pedestrianID;
+								taskData.predecessorResult = idRank;
 								// Get the IDs of successor nodes.
 								int[] successorIDs = taskData.executionPlan.getNode(taskData.currentNodeID)
 										.getSuccessors();
@@ -389,7 +399,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 										loggerSupplier.get()
 												.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
 														+ metadata.partition() + "-" + metadata.offset() + "> :"
-														+ taskID + ": Pedestrian ID." + pedestrianID);
+														+ taskID + ": Pedestrian ID rank " + idRank);
 									}
 								}
 
@@ -397,13 +407,13 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 								// application.
 								Future<RecordMetadata> future = producerSupplier.get()
 										.send(new ProducerRecord<String, byte[]>(MetadataSavingApp.PEDESTRIAN_ID_TOPIC,
-												taskID, SerializationHelper.serialize(pedestrianID)));
+												taskID, SerializationHelper.serialize(idRank)));
 								RecordMetadata metadata = future.get();
 								if (verbose) {
 									loggerSupplier.get()
 											.info(APP_NAME + ": Sent to Kafka: <" + metadata.topic() + "-"
 													+ metadata.partition() + "-" + metadata.offset() + ">" + taskID
-													+ ": Pedestrian ID." + pedestrianID);
+													+ ": Pedestrian ID rank " + idRank);
 								}
 
 								System.gc();

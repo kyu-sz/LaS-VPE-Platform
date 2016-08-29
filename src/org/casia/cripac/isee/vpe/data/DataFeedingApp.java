@@ -34,6 +34,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.casia.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
@@ -41,7 +42,6 @@ import org.casia.cripac.isee.vpe.common.ObjectSupplier;
 import org.casia.cripac.isee.vpe.common.SerializationHelper;
 import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
-import org.casia.cripac.isee.vpe.common.TrackWithAttributes;
 import org.casia.cripac.isee.vpe.ctrl.TaskData;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
 import org.casia.cripac.isee.vpe.debug.FakeDatabaseConnector;
@@ -238,7 +238,7 @@ public class DataFeedingApp extends SparkStreamingApp {
 								TaskData taskData = (TaskData) SerializationHelper.deserialize(job._2());
 								String jobParam = (String) taskData.predecessorResult;
 								String[] paramParts = jobParam.split(":");
-								TrackWithAttributes trackWithAttr = databaseConnector.getTrackWithAttr(paramParts[0],
+								PedestrianInfo trackWithAttr = databaseConnector.getTrackWithAttr(paramParts[0],
 										paramParts[1]);
 								taskData.predecessorResult = trackWithAttr;
 

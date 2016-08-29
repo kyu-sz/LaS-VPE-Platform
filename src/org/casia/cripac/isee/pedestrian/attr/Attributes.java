@@ -39,14 +39,17 @@ public class Attributes implements Serializable {
 	 * 
 	 * @author Ken Yu, CRIPAC, 2016
 	 */
-	public enum Facing {
-		LEFT, RIGHT, FRONT, BACK
+	public static class Facing {
+		public static final int LEFT = 0;
+		public static final int RIGHT = 1;
+		public static final int FRONT = 2;
+		public static final int BACK = 3;
 	}
 
 	/**
 	 * The direction the pedestrian is facing at this moment.
 	 */
-	public Facing facing;
+	public int facing;
 
 	/**
 	 * Enumeration of possible sexes.
@@ -54,14 +57,16 @@ public class Attributes implements Serializable {
 	 * @author Ken Yu, CRIPAC, 2016
 	 *
 	 */
-	public enum Sex {
-		MALE, FEMALE, UNDETERMINED
+	public static class Sex {
+		public static final int MALE = 0;
+		public static final int FEMALE = 1;
+		public static final int UNDETERMINED = 2;
 	}
 
 	/**
 	 * The sex of the pedestrian in the track.
 	 */
-	public Sex sex;
+	public int sex;
 
 	/**
 	 * This field enables matching an attribute to a track in the same task.

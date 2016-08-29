@@ -21,23 +21,25 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
+import org.casia.cripac.isee.pedestrian.reid.Feature;
+import org.casia.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
-import org.casia.cripac.isee.vpe.common.TrackWithAttributes;
 
 /**
  * Simulate a database connector that provides tracks and attributes.
+ * 
  * @author Ken Yu, CRIPAC, 2016
  *
  */
 public class FakeDatabaseConnector implements Serializable {
-	
 
 	private static final long serialVersionUID = 355205529406170579L;
-	
-	private Map<String, Track[]> storage = new HashMap<>(); 
+
+	private Map<String, Track[]> storage = new HashMap<>();
 
 	/**
 	 * Get a particular track from the database.
+	 * 
 	 * @param videoURL
 	 * @param trackID
 	 * @return
@@ -49,14 +51,26 @@ public class FakeDatabaseConnector implements Serializable {
 		Track[] tracks = storage.get(videoURL);
 		return tracks[0];
 	}
-	
-	public TrackWithAttributes getTrackWithAttr(String videoURL, String trackID) {
+
+	public PedestrianInfo getTrackWithAttr(String videoURL, String trackID) {
 		if (!storage.containsKey(videoURL)) {
 			storage.put(videoURL, new FakePedestrianTracker().track(videoURL));
 		}
 		Track[] tracks = storage.get(videoURL);
 		Track track = tracks[0];
 		Attributes attr = new FakePedestrianAttrRecognizer().recognize(track);
-		return new TrackWithAttributes(track, attr);
+		return new PedestrianInfo(track, attr);
+	}
+
+	public PedestrianInfo getFullPedestrianInfo(String videoURL, String trackID) {
+		if (!storage.containsKey(videoURL)) {
+			storage.put(videoURL, new FakePedestrianTracker().track(videoURL));
+		}
+		Track[] tracks = storage.get(videoURL);
+		Track track = tracks[0];
+		Attributes attr = new FakePedestrianAttrRecognizer().recognize(track);
+		PedestrianInfo pedestrianInfo = new PedestrianInfo(track, attr);
+		pedestrianInfo.feature = new byte[Feature.LENGTH];
+		return pedestrianInfo;
 	}
 }
