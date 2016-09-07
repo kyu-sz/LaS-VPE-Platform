@@ -371,25 +371,27 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		// Filter out attributes that cannot find tracks to match.
 		// If they come earlier than tracks, discard them.
 		// Otherwise, join them with cached matching tracks.
-		JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrStream = unsurelyJoinedStream
-				.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
+		JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrStream = trackStream
+				.window(Durations.milliseconds(bufDuration)).join(unsurelyJoinedStream.filter(
+						new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
 
-					private static final long serialVersionUID = -2343091659648238232L;
+							private static final long serialVersionUID = -2343091659648238232L;
 
-					@Override
-					public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> item)
-							throws Exception {
-						return !item._2()._1().isPresent() && item._2()._2().isPresent();
-					}
-				}).mapValues(new Function<Tuple2<Optional<TaskData>, Optional<TaskData>>, TaskData>() {
+							@Override
+							public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> item)
+									throws Exception {
+								return !item._2()._1().isPresent() && item._2()._2().isPresent();
+							}
+						}).mapValues(new Function<Tuple2<Optional<TaskData>, Optional<TaskData>>, TaskData>() {
 
-					private static final long serialVersionUID = 3857664450499877227L;
+							private static final long serialVersionUID = 3857664450499877227L;
 
-					@Override
-					public TaskData call(Tuple2<Optional<TaskData>, Optional<TaskData>> optPair) throws Exception {
-						return optPair._2().get();
-					}
-				}).join(trackStream.window(Durations.milliseconds(bufDuration)));
+							@Override
+							public TaskData call(Tuple2<Optional<TaskData>, Optional<TaskData>> optPair)
+									throws Exception {
+								return optPair._2().get();
+							}
+						}));
 
 		// Union the three track and attribute streams and assemble
 		// their TaskData.

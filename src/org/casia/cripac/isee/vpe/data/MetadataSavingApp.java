@@ -24,6 +24,8 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -35,14 +37,13 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.HarFileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
@@ -99,7 +100,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 	// private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
 	private Map<String, Integer> trackTopicMap = new HashMap<>();
 	private Map<String, Integer> attrTopicMap = new HashMap<>();
-	private Map<String, Integer> idTopicMap = new HashMap<>();
+	private Map<String, Integer> idRankTopicMap = new HashMap<>();
 	private transient SparkConf sparkConf;
 	private Map<String, String> kafkaParams = new HashMap<>();
 	private String metadataDir;
@@ -120,7 +121,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 		trackTopicMap.put(PEDESTRIAN_TRACK_TOPIC, propertyCenter.kafkaPartitions);
 		attrTopicMap.put(PEDESTRIAN_ATTR_TOPIC, propertyCenter.kafkaPartitions);
-		idTopicMap.put(PEDESTRIAN_ID_TOPIC, propertyCenter.kafkaPartitions);
+		idRankTopicMap.put(PEDESTRIAN_ID_TOPIC, propertyCenter.kafkaPartitions);
 		// pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
 		// pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 
@@ -175,222 +176,219 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
 				new SynthesizedLoggerFactory(reportListenerAddr, reportListenerPort), SynthesizedLogger.class);
 
-		JavaPairDStream<String, byte[]> trackBytesStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
-				kafkaParams, trackTopicMap);
+		// Save tracks.
+		buildBytesDirectInputStream(streamingContext, numRecvStreams, kafkaParams, trackTopicMap).groupByKey()
+				.foreachRDD(new VoidFunction<JavaPairRDD<String, Iterable<byte[]>>>() {
 
-		trackBytesStream.groupByKey().foreachRDD(new VoidFunction<JavaPairRDD<String, Iterable<byte[]>>>() {
-
-			private static final long serialVersionUID = -6731502755371825010L;
-
-			@Override
-			public void call(JavaPairRDD<String, Iterable<byte[]>> trackGroupRDD) throws Exception {
-
-				final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton
-						.getSupplier(new JavaSparkContext(trackGroupRDD.context()));
-				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
-						.getSupplier(new JavaSparkContext(trackGroupRDD.context()));
-
-				if (verbose) {
-					System.out.println(APP_NAME + ": Reading trackGroupRDD...");
-					System.out.println(APP_NAME + ": RDD count=" + trackGroupRDD.count() + " partitions="
-							+ trackGroupRDD.getNumPartitions() + " " + trackGroupRDD.toString());
-					System.out.println(APP_NAME + ": Starting trackGroupRDD.foreach...");
-				}
-				trackGroupRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-				trackGroupRDD.foreach(new VoidFunction<Tuple2<String, Iterable<byte[]>>>() {
-
-					private static final long serialVersionUID = 5522067102611597772L;
+					private static final long serialVersionUID = -6731502755371825010L;
 
 					@Override
-					public void call(Tuple2<String, Iterable<byte[]>> trackGroup) throws Exception {
+					public void call(JavaPairRDD<String, Iterable<byte[]>> trackGroupRDD) throws Exception {
 
-						// RuntimeException: No native JavaCPP library in
-						// memory. (Has Loader.load() been called?)
-						Loader.load(opencv_core.class);
-						Loader.load(opencv_imgproc.class);
+						final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton
+								.getSupplier(new JavaSparkContext(trackGroupRDD.context()));
+						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+								.getSupplier(new JavaSparkContext(trackGroupRDD.context()));
 
-						FileSystem fs = fsSupplier.get();
+						trackGroupRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
+						trackGroupRDD.foreach(new VoidFunction<Tuple2<String, Iterable<byte[]>>>() {
 
-						String taskID = trackGroup._1();
-						Iterator<byte[]> trackIterator = trackGroup._2().iterator();
-						Track track = (Track) SerializationHelper.deserialize(trackIterator.next());
-						String videoURL = new String(track.videoURL);
-						int numTracks = track.numTracks;
-						String storeRoot = metadataDir + "/" + videoURL + "/" + taskID;
-						fs.mkdirs(new Path(storeRoot));
+							private static final long serialVersionUID = 5522067102611597772L;
 
-						while (true) {
-							String storeDir = storeRoot + "/" + track.id;
-							fs.mkdirs(new Path(storeDir));
+							@Override
+							public void call(Tuple2<String, Iterable<byte[]>> trackGroup) throws Exception {
+								// RuntimeException: No native JavaCPP library
+								// in memory. (Has Loader.load() been called?)
+								Loader.load(opencv_core.class);
+								Loader.load(opencv_imgproc.class);
 
-							int numBBoxes = track.locationSequence.length;
+								FileSystem fs = fsSupplier.get();
 
-							// Write bounding boxes infomations.
-							FSDataOutputStream outputStream = fs.create(new Path(storeDir + "/bbox.txt"));
-							BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream));
-							writer.write("{");
-							writer.newLine();
-							writer.write("\t\"startFrameIndex\":" + track.startFrameIndex);
-							writer.newLine();
-							writer.write("\t\"boundingBoxes\":[");
+								String taskID = trackGroup._1();
+								Iterator<byte[]> trackIterator = trackGroup._2().iterator();
+								Track track = (Track) SerializationHelper.deserialize(trackIterator.next());
+								String videoURL = new String(track.videoURL);
+								int numTracks = track.numTracks;
+								String videoRoot = metadataDir + "/" + videoURL;
+								String taskRoot = videoRoot + "/" + taskID;
+								fs.mkdirs(new Path(taskRoot));
 
-							for (int i = 0; i < numBBoxes; ++i) {
-								BoundingBox bbox = track.locationSequence[i];
+								while (true) {
+									loggerSupplier.get()
+											.info("Task " + videoURL + "-" + taskID + " got track: " + track.id + "!");
 
-								writer.write("{");
-								writer.newLine();
-								writer.write("\t\t\"x\": " + bbox.x + ",");
-								writer.newLine();
-								writer.write("\t\t\"y\": " + bbox.y + ",");
-								writer.newLine();
-								writer.write("\t\t\"width\": " + bbox.width + ",");
-								writer.newLine();
-								writer.write("\t\t\"height\": " + bbox.height);
-								writer.newLine();
-								writer.write("\t}");
-								if (i + 1 < numBBoxes) {
-									writer.write(", ");
+									String storeDir = taskRoot + "/" + track.id;
+									fs.mkdirs(new Path(storeDir));
+
+									int numBBoxes = track.locationSequence.length;
+
+									// Write bounding boxes infomations.
+									FSDataOutputStream outputStream = fs.create(new Path(storeDir + "/bbox.txt"));
+									BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream));
+									writer.write("{");
+									writer.newLine();
+									writer.write("\t\"startFrameIndex\":" + track.startFrameIndex);
+									writer.newLine();
+									writer.write("\t\"boundingBoxes\":[");
+
+									for (int i = 0; i < numBBoxes; ++i) {
+										BoundingBox bbox = track.locationSequence[i];
+
+										writer.write("{");
+										writer.newLine();
+										writer.write("\t\t\"x\": " + bbox.x + ",");
+										writer.newLine();
+										writer.write("\t\t\"y\": " + bbox.y + ",");
+										writer.newLine();
+										writer.write("\t\t\"width\": " + bbox.width + ",");
+										writer.newLine();
+										writer.write("\t\t\"height\": " + bbox.height);
+										writer.newLine();
+										writer.write("\t}");
+										if (i + 1 < numBBoxes) {
+											writer.write(", ");
+										}
+
+										// Use JavaCV to encode the image patch
+										// into a
+										// JPEG, stored in the memory.
+										BytePointer inputPointer = new BytePointer(bbox.patchData);
+										Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
+										BytePointer outputPointer = new BytePointer();
+										imencode(".jpg", image, outputPointer);
+										byte[] bytes = new byte[(int) outputPointer.limit()];
+										outputPointer.get(bytes);
+
+										// Output the image patch to HDFS.
+										FSDataOutputStream imgOutputStream = fs
+												.create(new Path(storeDir + "/" + i + ".jpg"));
+										imgOutputStream.write(bytes);
+										imgOutputStream.close();
+
+										image.release();
+										inputPointer.deallocate();
+										outputPointer.deallocate();
+									}
+
+									writer.write("\t]");
+									writer.newLine();
+									writer.write("}");
+									writer.newLine();
+									writer.flush();
+									writer.close();
+									outputStream.close();
+
+									if (!trackIterator.hasNext()) {
+										break;
+									}
+									track = (Track) SerializationHelper.deserialize(trackIterator.next());
 								}
 
-								// Use JavaCV to encode the image patch into a
-								// JPEG, stored in the memory.
-								BytePointer inputPointer = new BytePointer(bbox.patchData);
-								Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
-								BytePointer outputPointer = new BytePointer();
-								imencode(".jpg", image, outputPointer);
-								byte[] bytes = new byte[(int) outputPointer.limit()];
-								outputPointer.get(bytes);
+								// If all the tracks from a task are saved,
+								// it's time to pack them into a HAR!
+								ContentSummary contentSummary = fs.getContentSummary(new Path(taskRoot));
+								long cnt = contentSummary.getDirectoryCount();
+								// Decrease one for directory counter.
+								if (cnt - 1 == numTracks) {
+									loggerSupplier.get().info("Task " + videoURL + "-" + taskID + " finished!");
 
-								// Output the image patch to HDFS.
-								FSDataOutputStream imgOutputStream = fs.create(new Path(storeDir + "/" + i + ".jpg"));
-								imgOutputStream.write(bytes);
-								imgOutputStream.close();
+									HadoopArchives archives = new HadoopArchives(new Configuration());
+									ArrayList<String> options = new ArrayList<>();
+									options.add("-archiveName");
+									options.add(taskID + ".har");
+									options.add("-p");
+									options.add(taskRoot);
+									options.add(videoRoot);
+									archives.run(Arrays.copyOf(options.toArray(), options.size(), String[].class));
 
-								image.release();
-								inputPointer.deallocate();
-								outputPointer.deallocate();
+									loggerSupplier.get().info("Tracks of " + videoURL + "-" + taskID + " packed!");
+
+									fs.delete(new Path(taskRoot), true);
+								} else {
+									loggerSupplier.get().info("Task " + videoURL + "-" + taskID + " need "
+											+ (numTracks - cnt + 1) + "/" + numTracks + " more tracks!");
+								}
 							}
-
-							writer.write("\t]");
-							writer.newLine();
-							writer.write("}");
-							writer.newLine();
-							writer.flush();
-							writer.close();
-							outputStream.close();
-
-							if (!trackIterator.hasNext()) {
-								break;
-							}
-							track = (Track) SerializationHelper.deserialize(trackIterator.next());
-						}
-
-						ContentSummary contentSummary = fs.getContentSummary(new Path(storeRoot));
-						long cnt = contentSummary.getDirectoryCount();
-						if (cnt == numTracks) {
-							loggerSupplier.get().info("Task " + videoURL + "-" + taskID + " finished!");
-
-							HarFileSystem harFileSystem = new HarFileSystem(fs);
-							// TODO Pack all the results of a task into a HAR.
-							harFileSystem.copyFromLocalFile(true, new Path(storeRoot), new Path(storeRoot + ".har"));
-							harFileSystem.close();
-
-							loggerSupplier.get().info("Tracks of " + videoURL + "-" + taskID + " packed!");
-						}
-
-						System.gc();
+						});
 					}
 				});
-			}
-		});
-
-		/**
-		 * Though the "createDirectStream" method is suggested for higher speed,
-		 * we use createStream for auto management of Kafka offsets by
-		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
-		 */
-		JavaPairDStream<String, byte[]> attrStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
-				kafkaParams, attrTopicMap);
-		// //Retrieve attributes from Kafka
-		// JavaPairInputDStream<String, byte[]> attrDStream =
-		// KafkaUtils.createDirectStream(streamingContext, String.class,
-		// byte[].class,
-		// StringDecoder.class, DefaultDecoder.class, commonKafkaParams,
-		// pedestrianAttrTopicsSet);
 
 		// Display the attributes.
 		// TODO Modify the streaming steps from here to store the meta data.
-		attrStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+		buildBytesDirectInputStream(streamingContext, numRecvStreams, kafkaParams, attrTopicMap)
+				.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
-			private static final long serialVersionUID = -715024705240889905L;
-
-			@Override
-			public void call(JavaPairRDD<String, byte[]> attrRDD) throws Exception {
-
-				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
-						.getSupplier(new JavaSparkContext(attrRDD.context()));
-
-				attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-				attrRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
-
-					private static final long serialVersionUID = -4846631314801254257L;
+					private static final long serialVersionUID = -715024705240889905L;
 
 					@Override
-					public void call(Tuple2<String, byte[]> result) throws Exception {
-						Attributes attr;
-						try {
-							attr = (Attributes) SerializationHelper.deserialize(result._2());
+					public void call(JavaPairRDD<String, byte[]> attrRDD) throws Exception {
 
-							if (verbose) {
-								loggerSupplier.get().info("Metadata saver received " + result._1() + ": " + attr);
-							}
-						} catch (IOException e) {
-							loggerSupplier.get().error("Exception caught when decompressing attributes", e);
-						}
-					}
+						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+								.getSupplier(new JavaSparkContext(attrRDD.context()));
 
-				});
-			}
-		});
+						attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
+						attrRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
 
-		JavaPairDStream<String, byte[]> idStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
-				kafkaParams, idTopicMap);
-		idStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+							private static final long serialVersionUID = -4846631314801254257L;
 
-			private static final long serialVersionUID = -715024705240889905L;
+							@Override
+							public void call(Tuple2<String, byte[]> result) throws Exception {
+								Attributes attr;
+								try {
+									attr = (Attributes) SerializationHelper.deserialize(result._2());
 
-			@Override
-			public void call(JavaPairRDD<String, byte[]> attrRDD) throws Exception {
-
-				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
-						.getSupplier(new JavaSparkContext(attrRDD.context()));
-
-				attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-				attrRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
-
-					private static final long serialVersionUID = -4846631314801254257L;
-
-					@Override
-					public void call(Tuple2<String, byte[]> result) throws Exception {
-						int[] idRank;
-						try {
-							idRank = (int[]) SerializationHelper.deserialize(result._2());
-							if (verbose) {
-								String rankStr = "";
-								for (int id : idRank) {
-									rankStr = rankStr + id + " ";
+									if (verbose) {
+										loggerSupplier.get()
+												.info("Metadata saver received " + result._1() + ": " + attr);
+									}
+								} catch (IOException e) {
+									loggerSupplier.get().error("Exception caught when decompressing attributes", e);
 								}
-								loggerSupplier.get().info(
-										"Metadata saver received: " + result._1() + ": Pedestrian ID rank: " + rankStr);
 							}
-						} catch (IOException e) {
-							loggerSupplier.get().error("Exception caught when decompressing ID", e);
-						}
-					}
 
+						});
+					}
 				});
-			}
-		});
+
+		// Display the id ranks.
+		// TODO Modify the streaming steps from here to store the meta data.
+		buildBytesDirectInputStream(streamingContext, numRecvStreams, kafkaParams, idRankTopicMap)
+				.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+
+					private static final long serialVersionUID = -715024705240889905L;
+
+					@Override
+					public void call(JavaPairRDD<String, byte[]> attrRDD) throws Exception {
+
+						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+								.getSupplier(new JavaSparkContext(attrRDD.context()));
+
+						attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
+						attrRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
+
+							private static final long serialVersionUID = -4846631314801254257L;
+
+							@Override
+							public void call(Tuple2<String, byte[]> result) throws Exception {
+								int[] idRank;
+								try {
+									idRank = (int[]) SerializationHelper.deserialize(result._2());
+									if (verbose) {
+										String rankStr = "";
+										for (int id : idRank) {
+											rankStr = rankStr + id + " ";
+										}
+										loggerSupplier.get().info("Metadata saver received: " + result._1()
+												+ ": Pedestrian ID rank: " + rankStr);
+									}
+								} catch (IOException e) {
+									loggerSupplier.get().error("Exception caught when decompressing ID", e);
+								}
+							}
+
+						});
+					}
+				});
 
 		return streamingContext;
 	}
