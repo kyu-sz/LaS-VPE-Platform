@@ -97,9 +97,21 @@ public class SystemPropertyCenter {
 	public String hdfsDefaultName = "localhost:9000";
 	public String yarnResourceManagerHostname = "localhost";
 	public String jarPath = "bin/vpe-platform.jar";
+	/**
+	 * Number of parallel streams pulling messages from Kafka Brokers.
+	 */
 	public int numRecvStreams = 5;
-
+	/**
+	 * Duration for buffering results.
+	 */
+	public int bufDuration = 600000;
+	/**
+	 * The address listening to reports.
+	 */
 	public String reportListenerAddress = "localhost";
+	/**
+	 * The port of the address listening to reports.
+	 */
 	public int reportListenerPort = 0;
 
 	/**
@@ -292,6 +304,9 @@ public class SystemPropertyCenter {
 				break;
 			case "vpe.recv.parallel":
 				numRecvStreams = new Integer((String) entry.getValue());
+				break;
+			case "vpe.buf.duration":
+				bufDuration = new Integer((String) entry.getValue());
 				break;
 			}
 		}

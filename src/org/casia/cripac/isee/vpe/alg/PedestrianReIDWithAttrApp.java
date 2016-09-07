@@ -16,9 +16,7 @@
  ************************************************************************/
 package org.casia.cripac.isee.vpe.alg;
 
-import java.io.Serializable;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -33,6 +31,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.Durations;
@@ -57,6 +56,8 @@ import org.casia.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
+
+import com.google.common.base.Optional;
 
 import scala.Tuple2;
 
@@ -146,6 +147,10 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 	 * Number of parallel streams pulling messages from Kafka Brokers.
 	 */
 	private int numRecvStreams;
+	/**
+	 * Duration for buffering results.
+	 */
+	private int bufDuration;
 
 	/**
 	 * Constructor of the application, configuring properties read from a
@@ -166,11 +171,8 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		reportListenerAddr = propertyCenter.reportListenerAddress;
 		reportListenerPort = propertyCenter.reportListenerPort;
 
+		bufDuration = propertyCenter.bufDuration;
 		numRecvStreams = propertyCenter.numRecvStreams;
-		if (verbose) {
-			System.out.println(
-					"|INFO|Will start " + numRecvStreams + " streams concurrently to receive messgaes from Kafka.");
-		}
 
 		producerProperties = new Properties();
 		producerProperties.put("bootstrap.servers", propertyCenter.kafkaBrokers);
@@ -197,28 +199,6 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		kafkaParams.put("auto.offset.reset", "smallest");
 		kafkaParams.put("metadata.broker.list", propertyCenter.kafkaBrokers);
 		kafkaParams.put("fetch.message.max.bytes", "" + propertyCenter.kafkaFetchMessageMaxBytes);
-	}
-
-	private class AbsoluteTrackID implements Serializable {
-		private static final long serialVersionUID = 5528397459807064840L;
-		public UUID taskID;
-		public int trackID;
-
-		public AbsoluteTrackID(UUID taskID, int trackID) {
-			this.taskID = taskID;
-			this.trackID = trackID;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see java.lang.Object#equals(java.lang.Object)
-		 */
-		@Override
-		public boolean equals(Object obj) {
-			AbsoluteTrackID id = (AbsoluteTrackID) obj;
-			return super.equals(obj) && taskID.equals(id.taskID) && (trackID == id.trackID);
-		}
 	}
 
 	/*
@@ -252,41 +232,53 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 				new SynthesizedLoggerFactory(reportListenerAddr, reportListenerPort), SynthesizedLogger.class);
 
 		// Read track bytes in parallel from Kafka.
-		JavaPairDStream<String, byte[]> trackBytesStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
-				kafkaParams, trackTopicMap);
 		// Recover track from the bytes and extract the ID of the track.
-		JavaPairDStream<AbsoluteTrackID, TaskData> trackStream = trackBytesStream
-				.mapToPair(new PairFunction<Tuple2<String, byte[]>, AbsoluteTrackID, TaskData>() {
+		JavaPairDStream<String, TaskData> trackStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+				kafkaParams, trackTopicMap).mapToPair(new PairFunction<Tuple2<String, byte[]>, String, TaskData>() {
 
 					private static final long serialVersionUID = -485043285469343426L;
 
 					@Override
-					public Tuple2<AbsoluteTrackID, TaskData> call(Tuple2<String, byte[]> taskDataBytes)
-							throws Exception {
+					public Tuple2<String, TaskData> call(Tuple2<String, byte[]> taskDataBytes) throws Exception {
 						TaskData taskData = (TaskData) SerializationHelper.deserialize(taskDataBytes._2());
-						if (verbose) {
-							System.out.println("|INFO|Received " + taskDataBytes._1() + ": " + taskData);
-						}
-						return new Tuple2<AbsoluteTrackID, TaskData>(
-								new AbsoluteTrackID(UUID.fromString(taskDataBytes._1()),
-										((Track) taskData.predecessorResult).id),
-								taskData);
+						return new Tuple2<String, TaskData>(
+								taskDataBytes._1() + ":" + ((Track) taskData.predecessorResult).id, taskData);
 					}
 				});
 
+		// Announce received track.
+		trackStream.foreachRDD(new VoidFunction<JavaPairRDD<String, TaskData>>() {
+
+			private static final long serialVersionUID = 802003680530339206L;
+
+			@Override
+			public void call(JavaPairRDD<String, TaskData> rdd) throws Exception {
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+						.getSupplier(new JavaSparkContext(rdd.context()));
+				rdd.foreach(new VoidFunction<Tuple2<String, TaskData>>() {
+
+					private static final long serialVersionUID = -3529294947680224456L;
+
+					@Override
+					public void call(Tuple2<String, TaskData> track) throws Exception {
+						if (verbose) {
+							loggerSupplier.get().info("Received track: " + track._1());
+						}
+					}
+				});
+			}
+		});
+
 		// Read attribute bytes in parallel from Kafka.
-		JavaPairDStream<String, byte[]> attrBytesStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
-				kafkaParams, attrTopicMap);
 		// Recover attributes from the bytes and extract the ID of the track the
 		// attributes belong to.
-		JavaPairDStream<AbsoluteTrackID, TaskData> attrStream = attrBytesStream
-				.mapToPair(new PairFunction<Tuple2<String, byte[]>, AbsoluteTrackID, TaskData>() {
+		JavaPairDStream<String, TaskData> attrStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+				kafkaParams, attrTopicMap).mapToPair(new PairFunction<Tuple2<String, byte[]>, String, TaskData>() {
 
 					private static final long serialVersionUID = -485043285469343426L;
 
 					@Override
-					public Tuple2<AbsoluteTrackID, TaskData> call(Tuple2<String, byte[]> taskDataBytes)
-							throws Exception {
+					public Tuple2<String, TaskData> call(Tuple2<String, byte[]> taskDataBytes) throws Exception {
 						TaskData taskData = (TaskData) SerializationHelper.deserialize(taskDataBytes._2());
 
 						if (!(taskData.predecessorResult instanceof Attributes)) {
@@ -298,24 +290,119 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 						if (verbose) {
 							System.out.println("|INFO|Received " + taskDataBytes._1() + ": " + taskData);
 						}
-						return new Tuple2<AbsoluteTrackID, TaskData>(
-								new AbsoluteTrackID(UUID.fromString(taskDataBytes._1()),
-										((Attributes) taskData.predecessorResult).trackID),
-								taskData);
+						return new Tuple2<String, TaskData>(
+								taskDataBytes._1() + ":" + ((Attributes) taskData.predecessorResult).trackID, taskData);
 					}
 				});
 
-		JavaPairDStream<UUID, TaskData> trackWithAttrAssembledStream = trackStream
-				.window(Durations.seconds(30), Durations.seconds(10))
-				.join(attrStream.window(Durations.seconds(30), Durations.seconds(10)))
-				.mapToPair(new PairFunction<Tuple2<AbsoluteTrackID, Tuple2<TaskData, TaskData>>, UUID, TaskData>() {
+		// Announce received attributes.
+		attrStream.foreachRDD(new VoidFunction<JavaPairRDD<String, TaskData>>() {
+
+			private static final long serialVersionUID = 802003680510339206L;
+
+			@Override
+			public void call(JavaPairRDD<String, TaskData> rdd) throws Exception {
+				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
+						.getSupplier(new JavaSparkContext(rdd.context()));
+				rdd.foreach(new VoidFunction<Tuple2<String, TaskData>>() {
+
+					private static final long serialVersionUID = -3529294947680224456L;
+
+					@Override
+					public void call(Tuple2<String, TaskData> attr) throws Exception {
+						if (verbose) {
+							loggerSupplier.get().info("Received attribute: " + attr._1());
+						}
+					}
+				});
+			}
+		});
+
+		// Join the track stream and attribute stream, tolerating failure.
+		JavaPairDStream<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> unsurelyJoinedStream = trackStream
+				.fullOuterJoin(attrStream);
+
+		// Filter out instantly joined pairs.
+		JavaPairDStream<String, Tuple2<TaskData, TaskData>> instantStream = unsurelyJoinedStream
+				.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
+
+					private static final long serialVersionUID = -2343091659648238232L;
+
+					@Override
+					public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> item)
+							throws Exception {
+						return item._2()._1().isPresent() && item._2()._2().isPresent();
+					}
+				})
+				.mapValues(new Function<Tuple2<Optional<TaskData>, Optional<TaskData>>, Tuple2<TaskData, TaskData>>() {
+
+					private static final long serialVersionUID = 2610836030144683294L;
+
+					@Override
+					public Tuple2<TaskData, TaskData> call(Tuple2<Optional<TaskData>, Optional<TaskData>> optPair)
+							throws Exception {
+						return new Tuple2<TaskData, TaskData>(optPair._1().get(), optPair._2().get());
+					}
+				});
+
+		// Filter out tracks that cannot find attributes to match.
+		// If they come earlier than attributes, discard them.
+		// Otherwise, join them with cached matching attributes.
+		JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackStream = unsurelyJoinedStream
+				.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
+
+					private static final long serialVersionUID = -2343091659648238232L;
+
+					@Override
+					public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> item)
+							throws Exception {
+						return item._2()._1().isPresent() && !item._2()._2().isPresent();
+					}
+				}).mapValues(new Function<Tuple2<Optional<TaskData>, Optional<TaskData>>, TaskData>() {
+
+					private static final long serialVersionUID = 3857664450499877227L;
+
+					@Override
+					public TaskData call(Tuple2<Optional<TaskData>, Optional<TaskData>> optPair) throws Exception {
+						return optPair._1().get();
+					}
+				}).join(attrStream.window(Durations.milliseconds(bufDuration)));
+
+		// Filter out attributes that cannot find tracks to match.
+		// If they come earlier than tracks, discard them.
+		// Otherwise, join them with cached matching tracks.
+		JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrStream = unsurelyJoinedStream
+				.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
+
+					private static final long serialVersionUID = -2343091659648238232L;
+
+					@Override
+					public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> item)
+							throws Exception {
+						return !item._2()._1().isPresent() && item._2()._2().isPresent();
+					}
+				}).mapValues(new Function<Tuple2<Optional<TaskData>, Optional<TaskData>>, TaskData>() {
+
+					private static final long serialVersionUID = 3857664450499877227L;
+
+					@Override
+					public TaskData call(Tuple2<Optional<TaskData>, Optional<TaskData>> optPair) throws Exception {
+						return optPair._2().get();
+					}
+				}).join(trackStream.window(Durations.milliseconds(bufDuration)));
+
+		// Union the three track and attribute streams and assemble
+		// their TaskData.
+		JavaPairDStream<String, TaskData> asmTrackWithAttrStream = instantStream.union(lateTrackStream)
+				.union(lateAttrStream)
+				.mapToPair(new PairFunction<Tuple2<String, Tuple2<TaskData, TaskData>>, String, TaskData>() {
 
 					private static final long serialVersionUID = -4988916606490559467L;
 
 					@Override
-					public Tuple2<UUID, TaskData> call(Tuple2<AbsoluteTrackID, Tuple2<TaskData, TaskData>> pack)
+					public Tuple2<String, TaskData> call(Tuple2<String, Tuple2<TaskData, TaskData>> pack)
 							throws Exception {
-						UUID taskID = pack._1().taskID;
+						String taskID = pack._1().split(":")[0];
 						TaskData taskDataWithTrack = pack._2()._1();
 						TaskData taskDataWithAttr = pack._2()._2();
 						ExecutionPlan asmPlan = taskDataWithTrack.executionPlan.combine(taskDataWithAttr.executionPlan);
@@ -324,39 +411,34 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 								new PedestrianInfo((Track) taskDataWithTrack.predecessorResult,
 										(Attributes) taskDataWithAttr.predecessorResult));
 						if (verbose) {
-							System.out.println("|INFO|Assembled track and attr of " + taskID + "-" + pack._1().trackID);
+							System.out.println("|INFO|Assembled track and attr of " + pack._1());
 						}
-						return new Tuple2<UUID, TaskData>(taskID, asmTaskData);
+						return new Tuple2<String, TaskData>(taskID, asmTaskData);
 					}
 				});
 
 		// Read track with attribute bytes in parallel from Kafka.
-		JavaPairDStream<String, byte[]> trackWithAttrBytesStream = buildBytesDirectInputStream(streamingContext,
-				numRecvStreams, kafkaParams, trackWithAttrTopicMap);
 		// Recover attributes from the bytes and extract the ID of the track the
 		// attributes belong to.
-		JavaPairDStream<UUID, TaskData> trackWithAttrIntegralStream = trackWithAttrBytesStream
-				.mapToPair(new PairFunction<Tuple2<String, byte[]>, UUID, TaskData>() {
+		JavaPairDStream<String, TaskData> integralTrackWithAttrStream = buildBytesDirectInputStream(streamingContext,
+				numRecvStreams, kafkaParams, trackWithAttrTopicMap).mapValues(new Function<byte[], TaskData>() {
 
-					private static final long serialVersionUID = -25322493045526909L;
+					private static final long serialVersionUID = -2623558351815025906L;
 
 					@Override
-					public Tuple2<UUID, TaskData> call(Tuple2<String, byte[]> pack) throws Exception {
-						TaskData taskData = (TaskData) SerializationHelper.deserialize(pack._2());
-						if (verbose) {
-							System.out.println("|INFO|Received " + pack._1() + ": " + taskData);
-						}
-						return new Tuple2<UUID, TaskData>(UUID.fromString(pack._1()), taskData);
+					public TaskData call(byte[] bytes) throws Exception {
+						return (TaskData) SerializationHelper.deserialize(bytes);
 					}
 				});
 
-		streamingContext.union(trackWithAttrIntegralStream, Arrays.asList(trackWithAttrAssembledStream))
-				.foreachRDD(new VoidFunction<JavaPairRDD<UUID, TaskData>>() {
+		// Union the two track with attribute streams and perform ReID.
+		integralTrackWithAttrStream.union(asmTrackWithAttrStream)
+				.foreachRDD(new VoidFunction<JavaPairRDD<String, TaskData>>() {
 
 					private static final long serialVersionUID = 8679793229722440129L;
 
 					@Override
-					public void call(JavaPairRDD<UUID, TaskData> trackWithAttrRDD) throws Exception {
+					public void call(JavaPairRDD<String, TaskData> trackWithAttrRDD) throws Exception {
 
 						final ObjectSupplier<PedestrianReIDer> reIDerSupplier = reIDerSingleton
 								.getSupplier(new JavaSparkContext(trackWithAttrRDD.context()));
@@ -366,13 +448,13 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 								.getSupplier(new JavaSparkContext(trackWithAttrRDD.context()));
 
 						trackWithAttrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-						trackWithAttrRDD.foreach(new VoidFunction<Tuple2<UUID, TaskData>>() {
+						trackWithAttrRDD.foreach(new VoidFunction<Tuple2<String, TaskData>>() {
 
 							private static final long serialVersionUID = 1663053917263397146L;
 
 							@Override
-							public void call(Tuple2<UUID, TaskData> taskWithTrackAndAttr) throws Exception {
-								String taskID = taskWithTrackAndAttr._1().toString();
+							public void call(Tuple2<String, TaskData> taskWithTrackAndAttr) throws Exception {
+								String taskID = taskWithTrackAndAttr._1();
 								TaskData taskData = taskWithTrackAndAttr._2();
 								PedestrianInfo trackWithAttr = (PedestrianInfo) taskData.predecessorResult;
 
@@ -396,10 +478,14 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 													SerializationHelper.serialize(taskData)));
 									RecordMetadata metadata = future.get();
 									if (verbose) {
+										String rankStr = "";
+										for (int id : idRank) {
+											rankStr = rankStr + id + " ";
+										}
 										loggerSupplier.get()
 												.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
 														+ metadata.partition() + "-" + metadata.offset() + "> :"
-														+ taskID + ": Pedestrian ID rank " + idRank);
+														+ taskID + ": Pedestrian ID rank: " + rankStr);
 									}
 								}
 
@@ -410,17 +496,21 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 												taskID, SerializationHelper.serialize(idRank)));
 								RecordMetadata metadata = future.get();
 								if (verbose) {
+									String rankStr = "";
+									for (int id : idRank) {
+										rankStr = rankStr + id + " ";
+									}
 									loggerSupplier.get()
 											.info(APP_NAME + ": Sent to Kafka: <" + metadata.topic() + "-"
 													+ metadata.partition() + "-" + metadata.offset() + ">" + taskID
-													+ ": Pedestrian ID rank " + idRank);
+													+ ": Pedestrian ID rank: " + rankStr);
 								}
-
-								System.gc();
 							}
 						});
 					}
 				});
+
+		streamingContext.remember(Durations.minutes(60));
 
 		return streamingContext;
 	}

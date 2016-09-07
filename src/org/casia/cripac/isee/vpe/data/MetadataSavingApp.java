@@ -46,9 +46,9 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
-import org.bytedeco.javacpp.helper.opencv_core;
 import org.bytedeco.javacpp.opencv_core.Mat;
 import org.bytedeco.javacpp.opencv_imgproc;
+import org.bytedeco.javacpp.helper.opencv_core;
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox;
@@ -372,13 +372,16 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 					@Override
 					public void call(Tuple2<String, byte[]> result) throws Exception {
-						int id;
+						int[] idRank;
 						try {
-							id = (Integer) SerializationHelper.deserialize(result._2());
-
+							idRank = (int[]) SerializationHelper.deserialize(result._2());
 							if (verbose) {
-								loggerSupplier.get()
-										.info("Metadata saver received: " + result._1() + ": Pedestrian." + id);
+								String rankStr = "";
+								for (int id : idRank) {
+									rankStr = rankStr + id + " ";
+								}
+								loggerSupplier.get().info(
+										"Metadata saver received: " + result._1() + ": Pedestrian ID rank: " + rankStr);
 							}
 						} catch (IOException e) {
 							loggerSupplier.get().error("Exception caught when decompressing ID", e);

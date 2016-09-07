@@ -228,7 +228,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 	protected JavaStreamingContext getStreamContext() {
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 		sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(2));
+		JavaStreamingContext streamingContext = new JavaStreamingContext(sparkContext, Durations.seconds(1));
 
 		// Create KafkaSink for Spark Streaming to output to Kafka.
 		final BroadcastSingleton<KafkaProducer<String, byte[]>> producerSingleton = new BroadcastSingleton<KafkaProducer<String, byte[]>>(
@@ -237,38 +237,38 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
 				new SynthesizedLoggerFactory(messageListenerAddr, messageListenerPort), SynthesizedLogger.class);
 
-		JavaPairDStream<String, byte[]> cmdDStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+		JavaPairDStream<String, byte[]> cmdStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
 				kafkaParams, cmdTopicMap);
 
 		// Handle the messages received from Kafka,
-		cmdDStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
+		cmdStream.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 			private static final long serialVersionUID = 5448084941313023969L;
 
 			@Override
-			public void call(JavaPairRDD<String, byte[]> cmdRDD) throws Exception {
+			public void call(JavaPairRDD<String, byte[]> rdd) throws Exception {
 
 				final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = producerSingleton
-						.getSupplier(new JavaSparkContext(cmdRDD.context()));
+						.getSupplier(new JavaSparkContext(rdd.context()));
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
-						.getSupplier(new JavaSparkContext(cmdRDD.context()));
+						.getSupplier(new JavaSparkContext(rdd.context()));
 
-				cmdRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
+				rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
 
-				cmdRDD.foreachPartition(new VoidFunction<Iterator<Tuple2<String, byte[]>>>() {
+				rdd.foreachPartition(new VoidFunction<Iterator<Tuple2<String, byte[]>>>() {
 
 					private static final long serialVersionUID = -4594138896649250346L;
 
 					@Override
-					public void call(Iterator<Tuple2<String, byte[]>> cmdMsg) throws Exception {
+					public void call(Iterator<Tuple2<String, byte[]>> msgIter) throws Exception {
 
-						while (cmdMsg.hasNext()) {
+						while (msgIter.hasNext()) {
 							// Get a next command message.
-							Tuple2<String, byte[]> message = cmdMsg.next();
+							Tuple2<String, byte[]> msg = msgIter.next();
 
 							UUID taskID = UUID.randomUUID();
 
-							String cmd = message._1();
-							Serializable data = SerializationHelper.deserialize(message._2());
+							String cmd = msg._1();
+							Serializable data = SerializationHelper.deserialize(msg._2());
 
 							ExecutionPlan plan = createPlanByCommand(cmd, data);
 

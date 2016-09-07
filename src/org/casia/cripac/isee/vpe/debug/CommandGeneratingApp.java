@@ -65,7 +65,6 @@ public class CommandGeneratingApp implements Serializable {
 	}
 
 	public void generatePresetCommand() throws IOException {
-
 		String videoURL = "video123";
 		byte[] videoURLBytes = SerializationHelper.serialize(videoURL);
 
@@ -79,68 +78,68 @@ public class CommandGeneratingApp implements Serializable {
 					MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
 					"" + recMetadataFuture.get().offset(), CommandSet.TRACK_ONLY, videoURL);
 		} catch (InterruptedException | ExecutionException e1) {
-			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_ONLY, videoURL);
+			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.TRACK_ONLY, videoURL);
 			e1.printStackTrace();
 		}
 
-		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-				MessageHandlingApp.COMMAND_TOPIC, CommandSet.RECOG_ATTR_ONLY, videoURLWithTrackIDBytes));
+		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(MessageHandlingApp.COMMAND_TOPIC,
+				CommandSet.RECOG_ATTR_ONLY, videoURLWithTrackIDBytes));
 		try {
 			System.out.printf("|INFO|Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
 					MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
 					"" + recMetadataFuture.get().offset(), CommandSet.RECOG_ATTR_ONLY, videoURLWithTrackID);
 		} catch (InterruptedException | ExecutionException e1) {
-			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.RECOG_ATTR_ONLY, videoURL);
+			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.RECOG_ATTR_ONLY, videoURL);
 			e1.printStackTrace();
 		}
 
-		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-				MessageHandlingApp.COMMAND_TOPIC, CommandSet.TRACK_AND_RECOG_ATTR, videoURLBytes));
+		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(MessageHandlingApp.COMMAND_TOPIC,
+				CommandSet.TRACK_AND_RECOG_ATTR, videoURLBytes));
 		try {
 			System.out.printf("|INFO|Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
 					MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
 					"" + recMetadataFuture.get().offset(), CommandSet.TRACK_AND_RECOG_ATTR, videoURL);
 		} catch (InterruptedException | ExecutionException e1) {
-			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR, videoURL);
+			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.TRACK_AND_RECOG_ATTR, videoURL);
 			e1.printStackTrace();
 		}
 
-		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-				MessageHandlingApp.COMMAND_TOPIC, CommandSet.REID_ONLY, videoURLWithTrackIDBytes));
+		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(MessageHandlingApp.COMMAND_TOPIC,
+				CommandSet.REID_ONLY, videoURLWithTrackIDBytes));
 		try {
 			System.out.printf("|INFO|Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
 					MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
 					"" + recMetadataFuture.get().offset(), CommandSet.REID_ONLY, videoURLWithTrackID);
 		} catch (InterruptedException | ExecutionException e1) {
-			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.REID_ONLY, videoURLWithTrackID);
+			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.REID_ONLY, videoURLWithTrackID);
 			e1.printStackTrace();
 		}
 
-		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-				MessageHandlingApp.COMMAND_TOPIC, CommandSet.RECOG_ATTR_AND_REID, videoURLWithTrackIDBytes));
+		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(MessageHandlingApp.COMMAND_TOPIC,
+				CommandSet.RECOG_ATTR_AND_REID, videoURLWithTrackIDBytes));
 		try {
 			System.out.printf("|INFO|Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
 					MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
 					"" + recMetadataFuture.get().offset(), CommandSet.RECOG_ATTR_AND_REID, videoURLWithTrackID);
 		} catch (InterruptedException | ExecutionException e1) {
-			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.RECOG_ATTR_AND_REID, videoURLWithTrackID);
+			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.RECOG_ATTR_AND_REID, videoURLWithTrackID);
 			e1.printStackTrace();
 		}
 
-		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(
-				MessageHandlingApp.COMMAND_TOPIC, CommandSet.TRACK_AND_RECOG_ATTR_AND_REID, videoURLBytes));
+		recMetadataFuture = commandProducer.send(new ProducerRecord<String, byte[]>(MessageHandlingApp.COMMAND_TOPIC,
+				CommandSet.TRACK_AND_RECOG_ATTR_AND_REID, videoURLBytes));
 		try {
 			System.out.printf("|INFO|Command producer: sent to kafka <%s - %s:%s>%s=%s\n",
 					MessageHandlingApp.COMMAND_TOPIC, "" + recMetadataFuture.get().partition(),
 					"" + recMetadataFuture.get().offset(), CommandSet.TRACK_AND_RECOG_ATTR_AND_REID, videoURL);
 		} catch (InterruptedException | ExecutionException e1) {
-			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n", MessageHandlingApp.COMMAND_TOPIC,
-					CommandSet.TRACK_AND_RECOG_ATTR_AND_REID, videoURL);
+			System.out.printf("|INFO|Command producer: sent to kafka <%s - ???>%s=%s\n",
+					MessageHandlingApp.COMMAND_TOPIC, CommandSet.TRACK_AND_RECOG_ATTR_AND_REID, videoURL);
 			e1.printStackTrace();
 		}
 	}
