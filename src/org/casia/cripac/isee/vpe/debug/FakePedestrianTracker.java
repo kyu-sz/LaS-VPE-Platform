@@ -35,7 +35,7 @@ public class FakePedestrianTracker extends PedestrianTracker {
 		int appearSpan = random.nextInt(31) + 1;
 		track.locationSequence = new BoundingBox[appearSpan];
 		for (int i = 0; i < appearSpan; ++i) {
-			BoundingBox bbox = track.new BoundingBox();
+			BoundingBox bbox = new BoundingBox();
 			bbox.width = random.nextInt(640) + 1;
 			bbox.height = random.nextInt(640) + 1;
 			bbox.x = random.nextInt(bbox.width) + 1;

@@ -76,8 +76,11 @@ import org.xml.sax.SAXException;
 import scala.Tuple2;
 
 /**
- * <br>
- * This class saves meta data to HDFS and Neo4j database.</br>
+ * The DataManagingApp class combines two functions: meta data saving and data
+ * feeding. The meta data saving function saves meta data, which may be the
+ * results of vision algotirhms, to HDFS and Neo4j database. The data feeding
+ * function retrieves stored results and send them to algorithm modules from
+ * HDFS and Neo4j database.
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
@@ -578,9 +581,9 @@ public class DataManagingApp extends SparkStreamingApp {
 
 		TopicManager.checkTopics(propertyCenter);
 
-		DataManagingApp metadataSavingApp = new DataManagingApp(propertyCenter);
-		metadataSavingApp.initialize(propertyCenter);
-		metadataSavingApp.start();
-		metadataSavingApp.awaitTermination();
+		DataManagingApp dataManagingApp = new DataManagingApp(propertyCenter);
+		dataManagingApp.initialize(propertyCenter);
+		dataManagingApp.start();
+		dataManagingApp.awaitTermination();
 	}
 }

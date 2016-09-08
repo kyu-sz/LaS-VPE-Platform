@@ -37,7 +37,7 @@ public class Track implements Serializable {
 	 * 
 	 * @author Ken Yu, CRIPAC, 2016
 	 */
-	public class BoundingBox implements Serializable {
+	public static class BoundingBox implements Serializable {
 
 		private static final long serialVersionUID = -5261437055893590056L;
 

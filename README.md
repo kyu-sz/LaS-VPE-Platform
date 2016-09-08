@@ -1,6 +1,6 @@
 # LaS-VPE Platform
 
-[![License](https://img.shields.io/aur/license/yaourt.svg)](LICENSE)
+[![AUR](https://img.shields.io/aur/license/yaourt.svg?maxAge=2592000)](LICENSE)
 
 LaS-VPE Platform is a large-scale distributed video parsing and evaluation platform under the Intelligent Scene Exploration and Evaluation(iSEE) research platform of the Center for Research on Intelligent Perception and Computing(CRIPAC). 
 
