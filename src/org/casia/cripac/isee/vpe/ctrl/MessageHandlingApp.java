@@ -50,7 +50,7 @@ import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.casia.cripac.isee.vpe.ctrl.TaskData.MutableExecutionPlan;
-import org.casia.cripac.isee.vpe.data.DataFeedingApp;
+import org.casia.cripac.isee.vpe.data.DataManagingApp;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
@@ -173,7 +173,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 		case CommandSet.RECOG_ATTR_ONLY: {
 			plan = new MutableExecutionPlan();
 			// Retrieve track data, then feed it to attr recog module.
-			int trackDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
+			int trackDataNodeID = plan.addNode(DataManagingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
 			plan.linkNodes(trackDataNodeID, attrRecogNodeID);
 			break;
@@ -190,14 +190,14 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			plan = new MutableExecutionPlan();
 			// Retrieve track and attr data integrally, then feed them to ReID
 			// module.
-			int trackWithAttrDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_WITH_ATTR_RTRV_JOB_TOPIC);
+			int trackWithAttrDataNodeID = plan.addNode(DataManagingApp.PEDESTRIAN_TRACK_WITH_ATTR_RTRV_JOB_TOPIC);
 			int reidNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_WTH_ATTR_TOPIC);
 			plan.linkNodes(trackWithAttrDataNodeID, reidNodeID);
 			break;
 		}
 		case CommandSet.RECOG_ATTR_AND_REID: {
 			plan = new MutableExecutionPlan();
-			int trackDataNodeID = plan.addNode(DataFeedingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
+			int trackDataNodeID = plan.addNode(DataManagingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
 			int reidTrackNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_TOPIC);
 			int reidAttrNodeID = plan.addNode(PedestrianReIDWithAttrApp.ATTR_TOPIC);

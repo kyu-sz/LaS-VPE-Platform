@@ -50,7 +50,7 @@ import org.casia.cripac.isee.vpe.common.SparkStreamingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.TaskData;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
-import org.casia.cripac.isee.vpe.data.MetadataSavingApp;
+import org.casia.cripac.isee.vpe.data.DataManagingApp;
 import org.casia.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -289,7 +289,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 						// Always send to the meta data saving application.
 						Future<RecordMetadata> future = producerSupplier.get()
-								.send(new ProducerRecord<String, byte[]>(MetadataSavingApp.PEDESTRIAN_ATTR_TOPIC,
+								.send(new ProducerRecord<String, byte[]>(DataManagingApp.PEDESTRIAN_ATTR_FOR_SAVING_TOPIC,
 										taskID, SerializationHelper.serialize(attributes)));
 						RecordMetadata metadata = future.get();
 						if (verbose) {
