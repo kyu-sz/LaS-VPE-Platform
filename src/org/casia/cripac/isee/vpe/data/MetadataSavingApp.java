@@ -96,8 +96,6 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		TopicManager.registerTopic(PEDESTRIAN_ID_TOPIC);
 	}
 
-	// private HashSet<String> pedestrianTrackTopicsSet = new HashSet<>();
-	// private HashSet<String> pedestrianAttrTopicsSet = new HashSet<>();
 	private Map<String, Integer> trackTopicMap = new HashMap<>();
 	private Map<String, Integer> attrTopicMap = new HashMap<>();
 	private Map<String, Integer> idRankTopicMap = new HashMap<>();
@@ -122,8 +120,6 @@ public class MetadataSavingApp extends SparkStreamingApp {
 		trackTopicMap.put(PEDESTRIAN_TRACK_TOPIC, propertyCenter.kafkaPartitions);
 		attrTopicMap.put(PEDESTRIAN_ATTR_TOPIC, propertyCenter.kafkaPartitions);
 		idRankTopicMap.put(PEDESTRIAN_ID_TOPIC, propertyCenter.kafkaPartitions);
-		// pedestrianTrackTopicsSet.add(PEDESTRIAN_TRACK_SAVING_INPUT_TOPIC);
-		// pedestrianAttrTopicsSet.add(PEDESTRIAN_ATTR_SAVING_INPUT_TOPIC);
 
 		// Create contexts.
 		sparkConf = new SparkConf().setAppName(APP_NAME).set("spark.rdd.compress", "true")
@@ -303,6 +299,7 @@ public class MetadataSavingApp extends SparkStreamingApp {
 
 									loggerSupplier.get().info("Tracks of " + videoURL + "-" + taskID + " packed!");
 
+									// Delete the original folder recursively.
 									fs.delete(new Path(taskRoot), true);
 								} else {
 									loggerSupplier.get().info("Task " + videoURL + "-" + taskID + " need "

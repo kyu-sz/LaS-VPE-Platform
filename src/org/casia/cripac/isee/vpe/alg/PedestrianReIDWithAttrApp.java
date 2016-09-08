@@ -323,7 +323,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 				.fullOuterJoin(attrStream);
 
 		// Filter out instantly joined pairs.
-		JavaPairDStream<String, Tuple2<TaskData, TaskData>> instantStream = unsurelyJoinedStream
+		JavaPairDStream<String, Tuple2<TaskData, TaskData>> instantlyJoinedStream = unsurelyJoinedStream
 				.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
 
 					private static final long serialVersionUID = -2343091659648238232L;
@@ -346,9 +346,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 				});
 
 		// Filter out tracks that cannot find attributes to match.
-		// If they come earlier than attributes, discard them.
-		// Otherwise, join them with cached matching attributes.
-		JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackStream = unsurelyJoinedStream
+		JavaPairDStream<String, TaskData> unjoinedTrackStream = unsurelyJoinedStream
 				.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
 
 					private static final long serialVersionUID = -2343091659648238232L;
@@ -366,37 +364,76 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 					public TaskData call(Tuple2<Optional<TaskData>, Optional<TaskData>> optPair) throws Exception {
 						return optPair._1().get();
 					}
-				}).join(attrStream.window(Durations.milliseconds(bufDuration)));
+				});
 
 		// Filter out attributes that cannot find tracks to match.
-		// If they come earlier than tracks, discard them.
-		// Otherwise, join them with cached matching tracks.
-		JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrStream = trackStream
-				.window(Durations.milliseconds(bufDuration)).join(unsurelyJoinedStream.filter(
-						new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
+		JavaPairDStream<String, TaskData> unjoinedAttrStream = unsurelyJoinedStream
+				.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>>, Boolean>() {
 
-							private static final long serialVersionUID = -2343091659648238232L;
+					private static final long serialVersionUID = -2343091659648238232L;
+
+					@Override
+					public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> item)
+							throws Exception {
+						return !item._2()._1().isPresent() && item._2()._2().isPresent();
+					}
+				}).mapValues(new Function<Tuple2<Optional<TaskData>, Optional<TaskData>>, TaskData>() {
+
+					private static final long serialVersionUID = 3857664450499877227L;
+
+					@Override
+					public TaskData call(Tuple2<Optional<TaskData>, Optional<TaskData>> optPair) throws Exception {
+						return optPair._2().get();
+					}
+				});
+
+		JavaPairDStream<String, Tuple2<Optional<TaskData>, TaskData>> unsurelyJoinedAttrStream = unjoinedTrackStream
+				.window(Durations.milliseconds(bufDuration)).rightOuterJoin(unjoinedAttrStream);
+
+		JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrJoinedStream = unsurelyJoinedAttrStream
+				.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, TaskData>>, Boolean>() {
+
+					private static final long serialVersionUID = -1409792772848000292L;
+
+					@Override
+					public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, TaskData>> item) throws Exception {
+						return item._2()._1().isPresent();
+					}
+				}).mapValues(new Function<Tuple2<Optional<TaskData>, TaskData>, Tuple2<TaskData, TaskData>>() {
+
+					private static final long serialVersionUID = -987544890521949611L;
+
+					@Override
+					public Tuple2<TaskData, TaskData> call(Tuple2<Optional<TaskData>, TaskData> item) throws Exception {
+						return new Tuple2<TaskData, TaskData>(item._1().get(), item._2());
+					}
+				});
+
+		JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackJoinedStream = unjoinedTrackStream
+				.join(unsurelyJoinedAttrStream
+						.filter(new Function<Tuple2<String, Tuple2<Optional<TaskData>, TaskData>>, Boolean>() {
+
+							private static final long serialVersionUID = 1606288045822251826L;
 
 							@Override
-							public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> item)
+							public Boolean call(Tuple2<String, Tuple2<Optional<TaskData>, TaskData>> item)
 									throws Exception {
-								return !item._2()._1().isPresent() && item._2()._2().isPresent();
+								return !item._2()._1().isPresent();
 							}
-						}).mapValues(new Function<Tuple2<Optional<TaskData>, Optional<TaskData>>, TaskData>() {
+						}).mapValues(new Function<Tuple2<Optional<TaskData>, TaskData>, TaskData>() {
 
-							private static final long serialVersionUID = 3857664450499877227L;
+							private static final long serialVersionUID = 5968796978685130832L;
 
 							@Override
-							public TaskData call(Tuple2<Optional<TaskData>, Optional<TaskData>> optPair)
-									throws Exception {
-								return optPair._2().get();
+							public TaskData call(Tuple2<Optional<TaskData>, TaskData> item) throws Exception {
+								return item._2();
 							}
-						}));
+						}).window(Durations.milliseconds(bufDuration)));
 
 		// Union the three track and attribute streams and assemble
 		// their TaskData.
-		JavaPairDStream<String, TaskData> asmTrackWithAttrStream = instantStream.union(lateTrackStream)
-				.union(lateAttrStream)
+		JavaPairDStream<String, TaskData> asmTrackWithAttrStream = instantlyJoinedStream.union(lateTrackJoinedStream)
+				.union(lateAttrJoinedStream)
 				.mapToPair(new PairFunction<Tuple2<String, Tuple2<TaskData, TaskData>>, String, TaskData>() {
 
 					private static final long serialVersionUID = -4988916606490559467L;
@@ -511,8 +548,6 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 						});
 					}
 				});
-
-		streamingContext.remember(Durations.minutes(60));
 
 		return streamingContext;
 	}
