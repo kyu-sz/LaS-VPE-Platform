@@ -70,7 +70,7 @@ public class FakeDatabaseConnector implements Serializable {
 		Track track = tracks[0];
 		Attributes attr = new FakePedestrianAttrRecognizer().recognize(track);
 		PedestrianInfo pedestrianInfo = new PedestrianInfo(track, attr);
-		pedestrianInfo.feature = new byte[Feature.LENGTH];
+		pedestrianInfo.feature = new Feature();
 		return pedestrianInfo;
 	}
 }

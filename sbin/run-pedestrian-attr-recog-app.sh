@@ -1,1 +1,1 @@
-java -jar bin/vpe-platform.jar -a PedestrianAttributeRecognizing -v
+java -jar bin/vpe-platform.jar -a PedestrianAttrRecognizing -v

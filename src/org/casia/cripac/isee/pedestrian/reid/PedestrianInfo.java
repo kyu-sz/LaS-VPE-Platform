@@ -42,7 +42,7 @@ public class PedestrianInfo implements Serializable, Cloneable {
 	/**
 	 * Extracted feature for comparison, if applicable.
 	 */
-	public byte[] feature = null;
+	public Feature feature = null;
 
 	/**
 	 * Constructor with track and attributes specified at the beginning.

@@ -25,7 +25,7 @@ import java.io.Serializable;
  * one bounding box in a track.
  *
  * <br>
- * TODO Fill the pre-defined attributes.</br>
+ * TODO Fill the pre-defined attributes. </br>
  * 
  * @author Ken Yu, CRIPAC, 2016
  *

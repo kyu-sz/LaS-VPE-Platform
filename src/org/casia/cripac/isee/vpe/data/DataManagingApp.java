@@ -179,8 +179,18 @@ public class DataManagingApp extends SparkStreamingApp {
 		metadataDir = propertyCenter.metadataDir;
 	}
 
+	/**
+	 * Set up the data feeding streams in the context.
+	 * 
+	 * @param streamingContext
+	 *            The Spark Streaming context holding the streams.
+	 * @param kafkaProducerSingleton
+	 *            Broadcast singleton of Kafka producer.
+	 * @param loggerSingleton
+	 *            Broadcast singleton of logger.
+	 */
 	private void setupDataFeeding(JavaStreamingContext streamingContext,
-			final BroadcastSingleton<KafkaProducer<String, byte[]>> broadcastKafkaSink,
+			final BroadcastSingleton<KafkaProducer<String, byte[]>> kafkaProducerSingleton,
 			final BroadcastSingleton<SynthesizedLogger> loggerSingleton) {
 		FakeDatabaseConnector databaseConnector = new FakeDatabaseConnector();
 
@@ -194,7 +204,7 @@ public class DataManagingApp extends SparkStreamingApp {
 					@Override
 					public void call(JavaPairRDD<String, byte[]> jobRDD) throws Exception {
 
-						final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = broadcastKafkaSink
+						final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = kafkaProducerSingleton
 								.getSupplier(new JavaSparkContext(jobRDD.context()));
 						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
 								.getSupplier(new JavaSparkContext(jobRDD.context()));
@@ -248,7 +258,7 @@ public class DataManagingApp extends SparkStreamingApp {
 					@Override
 					public void call(JavaPairRDD<String, byte[]> jobRDD) throws Exception {
 
-						final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = broadcastKafkaSink
+						final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = kafkaProducerSingleton
 								.getSupplier(new JavaSparkContext(jobRDD.context()));
 						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
 								.getSupplier(new JavaSparkContext(jobRDD.context()));

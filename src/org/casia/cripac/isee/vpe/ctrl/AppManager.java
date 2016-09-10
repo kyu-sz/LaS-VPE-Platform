@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
-import org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp;
+import org.casia.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.SystemPropertyCenter.NoAppSpecifiedException;
 import org.casia.cripac.isee.vpe.data.DataManagingApp;
@@ -34,7 +34,7 @@ public class AppManager {
 	private static Map<String, String> classNameMap = new HashMap<>();
 
 	static {
-		classNameMap.put(PedestrianReIDWithAttrApp.APP_NAME, PedestrianReIDWithAttrApp.class.getName());
+		classNameMap.put(PedestrianReIDUsingAttrApp.APP_NAME, PedestrianReIDUsingAttrApp.class.getName());
 		classNameMap.put(PedestrianTrackingApp.APP_NAME, PedestrianTrackingApp.class.getName());
 		classNameMap.put(PedestrianAttrRecogApp.APP_NAME, PedestrianAttrRecogApp.class.getName());
 		classNameMap.put(DataManagingApp.APP_NAME, DataManagingApp.class.getName());

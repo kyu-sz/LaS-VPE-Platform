@@ -68,29 +68,29 @@ import scala.Tuple2;
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
+public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
 	private static final long serialVersionUID = 6633072492340846871L;
 
 	/**
 	 * The name of this application.
 	 */
-	public static final String APP_NAME = "PedestrianReIDWithAttributes";
+	public static final String APP_NAME = "PedestrianReIDUsingAttr";
 
 	/**
 	 * Topic to input pedestrian tracks from Kafka.
 	 */
-	public static final String TRACK_TOPIC = "pedestrian-track-for-pedestrian-reid-with-attr";
+	public static final String TRACK_TOPIC = "pedestrian-track-for-pedestrian-reid-using-attr";
 
 	/**
 	 * Topic to input pedestrian attributes from Kafka.
 	 */
-	public static final String ATTR_TOPIC = "pedestrian-attr-pedestrian-for-reid-with-attr";
+	public static final String ATTR_TOPIC = "pedestrian-attr-pedestrian-for-reid-using-attr";
 
 	/**
 	 * Topic to input pedestrian track with attributes from Kafka.
 	 */
-	public static final String TRACK_WTH_ATTR_TOPIC = "pedestrian-track-with-attr-for-pedestrian-reid-with-attr";
+	public static final String TRACK_WTH_ATTR_TOPIC = "pedestrian-track-with-attr-for-pedestrian-reid-using-attr";
 
 	/**
 	 * Register these topics to the TopicManager, so that on the start of the
@@ -159,7 +159,7 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 	 * @param propertyCenter
 	 *            A class saving all the properties this application may need.
 	 */
-	public PedestrianReIDWithAttrApp(SystemPropertyCenter propertyCenter) {
+	public PedestrianReIDUsingAttrApp(SystemPropertyCenter propertyCenter) {
 		super();
 
 		trackTopicMap.put(TRACK_TOPIC, propertyCenter.kafkaPartitions);
@@ -531,8 +531,9 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 								// Always send to the meta data saving
 								// application.
 								Future<RecordMetadata> future = producerSupplier.get()
-										.send(new ProducerRecord<String, byte[]>(DataManagingApp.PEDESTRIAN_ID_FOR_SAVING_TOPIC,
-												taskID, SerializationHelper.serialize(idRank)));
+										.send(new ProducerRecord<String, byte[]>(
+												DataManagingApp.PEDESTRIAN_ID_FOR_SAVING_TOPIC, taskID,
+												SerializationHelper.serialize(idRank)));
 								RecordMetadata metadata = future.get();
 								if (verbose) {
 									String rankStr = "";
@@ -577,9 +578,9 @@ public class PedestrianReIDWithAttrApp extends SparkStreamingApp {
 		TopicManager.checkTopics(propertyCenter);
 
 		// Start the pedestrian tracking application.
-		PedestrianReIDWithAttrApp pedestrianAttrRecogApp = new PedestrianReIDWithAttrApp(propertyCenter);
-		pedestrianAttrRecogApp.initialize(propertyCenter);
-		pedestrianAttrRecogApp.start();
-		pedestrianAttrRecogApp.awaitTermination();
+		PedestrianReIDUsingAttrApp app = new PedestrianReIDUsingAttrApp(propertyCenter);
+		app.initialize(propertyCenter);
+		app.start();
+		app.awaitTermination();
 	}
 }

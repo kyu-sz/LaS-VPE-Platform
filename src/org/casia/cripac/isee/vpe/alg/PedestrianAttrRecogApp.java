@@ -21,7 +21,6 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Future;
 
@@ -65,7 +64,6 @@ import scala.Tuple2;
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-@SuppressWarnings("unused")
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 	private static final long serialVersionUID = 3104859533881615664L;
@@ -73,7 +71,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 	/**
 	 * The name of this application.
 	 */
-	public static final String APP_NAME = "PedestrianAttributeRecognizing";
+	public static final String APP_NAME = "PedestrianAttrRecognizing";
 
 	/**
 	 * Topic to input tracks from Kafka.
@@ -200,30 +198,17 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		final BroadcastSingleton<SynthesizedLogger> loggerSingleton = new BroadcastSingleton<>(
 				new SynthesizedLoggerFactory(reportListenerAddr, reportListenerPort), SynthesizedLogger.class);
 
-		/**
-		 * Though the "createDirectStream" method is suggested for higher speed,
-		 * we use createStream for auto management of Kafka offsets by
-		 * Zookeeper. TODO Find ways to robustly make use of createDirectStream.
-		 */
-		JavaPairDStream<String, byte[]> trackBytesStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
-				kafkaParams, trackTopicMap);
-		// //Retrieve data from Kafka.
-		// JavaPairInputDStream<String, byte[]> trackBytesDStream =
-		// KafkaUtils.createDirectStream(streamingContext, String.class,
-		// byte[].class,
-		// StringDecoder.class, DefaultDecoder.class, commonKafkaParams,
-		// inputTopicsSet);
-
 		// Extract tracks from the data.
-		JavaPairDStream<String, TaskData> trackStream = trackBytesStream.mapValues(new Function<byte[], TaskData>() {
+		JavaPairDStream<String, TaskData> trackStream = buildBytesDirectInputStream(streamingContext, numRecvStreams,
+				kafkaParams, trackTopicMap).mapValues(new Function<byte[], TaskData>() {
 
-			private static final long serialVersionUID = -2138675698164723884L;
+					private static final long serialVersionUID = -2138675698164723884L;
 
-			@Override
-			public TaskData call(byte[] taskDataBytes) throws Exception {
-				return (TaskData) SerializationHelper.deserialize(taskDataBytes);
-			}
-		});
+					@Override
+					public TaskData call(byte[] taskDataBytes) throws Exception {
+						return (TaskData) SerializationHelper.deserialize(taskDataBytes);
+					}
+				});
 
 		// Recognize attributes from the tracks, then send them to the metadata
 		// saving application.
@@ -289,8 +274,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
 						// Always send to the meta data saving application.
 						Future<RecordMetadata> future = producerSupplier.get()
-								.send(new ProducerRecord<String, byte[]>(DataManagingApp.PEDESTRIAN_ATTR_FOR_SAVING_TOPIC,
-										taskID, SerializationHelper.serialize(attributes)));
+								.send(new ProducerRecord<String, byte[]>(
+										DataManagingApp.PEDESTRIAN_ATTR_FOR_SAVING_TOPIC, taskID,
+										SerializationHelper.serialize(attributes)));
 						RecordMetadata metadata = future.get();
 						if (verbose) {
 							loggerSupplier.get()
@@ -332,9 +318,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 		TopicManager.checkTopics(propertyCenter);
 
 		// Start the pedestrian tracking application.
-		PedestrianAttrRecogApp pedestrianAttrRecogApp = new PedestrianAttrRecogApp(propertyCenter);
-		pedestrianAttrRecogApp.initialize(propertyCenter);
-		pedestrianAttrRecogApp.start();
-		pedestrianAttrRecogApp.awaitTermination();
+		PedestrianAttrRecogApp app = new PedestrianAttrRecogApp(propertyCenter);
+		app.initialize(propertyCenter);
+		app.start();
+		app.awaitTermination();
 	}
 }

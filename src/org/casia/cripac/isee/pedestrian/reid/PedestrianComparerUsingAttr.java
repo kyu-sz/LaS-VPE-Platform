@@ -26,7 +26,7 @@ import java.io.IOException;
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public abstract class PedestrianComparerWithAttr {
+public abstract class PedestrianComparerUsingAttr {
 
 	/**
 	 * Compare two pedestrians each given in a track with attributes.

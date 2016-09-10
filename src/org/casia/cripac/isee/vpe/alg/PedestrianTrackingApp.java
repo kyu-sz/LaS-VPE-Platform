@@ -284,8 +284,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
 							// Always send to the meta data saving application.
 							Future<RecordMetadata> future = producerSupplier.get()
-									.send(new ProducerRecord<String, byte[]>(DataManagingApp.PEDESTRIAN_TRACK_FOR_SAVING_TOPIC,
-											task._1(), SerializationHelper.serialize(track)));
+									.send(new ProducerRecord<String, byte[]>(
+											DataManagingApp.PEDESTRIAN_TRACK_FOR_SAVING_TOPIC, task._1(),
+											SerializationHelper.serialize(track)));
 							RecordMetadata metadata = future.get();
 							if (verbose) {
 								loggerSupplier.get()
@@ -333,9 +334,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 		TopicManager.checkTopics(propertyCenter);
 
 		// Start the pedestrian tracking application.
-		PedestrianTrackingApp pedestrianTrackingApp = new PedestrianTrackingApp(propertyCenter);
-		pedestrianTrackingApp.initialize(propertyCenter);
-		pedestrianTrackingApp.start();
-		pedestrianTrackingApp.awaitTermination();
+		PedestrianTrackingApp app = new PedestrianTrackingApp(propertyCenter);
+		app.initialize(propertyCenter);
+		app.start();
+		app.awaitTermination();
 	}
 }

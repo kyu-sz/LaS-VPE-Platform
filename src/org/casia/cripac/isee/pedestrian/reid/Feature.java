@@ -29,5 +29,28 @@ public class Feature {
 	 */
 	public static final int LENGTH = 128;
 
+	/**
+	 * The feature vector.
+	 */
 	public byte[] vector = null;
+
+	/**
+	 * Create a feature with no data filled.
+	 */
+	public Feature() {
+		vector = new byte[LENGTH];
+	}
+
+	/**
+	 * Create a feature with known feature vector.
+	 * 
+	 * @param featureVector
+	 *            The feature vector to fill into the new feature. Its length
+	 *            should be the same as the predefined length of the Feature
+	 *            class.
+	 */
+	public Feature(byte[] featureVector) {
+		assert (featureVector.length == LENGTH);
+		vector = featureVector.clone();
+	}
 }

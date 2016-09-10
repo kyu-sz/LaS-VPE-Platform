@@ -40,7 +40,7 @@ import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.casia.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
-import org.casia.cripac.isee.vpe.alg.PedestrianReIDWithAttrApp;
+import org.casia.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
 import org.casia.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
@@ -191,7 +191,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			// Retrieve track and attr data integrally, then feed them to ReID
 			// module.
 			int trackWithAttrDataNodeID = plan.addNode(DataManagingApp.PEDESTRIAN_TRACK_WITH_ATTR_RTRV_JOB_TOPIC);
-			int reidNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_WTH_ATTR_TOPIC);
+			int reidNodeID = plan.addNode(PedestrianReIDUsingAttrApp.TRACK_WTH_ATTR_TOPIC);
 			plan.linkNodes(trackWithAttrDataNodeID, reidNodeID);
 			break;
 		}
@@ -199,8 +199,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			plan = new MutableExecutionPlan();
 			int trackDataNodeID = plan.addNode(DataManagingApp.PEDESTRIAN_TRACK_RTRV_JOB_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
-			int reidTrackNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_TOPIC);
-			int reidAttrNodeID = plan.addNode(PedestrianReIDWithAttrApp.ATTR_TOPIC);
+			int reidTrackNodeID = plan.addNode(PedestrianReIDUsingAttrApp.TRACK_TOPIC);
+			int reidAttrNodeID = plan.addNode(PedestrianReIDUsingAttrApp.ATTR_TOPIC);
 			plan.linkNodes(trackDataNodeID, attrRecogNodeID);
 			plan.linkNodes(trackDataNodeID, reidTrackNodeID);
 			plan.linkNodes(attrRecogNodeID, reidAttrNodeID);
@@ -210,8 +210,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
 			plan = new MutableExecutionPlan();
 			int trackingNodeID = plan.addNode(PedestrianTrackingApp.VIDEO_URL_TOPIC);
 			int attrRecogNodeID = plan.addNode(PedestrianAttrRecogApp.TRACK_TOPIC);
-			int reidTrackNodeID = plan.addNode(PedestrianReIDWithAttrApp.TRACK_TOPIC);
-			int reidAttrNodeID = plan.addNode(PedestrianReIDWithAttrApp.ATTR_TOPIC);
+			int reidTrackNodeID = plan.addNode(PedestrianReIDUsingAttrApp.TRACK_TOPIC);
+			int reidAttrNodeID = plan.addNode(PedestrianReIDUsingAttrApp.ATTR_TOPIC);
 			plan.linkNodes(trackingNodeID, attrRecogNodeID);
 			plan.linkNodes(trackingNodeID, reidTrackNodeID);
 			plan.linkNodes(attrRecogNodeID, reidAttrNodeID);
