@@ -1,1 +1,1 @@
-java -classpath bin/vpe-platform.jar org.casia.cripac.isee.vpe.debug.CommandGeneratingApp -v
+java -classpath bin/las-vpe-platform.jar org.casia.cripac.isee.vpe.debug.CommandGeneratingApp -v

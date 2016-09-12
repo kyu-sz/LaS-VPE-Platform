@@ -1,29 +1,28 @@
 /***********************************************************************
- * This file is part of VPE-Platform.
+ * This file is part of LaS-VPE-Platform.
  * 
- * VPE-Platform is free software: you can redistribute it and/or modify
+ * LaS-VPE-Platform is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * 
- * VPE-Platform is distributed in the hope that it will be useful,
+ * LaS-VPE-Platform is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
+ * along with LaS-VPE-Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 package org.casia.cripac.isee.vpe.debug;
 
-import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Random;
 
 import org.casia.cripac.isee.pedestrian.attr.Attributes;
-import org.casia.cripac.isee.pedestrian.reid.Feature;
-import org.casia.cripac.isee.pedestrian.reid.PedestrianInfo;
-import org.casia.cripac.isee.pedestrian.tracking.Track;
+import org.casia.cripac.isee.pedestrian.attr.Attributes.Facing;
+import org.casia.cripac.isee.pedestrian.attr.Attributes.Sex;
+import org.casia.cripac.isee.vpe.data.GraphDatabaseConnector;
+import org.casia.cripac.isee.vpe.data.RecordUnavailableException;
 
 /**
  * Simulate a database connector that provides tracks and attributes.
@@ -31,46 +30,76 @@ import org.casia.cripac.isee.pedestrian.tracking.Track;
  * @author Ken Yu, CRIPAC, 2016
  *
  */
-public class FakeDatabaseConnector implements Serializable {
+public class FakeDatabaseConnector extends GraphDatabaseConnector {
 
-	private static final long serialVersionUID = 355205529406170579L;
+	private Random rand = new Random();
 
-	private Map<String, Track[]> storage = new HashMap<>();
-
-	/**
-	 * Get a particular track from the database.
+	/*
+	 * (non-Javadoc)
 	 * 
-	 * @param videoURL
-	 * @param trackID
-	 * @return
+	 * @see
+	 * org.casia.cripac.isee.vpe.data.GraphDatabaseConnector#setTrackSavingPath(
+	 * java.lang.String, java.lang.String)
 	 */
-	public Track getTrack(String videoURL, String trackID) {
-		if (!storage.containsKey(videoURL)) {
-			storage.put(videoURL, new FakePedestrianTracker().track(videoURL));
-		}
-		Track[] tracks = storage.get(videoURL);
-		return tracks[0];
+	@Override
+	public void setTrackSavingPath(String id, String path) {
 	}
 
-	public PedestrianInfo getTrackWithAttr(String videoURL, String trackID) {
-		if (!storage.containsKey(videoURL)) {
-			storage.put(videoURL, new FakePedestrianTracker().track(videoURL));
-		}
-		Track[] tracks = storage.get(videoURL);
-		Track track = tracks[0];
-		Attributes attr = new FakePedestrianAttrRecognizer().recognize(track);
-		return new PedestrianInfo(track, attr);
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * org.casia.cripac.isee.vpe.data.GraphDatabaseConnector#getTrackSavingPath(
+	 * java.lang.String, java.lang.String)
+	 */
+	@Override
+	public String getTrackSavingDir(String id) throws RecordUnavailableException {
+		return "har:///user/labadmin/metadata/video123/8c617d98-340d-48c1-a388-f4b2499f4e9b.har";
 	}
 
-	public PedestrianInfo getFullPedestrianInfo(String videoURL, String trackID) {
-		if (!storage.containsKey(videoURL)) {
-			storage.put(videoURL, new FakePedestrianTracker().track(videoURL));
-		}
-		Track[] tracks = storage.get(videoURL);
-		Track track = tracks[0];
-		Attributes attr = new FakePedestrianAttrRecognizer().recognize(track);
-		PedestrianInfo pedestrianInfo = new PedestrianInfo(track, attr);
-		pedestrianInfo.feature = new Feature();
-		return pedestrianInfo;
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.casia.cripac.isee.vpe.data.GraphDatabaseConnector#
+	 * setPedestrianSimilarity(java.lang.String, java.lang.String, float)
+	 */
+	@Override
+	public void setPedestrianSimilarity(String idA, String idB, float similarity) {
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.casia.cripac.isee.vpe.data.GraphDatabaseConnector#
+	 * getPedestrianSimilarity(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public float getPedestrianSimilarity(String idA, String idB) throws RecordUnavailableException {
+		return rand.nextFloat();
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.casia.cripac.isee.vpe.data.GraphDatabaseConnector#
+	 * setPedestrianAttributes(java.lang.String,
+	 * org.casia.cripac.isee.pedestrian.attr.Attributes)
+	 */
+	@Override
+	public void setPedestrianAttributes(String id, Attributes attr) {
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.casia.cripac.isee.vpe.data.GraphDatabaseConnector#
+	 * getPedestrianAttributes(java.lang.String)
+	 */
+	@Override
+	public Attributes getPedestrianAttributes(String id) throws RecordUnavailableException {
+		Attributes attr = new Attributes();
+		attr.facing = rand.nextInt(Facing.RIGHT);
+		attr.sex = rand.nextInt(Sex.UNDETERMINED);
+		return attr;
 	}
 }

@@ -1,1 +1,1 @@
-java -jar bin/vpe-platform.jar -a MessageHandling -v
+java -jar bin/las-vpe-platform.jar -a MessageHandling -v

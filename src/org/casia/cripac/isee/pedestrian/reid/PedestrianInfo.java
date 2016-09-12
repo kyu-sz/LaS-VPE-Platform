@@ -22,7 +22,9 @@ import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 
 /**
- * A wrapper for a track and the attributes of it.
+ * The class PedestrianInfo is a wrapper for any possible information of a
+ * pedestrian. Currently, it may contain the track, attributes, ID and feature
+ * of a pedestrian. Information not available is marked null or -1.
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
@@ -55,6 +57,12 @@ public class PedestrianInfo implements Serializable, Cloneable {
 	public PedestrianInfo(Track track, Attributes attr) {
 		this.track = track;
 		this.attr = attr;
+	}
+
+	/**
+	 * Empty constructor.
+	 */
+	public PedestrianInfo() {
 	}
 
 	/*

@@ -785,7 +785,7 @@ public class TaskData implements Serializable, Cloneable {
 	 */
 	@Override
 	public String toString() {
-		return "|TaskData-node=" + currentNodeID + "-ExecutionPlan=" + executionPlan
-				+ "-PredecessorRes=" + predecessorResult + "|";
+		return "|TaskData-node=" + currentNodeID + "-ExecutionPlan=" + executionPlan + "-PredecessorRes=\n"
+				+ predecessorResult + "|";
 	}
 }

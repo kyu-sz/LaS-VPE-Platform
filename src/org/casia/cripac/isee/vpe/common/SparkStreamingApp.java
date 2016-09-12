@@ -27,6 +27,8 @@ import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -179,7 +181,18 @@ public abstract class SparkStreamingApp implements Serializable {
 	 */
 	protected static JavaPairDStream<String, byte[]> buildBytesDirectInputStream(JavaStreamingContext streamingContext,
 			int numRecvStreams, Map<String, String> kafkaParams, Map<String, Integer> numPartitionsPerTopic) {
-		return KafkaUtils.createDirectStream(streamingContext, String.class, byte[].class, StringDecoder.class,
-					DefaultDecoder.class, kafkaParams, numPartitionsPerTopic.keySet());
+		return KafkaUtils
+				.createDirectStream(streamingContext, String.class, byte[].class, StringDecoder.class,
+						DefaultDecoder.class, kafkaParams, numPartitionsPerTopic.keySet())
+				.transformToPair(new Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>() {
+
+					private static final long serialVersionUID = -5638281898957276768L;
+
+					@Override
+					public JavaPairRDD<String, byte[]> call(JavaPairRDD<String, byte[]> rdd) throws Exception {
+						rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
+						return rdd;
+					}
+				});
 	}
 }

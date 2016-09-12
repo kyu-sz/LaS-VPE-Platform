@@ -19,6 +19,8 @@ package org.casia.cripac.isee.pedestrian.tracking;
 
 import java.io.Serializable;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * The Track class stores a sequence of bounding boxes, representing the track
  * of a pedestrian in a video.
@@ -30,6 +32,59 @@ import java.io.Serializable;
  *
  */
 public class Track implements Serializable {
+
+	/**
+	 * Identifier of a track.
+	 * 
+	 * @author Ken Yu, CRIPAC, 2016
+	 *
+	 */
+	public static class Identifier implements Serializable {
+
+		private static final long serialVersionUID = -4575631684877590629L;
+
+		/**
+		 * The URL indicating where the source video is stored.
+		 */
+		@SerializedName("video-url")
+		public char[] videoURL = null;
+
+		/**
+		 * The serial number of the track in the video. The number is usually
+		 * organized in a chronological order. Track generators, like pedestrian
+		 * tracking modules, should be responsible of generating this ID. Its
+		 * default value is -1, meaning the ID has not been generated yet.
+		 */
+		@SerializedName("serial-number")
+		public int serialNumber = -1;
+
+		/**
+		 * Create an identifier with URL of source video and the serial number.
+		 * 
+		 * @param videoURL
+		 * @param num
+		 */
+		public Identifier(String videoURL, int num) {
+			this.videoURL = videoURL.toCharArray();
+			this.serialNumber = num;
+		}
+
+		/**
+		 * Create an empty identifier.
+		 */
+		public Identifier() {
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return new String(videoURL) + "_tarid" + serialNumber;
+		}
+	}
 
 	/**
 	 * The BoundingBox class stores the location of an object in a single static
@@ -73,17 +128,25 @@ public class Track implements Serializable {
 		 * 'data' field of it using functions like memcpy.
 		 */
 		public byte[] patchData = null;
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return "@Bounding box " + "x: " + x + ", " + "y: " + y + ", " + "width: " + width + ", " + "height: "
+					+ height;
+		}
 	}
 
 	private static final long serialVersionUID = -6133927313545472821L;
 
 	/**
-	 * The ID of the track in the video. The ID is usually organized in a
-	 * chronological order. Track generators, like pedestrian tracking modules,
-	 * should be responsible of generating this ID. Its default value is -1,
-	 * meaning the ID has not been generated yet.
+	 * The identifier of the track.
 	 */
-	public int id = -1;
+	public Identifier id = new Identifier();
 
 	/**
 	 * The total number of tracks in the video. This field can be left as -1,
@@ -92,12 +155,8 @@ public class Track implements Serializable {
 	 * processed in latter steps. So it is highly recommended that track
 	 * generators should also fill in this field.
 	 */
+	@SerializedName("track-number")
 	public int numTracks = -1;
-
-	/**
-	 * The URL indicating where the source video is stored.
-	 */
-	public char[] videoURL = null;
 
 	/**
 	 * The starting frame index of this track in the source video. User can use
@@ -105,12 +164,14 @@ public class Track implements Serializable {
 	 * information of the video. Its default value is -1, meaning the index has
 	 * not been determined yet.
 	 */
+	@SerializedName("start-frame-index")
 	public int startFrameIndex = -1;
 
 	/**
 	 * Storing the locations with the BoundingBox class at each moment, sorted
 	 * by time.
 	 */
+	@SerializedName("bounding-boxes")
 	public BoundingBox[] locationSequence = null;
 
 	/*
@@ -120,6 +181,16 @@ public class Track implements Serializable {
 	 */
 	@Override
 	public String toString() {
-		return "|Track-" + id + "/" + numTracks + "-" + new String(videoURL) + "|";
+		StringBuilder sb = new StringBuilder();
+
+		sb.append("@Track\n");
+		sb.append("Video URL: " + new String(id.videoURL) + "\n");
+		sb.append("Serial number: " + id.serialNumber + "/" + numTracks + "\n");
+		sb.append("Start frame: " + startFrameIndex + "\n");
+		for (int i = 0; i < locationSequence.length; ++i) {
+			sb.append("At frame " + (startFrameIndex + i) + ": " + locationSequence[i] + "\n");
+		}
+
+		return sb.toString();
 	}
 }

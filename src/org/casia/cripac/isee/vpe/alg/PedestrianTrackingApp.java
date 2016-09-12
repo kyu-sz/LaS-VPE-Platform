@@ -242,7 +242,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 							+ o.fromOffset() + " " + o.untilOffset());
 				}
 
-				taskRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				taskRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
 
 					private static final long serialVersionUID = 955383087048954689L;
@@ -278,7 +277,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 									loggerSupplier.get()
 											.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
 													+ metadata.partition() + "-" + metadata.offset() + ">: " + task._1()
-													+ ": " + taskData);
+													+ ":\n" + taskData);
 								}
 							}
 
@@ -292,7 +291,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 								loggerSupplier.get()
 										.info(APP_NAME + ": Sent to Kafka <" + metadata.topic() + "-"
 												+ metadata.partition() + "-" + metadata.offset() + ">: " + task._1()
-												+ ": " + track);
+												+ ":\n" + track);
 							}
 						}
 

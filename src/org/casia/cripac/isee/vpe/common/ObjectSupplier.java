@@ -17,6 +17,7 @@
 package org.casia.cripac.isee.vpe.common;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.function.Supplier;
 
@@ -69,7 +70,11 @@ public class ObjectSupplier<T> implements Serializable, Supplier<T> {
 	@Override
 	public T get() {
 		if (instance == null) {
-			instance = factory.getObject();
+			try {
+				instance = factory.getObject();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 		return instance;
 	}

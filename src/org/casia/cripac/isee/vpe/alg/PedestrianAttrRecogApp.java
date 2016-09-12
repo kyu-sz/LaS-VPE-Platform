@@ -226,7 +226,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
 						.getSupplier(new JavaSparkContext(trackRDD.context()));
 
-				trackRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 				trackRDD.foreach(new VoidFunction<Tuple2<String, TaskData>>() {
 
 					private static final long serialVersionUID = 1663053917263397146L;

@@ -16,6 +16,7 @@
  ************************************************************************/
 package org.casia.cripac.isee.vpe.common;
 
+import java.io.IOException;
 import java.io.Serializable;
 
 /**
@@ -34,6 +35,7 @@ public abstract class ObjectFactory<T> implements Serializable {
 	 * Produce a new object.
 	 * 
 	 * @return An object newly produced.
+	 * @throws IOException
 	 */
-	public abstract T getObject();
+	public abstract T getObject() throws IOException;
 }

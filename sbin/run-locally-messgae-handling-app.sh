@@ -1,1 +1,1 @@
-java -jar bin/vpe-platform.jar -m "local[*]" -a MessageHandling -f system.properties -v -c checkpoint/MessageHandling
+java -jar bin/las-vpe-platform.jar -m "local[*]" -a MessageHandling -f system.properties -v -c checkpoint/MessageHandling

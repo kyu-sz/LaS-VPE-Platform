@@ -252,8 +252,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 				final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
 						.getSupplier(new JavaSparkContext(rdd.context()));
 
-				rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
-
 				rdd.foreachPartition(new VoidFunction<Iterator<Tuple2<String, byte[]>>>() {
 
 					private static final long serialVersionUID = -4594138896649250346L;

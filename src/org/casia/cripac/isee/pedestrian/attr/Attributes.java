@@ -19,6 +19,8 @@ package org.casia.cripac.isee.pedestrian.attr;
 
 import java.io.Serializable;
 
+import org.casia.cripac.isee.pedestrian.tracking.Track;
+
 /**
  * The Attribute class stores all the pre-defined attributes of a pedestrian at
  * one moment in a track. In other words, each attribute object correspond to
@@ -68,11 +70,13 @@ public class Attributes implements Serializable {
 	 */
 	public int sex;
 
+	public String videoURL = null;
+
 	/**
 	 * This field enables matching an attribute to a track in the same task.
 	 * Attribute generating algorithms do not need to fill in this field.
 	 */
-	public int trackID = -1;
+	public Track.Identifier trackID = null;
 
 	/*
 	 * (non-Javadoc)

@@ -1,12 +1,12 @@
 /***********************************************************************
- * This file is part of VPE-Platform.
+ * This file is part of LaS-VPE-Platform.
  * 
- * VPE-Platform is free software: you can redistribute it and/or modify
+ * LaS-VPE-Platform is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  * 
- * VPE-Platform is distributed in the hope that it will be useful,
+ * LaS-VPE-Platform is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
@@ -18,11 +18,13 @@
 package org.casia.cripac.isee.vpe.data;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
+import static org.bytedeco.javacpp.opencv_imgcodecs.imdecode;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.InputStreamReader;
+import java.lang.reflect.Type;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,10 +37,13 @@ import java.util.concurrent.Future;
 
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ContentSummary;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.HarFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -59,6 +64,7 @@ import org.casia.cripac.isee.pedestrian.attr.Attributes;
 import org.casia.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.casia.cripac.isee.pedestrian.tracking.Track;
 import org.casia.cripac.isee.pedestrian.tracking.Track.BoundingBox;
+import org.casia.cripac.isee.pedestrian.tracking.Track.Identifier;
 import org.casia.cripac.isee.vpe.common.BroadcastSingleton;
 import org.casia.cripac.isee.vpe.common.KafkaProducerFactory;
 import org.casia.cripac.isee.vpe.common.ObjectFactory;
@@ -69,18 +75,30 @@ import org.casia.cripac.isee.vpe.common.SystemPropertyCenter;
 import org.casia.cripac.isee.vpe.ctrl.TaskData;
 import org.casia.cripac.isee.vpe.ctrl.TopicManager;
 import org.casia.cripac.isee.vpe.debug.FakeDatabaseConnector;
+import org.casia.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.casia.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
 
 import scala.Tuple2;
 
 /**
  * The DataManagingApp class combines two functions: meta data saving and data
  * feeding. The meta data saving function saves meta data, which may be the
- * results of vision algotirhms, to HDFS and Neo4j database. The data feeding
+ * results of vision algorithms, to HDFS and Neo4j database. The data feeding
  * function retrieves stored results and send them to algorithm modules from
- * HDFS and Neo4j database.
+ * HDFS and Neo4j database. The reason why combine these two functions is that
+ * they should both be modified when and only when a new data type shall be
+ * supported by the system, and they require less resources than other modules,
+ * so combining them can save resources while not harming performance.
  * 
  * @author Ken Yu, CRIPAC, 2016
  *
@@ -180,6 +198,112 @@ public class DataManagingApp extends SparkStreamingApp {
 	}
 
 	/**
+	 * Store the track to the HDFS.
+	 * 
+	 * @param fs
+	 *            The HDFS file system.
+	 * @param storeDir
+	 *            The directory storing the track.
+	 * @param track
+	 *            The track to store.
+	 * @throws IllegalArgumentException
+	 * @throws IOException
+	 */
+	private void storeTrack(FileSystem fs, String storeDir, Track track) throws IllegalArgumentException, IOException {
+		// Write verbal informations with Json.
+		FSDataOutputStream outputStream = fs.create(new Path(storeDir + "/info.txt"));
+
+		// Customize the serialization of bounding box in order to ignore patch
+		// data.
+		GsonBuilder gsonBuilder = new GsonBuilder();
+		gsonBuilder.registerTypeAdapter(BoundingBox.class, new JsonSerializer<BoundingBox>() {
+
+			@Override
+			public JsonElement serialize(BoundingBox box, Type typeOfBox, JsonSerializationContext context) {
+				JsonObject result = new JsonObject();
+				result.add("x", new JsonPrimitive(box.x));
+				result.add("y", new JsonPrimitive(box.y));
+				result.add("width", new JsonPrimitive(box.width));
+				result.add("height", new JsonPrimitive(box.height));
+				return result;
+			}
+		});
+		outputStream.writeBytes(gsonBuilder.create().toJson(track));
+		outputStream.close();
+
+		// Write frames.
+		for (int i = 0; i < track.locationSequence.length; ++i) {
+			BoundingBox bbox = track.locationSequence[i];
+
+			// Use JavaCV to encode the image patch
+			// into JPEG, stored in the memory.
+			BytePointer inputPointer = new BytePointer(bbox.patchData);
+			Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
+			BytePointer outputPointer = new BytePointer();
+			imencode(".jpg", image, outputPointer);
+			byte[] bytes = new byte[(int) outputPointer.limit()];
+			outputPointer.get(bytes);
+
+			// Output the image patch to HDFS.
+			FSDataOutputStream imgOutputStream = fs.create(new Path(storeDir + "/" + i + ".jpg"));
+			imgOutputStream.write(bytes);
+			imgOutputStream.close();
+
+			image.release();
+			inputPointer.deallocate();
+			outputPointer.deallocate();
+		}
+	}
+
+	/**
+	 * Retrieve a track from the HDFS.
+	 * 
+	 * @param fs
+	 *            HDFS file system.
+	 * @param storeDir
+	 *            The directory storing the tracks.
+	 * @param id
+	 *            The identifier of the track.
+	 * @return The track retrieved.
+	 * @throws IllegalArgumentException
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	private Track retrieveTrack(FileSystem fs, String storeDir, Identifier id, SynthesizedLogger logger)
+			throws IllegalArgumentException, IOException, URISyntaxException {
+		try {
+			// Open the Hadoop Archive of the task the track is generated in.
+			HarFileSystem harFileSystem = new HarFileSystem();
+			harFileSystem.initialize(new URI(storeDir), new Configuration());
+
+			// Read verbal informations of the track.
+			Gson gson = new Gson();
+			Track track = gson.fromJson(
+					new InputStreamReader(harFileSystem.open(new Path(storeDir + "/" + id.toString() + "/info.txt"))),
+					Track.class);
+
+			// Read frames.
+			for (int i = 0; i < track.locationSequence.length; ++i) {
+				BoundingBox bbox = track.locationSequence[i];
+				FSDataInputStream imgInputStream = harFileSystem
+						.open(new Path(storeDir + "/" + id.toString() + "/" + i + ".jpg"));
+				byte[] rawBytes = IOUtils.toByteArray(imgInputStream);
+				imgInputStream.close();
+				Mat image = imdecode(new Mat(rawBytes), CV_8UC3);
+				bbox.patchData = new byte[image.rows() * image.cols() * image.channels()];
+				image.data().get(bbox.patchData);
+				image.release();
+			}
+			harFileSystem.close();
+
+			return track;
+		} catch (Exception e) {
+			logger.error(e);
+			return new FakePedestrianTracker().track("video123")[0];
+		}
+	}
+
+	/**
 	 * Set up the data feeding streams in the context.
 	 * 
 	 * @param streamingContext
@@ -191,9 +315,9 @@ public class DataManagingApp extends SparkStreamingApp {
 	 */
 	private void setupDataFeeding(JavaStreamingContext streamingContext,
 			final BroadcastSingleton<KafkaProducer<String, byte[]>> kafkaProducerSingleton,
-			final BroadcastSingleton<SynthesizedLogger> loggerSingleton) {
-		FakeDatabaseConnector databaseConnector = new FakeDatabaseConnector();
-
+			final BroadcastSingleton<FileSystem> fileSystemSingleton,
+			final BroadcastSingleton<SynthesizedLogger> loggerSingleton,
+			final BroadcastSingleton<GraphDatabaseConnector> dbConnectorSingleton) {
 		// Read track retrieving jobs in parallel from Kafka.
 		buildBytesDirectInputStream(streamingContext, numRecvStreams, kafkaParams, trackRtrvJobTopicMap)
 				// Retrieve and deliever tracks.
@@ -202,24 +326,37 @@ public class DataManagingApp extends SparkStreamingApp {
 					private static final long serialVersionUID = 2398785978507302303L;
 
 					@Override
-					public void call(JavaPairRDD<String, byte[]> jobRDD) throws Exception {
+					public void call(JavaPairRDD<String, byte[]> rdd) throws Exception {
 
 						final ObjectSupplier<KafkaProducer<String, byte[]>> producerSupplier = kafkaProducerSingleton
-								.getSupplier(new JavaSparkContext(jobRDD.context()));
+								.getSupplier(new JavaSparkContext(rdd.context()));
 						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
-								.getSupplier(new JavaSparkContext(jobRDD.context()));
+								.getSupplier(new JavaSparkContext(rdd.context()));
+						final ObjectSupplier<GraphDatabaseConnector> dbConnectorSupplier = dbConnectorSingleton
+								.getSupplier(new JavaSparkContext(rdd.context()));
+						final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton
+								.getSupplier(new JavaSparkContext(rdd.context()));
 
-						jobRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-						jobRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
+						rdd.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
 
 							private static final long serialVersionUID = -3787928455732734520L;
 
 							@Override
 							public void call(Tuple2<String, byte[]> job) throws Exception {
+								// Recover task data.
 								TaskData taskData = (TaskData) SerializationHelper.deserialize(job._2());
+								// Get parameters for the job.
 								String jobParam = (String) taskData.predecessorResult;
+								// Split the parameters.
 								String[] paramParts = jobParam.split(":");
-								Track track = databaseConnector.getTrack(paramParts[0], paramParts[1]);
+								String videoURL = paramParts[0];
+								int serialNumber = new Integer(paramParts[1]);
+								Identifier trackID = new Identifier(videoURL, serialNumber);
+								// Retrieve the track from HDFS.
+								Track track = retrieveTrack(fsSupplier.get(),
+										dbConnectorSupplier.get().getTrackSavingDir(videoURL), trackID,
+										loggerSupplier.get());
+								// Store the track to a task data (reused).
 								taskData.predecessorResult = track;
 
 								// Get the IDs of successor nodes.
@@ -250,7 +387,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
 		// Read track with attributes retrieving jobs in parallel from Kafka.
 		buildBytesDirectInputStream(streamingContext, numRecvStreams, kafkaParams, trackWithAttrRtrvJobTopicMap)
-				// Retrieve and deliever tracks with attributes.
+				// Retrieve and deliver tracks with attributes.
 				.foreachRDD(new VoidFunction<JavaPairRDD<String, byte[]>>() {
 
 					private static final long serialVersionUID = 2398785978507302303L;
@@ -262,19 +399,35 @@ public class DataManagingApp extends SparkStreamingApp {
 								.getSupplier(new JavaSparkContext(jobRDD.context()));
 						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
 								.getSupplier(new JavaSparkContext(jobRDD.context()));
+						final ObjectSupplier<GraphDatabaseConnector> dbConnectorSupplier = dbConnectorSingleton
+								.getSupplier(new JavaSparkContext(jobRDD.context()));
+						final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton
+								.getSupplier(new JavaSparkContext(jobRDD.context()));
 
-						jobRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 						jobRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
 
 							private static final long serialVersionUID = -3787928455732734520L;
 
 							@Override
 							public void call(Tuple2<String, byte[]> job) throws Exception {
+								// Recover task data.
 								TaskData taskData = (TaskData) SerializationHelper.deserialize(job._2());
+								// Get parameters for the job.
 								String jobParam = (String) taskData.predecessorResult;
+								// Split the parameters.
 								String[] paramParts = jobParam.split(":");
-								PedestrianInfo trackWithAttr = databaseConnector.getTrackWithAttr(paramParts[0],
-										paramParts[1]);
+								String videoURL = paramParts[0];
+								int serialNumber = new Integer(paramParts[1]);
+								Identifier trackID = new Identifier(videoURL, serialNumber);
+
+								PedestrianInfo trackWithAttr = new PedestrianInfo();
+								// Retrieve the track from HDFS.
+								trackWithAttr.track = retrieveTrack(fsSupplier.get(),
+										dbConnectorSupplier.get().getTrackSavingDir(videoURL), trackID,
+										loggerSupplier.get());
+								// Retrieve the attributes from database.
+								trackWithAttr.attr = dbConnectorSupplier.get()
+										.getPedestrianAttributes(trackID.toString());
 								taskData.predecessorResult = trackWithAttr;
 
 								// Get the IDs of successor nodes.
@@ -306,7 +459,8 @@ public class DataManagingApp extends SparkStreamingApp {
 
 	private void setupMetadataSaving(JavaStreamingContext streamingContext,
 			final BroadcastSingleton<FileSystem> fileSystemSingleton,
-			final BroadcastSingleton<SynthesizedLogger> loggerSingleton) {
+			final BroadcastSingleton<SynthesizedLogger> loggerSingleton,
+			final BroadcastSingleton<GraphDatabaseConnector> dbConnectorSingleton) {
 		// Save tracks.
 		buildBytesDirectInputStream(streamingContext, numRecvStreams, kafkaParams, trackForSavingTopicMap).groupByKey()
 				.foreachRDD(new VoidFunction<JavaPairRDD<String, Iterable<byte[]>>>() {
@@ -314,15 +468,16 @@ public class DataManagingApp extends SparkStreamingApp {
 					private static final long serialVersionUID = -6731502755371825010L;
 
 					@Override
-					public void call(JavaPairRDD<String, Iterable<byte[]>> trackGroupRDD) throws Exception {
+					public void call(JavaPairRDD<String, Iterable<byte[]>> rdd) throws Exception {
 
 						final ObjectSupplier<FileSystem> fsSupplier = fileSystemSingleton
-								.getSupplier(new JavaSparkContext(trackGroupRDD.context()));
+								.getSupplier(new JavaSparkContext(rdd.context()));
 						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
-								.getSupplier(new JavaSparkContext(trackGroupRDD.context()));
+								.getSupplier(new JavaSparkContext(rdd.context()));
+						final ObjectSupplier<GraphDatabaseConnector> dbConnectorSupplier = dbConnectorSingleton
+								.getSupplier(new JavaSparkContext(rdd.context()));
 
-						trackGroupRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
-						trackGroupRDD.foreach(new VoidFunction<Tuple2<String, Iterable<byte[]>>>() {
+						rdd.foreach(new VoidFunction<Tuple2<String, Iterable<byte[]>>>() {
 
 							private static final long serialVersionUID = 5522067102611597772L;
 
@@ -338,7 +493,7 @@ public class DataManagingApp extends SparkStreamingApp {
 								String taskID = trackGroup._1();
 								Iterator<byte[]> trackIterator = trackGroup._2().iterator();
 								Track track = (Track) SerializationHelper.deserialize(trackIterator.next());
-								String videoURL = new String(track.videoURL);
+								String videoURL = new String(track.id.videoURL);
 								int numTracks = track.numTracks;
 								String videoRoot = metadataDir + "/" + videoURL;
 								String taskRoot = videoRoot + "/" + taskID;
@@ -351,63 +506,7 @@ public class DataManagingApp extends SparkStreamingApp {
 									String storeDir = taskRoot + "/" + track.id;
 									fs.mkdirs(new Path(storeDir));
 
-									int numBBoxes = track.locationSequence.length;
-
-									// Write bounding boxes infomations.
-									FSDataOutputStream outputStream = fs.create(new Path(storeDir + "/bbox.txt"));
-									BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream));
-									writer.write("{");
-									writer.newLine();
-									writer.write("\t\"startFrameIndex\":" + track.startFrameIndex);
-									writer.newLine();
-									writer.write("\t\"boundingBoxes\":[");
-
-									for (int i = 0; i < numBBoxes; ++i) {
-										BoundingBox bbox = track.locationSequence[i];
-
-										writer.write("{");
-										writer.newLine();
-										writer.write("\t\t\"x\": " + bbox.x + ",");
-										writer.newLine();
-										writer.write("\t\t\"y\": " + bbox.y + ",");
-										writer.newLine();
-										writer.write("\t\t\"width\": " + bbox.width + ",");
-										writer.newLine();
-										writer.write("\t\t\"height\": " + bbox.height);
-										writer.newLine();
-										writer.write("\t}");
-										if (i + 1 < numBBoxes) {
-											writer.write(", ");
-										}
-
-										// Use JavaCV to encode the image patch
-										// into a
-										// JPEG, stored in the memory.
-										BytePointer inputPointer = new BytePointer(bbox.patchData);
-										Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
-										BytePointer outputPointer = new BytePointer();
-										imencode(".jpg", image, outputPointer);
-										byte[] bytes = new byte[(int) outputPointer.limit()];
-										outputPointer.get(bytes);
-
-										// Output the image patch to HDFS.
-										FSDataOutputStream imgOutputStream = fs
-												.create(new Path(storeDir + "/" + i + ".jpg"));
-										imgOutputStream.write(bytes);
-										imgOutputStream.close();
-
-										image.release();
-										inputPointer.deallocate();
-										outputPointer.deallocate();
-									}
-
-									writer.write("\t]");
-									writer.newLine();
-									writer.write("}");
-									writer.newLine();
-									writer.flush();
-									writer.close();
-									outputStream.close();
+									storeTrack(fs, storeDir, track);
 
 									if (!trackIterator.hasNext()) {
 										break;
@@ -434,6 +533,9 @@ public class DataManagingApp extends SparkStreamingApp {
 
 									loggerSupplier.get().info("Tracks of " + videoURL + "-" + taskID + " packed!");
 
+									dbConnectorSupplier.get().setTrackSavingPath(track.id.toString(),
+											videoRoot + "/" + taskID + ".har");
+
 									// Delete the original folder recursively.
 									fs.delete(new Path(taskRoot), true);
 								} else {
@@ -457,8 +559,9 @@ public class DataManagingApp extends SparkStreamingApp {
 
 						final ObjectSupplier<SynthesizedLogger> loggerSupplier = loggerSingleton
 								.getSupplier(new JavaSparkContext(attrRDD.context()));
+						final ObjectSupplier<GraphDatabaseConnector> dbConnectorSupplier = dbConnectorSingleton
+								.getSupplier(new JavaSparkContext(attrRDD.context()));
 
-						attrRDD.context().setLocalProperty("spark.scheduler.pool", "vpe");
 						attrRDD.foreach(new VoidFunction<Tuple2<String, byte[]>>() {
 
 							private static final long serialVersionUID = -4846631314801254257L;
@@ -468,6 +571,8 @@ public class DataManagingApp extends SparkStreamingApp {
 								Attributes attr;
 								try {
 									attr = (Attributes) SerializationHelper.deserialize(result._2());
+
+									dbConnectorSupplier.get().setPedestrianAttributes(attr.trackID.toString(), attr);
 
 									if (verbose) {
 										loggerSupplier.get()
@@ -556,11 +661,23 @@ public class DataManagingApp extends SparkStreamingApp {
 					}
 				}, FileSystem.class);
 
+		final BroadcastSingleton<GraphDatabaseConnector> databaseConnectorSingleton = new BroadcastSingleton<>(
+				new ObjectFactory<GraphDatabaseConnector>() {
+
+					private static final long serialVersionUID = -1312378515906956687L;
+
+					@Override
+					public FakeDatabaseConnector getObject() {
+						return new FakeDatabaseConnector();
+					}
+				}, GraphDatabaseConnector.class);
+
 		// Setup streams for data feeding.
-		setupDataFeeding(streamingContext, broadcastKafkaSink, loggerSingleton);
+		setupDataFeeding(streamingContext, broadcastKafkaSink, fileSystemSingleton, loggerSingleton,
+				databaseConnectorSingleton);
 
 		// Setup streams for meta data saving.
-		setupMetadataSaving(streamingContext, fileSystemSingleton, loggerSingleton);
+		setupMetadataSaving(streamingContext, fileSystemSingleton, loggerSingleton, databaseConnectorSingleton);
 
 		return streamingContext;
 	}

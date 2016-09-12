@@ -66,7 +66,7 @@ public class MainController {
 
 				@Override
 				public void run() {
-					byte[] recvBuf = new byte[1000];
+					byte[] recvBuf = new byte[10000];
 					DatagramPacket recvPacket = new DatagramPacket(recvBuf, recvBuf.length);
 					while (listening) {
 						try {
@@ -118,8 +118,8 @@ public class MainController {
 						.setConf(SparkLauncher.DRIVER_MEMORY, propertyCenter.driverMem)
 						.setConf(SparkLauncher.EXECUTOR_CORES, "" + propertyCenter.executorCores)
 						.setConf(SparkLauncher.EXECUTOR_MEMORY, propertyCenter.executorMem)
-						.setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
-						.addAppArgs(propertyCenter.getArgs()).launch();
+						.setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName).addAppArgs(propertyCenter.getArgs())
+						.launch();
 				processesWithNames.add(new ProcessWithName(sparkLauncherProcess, appName));
 
 				InputStreamReaderRunnable infoStreamReaderRunnable = new InputStreamReaderRunnable(
