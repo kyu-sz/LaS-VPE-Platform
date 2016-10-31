@@ -20,13 +20,11 @@ package org.cripac.isee.vpe.alg;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
-import org.cripac.isee.vpe.data.DataManagingApp;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
@@ -53,7 +51,8 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class PedestrianAttrRecogAppTest {
 
-    public static final Topic TEST_PED_ATTR_RECV_TOPIC = new Topic("test-ped-attr-recv", DataType.ATTR, null);
+    public static final Topic TEST_PED_ATTR_RECV_TOPIC
+            = new Topic("test-ped-attr-recv", DataType.ATTR, null);
 
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
@@ -89,14 +88,14 @@ public class PedestrianAttrRecogAppTest {
 //    @Test
     public void testAttrRecog() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode =
+        TaskData.ExecutionPlan.Node recogNode =
                 plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
-        plan.linkNodes(savingNode, TEST_PED_ATTR_RECV_TOPIC);
+        plan.letOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
 
         // Send request (fake tracklet).
-        TaskData trackletData = new TaskData(savingNode, plan,
+        TaskData trackletData = new TaskData(recogNode, plan,
                 new FakePedestrianTracker().track(null));
-        sendWithLog(DataManagingApp.PedestrainTrackletRetrievingStream.PED_TRACKLET_RTRV_JOB_TOPIC,
+        sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(trackletData),
                 producer,
