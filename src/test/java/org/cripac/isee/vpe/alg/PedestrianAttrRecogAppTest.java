@@ -15,19 +15,22 @@
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.cripac.isee.vpe.data;
+package org.cripac.isee.vpe.alg;
 
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
-import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
+import org.cripac.isee.vpe.data.DataManagingApp;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
-import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 
+import java.util.Arrays;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -43,9 +46,12 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  *
  * Created by ken.yu on 16-10-31.
  */
-public class DataManagingAppTest {
+public class PedestrianAttrRecogAppTest {
+
+    public static final Topic TEST_PED_ATTR_RECV_TOPIC = new Topic("test-ped-attr-recv", DataType.ATTR, null);
 
     private KafkaProducer<String, byte[]> producer;
+    private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
 
     @Before
@@ -60,13 +66,23 @@ public class DataManagingAppTest {
         producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger();
+
+        Properties consumerProp = new Properties();
+        consumerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
+        consumerProp.put("group.id", "test");
+        consumerProp.put("enable.auto.commit", true);
+        consumerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        consumerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+        consumer = new KafkaConsumer<>(consumerProp);
+        consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
     }
 
 //    @Test
-    public void testTrackletSaving() throws Exception {
+    public void testAttrRecog() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node savingNode =
-                plan.addNode(DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
+                plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
+        plan.linkNodes(savingNode, TEST_PED_ATTR_RECV_TOPIC);
         TaskData data = new TaskData(savingNode, plan,
                 new FakePedestrianTracker().track(null));
         sendWithLog(DataManagingApp.PedestrainTrackletRetrievingStream.PED_TRACKLET_RTRV_JOB_TOPIC,
@@ -74,24 +90,15 @@ public class DataManagingAppTest {
                 serialize(data),
                 producer,
                 logger);
-    }
 
-    //    @Test
-    public void testAttributeSaving() throws Exception {
-        TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode =
-                plan.addNode(DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
-        TaskData data = new TaskData(savingNode, plan,
-                new FakePedestrianAttrRecognizer().recognize(new FakePedestrianTracker().track(null)[0]));
-        sendWithLog(DataManagingApp.PedestrainTrackletRetrievingStream.PED_TRACKLET_RTRV_JOB_TOPIC,
-                UUID.randomUUID().toString(),
-                serialize(data),
-                producer,
-                logger);
+        ConsumerRecords<String, byte[]> records = consumer.poll(0);
+        records.forEach(rec -> {
+            logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + rec.value());
+        });
     }
 
     public static void main(String[] args) {
-        DataManagingAppTest test = new DataManagingAppTest();
+        PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
         try {
             test.init();
         } catch (Exception e) {
@@ -99,12 +106,7 @@ public class DataManagingAppTest {
             return;
         }
         try {
-            test.testTrackletSaving();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        try {
-            test.testAttributeSaving();
+            test.testAttrRecog();
         } catch (Exception e) {
             e.printStackTrace();
         }

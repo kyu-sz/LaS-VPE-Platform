@@ -42,7 +42,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class CommandGeneratingApp implements Serializable {
 
-    private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+    private KafkaProducer<String, byte[]> producer;
     private ConsoleLogger logger;
 
     public CommandGeneratingApp(SystemPropertyCenter propCenter) throws Exception {
@@ -50,7 +50,7 @@ public class CommandGeneratingApp implements Serializable {
         producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
         producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
-        producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
+        producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger();
     }
 
@@ -81,37 +81,37 @@ public class CommandGeneratingApp implements Serializable {
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_ONLY,
                 serialize(param),
-                producerSingleton.getInst(),
+                producer,
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.RECOG_ATTR_ONLY,
                 serialize(param),
-                producerSingleton.getInst(),
+                producer,
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_AND_RECOG_ATTR,
                 serialize(param),
-                producerSingleton.getInst(),
+                producer,
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.REID_ONLY,
                 serialize(param),
-                producerSingleton.getInst(),
+                producer,
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.RECOG_ATTR_AND_REID,
                 serialize(param),
-                producerSingleton.getInst(),
+                producer,
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_AND_RECOG_ATTR_AND_REID,
                 serialize(param),
-                producerSingleton.getInst(),
+                producer,
                 logger);
     }
 }

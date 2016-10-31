@@ -215,7 +215,7 @@ public class TaskData implements Serializable, Cloneable {
          */
         public void linkNodes(Node headNode, Topic tailNodeTopic) throws DataTypeUnmatchException {
             if (headNode.getStreamInfo().OUTPUT_TYPE
-                    == tailNodeTopic.STREAM_INFO.OUTPUT_TYPE) {
+                    != tailNodeTopic.STREAM_INFO.OUTPUT_TYPE) {
                 throw new DataTypeUnmatchException("Output TYPE of stream "
                         + headNode.getStreamInfo() + " does not match with input TYPE of topic"
                         + tailNodeTopic);

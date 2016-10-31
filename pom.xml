@@ -123,6 +123,12 @@
             <artifactId>vertx-web</artifactId>
             <version>3.3.3</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients -->
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>0.10.1.0</version>
+        </dependency>
     </dependencies>
 
     <licenses>
