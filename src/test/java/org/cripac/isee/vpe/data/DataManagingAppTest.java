@@ -50,7 +50,11 @@ public class DataManagingAppTest {
 
     @Before
     public void init() throws Exception {
-        SystemPropertyCenter propCenter = new SystemPropertyCenter();
+        init(new String[0]);
+    }
+
+    public void init(String[] args) throws Exception {
+        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
         TopicManager.checkTopics(propCenter);
 
@@ -93,7 +97,7 @@ public class DataManagingAppTest {
     public static void main(String[] args) {
         DataManagingAppTest test = new DataManagingAppTest();
         try {
-            test.init();
+            test.init(args);
         } catch (Exception e) {
             e.printStackTrace();
             return;

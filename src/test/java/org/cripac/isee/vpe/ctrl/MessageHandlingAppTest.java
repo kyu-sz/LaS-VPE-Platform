@@ -15,17 +15,13 @@
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.cripac.isee.vpe.debug;
+package org.cripac.isee.vpe.ctrl;
 
 import org.apache.commons.collections.map.HashedMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.cripac.isee.vpe.ctrl.MessageHandlingApp;
-import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
-import org.cripac.isee.vpe.ctrl.TopicManager;
-import org.cripac.isee.vpe.util.SerializationHelper;
-import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -35,26 +31,22 @@ import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
- * The CommandGenerator class is for simulating commands sent to the message
+ * The MessageHandlingAppTest class is for simulating commands sent to the message
  * handling application through Kafka.
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class CommandGeneratingApp implements Serializable {
+public class MessageHandlingAppTest implements Serializable {
 
     private KafkaProducer<String, byte[]> producer;
     private ConsoleLogger logger;
 
-    public CommandGeneratingApp(SystemPropertyCenter propCenter) throws Exception {
-        Properties producerProp = new Properties();
-        producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-        producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
-        producer = new KafkaProducer<>(producerProp);
-        logger = new ConsoleLogger();
+    @Before
+    public void init() throws Exception {
+        init(new String[0]);
     }
 
-    public static void main(String[] args) throws Exception {
+    public void init(String[] args) throws Exception {
         SystemPropertyCenter propCenter;
         if (args.length > 0) {
             propCenter = new SystemPropertyCenter(args);
@@ -64,10 +56,21 @@ public class CommandGeneratingApp implements Serializable {
 
         TopicManager.checkTopics(propCenter);
 
-        CommandGeneratingApp app = new CommandGeneratingApp(propCenter);
+        Properties producerProp = new Properties();
+        producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
+        producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+        producer = new KafkaProducer<>(producerProp);
+        logger = new ConsoleLogger();
+    }
+
+    public static void main(String[] args) throws Exception {
+        MessageHandlingAppTest app = new MessageHandlingAppTest();
+        app.init(args);
         app.generatePresetCommand();
     }
 
+//    @Test
     public void generatePresetCommand() throws Exception {
         Map<String, String> param = new HashedMap();
         param.put(

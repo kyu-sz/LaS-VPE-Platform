@@ -20,6 +20,7 @@ package org.cripac.isee.vpe.alg;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
@@ -29,11 +30,15 @@ import org.cripac.isee.vpe.data.DataManagingApp;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.ParserConfigurationException;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.UUID;
 
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
@@ -56,7 +61,11 @@ public class PedestrianAttrRecogAppTest {
 
     @Before
     public void init() throws Exception {
-        SystemPropertyCenter propCenter = new SystemPropertyCenter();
+        init(new String[0]);
+    }
+
+    public void init(String[] args) throws SAXException, ParserConfigurationException, URISyntaxException {
+        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
         TopicManager.checkTopics(propCenter);
 
@@ -83,24 +92,33 @@ public class PedestrianAttrRecogAppTest {
         TaskData.ExecutionPlan.Node savingNode =
                 plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
         plan.linkNodes(savingNode, TEST_PED_ATTR_RECV_TOPIC);
-        TaskData data = new TaskData(savingNode, plan,
+
+        // Send request (fake tracklet).
+        TaskData trackletData = new TaskData(savingNode, plan,
                 new FakePedestrianTracker().track(null));
         sendWithLog(DataManagingApp.PedestrainTrackletRetrievingStream.PED_TRACKLET_RTRV_JOB_TOPIC,
                 UUID.randomUUID().toString(),
-                serialize(data),
+                serialize(trackletData),
                 producer,
                 logger);
 
+        // Receive result (attributes).
         ConsumerRecords<String, byte[]> records = consumer.poll(0);
         records.forEach(rec -> {
-            logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + rec.value());
+            TaskData attrData = null;
+            try {
+                attrData = (TaskData) deserialize(rec.value());
+                logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + attrData.predecessorRes);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
         });
     }
 
     public static void main(String[] args) {
         PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
         try {
-            test.init();
+            test.init(args);
         } catch (Exception e) {
             e.printStackTrace();
             return;
