@@ -556,7 +556,6 @@ public class DataManagingApp extends SparkStreamingApp {
             // TODO Modify the streaming steps from here to store the meta data.
             buildBytesDirectStream(jsc, kafkaParams, idRankSavingTopicMap)
                     .foreachRDD(rdd -> {
-
                         rdd.foreach(res -> {
                             int[] idRank;
                             try {

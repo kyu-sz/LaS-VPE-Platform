@@ -23,9 +23,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Level;
-import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -104,16 +101,9 @@ public abstract class SparkStreamingApp implements Serializable {
                         StringDecoder.class, DefaultDecoder.class,
                         kafkaParams,
                         numPartitionsPerTopic.keySet())
-                .transformToPair(new Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>() {
-
-                    private static final long serialVersionUID = -5638281898957276768L;
-
-                    @Override
-                    public JavaPairRDD<String, byte[]> call(JavaPairRDD<String, byte[]> rdd)
-                            throws Exception {
-                        rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
-                        return rdd;
-                    }
+                .transformToPair(rdd -> {
+                    rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
+                    return rdd;
                 });
     }
 
@@ -141,30 +131,24 @@ public abstract class SparkStreamingApp implements Serializable {
 
         String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
         logger.info("Using " + checkpointDir + " as checkpoint directory.");
-        streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, new Function0<JavaStreamingContext>() {
-
-            private static final long serialVersionUID = 1136960093227848775L;
-
-            @Override
-            public JavaStreamingContext call() throws Exception {
-                JavaStreamingContext context = getStreamContext();
-                try {
-                    if (propCenter.sparkMaster.contains("local")) {
-                        File dir = new File(checkpointDir);
-                        dir.delete();
-                        dir.mkdirs();
-                    } else {
-                        FileSystem fs = FileSystem.get(new Configuration());
-                        Path dir = new Path(checkpointDir);
-                        fs.delete(dir, true);
-                        fs.mkdirs(dir);
-                    }
-                    context.checkpoint(checkpointDir);
-                } catch (IllegalArgumentException | IOException e) {
-                    e.printStackTrace();
+        streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
+            JavaStreamingContext context = getStreamContext();
+            try {
+                if (propCenter.sparkMaster.contains("local")) {
+                    File dir = new File(checkpointDir);
+                    dir.delete();
+                    dir.mkdirs();
+                } else {
+                    FileSystem fs = FileSystem.get(new Configuration());
+                    Path dir = new Path(checkpointDir);
+                    fs.delete(dir, true);
+                    fs.mkdirs(dir);
                 }
-                return context;
+                context.checkpoint(checkpointDir);
+            } catch (IllegalArgumentException | IOException e) {
+                e.printStackTrace();
             }
+            return context;
         }, new Configuration(), true);
     }
 
