@@ -24,6 +24,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.pedestrian.attr.Attributes;
+import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
@@ -42,6 +43,8 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.util.*;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
@@ -163,15 +166,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
-            attrRecogSingleton = new Singleton<>(new Factory<PedestrianAttrRecognizer>() {
-
-                private static final long serialVersionUID = -5422299243899032592L;
-
-                @Override
-                public PedestrianAttrRecognizer produce() {
-
-                    return new FakePedestrianAttrRecognizer();
-                }
+            attrRecogSingleton = new Singleton<>(()-> {
+                return new FakePedestrianAttrRecognizer();
             });
             loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
                     INFO.NAME,

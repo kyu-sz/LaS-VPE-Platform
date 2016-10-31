@@ -23,8 +23,6 @@ import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
-import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 
@@ -70,10 +68,10 @@ public class DataManagingAppTest {
     public void testTrackletSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node savingNode =
-                plan.addNode(DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
+                plan.addNode(DataManagingApp.SavingStream.INFO);
         TaskData data = new TaskData(savingNode, plan,
                 new FakePedestrianTracker().track(null));
-        sendWithLog(DataManagingApp.PedestrainTrackletRetrievingStream.PED_TRACKLET_RTRV_JOB_TOPIC,
+        sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,
@@ -81,13 +79,14 @@ public class DataManagingAppTest {
     }
 
     //    @Test
-    public void testAttributeSaving() throws Exception {
+    public void testAttrSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node savingNode =
-                plan.addNode(DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
+                plan.addNode(DataManagingApp.SavingStream.INFO);
         TaskData data = new TaskData(savingNode, plan,
-                new FakePedestrianAttrRecognizer().recognize(new FakePedestrianTracker().track(null)[0]));
-        sendWithLog(DataManagingApp.PedestrainTrackletRetrievingStream.PED_TRACKLET_RTRV_JOB_TOPIC,
+                new FakePedestrianAttrRecognizer().recognize(
+                        new FakePedestrianTracker().track(null)[0]));
+        sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,
@@ -108,7 +107,7 @@ public class DataManagingAppTest {
             e.printStackTrace();
         }
         try {
-            test.testAttributeSaving();
+            test.testAttrSaving();
         } catch (Exception e) {
             e.printStackTrace();
         }

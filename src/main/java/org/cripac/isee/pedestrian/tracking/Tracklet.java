@@ -43,7 +43,7 @@ public class Tracklet implements Serializable {
      * processed in latter steps. So it is highly recommended that track
      * generators should also fill in this field.
      */
-    @SerializedName("track-number")
+    @SerializedName("tracklet-number")
     public int numTracklets = -1;
     /**
      * The starting frame index of this track in the source video. User can use

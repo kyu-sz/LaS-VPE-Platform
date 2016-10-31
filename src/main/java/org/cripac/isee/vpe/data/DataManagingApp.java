@@ -336,13 +336,16 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public static final Info INFO = new Info("Saving", DataType.NONE);
         public static final Topic PED_TRACKLET_SAVING_TOPIC =
-                new Topic("pedestrian-tracklet-saving", DataType.TRACKLET,
+                new Topic("pedestrian-tracklet-saving",
+                        DataType.TRACKLET,
                         SavingStream.INFO);
         public static final Topic PED_ATTR_SAVING_TOPIC =
-                new Topic("pedestrian-attr-saving", DataType.ATTR,
+                new Topic("pedestrian-attr-saving",
+                        DataType.ATTR,
                         SavingStream.INFO);
         public static final Topic PED_IDRANK_SAVING_TOPIC =
-                new Topic("pedestrian-idrank-saving", DataType.IDRANK,
+                new Topic("pedestrian-idrank-saving",
+                        DataType.IDRANK,
                         SavingStream.INFO);
         private Map<String, Integer> trackletSavingTopicMap = new HashMap<>();
         private Map<String, Integer> attrSavingTopicMap = new HashMap<>();
