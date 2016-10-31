@@ -46,6 +46,26 @@ public class DataManagingAppTest {
     private KafkaProducer<String, byte[]> producer;
     private ConsoleLogger logger;
 
+    public static void main(String[] args) {
+        DataManagingAppTest test = new DataManagingAppTest();
+        try {
+            test.init(args);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+        try {
+            test.testTrackletSaving();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        try {
+            test.testAttrSaving();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Before
     public void init() throws Exception {
         init(new String[0]);
@@ -70,7 +90,7 @@ public class DataManagingAppTest {
         TaskData.ExecutionPlan.Node savingNode =
                 plan.addNode(DataManagingApp.SavingStream.INFO);
         TaskData data = new TaskData(savingNode, plan,
-                new FakePedestrianTracker().track(null));
+                new FakePedestrianTracker().track(new byte[0]));
         sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),
@@ -85,31 +105,11 @@ public class DataManagingAppTest {
                 plan.addNode(DataManagingApp.SavingStream.INFO);
         TaskData data = new TaskData(savingNode, plan,
                 new FakePedestrianAttrRecognizer().recognize(
-                        new FakePedestrianTracker().track(null)[0]));
+                        new FakePedestrianTracker().track(new byte[0])[0]));
         sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,
                 logger);
-    }
-
-    public static void main(String[] args) {
-        DataManagingAppTest test = new DataManagingAppTest();
-        try {
-            test.init(args);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
-        try {
-            test.testTrackletSaving();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        try {
-            test.testAttrSaving();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 }

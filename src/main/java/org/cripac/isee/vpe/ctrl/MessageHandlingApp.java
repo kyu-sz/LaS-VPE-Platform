@@ -205,8 +205,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     ExecutionPlan.Node trackingNode = plan.addNode(
                             PedestrianTrackingApp.TrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
-                    // The letOutputTo method will automatically add the DataManagingApp node.
-                    plan.letOutputTo(trackingNode,
+                    // The letNodeOutputTo method will automatically add the DataManagingApp node.
+                    plan.letNodeOutputTo(trackingNode,
                             DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC);
                     break;
                 }
@@ -216,9 +216,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
-                    plan.letOutputTo(trackletDataNode,
+                    plan.letNodeOutputTo(trackletDataNode,
                             PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
-                    plan.letOutputTo(attrRecogNode,
+                    plan.letNodeOutputTo(attrRecogNode,
                             DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC);
                     break;
                 }
@@ -229,11 +229,11 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
-                    plan.letOutputTo(trackingNode,
+                    plan.letNodeOutputTo(trackingNode,
                             PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
-                    plan.letOutputTo(trackingNode,
+                    plan.letNodeOutputTo(trackingNode,
                             DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC);
-                    plan.letOutputTo(attrRecogNode,
+                    plan.letNodeOutputTo(attrRecogNode,
                             DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC);
                     break;
                 }
@@ -244,9 +244,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             DataManagingApp.PedestrainTrackletAttrRetrievingStream.INFO);
                     ExecutionPlan.Node reidNode = plan.addNode(
                             PedestrianReIDUsingAttrApp.ReIDStream.INFO);
-                    plan.letOutputTo(trackWithAttrDataNode,
+                    plan.letNodeOutputTo(trackWithAttrDataNode,
                             PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_ATTR_TOPIC);
-                    plan.letOutputTo(reidNode,
+                    plan.letNodeOutputTo(reidNode,
                             DataManagingApp.SavingStream.PED_IDRANK_SAVING_TOPIC);
                     break;
                 }
@@ -257,15 +257,15 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             PedestrianAttrRecogApp.RecogStream.INFO);
                     ExecutionPlan.Node reidNode = plan.addNode(
                             PedestrianReIDUsingAttrApp.ReIDStream.INFO);
-                    plan.letOutputTo(trackletDataNode,
+                    plan.letNodeOutputTo(trackletDataNode,
                             PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
-                    plan.letOutputTo(trackletDataNode,
+                    plan.letNodeOutputTo(trackletDataNode,
                             PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_TOPIC);
-                    plan.letOutputTo(attrRecogNode,
+                    plan.letNodeOutputTo(attrRecogNode,
                             PedestrianReIDUsingAttrApp.ReIDStream.ATTR_TOPIC);
-                    plan.letOutputTo(attrRecogNode,
+                    plan.letNodeOutputTo(attrRecogNode,
                             DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC);
-                    plan.letOutputTo(reidNode,
+                    plan.letNodeOutputTo(reidNode,
                             DataManagingApp.SavingStream.PED_IDRANK_SAVING_TOPIC);
                     break;
                 }
@@ -277,17 +277,17 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             PedestrianAttrRecogApp.RecogStream.INFO);
                     ExecutionPlan.Node reidNode = plan.addNode(
                             PedestrianReIDUsingAttrApp.ReIDStream.INFO);
-                    plan.letOutputTo(trackingNode,
+                    plan.letNodeOutputTo(trackingNode,
                             PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
-                    plan.letOutputTo(trackingNode,
+                    plan.letNodeOutputTo(trackingNode,
                             PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_TOPIC);
-                    plan.letOutputTo(attrRecogNode,
+                    plan.letNodeOutputTo(attrRecogNode,
                             PedestrianReIDUsingAttrApp.ReIDStream.ATTR_TOPIC);
-                    plan.letOutputTo(trackingNode,
+                    plan.letNodeOutputTo(trackingNode,
                             DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC);
-                    plan.letOutputTo(attrRecogNode,
+                    plan.letNodeOutputTo(attrRecogNode,
                             DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC);
-                    plan.letOutputTo(reidNode,
+                    plan.letNodeOutputTo(reidNode,
                             DataManagingApp.SavingStream.PED_IDRANK_SAVING_TOPIC);
                     break;
                 }

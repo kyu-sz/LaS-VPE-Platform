@@ -21,6 +21,7 @@ import org.cripac.isee.pedestrian.tracking.Tracker;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
 
+import javax.annotation.Nonnull;
 import java.util.Random;
 
 public class FakePedestrianTracker extends Tracker {
@@ -70,7 +71,7 @@ public class FakePedestrianTracker extends Tracker {
      * @return A set of tracklets of pedestrians.
      */
     @Override
-    public Tracklet[] track(byte[] videoBytes) {
+    public Tracklet[] track(@Nonnull byte[] videoBytes) {
         return generateRandomTrackSet();
     }
 }

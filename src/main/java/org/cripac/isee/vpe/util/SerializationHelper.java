@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.util;
 
+import javax.annotation.Nonnull;
 import java.io.*;
 
 /**
@@ -33,7 +34,7 @@ public class SerializationHelper {
      * @param object The object to serialize.
      * @return A serialized byte array of the object.
      */
-    public static byte[] serialize(Object object) {
+    public static byte[] serialize(@Nonnull Object object) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         ObjectOutput objectOutput = null;
         try {
@@ -67,7 +68,7 @@ public class SerializationHelper {
      * @return An object from which the byte array is serialized.
      * @throws ClassNotFoundException On failure finding target class.
      */
-    public static Serializable deserialize(byte[] byteArray) throws ClassNotFoundException {
+    public static Serializable deserialize(@Nonnull byte[] byteArray) throws ClassNotFoundException {
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
         ObjectInput objectInput = null;
         try {

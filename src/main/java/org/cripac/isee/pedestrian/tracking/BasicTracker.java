@@ -17,9 +17,12 @@
 
 package org.cripac.isee.pedestrian.tracking;
 
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.tracking.VideoDecoder;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -43,15 +46,24 @@ public class BasicTracker extends Tracker {
     private byte[] conf;
     private Logger logger;
 
+    public BasicTracker(@Nonnull byte[] conf) {
+        this(conf, null);
+    }
+
     /**
      * Construct a tracker with a configuration. The configuration should be
      * provided in a form of byte array.
      *
      * @param conf The byte data of the configuration file.
      */
-    public BasicTracker(byte[] conf, Logger logger) {
+    public BasicTracker(@Nonnull byte[] conf,
+                        @Nullable Logger logger) {
         this.conf = conf;
-        this.logger = logger;
+        if (logger == null) {
+            this.logger = logger;
+        } else {
+            this.logger = new ConsoleLogger();
+        }
     }
 
     /*
@@ -60,7 +72,7 @@ public class BasicTracker extends Tracker {
      * @see Tracker#track(java.lang.String)
      */
     @Override
-    public Tracklet[] track(byte[] videoBytes) {
+    public Tracklet[] track(@Nonnull byte[] videoBytes) {
         // Limit instances on a single node.
         while (true) {
             synchronized (BasicTracker.class) {

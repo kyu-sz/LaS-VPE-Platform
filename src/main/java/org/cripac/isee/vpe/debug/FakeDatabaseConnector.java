@@ -20,6 +20,7 @@ package org.cripac.isee.vpe.debug;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 
+import javax.annotation.Nonnull;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
@@ -40,7 +41,8 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * java.lang.String, java.lang.String)
      */
     @Override
-    public void setTrackSavingPath(String id, String path) {
+    public void setTrackSavingPath(@Nonnull String id,
+                                   @Nonnull String path) {
     }
 
     /*
@@ -51,7 +53,7 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * java.lang.String, java.lang.String)
      */
     @Override
-    public String getTrackletSavingDir(String id) throws NoSuchElementException {
+    public String getTrackletSavingDir(@Nonnull String id) throws NoSuchElementException {
         return "har:///user/labadmin/metadata/" +
                 "pedestrian-tracking-isee-basic-CAM01_0/" +
                 "fb7284a6-3064-4a49-aa93-a701368eec7b.har";
@@ -64,7 +66,8 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * setPedestrianSimilarity(java.lang.String, java.lang.String, float)
      */
     @Override
-    public void setPedestrianSimilarity(String idA, String idB, float similarity) {
+    public void setPedestrianSimilarity(@Nonnull String idA,
+                                        @Nonnull String idB, float similarity) {
     }
 
     /*
@@ -74,7 +77,8 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * getPedestrianSimilarity(java.lang.String, java.lang.String)
      */
     @Override
-    public float getPedestrianSimilarity(String idA, String idB) throws NoSuchElementException {
+    public float getPedestrianSimilarity(@Nonnull String idA,
+                                         @Nonnull String idB) throws NoSuchElementException {
         return rand.nextFloat();
     }
 
@@ -86,7 +90,8 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * Attributes)
      */
     @Override
-    public void setPedestrianAttributes(String id, Attributes attr) {
+    public void setPedestrianAttributes(@Nonnull String id,
+                                        @Nonnull Attributes attr) {
     }
 
     /*
@@ -96,7 +101,7 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * getPedestrianAttributes(java.lang.String)
      */
     @Override
-    public Attributes getPedestrianAttributes(String id) throws NoSuchElementException {
+    public Attributes getPedestrianAttributes(@Nonnull String id) throws NoSuchElementException {
         Attributes attr = new Attributes();
         attr.facing = rand.nextInt(Attributes.Facing.RIGHT);
         attr.sex = rand.nextInt(Attributes.Sex.UNDETERMINED);
@@ -110,7 +115,7 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * getLinkedPedestrians(java.lang.String)
      */
     @Override
-    public Link[] getLinkedPedestrians(String id) throws NoSuchElementException {
+    public Link[] getLinkedPedestrians(@Nonnull String id) throws NoSuchElementException {
         return new Link[0];
     }
 }

@@ -41,6 +41,12 @@ public class MessageHandlingAppTest implements Serializable {
     private KafkaProducer<String, byte[]> producer;
     private ConsoleLogger logger;
 
+    public static void main(String[] args) throws Exception {
+        MessageHandlingAppTest app = new MessageHandlingAppTest();
+        app.init(args);
+        app.generatePresetCommand();
+    }
+
     @Before
     public void init() throws Exception {
         init(new String[0]);
@@ -62,12 +68,6 @@ public class MessageHandlingAppTest implements Serializable {
         producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger();
-    }
-
-    public static void main(String[] args) throws Exception {
-        MessageHandlingAppTest app = new MessageHandlingAppTest();
-        app.init(args);
-        app.generatePresetCommand();
     }
 
 //    @Test

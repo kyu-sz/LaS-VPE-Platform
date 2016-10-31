@@ -20,6 +20,8 @@ package org.cripac.isee.vpe.util.kafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.cripac.isee.vpe.util.Factory;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Properties;
 
 /**
@@ -39,8 +41,12 @@ public class KafkaProducerFactory<K, V> implements Factory<KafkaProducer<K, V>> 
     /**
      * Input a property for constructing the Kafka producer.
      */
-    public KafkaProducerFactory(Properties prop) {
-        this.config = prop;
+    public KafkaProducerFactory(@Nullable Properties prop) {
+        if (prop == null) {
+            this.config = prop;
+        } else {
+            this.config = new Properties();
+        }
     }
 
     /*

@@ -22,6 +22,7 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
 
+import javax.annotation.Nonnull;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -130,7 +131,8 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
      * @param port          The port the solver is listening to.
      * @throws IOException
      */
-    public ExternPedestrianComparerUsingAttr(InetAddress solverAddress, int port) throws IOException {
+    public ExternPedestrianComparerUsingAttr(@Nonnull InetAddress solverAddress,
+                                             int port) throws IOException {
         socket = new Socket(solverAddress, port);
         resListeningThread = new Thread(new ResultListener(socket.getInputStream()));
         resListeningThread.start();
@@ -145,7 +147,9 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
      * @param enableFeatureOnly Enable to compare pedestrians with feature only.
      * @throws IOException
      */
-    public ExternPedestrianComparerUsingAttr(InetAddress solverAddress, int port, boolean enableFeatureOnly)
+    public ExternPedestrianComparerUsingAttr(@Nonnull InetAddress solverAddress,
+                                             int port,
+                                             boolean enableFeatureOnly)
             throws IOException {
         this.enableFeatureOnly = enableFeatureOnly;
 
@@ -163,7 +167,8 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
      * PedestrianInfo)
      */
     @Override
-    public float compare(PedestrianInfo personA, PedestrianInfo personB) throws IOException {
+    public float compare(@Nonnull PedestrianInfo personA,
+                         @Nonnull PedestrianInfo personB) throws IOException {
         // Create a new message consisting the comparation task.
         RequestMessage message = new RequestMessage(personA, personB);
 
@@ -202,7 +207,8 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
         public PedestrianInfo personA = null;
         public PedestrianInfo personB = null;
 
-        public RequestMessage(PedestrianInfo personA, PedestrianInfo personB) {
+        public RequestMessage(@Nonnull PedestrianInfo personA,
+                              @Nonnull PedestrianInfo personB) {
             this.personA = personA;
             this.personB = personB;
         }
@@ -215,7 +221,8 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
          * @param outputStream   The stream to output the byte array to.
          * @throws IOException
          */
-        private void getBytesFromPedestrianInfo(PedestrianInfo pedestrianInfo, OutputStream outputStream)
+        private void getBytesFromPedestrianInfo(@Nonnull PedestrianInfo pedestrianInfo,
+                                                @Nonnull OutputStream outputStream)
                 throws IOException {
             ByteBuffer byteBuffer;
 
@@ -270,7 +277,7 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
          * @param outputStream The output stream to write to.
          * @throws IOException
          */
-        public void getBytes(OutputStream outputStream) throws IOException {
+        public void getBytes(@Nonnull OutputStream outputStream) throws IOException {
             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream);
 
             // 16 bytes - Request UUID.
@@ -306,7 +313,7 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
          * @param inputStream Input stream from the socket.
          * @throws IOException
          */
-        public ResultListener(InputStream inputStream) {
+        public ResultListener(@Nonnull InputStream inputStream) {
             this.inputStream = inputStream;
         }
 

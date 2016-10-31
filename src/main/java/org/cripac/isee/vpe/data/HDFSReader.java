@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +59,7 @@ public class HDFSReader {
      * the given path itself if the path specifies a file.
      * @throws IOException On error reading files in Hadoop Filesystem.
      */
-    public List<Path> listSubfiles(Path path) throws IOException {
+    public List<Path> listSubfiles(@Nonnull Path path) throws IOException {
         FileStatus[] fileStatus = hdfs.listStatus(path);
         Path[] listPath = FileUtil.stat2Paths(fileStatus);
         ArrayList<Path> subfilePaths = new ArrayList<>();

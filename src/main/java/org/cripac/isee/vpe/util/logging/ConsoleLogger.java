@@ -15,6 +15,7 @@ package org.cripac.isee.vpe.util.logging;/**************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
+import javax.annotation.Nonnull;
 import java.io.Serializable;
 
 /**
@@ -22,45 +23,49 @@ import java.io.Serializable;
  */
 public class ConsoleLogger extends Logger implements Serializable {
     @Override
-    public void debug(Object message) {
+    public void debug(@Nonnull Object message) {
         System.out.println(message);
     }
 
     @Override
-    public void debug(Object message, Throwable t) {
-        System.out.println(message);
-        System.out.println(t.getStackTrace());
-    }
-
-    @Override
-    public void info(Object message) {
-        System.out.println(message);
-    }
-
-    @Override
-    public void info(Object message, Throwable t) {
+    public void debug(@Nonnull Object message,
+                      @Nonnull Throwable t) {
         System.out.println(message);
         System.out.println(t.getStackTrace());
     }
 
     @Override
-    public void error(Object message) {
+    public void info(@Nonnull Object message) {
+        System.out.println(message);
+    }
+
+    @Override
+    public void info(@Nonnull Object message,
+                     @Nonnull Throwable t) {
+        System.out.println(message);
+        System.out.println(t.getStackTrace());
+    }
+
+    @Override
+    public void error(@Nonnull Object message) {
         System.err.println(message);
     }
 
     @Override
-    public void error(Object message, Throwable t) {
+    public void error(@Nonnull Object message,
+                      @Nonnull Throwable t) {
         System.err.println(message);
         System.out.println(t.getStackTrace());
     }
 
     @Override
-    public void fatal(Object message) {
+    public void fatal(@Nonnull Object message) {
         System.err.println(message);
     }
 
     @Override
-    public void fatal(Object message, Throwable t) {
+    public void fatal(@Nonnull Object message,
+                      @Nonnull Throwable t) {
         System.err.println(message);
         System.out.println(t.getStackTrace());
     }

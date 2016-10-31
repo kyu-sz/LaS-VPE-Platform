@@ -21,6 +21,7 @@ import org.apache.commons.io.IOUtils;
 import org.cripac.isee.vpe.util.tracking.DirectoryHierarchy;
 import org.cripac.isee.vpe.util.tracking.FileDescriptor;
 
+import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -43,7 +44,7 @@ public class ConfigFileManager {
      * @param path A length-variable array of names of hierarchies.
      * @return A list of descriptors of all the configuration files.
      */
-    public static List<FileDescriptor> getConfigFileList(String... path) {
+    public static List<FileDescriptor> getConfigFileList(@Nonnull String... path) {
         DirectoryHierarchy dir = top;
         for (String name : path) {
             dir = dir.getSubHierarchy(name);
@@ -62,7 +63,8 @@ public class ConfigFileManager {
      * @return A string of concatenated paths.
      * @throws IOException On error preparing temporary configuration files.
      */
-    public static String getConcatConfigFilePathList(String connector, String... path) throws IOException {
+    public static String getConcatConfigFilePathList(@Nonnull String connector,
+                                                     @Nonnull String... path) throws IOException {
         if (tmpDir == null) {
             prepareTmpConfigFiles();
         }

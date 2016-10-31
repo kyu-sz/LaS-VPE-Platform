@@ -17,12 +17,13 @@
 
 package org.cripac.isee.vpe.ctrl;
 
-import com.sun.istack.NotNull;
 import org.cripac.isee.vpe.common.DataTypeUnmatchException;
 import org.cripac.isee.vpe.common.RecordNotFoundException;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.common.Topic;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -61,7 +62,7 @@ public class TaskData implements Serializable, Cloneable {
      *
      * @param topic A topic of the new current node.
      */
-    public void changeCurNode(@NotNull Topic topic) throws RecordNotFoundException {
+    public void changeCurNode(@Nonnull Topic topic) throws RecordNotFoundException {
         predecessorInfo = curNode.streamInfo;
         curNode = executionPlan.findNode(topic);
     }
@@ -72,8 +73,8 @@ public class TaskData implements Serializable, Cloneable {
      * @param curNode       Current node to execute.
      * @param executionPlan A global execution plan.
      */
-    public TaskData(ExecutionPlan.Node curNode,
-                    ExecutionPlan executionPlan) {
+    public TaskData(@Nonnull ExecutionPlan.Node curNode,
+                    @Nonnull ExecutionPlan executionPlan) {
         this.curNode = curNode;
         this.executionPlan = executionPlan;
     }
@@ -86,9 +87,9 @@ public class TaskData implements Serializable, Cloneable {
      * @param predecessorRes Result of the predecessor node, which is a serializable
      *                       object.
      */
-    public TaskData(ExecutionPlan.Node curNode,
-                    ExecutionPlan executionPlan,
-                    @NotNull Serializable predecessorRes) {
+    public TaskData(@Nonnull ExecutionPlan.Node curNode,
+                    @Nonnull ExecutionPlan executionPlan,
+                    @Nonnull Serializable predecessorRes) {
         this.curNode = curNode;
         this.executionPlan = executionPlan;
         assert predecessorRes != null;
@@ -130,8 +131,12 @@ public class TaskData implements Serializable, Cloneable {
          * @param topic A topic of the node.
          * @return The node possessing the topic.
          */
-        public Node findNode(@NotNull Topic topic) throws RecordNotFoundException {
-            return findNode(topic.STREAM_INFO);
+        public Node findNode(@Nonnull Topic topic) throws RecordNotFoundException {
+            if (topic.STREAM_INFO == null) {
+                throw new RecordNotFoundException("The topic " + topic + " has no stream information!");
+            } else {
+                return findNode(topic.STREAM_INFO);
+            }
         }
 
         /**
@@ -140,7 +145,7 @@ public class TaskData implements Serializable, Cloneable {
          * @param info Information of the stream.
          * @return The node representing the stream.
          */
-        public Node findNode(Stream.Info info) throws RecordNotFoundException {
+        public Node findNode(@Nonnull Stream.Info info) throws RecordNotFoundException {
             if (!nodes.containsKey(info)) {
                 StringBuilder builder = new StringBuilder(info
                         + " cannot be found in execution plan! Available streams are: ");
@@ -162,7 +167,8 @@ public class TaskData implements Serializable, Cloneable {
          * @param b Another plan.
          * @return A combined execution plan.
          */
-        public static ExecutionPlan combine(ExecutionPlan a, ExecutionPlan b) {
+        public static ExecutionPlan combine(@Nonnull ExecutionPlan a,
+                                            @Nonnull ExecutionPlan b) {
             ExecutionPlan combined = new ExecutionPlan();
 
             for (Stream.Info info : a.nodes.keySet()) {
@@ -213,14 +219,14 @@ public class TaskData implements Serializable, Cloneable {
          * @param headNode      The head node.
          * @param tailNodeTopic Input topic of the tail node.
          */
-        public void letOutputTo(Node headNode, Topic tailNodeTopic) throws DataTypeUnmatchException {
-            if (headNode.getStreamInfo().OUTPUT_TYPE
-                    != tailNodeTopic.STREAM_INFO.OUTPUT_TYPE) {
-                throw new DataTypeUnmatchException("Output TYPE of stream "
-                        + headNode.getStreamInfo() + " does not match with input TYPE of topic"
+        public void letNodeOutputTo(@Nonnull Node headNode,
+                                    @Nonnull Topic tailNodeTopic) throws DataTypeUnmatchException {
+            if (headNode.getStreamInfo().OUTPUT_TYPE != tailNodeTopic.INPUT_TYPE) {
+                throw new DataTypeUnmatchException("Output INPUT_TYPE of stream "
+                        + headNode.getStreamInfo() + " does not match with input INPUT_TYPE of topic"
                         + tailNodeTopic);
             }
-            if (!nodes.containsKey(tailNodeTopic.STREAM_INFO)) {
+            if (tailNodeTopic.STREAM_INFO != null && !nodes.containsKey(tailNodeTopic.STREAM_INFO)) {
                 addNode(tailNodeTopic.STREAM_INFO);
             }
             headNode.addSuccessor(tailNodeTopic);
@@ -233,7 +239,7 @@ public class TaskData implements Serializable, Cloneable {
          * @param streamInfo Information of the stream of the node.
          * @return The new added node.
          */
-        public Node addNode(Stream.Info streamInfo) {
+        public Node addNode(@Nonnull Stream.Info streamInfo) {
             return addNode(streamInfo, null);
         }
 
@@ -245,7 +251,8 @@ public class TaskData implements Serializable, Cloneable {
          * @param execData   Data for execution of the node.
          * @return The new added node.
          */
-        public Node addNode(Stream.Info streamInfo, Serializable execData) {
+        public Node addNode(@Nonnull Stream.Info streamInfo,
+                            @Nullable Serializable execData) {
             if (!nodes.containsKey(streamInfo)) {
                 Node node = new Node(streamInfo, execData);
                 nodes.put(streamInfo, node);

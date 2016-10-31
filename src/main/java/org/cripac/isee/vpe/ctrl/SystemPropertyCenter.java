@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.Path;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.xml.sax.SAXException;
 
+import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
@@ -107,7 +108,7 @@ public class SystemPropertyCenter {
         this(new String[0]);
     }
 
-    public SystemPropertyCenter(String[] args)
+    public SystemPropertyCenter(@Nonnull String[] args)
             throws URISyntaxException, ParserConfigurationException, SAXException {
         CommandLineParser parser = new BasicParser();
         Options options = new Options();

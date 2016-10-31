@@ -17,6 +17,8 @@
 
 package org.cripac.isee.vpe.util.tracking;
 
+import javax.annotation.Nonnull;
+
 /**
  * The class VideoDecoder utilizes native libraries including FFMPEG to decode
  * videos stored in the memory.
@@ -41,14 +43,14 @@ public class VideoDecoder {
      * @param videoData The raw byte data of the video.
      * @throws NullPointerException On videoData is null.
      */
-    public VideoDecoder(byte[] videoData) {
+    public VideoDecoder(@Nonnull byte[] videoData) {
         if (videoData == null) {
             throw new NullPointerException("Byte array of video data cannot be null!");
         }
         nativeDecoder = initialize(videoData);
     }
 
-    private native long initialize(byte[] videoData);
+    private native long initialize(@Nonnull byte[] videoData);
 
     private native byte[] nextFrame(long nativeDecoder);
 

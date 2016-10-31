@@ -15,24 +15,30 @@ package org.cripac.isee.vpe.util.logging;/**************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
+import javax.annotation.Nonnull;
+
 /**
  * Created by ken.yu on 16-10-24.
  */
 public abstract class Logger {
 
-    public abstract void debug(Object message);
+    public abstract void debug(@Nonnull Object message);
 
-    public abstract void debug(Object message, Throwable t);
+    public abstract void debug(@Nonnull Object message,
+                               @Nonnull Throwable t);
 
-    public abstract void info(Object message);
+    public abstract void info(@Nonnull Object message);
 
-    public abstract void info(Object message, Throwable t);
+    public abstract void info(@Nonnull Object message,
+                              @Nonnull Throwable t);
 
-    public abstract void error(Object message);
+    public abstract void error(@Nonnull Object message);
 
-    public abstract void error(Object message, Throwable t);
+    public abstract void error(@Nonnull Object message,
+                               @Nonnull Throwable t);
 
-    public abstract void fatal(Object message);
+    public abstract void fatal(@Nonnull Object message);
 
-    public abstract void fatal(Object message, Throwable t);
+    public abstract void fatal(@Nonnull Object message,
+                               @Nonnull Throwable t);
 }

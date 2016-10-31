@@ -20,6 +20,7 @@ package org.cripac.isee.vpe.debug;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Random;
 
@@ -39,7 +40,7 @@ public class FakePedestrianReIDerWithAttr extends PedestrianReIDer {
      * org.casia.cripac.isee.pedestrian.attr.Attribute)
      */
     @Override
-    public int[] reid(PedestrianInfo target) throws IOException {
+    public int[] reid(@Nonnull PedestrianInfo target) throws IOException {
         int[] rank = new int[10];
         for (int i = 0; i < 10; ++i) {
             rank[i] = rand.nextInt(10000);

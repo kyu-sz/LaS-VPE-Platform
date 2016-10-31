@@ -30,6 +30,7 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 
+import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -66,10 +67,10 @@ public abstract class SparkStreamingApp implements Serializable {
      * @return A paralleled Kafka receiver input stream.
      */
     protected static JavaPairDStream<String, byte[]>
-    buildBytesParRecvStream(JavaStreamingContext streamingContext,
+    buildBytesParRecvStream(@Nonnull JavaStreamingContext streamingContext,
                             int numRecvStreams,
-                            Map<String, String> kafkaParams,
-                            Map<String, Integer> numPartitionsPerTopic) {
+                            @Nonnull Map<String, String> kafkaParams,
+                            @Nonnull Map<String, Integer> numPartitionsPerTopic) {
         // Read bytes in parallel from Kafka.
         List<JavaPairDStream<String, byte[]>> parStreams = new ArrayList<>(numRecvStreams);
         for (int i = 0; i < numRecvStreams; i++) {
@@ -81,7 +82,7 @@ public abstract class SparkStreamingApp implements Serializable {
     }
 
     /**
-     * Utilization function for all applications to receive messages with byte
+     * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
      * @param streamingContext      The streaming context of the applications.
@@ -91,9 +92,9 @@ public abstract class SparkStreamingApp implements Serializable {
      * @return A Kafka non-receiver input stream.
      */
     protected static JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(JavaStreamingContext streamingContext,
-                           Map<String, String> kafkaParams,
-                           Map<String, Integer> numPartitionsPerTopic) {
+    buildBytesDirectStream(@Nonnull JavaStreamingContext streamingContext,
+                           @Nonnull Map<String, String> kafkaParams,
+                           @Nonnull Map<String, Integer> numPartitionsPerTopic) {
         return KafkaUtils
                 .createDirectStream(
                         streamingContext,
@@ -122,7 +123,7 @@ public abstract class SparkStreamingApp implements Serializable {
      *
      * @param propCenter Properties of the whole system.
      */
-    public void initialize(SystemPropertyCenter propCenter) {
+    public void initialize(@Nonnull SystemPropertyCenter propCenter) {
         SynthesizedLogger logger = new SynthesizedLogger(
                 getAppName(),
                 Level.DEBUG,

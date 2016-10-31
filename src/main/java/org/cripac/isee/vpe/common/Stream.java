@@ -22,14 +22,14 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import java.io.Serializable;
 
 /**
- * A Stream is a flow of DStreams. Each stream outputs at most one TYPE of output.
+ * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
  * <p>
  * Created by ken.yu on 16-10-26.
  */
 public abstract class Stream implements Serializable {
     /**
-     * The Info class is designed to force the output data TYPE to
-     * be assigned to a stream, so that TYPE matching checking can
+     * The Info class is designed to force the output data INPUT_TYPE to
+     * be assigned to a stream, so that INPUT_TYPE matching checking can
      * be conducted.
      */
     public static class Info implements Serializable {

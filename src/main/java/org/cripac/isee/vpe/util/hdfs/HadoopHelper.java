@@ -26,9 +26,12 @@ import org.apache.hadoop.fs.Path;
 import org.bytedeco.javacpp.opencv_core;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
@@ -38,6 +41,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
+import static org.bytedeco.javacpp.opencv_core.log;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imdecode;
 
 /**
@@ -73,9 +77,12 @@ public class HadoopHelper {
      * @param id       The identifier of the track.
      * @return The track retrieved.
      */
-    public static Tracklet retrieveTracklet(String storeDir,
-                                            Tracklet.Identifier id,
-                                            Logger logger) {
+    public static Tracklet retrieveTracklet(@Nonnull String storeDir,
+                                            @Nonnull Tracklet.Identifier id,
+                                            @Nullable Logger logger) {
+        if (logger == null) {
+            logger = new ConsoleLogger();
+        }
         try {
             // Open the Hadoop Archive of the task the track is generated in.
             HarFileSystem harFileSystem = new HarFileSystem();
@@ -109,7 +116,7 @@ public class HadoopHelper {
             } catch (Exception e1) {
                 e1.printStackTrace();
             }
-            return new FakePedestrianTracker().track(null)[0];
+            return new FakePedestrianTracker().track(new byte[0])[0];
         }
     }
 }

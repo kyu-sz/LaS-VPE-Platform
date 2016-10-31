@@ -17,6 +17,8 @@
 
 package org.cripac.isee.pedestrian.tracking;
 
+import javax.annotation.Nonnull;
+
 /**
  * The Tracker class is the base class of all pedestrian tracking
  * classes. Any subclass is required to implement a simple 'track' method, which
@@ -32,5 +34,5 @@ public abstract class Tracker {
      * @param videoBytes Bytes of the video to conduct tracking on.
      * @return A set of tracklets of pedestrians.
      */
-    public abstract Tracklet[] track(byte[] videoBytes);
+    public abstract Tracklet[] track(@Nonnull byte[] videoBytes);
 }

@@ -20,6 +20,7 @@ package org.cripac.isee.vpe.debug;
 import org.cripac.isee.vpe.util.hdfs.HDFSVideoDecoder;
 import org.cripac.isee.vpe.util.tracking.VideoData;
 
+import javax.annotation.Nonnull;
 import java.util.Random;
 
 /**
@@ -36,7 +37,7 @@ public class FakeHDFSVideoDecoder extends HDFSVideoDecoder {
      * String)
      */
     @Override
-    public VideoData decode(String videoURL) {
+    public VideoData decode(@Nonnull String videoURL) {
         VideoData data = new VideoData();
         data.width = 1280;
         data.height = 720;

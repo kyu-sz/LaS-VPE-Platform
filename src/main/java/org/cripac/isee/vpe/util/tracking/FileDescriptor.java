@@ -15,6 +15,7 @@ package org.cripac.isee.vpe.util.tracking;/*************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.ListIterator;
 
@@ -37,7 +38,7 @@ public class FileDescriptor {
      *
      * @param name The NAME of the configuration file.
      */
-    public FileDescriptor(String name) {
+    public FileDescriptor(@Nonnull String name) {
         this.name = name;
     }
 
@@ -48,7 +49,7 @@ public class FileDescriptor {
      * @param folderName The NAME of the outer folder.
      * @return The descriptor itself.
      */
-    public FileDescriptor wrap(String folderName) {
+    public FileDescriptor wrap(@Nonnull String folderName) {
         this.hierarchy.add(folderName);
         return this;
     }
@@ -80,7 +81,7 @@ public class FileDescriptor {
      * @param connector The connector for concatenating.
      * @return A concatenated string.
      */
-    private String concat(String connector) {
+    private String concat(@Nonnull String connector) {
         StringBuilder concat = new StringBuilder();
         ListIterator listIterator = hierarchy.listIterator(hierarchy.size());
         while (listIterator.hasPrevious()) {

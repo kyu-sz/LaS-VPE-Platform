@@ -21,6 +21,7 @@ import kafka.admin.AdminUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.cripac.isee.vpe.common.Topic;
 
+import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -38,19 +39,19 @@ public class TopicManager {
     }
 
     public static class DuplicateTopicNameError extends Error {
-        public DuplicateTopicNameError(String s) {
+        public DuplicateTopicNameError(@Nonnull String s) {
             super(s);
         }
     }
 
-    public static void registerTopic(Topic topic) {
+    public static void registerTopic(@Nonnull Topic topic) {
         if (topics.contains(topic)) {
             throw new DuplicateTopicNameError("Duplicate declaration of topic " + topic.NAME);
         }
         topics.add(topic);
     }
 
-    public static void checkTopics(SystemPropertyCenter propertyCenter) {
+    public static void checkTopics(@Nonnull SystemPropertyCenter propertyCenter) {
         System.out.println("|INFO|Connecting to zookeeper: " + propertyCenter.zkConn);
         ZkClient zkClient = new ZkClient(
                 propertyCenter.zkConn,

@@ -17,6 +17,7 @@
 
 package org.cripac.isee.pedestrian.reid;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 
 /**
@@ -36,5 +37,6 @@ public abstract class PedestrianComparerUsingAttr {
      * @return The similarity between them.
      * @throws IOException
      */
-    public abstract float compare(PedestrianInfo personA, PedestrianInfo personB) throws IOException;
+    public abstract float compare(@Nonnull PedestrianInfo personA,
+                                  @Nonnull PedestrianInfo personB) throws IOException;
 }
