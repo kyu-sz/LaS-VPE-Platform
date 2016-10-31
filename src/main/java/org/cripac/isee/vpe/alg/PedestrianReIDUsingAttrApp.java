@@ -48,6 +48,8 @@ import scala.Tuple2;
 
 import java.util.*;
 
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -220,7 +222,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                     buildBytesDirectStream(jsc, kafkaParams, trackTopicMap)
                             .mapToPair(taskDataBytes -> {
                                 TaskData taskData =
-                                        (TaskData) SerializationHelper.deserialize(taskDataBytes._2());
+                                        (TaskData) deserialize(taskDataBytes._2());
                                 loggerSingleton.getInst().info(
                                         "Received track: " + ((Tracklet) taskData.predecessorRes).id);
                                 return new Tuple2<>(
@@ -235,7 +237,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                     buildBytesDirectStream(jsc, kafkaParams, attrTopicMap)
                             .mapToPair(taskDataBytes -> {
                                 TaskData taskData =
-                                        (TaskData) SerializationHelper.deserialize(taskDataBytes._2());
+                                        (TaskData) deserialize(taskDataBytes._2());
 
                                 if (!(taskData.predecessorRes instanceof Attributes)) {
                                     throw new ClassCastException(
@@ -260,7 +262,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             JavaPairDStream<String, Tuple2<TaskData, TaskData>> instantlyJoinedDStream =
                     unsurelyJoinedDStream
                             .filter(item ->
-                                    item._2()._1().isPresent() && item._2()._2().isPresent())
+                                    new Boolean(item._2()._1().isPresent() && item._2()._2().isPresent()))
                             .mapValues(optPair
                                     -> new Tuple2<>(optPair._1().get(), optPair._2().get()));
 
@@ -268,13 +270,13 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             JavaPairDStream<String, TaskData> unjoinedTrackDStream =
                     unsurelyJoinedDStream
                             .filter(item ->
-                                    item._2()._1().isPresent() && !item._2()._2().isPresent())
+                                    new Boolean(item._2()._1().isPresent() && !item._2()._2().isPresent()))
                             .mapValues(optPair -> optPair._1().get());
 
             // Filter out attributes that cannot find tracklets to match.
             JavaPairDStream<String, TaskData> unjoinedAttrStream = unsurelyJoinedDStream
                     .filter(item ->
-                            !item._2()._1().isPresent() && item._2()._2().isPresent())
+                            new Boolean(!item._2()._1().isPresent() && item._2()._2().isPresent()))
                     .mapValues(optPair -> optPair._2().get());
 
             JavaPairDStream<String, Tuple2<Optional<TaskData>, TaskData>> unsurelyJoinedAttrDStream =
@@ -284,13 +286,13 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrJoinedDStream =
                     unsurelyJoinedAttrDStream
-                            .filter(item -> item._2()._1().isPresent())
+                            .filter(item -> new Boolean(item._2()._1().isPresent()))
                             .mapValues(item -> new Tuple2<>(item._1().get(), item._2()));
 
             JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackJoinedDStream =
                     unjoinedTrackDStream
                             .join(unsurelyJoinedAttrDStream
-                                    .filter(item -> !item._2()._1().isPresent())
+                                    .filter(item -> new Boolean(!item._2()._1().isPresent()))
                                     .mapValues(item -> item._2())
                                     .window(Durations.milliseconds(bufDuration)));
 
@@ -324,7 +326,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // attributes belong to.
             JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
                     buildBytesDirectStream(jsc, kafkaParams, trackWithAttrTopicMap)
-                            .mapValues(bytes -> (TaskData) SerializationHelper.deserialize(bytes));
+                            .mapValues(bytes -> (TaskData) deserialize(bytes));
 
             // Union the two track with attribute streams and perform ReID.
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)
@@ -365,7 +367,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                 taskData.changeCurNode(topic);
                                 sendWithLog(topic,
                                         taskID,
-                                        SerializationHelper.serialize(taskData),
+                                        serialize(taskData),
                                         producerSingleton.getInst(),
                                         logger);
                             }

@@ -52,6 +52,8 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import java.io.IOException;
 import java.util.*;
 
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -244,7 +246,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                             // Get the task data.
                             TaskData taskData =
-                                    (TaskData) SerializationHelper.deserialize(task._2());
+                                    (TaskData) deserialize(task._2());
                             TaskData.ExecutionPlan.Node curNode = taskData.curNode;
                             // Get the URL of the video to process from the
                             // execution data of this node.
@@ -286,7 +288,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 for (Topic topic : succTopics) {
                                     taskData.changeCurNode(topic);
 
-                                    byte[] serialized = SerializationHelper.serialize(taskData);
+                                    byte[] serialized = serialize(taskData);
                                     logger.debug("To sendWithLog message with size: " + serialized.length);
                                     sendWithLog(topic, task._1(), serialized, producerSingleton.getInst(), logger);
                                 }

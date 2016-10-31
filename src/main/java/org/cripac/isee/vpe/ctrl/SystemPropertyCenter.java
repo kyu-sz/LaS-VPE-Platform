@@ -44,6 +44,7 @@ import java.util.Properties;
  * @author Ken Yu, CRIPAC, 2016
  */
 public class SystemPropertyCenter {
+
     // Zookeeper properties
     public String zkConn = "localhost:2181";
     public int sessionTimeoutMs = 10 * 10000;
@@ -102,7 +103,8 @@ public class SystemPropertyCenter {
      * Construction function supporting allocating a SystemPropertyCenter then
      * filling in the properties manually.
      */
-    public SystemPropertyCenter() {
+    public SystemPropertyCenter() throws SAXException, ParserConfigurationException, URISyntaxException {
+        this(new String[0]);
     }
 
     public SystemPropertyCenter(String[] args)

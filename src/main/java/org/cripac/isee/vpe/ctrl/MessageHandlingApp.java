@@ -42,6 +42,8 @@ import scala.Tuple2;
 
 import java.util.*;
 
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -308,8 +310,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                 // Get a next command message.
                                 Tuple2<String, byte[]> msg = msgIter.next();
                                 String cmd = msg._1();
-                                Map<String, String> param = (Map<String, String>)
-                                        SerializationHelper.deserialize(msg._2());
+                                Map<String, String> param = (Map<String, String>) deserialize(msg._2());
 
                                 List<Path> videoPaths =
                                         hdfsReaderSingleton.getInst().listSubfiles(
@@ -334,7 +335,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                     param.get(Parameter.VIDEO_URL));
                                             sendWithLog(PedestrianTrackingApp.TrackingStream.VIDEO_URL_TOPIC,
                                                     taskID.toString(),
-                                                    SerializationHelper.serialize(taskData),
+                                                    serialize(taskData),
                                                     producerSingleton.getInst(),
                                                     loggerSingleton.getInst());
                                             break;
@@ -357,7 +358,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                             .PedestrainTrackletRetrievingStream
                                                             .PED_TRACKLET_RTRV_JOB_TOPIC,
                                                     taskID.toString(),
-                                                    SerializationHelper.serialize(taskData),
+                                                    serialize(taskData),
                                                     producerSingleton.getInst(),
                                                     loggerSingleton.getInst());
                                             break;
@@ -379,7 +380,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                             .PedestrainTrackletAttrRetrievingStream
                                                             .JOB_TOPIC,
                                                     taskID.toString(),
-                                                    SerializationHelper.serialize(taskData),
+                                                    serialize(taskData),
                                                     producerSingleton.getInst(),
                                                     loggerSingleton.getInst());
                                             break;

@@ -31,6 +31,7 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.Properties;
 
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -41,8 +42,6 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class CommandGeneratingApp implements Serializable {
 
-    public static final String APP_NAME = "CommandGenerating";
-    private static final long serialVersionUID = -1221111574183021547L;
     private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
     private ConsoleLogger logger;
 
@@ -81,37 +80,37 @@ public class CommandGeneratingApp implements Serializable {
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_ONLY,
-                SerializationHelper.serialize(param),
+                serialize(param),
                 producerSingleton.getInst(),
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.RECOG_ATTR_ONLY,
-                SerializationHelper.serialize(param),
+                serialize(param),
                 producerSingleton.getInst(),
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_AND_RECOG_ATTR,
-                SerializationHelper.serialize(param),
+                serialize(param),
                 producerSingleton.getInst(),
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.REID_ONLY,
-                SerializationHelper.serialize(param),
+                serialize(param),
                 producerSingleton.getInst(),
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.RECOG_ATTR_AND_REID,
-                SerializationHelper.serialize(param),
+                serialize(param),
                 producerSingleton.getInst(),
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_AND_RECOG_ATTR_AND_REID,
-                SerializationHelper.serialize(param),
+                serialize(param),
                 producerSingleton.getInst(),
                 logger);
     }

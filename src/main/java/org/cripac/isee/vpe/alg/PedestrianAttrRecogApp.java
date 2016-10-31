@@ -44,6 +44,8 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import java.util.*;
 
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -183,7 +185,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             // Recognize attributes from the tracklets.
             buildBytesDirectStream(jsc, kafkaParams, trackletTopicMap)
                     .mapValues(taskDataBytes ->
-                            (TaskData) SerializationHelper.deserialize(taskDataBytes))
+                            (TaskData) deserialize(taskDataBytes))
                     .foreachRDD(rdd -> {
                         rdd.foreach(taskWithTrack -> {
                             Logger logger = loggerSingleton.getInst();
@@ -219,7 +221,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                 taskData.changeCurNode(topic);
                                 sendWithLog(topic,
                                         taskID,
-                                        SerializationHelper.serialize(taskData),
+                                        serialize(taskData),
                                         producerSingleton.getInst(),
                                         logger);
                             }

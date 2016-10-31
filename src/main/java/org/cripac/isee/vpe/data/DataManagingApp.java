@@ -60,6 +60,7 @@ import java.util.*;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
@@ -194,7 +195,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
                             // Recover task data.
                             TaskData taskData = (TaskData)
-                                    SerializationHelper.deserialize(job._2());
+                                    deserialize(job._2());
                             if (taskData.predecessorRes == null) {
                                 logger.fatal("TaskData from " + taskData.predecessorInfo
                                         + " contains no result data!");
@@ -296,7 +297,7 @@ public class DataManagingApp extends SparkStreamingApp {
                         rdd.foreach(job -> {
                             // Recover task data.
                             TaskData taskData =
-                                    (TaskData) SerializationHelper.deserialize(job._2());
+                                    (TaskData) deserialize(job._2());
                             // Get parameters for the job.
                             Tracklet.Identifier trackletID =
                                     (Tracklet.Identifier) taskData.predecessorRes;
@@ -464,7 +465,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             String taskID = trackGroup._1();
                             Iterator<byte[]> trackIterator = trackGroup._2().iterator();
                             Tracklet tracklet = (Tracklet)
-                                    ((TaskData) SerializationHelper.deserialize(
+                                    ((TaskData) deserialize(
                                             trackIterator.next())).predecessorRes;
                             int numTracks = tracklet.numTracklets;
                             String videoRoot = metadataDir + "/" + tracklet.id.videoURL;
@@ -485,7 +486,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                     break;
                                 }
                                 tracklet = (Tracklet)
-                                        ((TaskData) SerializationHelper.deserialize(
+                                        ((TaskData) deserialize(
                                                 trackIterator.next())).predecessorRes;
                             }
 
@@ -532,7 +533,7 @@ public class DataManagingApp extends SparkStreamingApp {
                         rdd.foreach(result -> {
                             try {
                                 Attributes attr = (Attributes)
-                                        ((TaskData) SerializationHelper.deserialize(result._2()))
+                                        ((TaskData) deserialize(result._2()))
                                                 .predecessorRes;
 
                                 loggerSingleton.getInst()
@@ -559,7 +560,7 @@ public class DataManagingApp extends SparkStreamingApp {
                         rdd.foreach(res -> {
                             int[] idRank;
                             try {
-                                idRank = (int[]) ((TaskData) SerializationHelper.deserialize(res._2()))
+                                idRank = (int[]) ((TaskData) deserialize(res._2()))
                                         .predecessorRes;
                                 String rankStr = "";
                                 for (int id : idRank) {
