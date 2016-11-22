@@ -98,22 +98,17 @@ public abstract class SparkStreamingApp implements Serializable {
                            Map<String, String> kafkaParams,
                            Map<String, Integer> numPartitionsPerTopic) {
         return KafkaUtils
+                // TODO(Ken Yu): Fetch offset from Zookeeper and restart from that.
                 .createDirectStream(
                         streamingContext,
                         String.class, byte[].class,
                         StringDecoder.class, DefaultDecoder.class,
                         kafkaParams,
                         numPartitionsPerTopic.keySet())
-                .transformToPair(new Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>() {
-
-                    private static final long serialVersionUID = -5638281898957276768L;
-
-                    @Override
-                    public JavaPairRDD<String, byte[]> call(JavaPairRDD<String, byte[]> rdd)
-                            throws Exception {
-                        rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
-                        return rdd;
-                    }
+                .transformToPair(rdd -> {
+                    // TODO(Ken Yu): Report offset to Zookeeper.
+                    rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
+                    return rdd;
                 });
     }
 

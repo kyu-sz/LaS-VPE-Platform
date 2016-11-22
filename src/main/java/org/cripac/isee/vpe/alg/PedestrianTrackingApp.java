@@ -91,14 +91,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         SystemPropertyCenter propCenter;
         propCenter = new SystemPropertyCenter(args);
 
-        if (propCenter.verbose) {
-            System.out.println("Starting PedestrianTrackingApp...");
-        }
-
-        TopicManager.checkTopics(propCenter);
-
         // Start the pedestrian tracking application.
-        PedestrianTrackingApp app = new PedestrianTrackingApp(propCenter);
+        SparkStreamingApp app = new PedestrianTrackingApp(propCenter);
+        TopicManager.checkTopics(propCenter);
         app.initialize(propCenter);
         app.start();
         app.awaitTermination();
