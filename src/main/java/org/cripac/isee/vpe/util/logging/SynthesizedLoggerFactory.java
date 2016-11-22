@@ -20,6 +20,8 @@ package org.cripac.isee.vpe.util.logging;
 import org.apache.log4j.Level;
 import org.cripac.isee.vpe.util.Factory;
 
+import javax.annotation.Nonnull;
+
 /**
  * Object factory of SynthesizedLogger.
  *
@@ -50,9 +52,9 @@ public class SynthesizedLoggerFactory implements Factory<SynthesizedLogger> {
      * @param logListenerAddr The address the logger may need to sendWithLog logs to.
      * @param logListenerPort The port the logger may need to sendWithLog logs to.
      */
-    public SynthesizedLoggerFactory(String appName,
-                                    Level level,
-                                    String logListenerAddr,
+    public SynthesizedLoggerFactory(@Nonnull String appName,
+                                    @Nonnull Level level,
+                                    @Nonnull String logListenerAddr,
                                     int logListenerPort) {
         this.appName = appName;
         this.level = level;

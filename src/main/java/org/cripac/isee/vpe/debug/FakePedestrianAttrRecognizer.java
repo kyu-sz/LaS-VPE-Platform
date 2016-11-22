@@ -23,6 +23,7 @@ import org.cripac.isee.pedestrian.attr.Attributes.Sex;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 
+import javax.annotation.Nonnull;
 import java.util.Random;
 
 public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
@@ -30,7 +31,7 @@ public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
     private Random random = new Random();
 
     @Override
-    public Attributes recognize(Tracklet tracklet) {
+    public Attributes recognize(@Nonnull Tracklet tracklet) {
         Attributes attribute = new Attributes();
 
         switch (random.nextInt(4)) {

@@ -54,6 +54,7 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.*;
@@ -70,7 +71,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * results of vision algorithms, to HDFS and Neo4j database. The data feeding
  * function retrieves stored results and sendWithLog them to algorithm modules from
  * HDFS and Neo4j database. The reason why combine these two functions is that
- * they should both be modified when and only when a new data TYPE shall be
+ * they should both be modified when and only when a new data INPUT_TYPE shall be
  * supported by the system, and they require less resources than other modules,
  * so combining them can save resources while not harming performance.
  *
@@ -353,7 +354,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private Singleton<FileSystem> hdfsSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
 
-        public SavingStream(SystemPropertyCenter propCenter) throws Exception {
+        public SavingStream(@Nonnull SystemPropertyCenter propCenter) throws Exception {
             trackletSavingTopicMap.put(
                     PED_TRACKLET_SAVING_TOPIC.NAME,
                     propCenter.kafkaNumPartitions);
@@ -399,7 +400,8 @@ public class DataManagingApp extends SparkStreamingApp {
          * @param tracklet The track to store.
          * @throws IOException On failure creating and writing files in HDFS.
          */
-        private void storeTracklet(String storeDir, Tracklet tracklet) throws Exception {
+        private void storeTracklet(@Nonnull String storeDir,
+                                   @Nonnull Tracklet tracklet) throws Exception {
             FileSystem hdfs = hdfsSingleton.getInst();
 
             // Write verbal informations with Json.
@@ -448,7 +450,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {// Save tracklets.
+        public void addToContext(@Nonnull JavaStreamingContext jsc) {// Save tracklets.
             buildBytesDirectStream(jsc, kafkaParams, trackletSavingTopicMap)
                     .groupByKey()
                     .foreachRDD(rdd -> {

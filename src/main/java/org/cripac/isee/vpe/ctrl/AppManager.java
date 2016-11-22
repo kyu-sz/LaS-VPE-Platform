@@ -23,6 +23,7 @@ import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
 import org.cripac.isee.vpe.data.DataManagingApp;
 
+import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -47,7 +48,7 @@ public class AppManager {
     private AppManager() {
     }
 
-    public static String getMainClassName(String appName) throws NoAppSpecifiedException {
+    public static String getMainClassName(@Nonnull String appName) throws NoAppSpecifiedException {
         System.out.println("|INFO|Searching class NAME of App " + appName + "...");
         if (classNameMap.containsKey(appName))
             return classNameMap.get(appName);

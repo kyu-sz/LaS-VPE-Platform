@@ -58,6 +58,21 @@ public class PedestrianAttrRecogAppTest {
     private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
 
+    public static void main(String[] args) {
+        PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
+        try {
+            test.init(args);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+        try {
+            test.testAttrRecog();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Before
     public void init() throws Exception {
         init(new String[0]);
@@ -90,11 +105,11 @@ public class PedestrianAttrRecogAppTest {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node recogNode =
                 plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
-        plan.letOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
+        plan.letNodeOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
 
         // Send request (fake tracklet).
         TaskData trackletData = new TaskData(recogNode, plan,
-                new FakePedestrianTracker().track(null));
+                new FakePedestrianTracker().track(new byte[0]));
         sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(trackletData),
@@ -112,20 +127,5 @@ public class PedestrianAttrRecogAppTest {
                 e.printStackTrace();
             }
         });
-    }
-
-    public static void main(String[] args) {
-        PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
-        try {
-            test.init(args);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
-        try {
-            test.testAttrRecog();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 }

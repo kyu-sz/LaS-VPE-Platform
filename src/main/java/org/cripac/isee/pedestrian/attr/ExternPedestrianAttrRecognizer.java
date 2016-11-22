@@ -28,6 +28,7 @@ import com.google.gson.Gson;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
 
+import javax.annotation.Nonnull;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -93,7 +94,8 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      * @param port          The port the solver is listening to.
      * @throws IOException
      */
-    public ExternPedestrianAttrRecognizer(InetAddress solverAddress, int port) throws IOException {
+    public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,
+                                          int port) throws IOException {
         socket = new Socket(solverAddress, port);
         resListeningThread = new Thread(new ResultListener(socket.getInputStream()));
         resListeningThread.start();
@@ -107,7 +109,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      * Tracklet)
      */
     @Override
-    public Attributes recognize(Tracklet tracklet) throws IOException {
+    public Attributes recognize(@Nonnull Tracklet tracklet) throws IOException {
         // Create a new message consisting the comparation task.
         RequestMessage message = new RequestMessage(tracklet);
 
@@ -150,7 +152,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
          *
          * @param tracklet The track to recognize attributes from.
          */
-        public RequestMessage(Tracklet tracklet) {
+        public RequestMessage(@Nonnull Tracklet tracklet) {
             this.tracklet = tracklet;
         }
 
@@ -161,33 +163,33 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
          * @param outputStream The output stream to write to.
          * @throws IOException
          */
-        public void getBytes(OutputStream outputStream) throws IOException {
-            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream);
+        public void getBytes(@Nonnull OutputStream outputStream) throws IOException {
+            BufferedOutputStream bufferedStream = new BufferedOutputStream(outputStream);
 
             // 16 bytes - Request UUID.
-            ByteBuffer byteBuffer = ByteBuffer.allocate(Long.BYTES * 2);
-            byteBuffer.putLong(id.getMostSignificantBits());
-            byteBuffer.putLong(id.getLeastSignificantBits());
-            bufferedOutputStream.write(byteBuffer.array());
+            ByteBuffer buf = ByteBuffer.allocate(Long.BYTES * 2);
+            buf.putLong(id.getMostSignificantBits());
+            buf.putLong(id.getLeastSignificantBits());
+            bufferedStream.write(buf.array());
 
             // 4 bytes - Tracklet length (number of bounding boxes).
-            byteBuffer = ByteBuffer.allocate(Integer.BYTES);
-            byteBuffer.putInt(tracklet.locationSequence.length);
-            bufferedOutputStream.write(byteBuffer.array());
+            buf = ByteBuffer.allocate(Integer.BYTES);
+            buf.putInt(tracklet.locationSequence.length);
+            bufferedStream.write(buf.array());
             // Each bounding box.
-            for (BoundingBox box : tracklet.locationSequence) {
+            for (BoundingBox bbox : tracklet.locationSequence) {
                 // 16 bytes - Bounding box data.
-                byteBuffer = ByteBuffer.allocate(Integer.BYTES * 4);
-                byteBuffer.putInt(box.x);
-                byteBuffer.putInt(box.y);
-                byteBuffer.putInt(box.width);
-                byteBuffer.putInt(box.height);
-                bufferedOutputStream.write(byteBuffer.array());
+                buf = ByteBuffer.allocate(Integer.BYTES * 4);
+                buf.putInt(bbox.x);
+                buf.putInt(bbox.y);
+                buf.putInt(bbox.width);
+                buf.putInt(bbox.height);
+                bufferedStream.write(buf.array());
                 // width * height * 3 bytes - Image data.
-                bufferedOutputStream.write(box.patchData);
+                bufferedStream.write(bbox.patchData);
             }
 
-            bufferedOutputStream.flush();
+            bufferedStream.flush();
         }
     }
 
@@ -209,7 +211,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
          * @param inputStream Input stream from the socket.
          * @throws IOException
          */
-        public ResultListener(InputStream inputStream) {
+        public ResultListener(@Nonnull InputStream inputStream) {
             this.inputStream = inputStream;
         }
 

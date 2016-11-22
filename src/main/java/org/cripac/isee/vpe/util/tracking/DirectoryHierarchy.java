@@ -23,6 +23,8 @@
 
 package org.cripac.isee.vpe.util.tracking;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.File;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -38,7 +40,7 @@ public class DirectoryHierarchy {
     private Set<String> files = new HashSet<>();
     private DirectoryHierarchy parent = null;
 
-    public DirectoryHierarchy getSubHierarchy(String name) {
+    public DirectoryHierarchy getSubHierarchy(@Nonnull String name) {
         return subHierarchy.get(name);
     }
 
@@ -47,7 +49,7 @@ public class DirectoryHierarchy {
      *
      * @param files A collection of names of the files.
      */
-    public void addFiles(Collection<String> files) {
+    public void addFiles(@Nonnull Collection<String> files) {
         this.files.addAll(files);
     }
 
@@ -57,7 +59,7 @@ public class DirectoryHierarchy {
      *
      * @param regex The regex the added files' NAME should match.
      */
-    public void addFiles(String regex) {
+    public void addFiles(@Nonnull String regex) {
         File folder = new File(getPath());
         String[] matchedFiles = folder.list(
                 (file, s) -> Pattern.compile(regex).matcher(s).matches());
@@ -72,8 +74,7 @@ public class DirectoryHierarchy {
      * @param name The NAME of the top hierarchy.
      * @return The top hierarchy.
      */
-    public static DirectoryHierarchy createTop(String name) {
-
+    public static DirectoryHierarchy createTop(@Nonnull String name) {
         return new DirectoryHierarchy(name);
     }
 
@@ -83,7 +84,8 @@ public class DirectoryHierarchy {
      * @param name   The NAME of the hierarchy.
      * @param parent The NAME of parent hierarchy.
      */
-    public DirectoryHierarchy(String name, DirectoryHierarchy parent) {
+    public DirectoryHierarchy(@Nonnull String name,
+                              @Nullable DirectoryHierarchy parent) {
         this.name = name;
         this.parent = parent;
         parent.subHierarchy.put(name, this);
@@ -124,7 +126,7 @@ public class DirectoryHierarchy {
         return gathered;
     }
 
-    private DirectoryHierarchy(String name) {
+    private DirectoryHierarchy(@Nonnull String name) {
         this.name = name;
         this.parent = null;
     }

@@ -21,6 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.net.*;
 
@@ -52,9 +53,9 @@ public class SynthesizedLogger extends Logger {
      * @throws UnknownHostException
      * @throws SocketException
      */
-    public SynthesizedLogger(String appName,
-                             Level level,
-                             String reportListenerAddr,
+    public SynthesizedLogger(@Nonnull String appName,
+                             @Nonnull Level level,
+                             @Nonnull String reportListenerAddr,
                              int reportListenerPort) {
         this.appName = appName;
         this.level = level;
@@ -88,7 +89,7 @@ public class SynthesizedLogger extends Logger {
         listenerPort = reportListenerPort;
     }
 
-    private void send(String message) {
+    private void send(@Nonnull String message) {
         if (sender != null) {
             byte[] sendBuf = message.getBytes();
             DatagramPacket sendPacket =
@@ -107,7 +108,7 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void debug(Object message) {
+    public void debug(@Nonnull Object message) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message);
             String richMsg = "|DEBUG|" + localName + "\t" + appName + ":\t" + message;
@@ -116,7 +117,8 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void debug(Object message, Throwable t) {
+    public void debug(@Nonnull Object message,
+                      @Nonnull Throwable t) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message, t);
 
@@ -135,7 +137,7 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void info(Object message) {
+    public void info(@Nonnull Object message) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message);
             String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message;
@@ -144,7 +146,8 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void info(Object message, Throwable t) {
+    public void info(@Nonnull Object message,
+                     @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message, t);
             String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message;
@@ -160,7 +163,7 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void warn(Object message) {
+    public void warn(@Nonnull Object message) {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message);
             String richMsg = "|WARN |" + localName + "\t" + appName + ":\t" + message;
@@ -169,7 +172,8 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void warn(Object message, Throwable t) {
+    public void warn(@Nonnull Object message,
+                     @Nonnull Throwable t) {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message, t);
 
@@ -188,7 +192,7 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void error(Object message) {
+    public void error(@Nonnull Object message) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message);
             String richMsg = "|ERROR|" + localName + "\t" + appName + ":\t" + message;
@@ -197,7 +201,8 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void error(Object message, Throwable t) {
+    public void error(@Nonnull Object message,
+                      @Nonnull Throwable t) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message, t);
 
@@ -216,7 +221,7 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void fatal(Object message) {
+    public void fatal(@Nonnull Object message) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message);
             String richMsg = "|FATAL|" + localName + "\t" + appName + ":\t" + message;
@@ -225,7 +230,8 @@ public class SynthesizedLogger extends Logger {
         }
     }
 
-    public void fatal(Object message, Throwable t) {
+    public void fatal(@Nonnull Object message,
+                      @Nonnull Throwable t) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message, t);
             String richMsg = "|FATAL|" + localName + "\t" + appName + ":\t" + message;

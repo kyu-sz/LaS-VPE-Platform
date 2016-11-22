@@ -86,7 +86,7 @@ then
 fi
 ##################################################
 cp -Rpu ../lib/libbasic_pedestrian_tracker.so ${PROJECT_PATH}/lib/linux || :
-cp -Rpu lib/libbasic_pedestrian_tracker_jni.so ${PROJECT_PATH}/lib/linux || :
+cp -Rpu lib/jni/libbasic_pedestrian_tracker_jni.so ${PROJECT_PATH}/lib/linux || :
 ##################################################
 
 echo "Successfully finished building native libraries!"

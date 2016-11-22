@@ -19,6 +19,7 @@ package org.cripac.isee.pedestrian.tracking;
 
 import com.google.gson.annotations.SerializedName;
 
+import javax.annotation.Nonnull;
 import java.io.Serializable;
 
 /**
@@ -108,7 +109,8 @@ public class Tracklet implements Serializable {
          * @param videoURL     URL of the video where the track is generated.
          * @param serialNumber The serial number of the track in the video (1, 2, 3...).
          */
-        public Identifier(String videoURL, int serialNumber) {
+        public Identifier(@Nonnull String videoURL,
+                          int serialNumber) {
             this.videoURL = videoURL;
             this.serialNumber = serialNumber;
         }

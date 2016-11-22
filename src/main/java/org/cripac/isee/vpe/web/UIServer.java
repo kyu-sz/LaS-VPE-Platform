@@ -44,7 +44,7 @@ public class UIServer {
         server.requestHandler(request -> {
             // This handler gets called for each request that arrives on the server
             HttpServerResponse response = request.response();
-            response.putHeader("content-TYPE", "text/plain");
+            response.putHeader("content-INPUT_TYPE", "text/plain");
 
             // Write to the response and end it
             response.end("Hello World!");

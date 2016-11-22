@@ -198,15 +198,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
-            reidSingleton = new Singleton<>(new Factory<PedestrianReIDer>() {
-
-                private static final long serialVersionUID = -5422299243899032592L;
-
-                @Override
-                public PedestrianReIDer produce() {
-                    return new FakePedestrianReIDerWithAttr();
-                }
-            });
+            reidSingleton = new Singleton<>(() -> new FakePedestrianReIDerWithAttr());
             loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
                     INFO.NAME,
                     propCenter.verbose ? Level.DEBUG : Level.INFO,

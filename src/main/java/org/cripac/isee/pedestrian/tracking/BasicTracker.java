@@ -17,10 +17,12 @@
 
 package org.cripac.isee.pedestrian.tracking;
 
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.tracking.VideoDecoder;
 
-import java.nio.charset.StandardCharsets;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * The BasicTracker class is a JNI class of a pedestrian tracking algorithm used
@@ -40,18 +42,27 @@ public class BasicTracker extends Tracker {
         System.out.println("Native libraries for BasicTracker successfully loaded!");
     }
 
-    private byte[] conf;
+    private byte[] cfg;
     private Logger logger;
+
+    public BasicTracker(@Nonnull byte[] cfg) {
+        this(cfg, null);
+    }
 
     /**
      * Construct a tracker with a configuration. The configuration should be
      * provided in a form of byte array.
      *
-     * @param conf The byte data of the configuration file.
+     * @param cfg The byte data of the configuration file.
      */
-    public BasicTracker(byte[] conf, Logger logger) {
-        this.conf = conf;
-        this.logger = logger;
+    public BasicTracker(@Nonnull byte[] cfg,
+                        @Nullable Logger logger) {
+        this.cfg = cfg;
+        if (logger == null) {
+            this.logger = logger;
+        } else {
+            this.logger = new ConsoleLogger();
+        }
     }
 
     /*
@@ -60,7 +71,7 @@ public class BasicTracker extends Tracker {
      * @see Tracker#track(java.lang.String)
      */
     @Override
-    public Tracklet[] track(byte[] videoBytes) {
+    public Tracklet[] track(@Nonnull byte[] videoBytes) {
         // Limit instances on a single node.
         while (true) {
             synchronized (BasicTracker.class) {
@@ -81,11 +92,11 @@ public class BasicTracker extends Tracker {
         VideoDecoder.VideoInfo videoInfo = videoDecoder.getVideoInfo();
         logger.debug("To perform tracking on video with width=" + videoInfo.width + " height=" + videoInfo.height + "!");
 
-        if (conf == null) {
+        if (cfg == null) {
             logger.fatal("Configuration file is NULL!");
             return null;
         }
-        long trackerPointer = initialize(videoInfo.width, videoInfo.height, videoInfo.channels, conf);
+        long trackerPointer = initialize(videoInfo.width, videoInfo.height, videoInfo.channels, cfg);
         logger.debug("Initialized tracker!");
 
         int cnt = 0;
@@ -101,11 +112,12 @@ public class BasicTracker extends Tracker {
                 break;
             }
             ++cnt;
-            if (cnt % 10000 == 0) {
+            if (cnt % 1000 == 0) {
                 logger.debug("Tracked " + cnt + " frames!");
             }
         }
 
+        logger.debug("Totally processed " + cnt + " framed!");
         logger.debug("Getting targets...");
         Tracklet[] targets = getTargets(trackerPointer);
         logger.debug("Got " + targets.length + " targets!");
@@ -133,7 +145,10 @@ public class BasicTracker extends Tracker {
      * @param conf     Bytes of a configuration the tracker uses.
      * @return The pointer of the initialized tracker.
      */
-    private native long initialize(int width, int height, int channels, byte[] conf);
+    private native long initialize(int width,
+                                   int height,
+                                   int channels,
+                                   @Nonnull byte[] conf);
 
     /**
      * Feed a frame into the tracker. The tracker is expected to process the video frame by frame.
@@ -142,7 +157,8 @@ public class BasicTracker extends Tracker {
      * @param frame BGR bytes of a decoded frame.
      * @return 0 on success and -1 on failure.
      */
-    private native int feedFrame(long p, byte[] frame);
+    private native int feedFrame(long p,
+                                 @Nonnull byte[] frame);
 
     /**
      * Get tracked targets in currently input frames.

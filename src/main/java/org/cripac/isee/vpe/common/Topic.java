@@ -17,6 +17,8 @@ package org.cripac.isee.vpe.common;/********************************************
 
 import org.cripac.isee.vpe.ctrl.TopicManager;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.Serializable;
 
 /**
@@ -32,7 +34,7 @@ public final class Topic implements Serializable {
     /**
      * Type of the topic used within the system.
      */
-    public final DataType TYPE;
+    public final DataType INPUT_TYPE;
     /**
      * Name of stream this topic belongs to.
      */
@@ -44,22 +46,26 @@ public final class Topic implements Serializable {
      * @param name    Name of the topic to appear in Kafka.
      * @param type    Type of the topic used within the system.
      * @param streamInfo Information of stream this topic belongs to.
+     *                   If set as null, the topic is dangling from any streams,
+     *                   which is only used within external tests.
      */
-    public Topic(String name, DataType type, Stream.Info streamInfo) {
+    public Topic(@Nonnull String name,
+                 @Nonnull DataType type,
+                 @Nullable Stream.Info streamInfo) {
         this.NAME = name;
-        this.TYPE = type;
+        this.INPUT_TYPE = type;
         this.STREAM_INFO = streamInfo;
         TopicManager.registerTopic(this);
     }
 
     /**
-     * Transform the topic into a string in format as "[TYPE]NAME".
+     * Transform the topic into a string in format as "[INPUT_TYPE]NAME".
      *
      * @return String representing the topic.
      */
     @Override
     public String toString() {
-        return "[" + TYPE + "]" + NAME;
+        return "[" + INPUT_TYPE + "]" + NAME;
     }
 
     @Override

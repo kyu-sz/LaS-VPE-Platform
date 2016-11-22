@@ -17,19 +17,23 @@
 
 package org.cripac.isee.vpe.common;
 
+import javax.annotation.Nonnull;
+
 /**
  * Created by ken.yu on 16-10-27.
  */
 public class DataTypeUnmatchException extends Exception {
+    
     public DataTypeUnmatchException() {
         super();
     }
 
-    public DataTypeUnmatchException(String s) {
+    public DataTypeUnmatchException(@Nonnull String s) {
         super(s);
     }
 
-    public DataTypeUnmatchException(String s, Throwable t) {
+    public DataTypeUnmatchException(@Nonnull String s,
+                                    @Nonnull Throwable t) {
         super(s, t);
     }
 }

@@ -23,9 +23,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Level;
-import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -33,6 +30,7 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 
+import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -69,10 +67,10 @@ public abstract class SparkStreamingApp implements Serializable {
      * @return A paralleled Kafka receiver input stream.
      */
     protected static JavaPairDStream<String, byte[]>
-    buildBytesParRecvStream(JavaStreamingContext streamingContext,
+    buildBytesParRecvStream(@Nonnull JavaStreamingContext streamingContext,
                             int numRecvStreams,
-                            Map<String, String> kafkaParams,
-                            Map<String, Integer> numPartitionsPerTopic) {
+                            @Nonnull Map<String, String> kafkaParams,
+                            @Nonnull Map<String, Integer> numPartitionsPerTopic) {
         // Read bytes in parallel from Kafka.
         List<JavaPairDStream<String, byte[]>> parStreams = new ArrayList<>(numRecvStreams);
         for (int i = 0; i < numRecvStreams; i++) {
@@ -84,7 +82,7 @@ public abstract class SparkStreamingApp implements Serializable {
     }
 
     /**
-     * Utilization function for all applications to receive messages with byte
+     * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
      * @param streamingContext      The streaming context of the applications.
@@ -94,9 +92,9 @@ public abstract class SparkStreamingApp implements Serializable {
      * @return A Kafka non-receiver input stream.
      */
     protected static JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(JavaStreamingContext streamingContext,
-                           Map<String, String> kafkaParams,
-                           Map<String, Integer> numPartitionsPerTopic) {
+    buildBytesDirectStream(@Nonnull JavaStreamingContext streamingContext,
+                           @Nonnull Map<String, String> kafkaParams,
+                           @Nonnull Map<String, Integer> numPartitionsPerTopic) {
         return KafkaUtils
                 // TODO(Ken Yu): Fetch offset from Zookeeper and restart from that.
                 .createDirectStream(
@@ -127,7 +125,7 @@ public abstract class SparkStreamingApp implements Serializable {
      *
      * @param propCenter Properties of the whole system.
      */
-    public void initialize(SystemPropertyCenter propCenter) {
+    public void initialize(@Nonnull SystemPropertyCenter propCenter) {
         SynthesizedLogger logger = new SynthesizedLogger(
                 getAppName(),
                 Level.DEBUG,
@@ -136,30 +134,24 @@ public abstract class SparkStreamingApp implements Serializable {
 
         String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
         logger.info("Using " + checkpointDir + " as checkpoint directory.");
-        streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, new Function0<JavaStreamingContext>() {
-
-            private static final long serialVersionUID = 1136960093227848775L;
-
-            @Override
-            public JavaStreamingContext call() throws Exception {
-                JavaStreamingContext context = getStreamContext();
-                try {
-                    if (propCenter.sparkMaster.contains("local")) {
-                        File dir = new File(checkpointDir);
-                        dir.delete();
-                        dir.mkdirs();
-                    } else {
-                        FileSystem fs = FileSystem.get(new Configuration());
-                        Path dir = new Path(checkpointDir);
-                        fs.delete(dir, true);
-                        fs.mkdirs(dir);
-                    }
-                    context.checkpoint(checkpointDir);
-                } catch (IllegalArgumentException | IOException e) {
-                    e.printStackTrace();
+        streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
+            JavaStreamingContext context = getStreamContext();
+            try {
+                if (propCenter.sparkMaster.contains("local")) {
+                    File dir = new File(checkpointDir);
+                    dir.delete();
+                    dir.mkdirs();
+                } else {
+                    FileSystem fs = FileSystem.get(new Configuration());
+                    Path dir = new Path(checkpointDir);
+                    fs.delete(dir, true);
+                    fs.mkdirs(dir);
                 }
-                return context;
+                context.checkpoint(checkpointDir);
+            } catch (IllegalArgumentException | IOException e) {
+                e.printStackTrace();
             }
+            return context;
         }, new Configuration(), true);
     }
 

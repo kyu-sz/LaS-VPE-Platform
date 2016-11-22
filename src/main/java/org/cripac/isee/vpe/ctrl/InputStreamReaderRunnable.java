@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import javax.annotation.Nonnull;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +42,8 @@ public class InputStreamReaderRunnable implements Runnable {
      * @param is   The input stream to read.
      * @param name The NAME of the stream.
      */
-    public InputStreamReaderRunnable(InputStream is, String name) {
+    public InputStreamReaderRunnable(@Nonnull InputStream is,
+                                     @Nonnull String name) {
         this.reader = new BufferedReader(new InputStreamReader(is));
         this.name = name;
         errorStream = name.toLowerCase().contains("error");

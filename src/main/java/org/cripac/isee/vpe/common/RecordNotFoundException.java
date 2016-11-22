@@ -17,19 +17,23 @@
 
 package org.cripac.isee.vpe.common;
 
+import javax.annotation.Nonnull;
+
 /**
  * Created by ken.yu on 16-10-27.
  */
 public class RecordNotFoundException extends Exception {
+
     public RecordNotFoundException() {
         super();
     }
 
-    public RecordNotFoundException(String s) {
+    public RecordNotFoundException(@Nonnull String s) {
         super(s);
     }
 
-    public RecordNotFoundException(String s, Throwable t) {
+    public RecordNotFoundException(@Nonnull String s,
+                                   @Nonnull Throwable t) {
         super(s, t);
     }
 }

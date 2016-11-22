@@ -17,6 +17,8 @@
  * Created by ken.yu on 16-10-5.
  * <p>
  * Created by ken.yu on 16-10-5.
+ * <p>
+ * Created by ken.yu on 16-10-5.
  */
 
 /**
@@ -28,7 +30,11 @@ package org.cripac.isee.vpe.util.tracking;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.vpe.util.Factory;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.logging.Logger;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * The BasicTrackerFactory class is a factory class for creating
@@ -37,11 +43,20 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 public class BasicTrackerFactory implements Factory<BasicTracker> {
 
     private byte[] conf;
-    private Singleton<SynthesizedLogger> loggerSingleton;
+    private Singleton<Logger> loggerSingleton;
 
-    public BasicTrackerFactory(byte[] conf, Singleton<SynthesizedLogger> loggerSingleton) {
+    public BasicTrackerFactory(@Nonnull byte[] conf,
+                               @Nullable Singleton<Logger> loggerSingleton) {
         this.conf = conf;
-        this.loggerSingleton = loggerSingleton;
+        if (loggerSingleton == null) {
+            this.loggerSingleton = loggerSingleton;
+        } else {
+            try {
+                this.loggerSingleton = new Singleton<>(() -> new ConsoleLogger());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     /**

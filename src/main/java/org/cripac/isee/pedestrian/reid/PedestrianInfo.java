@@ -20,6 +20,8 @@ package org.cripac.isee.pedestrian.reid;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.Serializable;
 
 /**
@@ -52,7 +54,8 @@ public class PedestrianInfo implements Serializable, Cloneable {
      * @param tracklet The track of the pedestrian.
      * @param attr     Attributes recognized from the pedestrian.
      */
-    public PedestrianInfo(Tracklet tracklet, Attributes attr) {
+    public PedestrianInfo(@Nullable Tracklet tracklet,
+                          @Nullable Attributes attr) {
         this.tracklet = tracklet;
         this.attr = attr;
     }

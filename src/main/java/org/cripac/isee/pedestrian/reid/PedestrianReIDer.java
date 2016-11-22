@@ -17,6 +17,7 @@
 
 package org.cripac.isee.pedestrian.reid;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 
 /**
@@ -34,5 +35,5 @@ public abstract class PedestrianReIDer {
      * @return A rank of possible IDs of the pedestrian.
      * @throws IOException On error conducting ReID.
      */
-    public abstract int[] reid(PedestrianInfo pedestrian) throws IOException;
+    public abstract int[] reid(@Nonnull PedestrianInfo pedestrian) throws IOException;
 }
