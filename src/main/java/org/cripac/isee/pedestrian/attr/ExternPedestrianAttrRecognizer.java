@@ -164,32 +164,32 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
          * @throws IOException
          */
         public void getBytes(@Nonnull OutputStream outputStream) throws IOException {
-            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream);
+            BufferedOutputStream bufferedStream = new BufferedOutputStream(outputStream);
 
             // 16 bytes - Request UUID.
-            ByteBuffer byteBuffer = ByteBuffer.allocate(Long.BYTES * 2);
-            byteBuffer.putLong(id.getMostSignificantBits());
-            byteBuffer.putLong(id.getLeastSignificantBits());
-            bufferedOutputStream.write(byteBuffer.array());
+            ByteBuffer buf = ByteBuffer.allocate(Long.BYTES * 2);
+            buf.putLong(id.getMostSignificantBits());
+            buf.putLong(id.getLeastSignificantBits());
+            bufferedStream.write(buf.array());
 
             // 4 bytes - Tracklet length (number of bounding boxes).
-            byteBuffer = ByteBuffer.allocate(Integer.BYTES);
-            byteBuffer.putInt(tracklet.locationSequence.length);
-            bufferedOutputStream.write(byteBuffer.array());
+            buf = ByteBuffer.allocate(Integer.BYTES);
+            buf.putInt(tracklet.locationSequence.length);
+            bufferedStream.write(buf.array());
             // Each bounding box.
-            for (BoundingBox box : tracklet.locationSequence) {
+            for (BoundingBox bbox : tracklet.locationSequence) {
                 // 16 bytes - Bounding box data.
-                byteBuffer = ByteBuffer.allocate(Integer.BYTES * 4);
-                byteBuffer.putInt(box.x);
-                byteBuffer.putInt(box.y);
-                byteBuffer.putInt(box.width);
-                byteBuffer.putInt(box.height);
-                bufferedOutputStream.write(byteBuffer.array());
+                buf = ByteBuffer.allocate(Integer.BYTES * 4);
+                buf.putInt(bbox.x);
+                buf.putInt(bbox.y);
+                buf.putInt(bbox.width);
+                buf.putInt(bbox.height);
+                bufferedStream.write(buf.array());
                 // width * height * 3 bytes - Image data.
-                bufferedOutputStream.write(box.patchData);
+                bufferedStream.write(bbox.patchData);
             }
 
-            bufferedOutputStream.flush();
+            bufferedStream.flush();
         }
     }
 
