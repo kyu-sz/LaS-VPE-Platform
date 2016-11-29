@@ -57,7 +57,7 @@ Upload the whole project to your cluster:
 ./sbin/upload.sh
 ```
 
-If the platform depends on native libraries, deliver them to worker nodes using [install.sh](sbin/install.sh) in [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_ environment variable.
+If the platform depends on native libraries (currently it does), deliver them to worker nodes using [install.sh](sbin/install.sh) in [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_ environment variable.
 
 Invoke the scripts in the home directory by command like "./sbin/run-*.sh".
 
