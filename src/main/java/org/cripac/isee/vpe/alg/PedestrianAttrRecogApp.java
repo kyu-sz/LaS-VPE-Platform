@@ -82,10 +82,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         SystemPropertyCenter propCenter;
         propCenter = new SystemPropertyCenter(args);
 
-        TopicManager.checkTopics(propCenter);
-
         // Start the pedestrian tracking application.
         PedestrianAttrRecogApp app = new PedestrianAttrRecogApp(propCenter);
+        TopicManager.checkTopics(propCenter);
         app.initialize(propCenter);
         app.start();
         app.awaitTermination();
@@ -178,11 +177,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     .mapValues(taskDataBytes ->
                             (TaskData) deserialize(taskDataBytes))
                     .foreachRDD(rdd -> {
-                        rdd.foreach(taskWithTrack -> {
+                        rdd.foreach(taskWithTracklet -> {
                             Logger logger = loggerSingleton.getInst();
 
-                            String taskID = taskWithTrack._1();
-                            TaskData taskData = taskWithTrack._2();
+                            String taskID = taskWithTracklet._1();
+                            TaskData taskData = taskWithTracklet._2();
 
                             if (!(taskData.predecessorRes instanceof Tracklet)) {
                                 logger.fatal("Predecessor result sent by "

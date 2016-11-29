@@ -101,16 +101,11 @@ public class DataManagingApp extends SparkStreamingApp {
             propCenter = new SystemPropertyCenter();
         }
 
-        if (propCenter.verbose) {
-            System.out.println("Starting DataManagingApp...");
-        }
-
+        SparkStreamingApp app = new DataManagingApp(propCenter);
         TopicManager.checkTopics(propCenter);
-
-        DataManagingApp dataManagingApp = new DataManagingApp(propCenter);
-        dataManagingApp.initialize(propCenter);
-        dataManagingApp.start();
-        dataManagingApp.awaitTermination();
+        app.initialize(propCenter);
+        app.start();
+        app.awaitTermination();
     }
 
     @Override
@@ -472,7 +467,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             Tracklet tracklet = (Tracklet)
                                     ((TaskData) deserialize(
                                             trackIterator.next())).predecessorRes;
-                            int numTracks = tracklet.numTracklets;
+                            int numTracklets = tracklet.numTracklets;
                             String videoRoot = metadataDir + "/" + tracklet.id.videoURL;
                             String taskRoot = videoRoot + "/" + taskID;
                             hdfs.mkdirs(new Path(taskRoot));
@@ -500,7 +495,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             ContentSummary contentSummary = hdfs.getContentSummary(new Path(taskRoot));
                             long cnt = contentSummary.getDirectoryCount();
                             // Decrease one for directory counter.
-                            if (cnt - 1 == numTracks) {
+                            if (cnt - 1 == numTracklets) {
                                 loggerSingleton.getInst()
                                         .info("Task " + taskID
                                                 + "(" + tracklet.id.videoURL + ") finished!");
@@ -526,7 +521,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             } else {
                                 loggerSingleton.getInst().info("Task " + taskID
                                         + "(" + tracklet.id.videoURL + ") need "
-                                        + (numTracks - cnt + 1) + "/" + numTracks + " more tracklets!");
+                                        + (numTracklets - cnt + 1) + "/" + numTracklets + " more tracklets!");
                             }
                         });
                     });
@@ -572,6 +567,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 }
                                 loggerSingleton.getInst().info("Metadata saver received: " + res._1()
                                         + ": Pedestrian IDRANK rank: " + rankStr);
+                                //TODO(Ken Yu): Save IDs to database.
                             } catch (IOException e) {
                                 loggerSingleton.getInst().error("Exception caught when decompressing IDRANK", e);
                             }

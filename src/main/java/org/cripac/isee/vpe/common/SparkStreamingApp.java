@@ -96,6 +96,7 @@ public abstract class SparkStreamingApp implements Serializable {
                            @Nonnull Map<String, String> kafkaParams,
                            @Nonnull Map<String, Integer> numPartitionsPerTopic) {
         return KafkaUtils
+                // TODO(Ken Yu): Fetch offset from Zookeeper and restart from that.
                 .createDirectStream(
                         streamingContext,
                         String.class, byte[].class,
@@ -103,6 +104,7 @@ public abstract class SparkStreamingApp implements Serializable {
                         kafkaParams,
                         numPartitionsPerTopic.keySet())
                 .transformToPair(rdd -> {
+                    // TODO(Ken Yu): Report offset to Zookeeper.
                     rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
                     return rdd;
                 });
