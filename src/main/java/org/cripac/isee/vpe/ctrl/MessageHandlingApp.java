@@ -60,7 +60,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     private Stream msgHandlingStream;
 
     /**
-     * The constructor method. It sets the configurations, but does not start
+     * The constructor method. It sets the configurations, but does not run
      * the contexts.
      *
      * @param propCenter The propCenter stores all the available configurations.

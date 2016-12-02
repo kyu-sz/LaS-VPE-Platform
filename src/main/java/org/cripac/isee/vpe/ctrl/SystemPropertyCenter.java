@@ -64,7 +64,7 @@ public class SystemPropertyCenter {
     public boolean onYARN = false;
     public String executorMem = "1G"; // Memory per executor (e.g. 1000M, 2G)
     // (Default: 1G)
-    public int numExecutors = 2; // Number of executors to start (Default: 2)
+    public int numExecutors = 2; // Number of executors to run (Default: 2)
     public int executorCores = 1; // Number of cores per executor (Default: 1)
     public String driverMem = "1G"; // Memory for driver (e.g. 1000M, 2G)
     // (Default: 1024 Mb)
@@ -137,7 +137,7 @@ public class SystemPropertyCenter {
         if (commandLine.hasOption('a')) {
             appsToStart = commandLine.getOptionValues('a');
             if (verbose) {
-                System.out.println("[INFO]To start application:");
+                System.out.println("[INFO]To run application:");
                 for (String app : appsToStart) {
                     System.out.println("\t\t" + app);
                 }

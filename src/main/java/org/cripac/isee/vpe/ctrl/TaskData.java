@@ -38,7 +38,6 @@ import java.util.Map;
  */
 public class TaskData implements Serializable, Cloneable {
 
-    private static final long serialVersionUID = -7488783279604501871L;
     /**
      * Current node to execute.
      */
@@ -62,7 +61,8 @@ public class TaskData implements Serializable, Cloneable {
      *
      * @param topic A topic of the new current node.
      */
-    public void changeCurNode(@Nonnull Topic topic) throws RecordNotFoundException {
+    public void changeCurNode(@Nonnull Topic topic)
+            throws RecordNotFoundException {
         predecessorInfo = curNode.streamInfo;
         curNode = executionPlan.findNode(topic);
     }
@@ -84,8 +84,8 @@ public class TaskData implements Serializable, Cloneable {
      *
      * @param curNode        Current node to execute.
      * @param executionPlan  A global execution plan.
-     * @param predecessorRes Result of the predecessor node, which is a serializable
-     *                       object.
+     * @param predecessorRes Result of the predecessor node,
+     *                       which is a serializable object.
      */
     public TaskData(@Nonnull ExecutionPlan.Node curNode,
                     @Nonnull ExecutionPlan executionPlan,
@@ -118,8 +118,6 @@ public class TaskData implements Serializable, Cloneable {
      */
     public static class ExecutionPlan implements Serializable, Cloneable {
 
-        private static final long serialVersionUID = 1359845978045759483L;
-
         /**
          * Map for finding nodes according to the class of its module.
          */
@@ -131,9 +129,11 @@ public class TaskData implements Serializable, Cloneable {
          * @param topic A topic of the node.
          * @return The node possessing the topic.
          */
-        public Node findNode(@Nonnull Topic topic) throws RecordNotFoundException {
+        public Node findNode(@Nonnull Topic topic)
+                throws RecordNotFoundException {
             if (topic.STREAM_INFO == null) {
-                throw new RecordNotFoundException("The topic " + topic + " has no stream information!");
+                throw new RecordNotFoundException("The topic " + topic
+                        + " has no stream information!");
             } else {
                 return findNode(topic.STREAM_INFO);
             }
@@ -145,10 +145,12 @@ public class TaskData implements Serializable, Cloneable {
          * @param info Information of the stream.
          * @return The node representing the stream.
          */
-        public Node findNode(@Nonnull Stream.Info info) throws RecordNotFoundException {
+        public Node findNode(@Nonnull Stream.Info info)
+                throws RecordNotFoundException {
             if (!nodes.containsKey(info)) {
                 StringBuilder builder = new StringBuilder(info
-                        + " cannot be found in execution plan! Available streams are: ");
+                        + " cannot be found in execution plan!"
+                        + " Available streams are: ");
                 for (Stream.Info _info : nodes.keySet()) {
                     builder.append(_info + " ");
                 }

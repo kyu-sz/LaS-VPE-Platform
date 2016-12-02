@@ -17,7 +17,10 @@
 
 package org.cripac.isee.vpe.data;
 
-import com.google.gson.*;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -56,7 +59,6 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.*;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
@@ -201,10 +203,10 @@ public class DataManagingApp extends SparkStreamingApp {
                                 logger.fatal("TaskData from " + taskData.predecessorInfo
                                         + " contains no result data!");
                                 logger.fatal("Result sent by "
-                                                + taskData.predecessorInfo
-                                                + " is expected to be a tracklet identifier,"
-                                                + " but received \""
-                                                + taskData.predecessorRes + "\"!");
+                                        + taskData.predecessorInfo
+                                        + " is expected to be a tracklet identifier,"
+                                        + " but received \""
+                                        + taskData.predecessorRes + "\"!");
                                 return;
                             }
                             Tracklet.Identifier trackletID =
@@ -212,7 +214,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             // Retrieve the track from HDFS.
                             Tracklet tracklet = retrieveTracklet(
                                     dbConnSingleton.getInst().getTrackletSavingDir(
-                                            trackletID.videoURL),
+                                            trackletID.videoID),
                                     trackletID,
                                     loggerSingleton.getInst());
                             // Store the track to a task data (reused).
@@ -297,7 +299,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             // Get parameters for the job.
                             Tracklet.Identifier trackletID =
                                     (Tracklet.Identifier) taskData.predecessorRes;
-                            String videoURL = trackletID.videoURL;
+                            String videoURL = trackletID.videoID;
 
                             PedestrianInfo info = new PedestrianInfo();
                             // Retrieve the track from HDFS.
@@ -409,18 +411,15 @@ public class DataManagingApp extends SparkStreamingApp {
 
             // Customize the serialization of bounding box in order to ignore patch data.
             GsonBuilder gsonBuilder = new GsonBuilder();
-            gsonBuilder.registerTypeAdapter(Tracklet.BoundingBox.class, new JsonSerializer<Tracklet.BoundingBox>() {
-
-                @Override
-                public JsonElement serialize(Tracklet.BoundingBox box, Type typeOfBox, JsonSerializationContext context) {
-                    JsonObject result = new JsonObject();
-                    result.add("x", new JsonPrimitive(box.x));
-                    result.add("y", new JsonPrimitive(box.y));
-                    result.add("width", new JsonPrimitive(box.width));
-                    result.add("height", new JsonPrimitive(box.height));
-                    return result;
-                }
-            });
+            JsonSerializer<Tracklet.BoundingBox> bboxSerializer = (box, typeOfBox, context) -> {
+                JsonObject result = new JsonObject();
+                result.add("x", new JsonPrimitive(box.x));
+                result.add("y", new JsonPrimitive(box.y));
+                result.add("width", new JsonPrimitive(box.width));
+                result.add("height", new JsonPrimitive(box.height));
+                return result;
+            };
+            gsonBuilder.registerTypeAdapter(Tracklet.BoundingBox.class, bboxSerializer);
             outputStream.writeBytes(gsonBuilder.create().toJson(tracklet));
             outputStream.close();
 
@@ -468,7 +467,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                     ((TaskData) deserialize(
                                             trackIterator.next())).predecessorRes;
                             int numTracklets = tracklet.numTracklets;
-                            String videoRoot = metadataDir + "/" + tracklet.id.videoURL;
+                            String videoRoot = metadataDir + "/" + tracklet.id.videoID;
                             String taskRoot = videoRoot + "/" + taskID;
                             hdfs.mkdirs(new Path(taskRoot));
 
@@ -498,7 +497,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             if (cnt - 1 == numTracklets) {
                                 loggerSingleton.getInst()
                                         .info("Task " + taskID
-                                                + "(" + tracklet.id.videoURL + ") finished!");
+                                                + "(" + tracklet.id.videoID + ") finished!");
 
                                 HadoopArchives arch = new HadoopArchives(new Configuration());
                                 ArrayList<String> opt = new ArrayList<>();
@@ -511,7 +510,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                 loggerSingleton.getInst()
                                         .info("Task " + taskID
-                                                + "(" + tracklet.id.videoURL + ") packed!");
+                                                + "(" + tracklet.id.videoID + ") packed!");
 
                                 dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.toString(),
                                         videoRoot + "/" + taskID + ".har");
@@ -520,7 +519,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 hdfs.delete(new Path(taskRoot), true);
                             } else {
                                 loggerSingleton.getInst().info("Task " + taskID
-                                        + "(" + tracklet.id.videoURL + ") need "
+                                        + "(" + tracklet.id.videoID + ") need "
                                         + (numTracklets - cnt + 1) + "/" + numTracklets + " more tracklets!");
                             }
                         });

@@ -37,8 +37,6 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
-import org.cripac.isee.vpe.util.Factory;
-import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
@@ -194,23 +192,30 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
             producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put("key.serializer",
+                    "org.apache.kafka.common.serialization.StringSerializer");
+            producerProp.put("value.serializer",
+                    "org.apache.kafka.common.serialization.ByteArraySerializer");
 
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
-            reidSingleton = new Singleton<>(() -> new FakePedestrianReIDerWithAttr());
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort));
+            producerSingleton = new Singleton<>(
+                    new KafkaProducerFactory<String, byte[]>(producerProp));
+            reidSingleton = new Singleton<>(
+                    () -> new FakePedestrianReIDerWithAttr());
+            loggerSingleton = new Singleton<>(
+                    new SynthesizedLoggerFactory(
+                            INFO.NAME,
+                            propCenter.verbose ? Level.DEBUG : Level.INFO,
+                            propCenter.reportListenerAddr,
+                            propCenter.reportListenerPort));
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {// Read track bytes in parallel from Kafka.
-            // Recover track from the bytes and extract the IDRANK of the track.
+        public void addToContext(JavaStreamingContext jsc) {
             JavaPairDStream<String, TaskData> trackletDStream =
+                    // Read track bytes in parallel from Kafka.
                     buildBytesDirectStream(jsc, kafkaParams, trackTopicMap)
+                            // Recover track from the bytes
+                            // and extract the IDRANK of the track.
                             .mapToPair(taskDataBytes -> {
                                 TaskData taskData =
                                         (TaskData) deserialize(taskDataBytes._2());
@@ -221,11 +226,12 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                         taskData);
                             });
 
-            // Read attribute bytes in parallel from Kafka.
-            // Recover attributes from the bytes and extract the IDRANK of the track the
-            // attributes belong to.
             JavaPairDStream<String, TaskData> attrDStream =
+                    // Read attribute bytes in parallel from Kafka.
                     buildBytesDirectStream(jsc, kafkaParams, attrTopicMap)
+                            // Recover attributes from the bytes
+                            // and extract the IDRANK of the track
+                            // the attributes belong to.
                             .mapToPair(taskDataBytes -> {
                                 TaskData taskData =
                                         (TaskData) deserialize(taskDataBytes._2());

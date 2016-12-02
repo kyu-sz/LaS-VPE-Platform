@@ -31,7 +31,7 @@ public class FakePedestrianTracker extends Tracker {
     private Tracklet generateRandomTracklet() {
         Tracklet tracklet = new Tracklet();
         tracklet.startFrameIndex = random.nextInt(10000) + 1;
-        tracklet.id.videoURL = "fake video";
+        tracklet.id.videoID = "fake video";
         tracklet.id.serialNumber = -1;
 
         int appearSpan = random.nextInt(31) + 1;

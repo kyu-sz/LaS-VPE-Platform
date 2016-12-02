@@ -30,6 +30,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.pedestrian.tracking.Tracker;
@@ -48,8 +49,10 @@ import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import scala.Tuple2;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.*;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
@@ -172,40 +175,58 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
     public static class TrackingStream extends Stream {
 
-        public static final Info INFO = new Info("PedestrianTracking", DataType.TRACKLET);
+        public static final Info INFO =
+                new Info("PedestrianTracking", DataType.TRACKLET);
 
         /**
          * Topic to input video URLs from Kafka.
          */
         public static final Topic VIDEO_URL_TOPIC =
-                new Topic("video-url-for-pedestrian-tracking", DataType.URL, INFO);
+                new Topic("video-url-for-pedestrian-tracking",
+                        DataType.URL, INFO);
+        /**
+         * Topic to input video bytes from Kafka.
+         */
+        public static final Topic VIDEO_BYTES_TOPIC =
+                new Topic("video-bytes-for-pedestrian-tracking",
+                        DataType.RAW_VIDEO_FRAG, INFO);
 
         /**
-         * Kafka parameters for creating input streams pulling messages from Kafka
-         * Brokers.
+         * Kafka parameters for creating input streams pulling messages
+         * from Kafka brokers.
          */
         private Map<String, String> kafkaParams = new HashMap<>();
 
         /**
-         * Topics for inputting video URLs. Each assigned a number of threads the
-         * Kafka consumer should use.
+         * Topics for inputting video URLs. Each assigned a number of
+         * threads the Kafka consumer should use.
          */
         private Map<String, Integer> videoURLTopicMap = new HashMap<>();
+        /**
+         * Topics for inputting video bytes. Each assigned a number of
+         * threads the Kafka consumer should use.
+         */
+        private Map<String, Integer> videoFragTopicMap = new HashMap<>();
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
 
-        public TrackingStream(SystemPropertyCenter propCenter) throws Exception {
-            // taskTopicsSet.add(PEDESTRIAN_TRACKING_TASK_TOPIC);
-            videoURLTopicMap.put(VIDEO_URL_TOPIC.NAME, propCenter.kafkaNumPartitions);
+        public TrackingStream(SystemPropertyCenter propCenter) throws
+                Exception {
+            videoURLTopicMap.put(VIDEO_URL_TOPIC.NAME,
+                    propCenter.kafkaNumPartitions);
+            videoFragTopicMap.put(VIDEO_BYTES_TOPIC.NAME,
+                    propCenter.kafkaNumPartitions);
 
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
-            kafkaParams.put("group.id", "PedestrianTrackingApp" + UUID.randomUUID());
+            kafkaParams.put("group.id",
+                    "PedestrianTrackingApp" + UUID.randomUUID());
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
             kafkaParams.put("auto.offset.reset", "smallest");
-            kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
+            kafkaParams.put("fetch.message.max.bytes",
+                    "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
             producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
@@ -225,71 +246,112 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
             hdfsSingleton = new Singleton<>(new HDFSFactory());
         }
 
+        public static class VideoFragment implements Serializable {
+            public String videoID;
+            public byte[] bytes;
+        }
+
         @Override
         public void addToContext(JavaStreamingContext jsc) {
-            buildBytesDirectStream(jsc, kafkaParams, videoURLTopicMap)
-                    .foreachRDD(rdd -> {
-                        final Broadcast<Map<String, byte[]>> cfgPool =
-                                ConfigPool.getInst(
-                                        new JavaSparkContext(rdd.context()),
-                                        hdfsSingleton.getInst(),
-                                        loggerSingleton.getInst());
+            JavaPairDStream<String, TaskData> fragFromURLDStream =
+                    buildBytesDirectStream(jsc, kafkaParams, videoURLTopicMap)
+                            .mapToPair(kvPair -> {
+                                String taskID = kvPair._1();
 
-                        rdd.foreach(task -> {
-                            SynthesizedLogger logger = loggerSingleton.getInst();
-//                                logger.debug(System.getProperty("java.library.path"));
+                                // Get the task data.
+                                TaskData taskData =
+                                        (TaskData) deserialize(kvPair._2());
+                                VideoFragment frag = new VideoFragment();
+                                // Get the videoID of the video to process from the
+                                // execution data of this node.
+                                frag.videoID = (String) taskData.predecessorRes;
+                                // Retrieve video fragment bytes.
+                                frag.bytes = IOUtils.toByteArray(
+                                        hdfsSingleton.getInst().open(new Path(frag.videoID)));
 
-                            // Get the task data.
-                            TaskData taskData =
-                                    (TaskData) deserialize(task._2());
-                            TaskData.ExecutionPlan.Node curNode = taskData.curNode;
-                            // Get the URL of the video to process from the
-                            // execution data of this node.
-                            String videoURL = (String) taskData.predecessorRes;
-                            // Get tracking configuration for this execution.
-                            String cfgFile = (String) curNode.getExecData();
-                            // Get the IDs of successor nodes.
-                            List<Topic> succTopics = curNode.getSuccessors();
-                            // Mark the current node as executed in advance.
-                            taskData.curNode.markExecuted();
+                                taskData.predecessorRes = frag;
+                                return new Tuple2<>(taskID, taskData);
+                            });
 
-                            // Load tracking configuration to create a tracker.
-                            if (!cfgPool.getValue().containsKey(cfgFile)) {
-                                logger.error("Cannot find tracking configuration file " + cfgFile);
-                                return;
-                            }
-                            byte[] confBytes = cfgPool.getValue().get(cfgFile);
-                            if (confBytes == null) {
-                                logger.fatal("cfgPool contains key " + cfgFile + " but value is null!");
-                                return;
-                            }
-                            Tracker tracker = new BasicTracker(confBytes, logger);
-//                                Tracker tracker = new FakePedestrianTracker();
+            JavaPairDStream<String, TaskData> fragFromBytesDStream =
+                    buildBytesDirectStream(jsc, kafkaParams, videoFragTopicMap)
+                            .mapValues(bytes -> (TaskData) SerializationHelper.deserialize(bytes));
 
-                            // Conduct tracking on video read from HDFS.
-                            logger.debug("Performing tracking on " + videoURL);
-                            Tracklet[] tracklets = tracker.track(IOUtils.toByteArray(
-                                    hdfsSingleton.getInst().open(new Path(videoURL))));
-                            logger.debug("Finished tracking on " + videoURL);
+            fragFromURLDStream.union(fragFromBytesDStream).foreachRDD(rdd -> {
+                final Broadcast<Map<String, byte[]>> cfgPool =
+                        ConfigPool.getInst(
+                                new JavaSparkContext(rdd.context()),
+                                hdfsSingleton.getInst(),
+                                loggerSingleton.getInst());
 
-                            // Send tracklets.
-                            for (int i = 0; i < tracklets.length; ++i) {
-                                Tracklet tracklet = tracklets[i];
-                                // Complete identifier of each tracklet.
-                                tracklet.id = new Tracklet.Identifier(videoURL, i);
-                                // Stored the track in the task data, which can be cyclic utilized.
-                                taskData.predecessorRes = tracklet;
-                                // Send to all the successor nodes.
-                                for (Topic topic : succTopics) {
-                                    taskData.changeCurNode(topic);
+                rdd.foreach(task -> {
+                    SynthesizedLogger logger = loggerSingleton.getInst();
 
-                                    byte[] serialized = serialize(taskData);
-                                    logger.debug("To sendWithLog message with size: " + serialized.length);
-                                    sendWithLog(topic, task._1(), serialized, producerSingleton.getInst(), logger);
-                                }
-                            }
-                        });
-                    });
+                    // Get the task data.
+                    TaskData taskData = task._2();
+                    TaskData.ExecutionPlan.Node curNode =
+                            taskData.curNode;
+                    // Get the videoID of the video to process from the
+                    // execution data of this node.
+                    VideoFragment frag = (VideoFragment) taskData.predecessorRes;
+                    // Get tracking configuration for this execution.
+                    String cfgFile = (String) curNode.getExecData();
+                    if (cfgFile == null) {
+                        logger.error("Tracking configuration file" +
+                                " is not specified for this node!");
+                        return;
+                    }
+
+                    // Get the IDs of successor nodes.
+                    List<Topic> succTopics = curNode.getSuccessors();
+                    // Mark the current node as executed in advance.
+                    taskData.curNode.markExecuted();
+
+                    // Load tracking configuration to create a tracker.
+                    if (!cfgPool.getValue().containsKey(cfgFile)) {
+                        logger.error(
+                                "Cannot find tracking config file "
+                                        + cfgFile);
+                        return;
+                    }
+                    byte[] confBytes = cfgPool.getValue().get(cfgFile);
+                    if (confBytes == null) {
+                        logger.fatal("cfgPool contains key " + cfgFile
+                                + " but value is null!");
+                        return;
+                    }
+                    Tracker tracker = new BasicTracker(confBytes, logger);
+                    //Tracker tracker = new FakePedestrianTracker();
+
+                    // Conduct tracking on video read from HDFS.
+                    logger.debug("Performing tracking on " + frag.videoID);
+                    Tracklet[] tracklets = tracker.track(frag.bytes);
+                    logger.debug("Finished tracking on " + frag.videoID);
+
+                    // Send tracklets.
+                    for (int i = 0; i < tracklets.length; ++i) {
+                        Tracklet tracklet = tracklets[i];
+                        // Complete identifier of each tracklet.
+                        tracklet.id = new Tracklet.Identifier(frag.videoID, i);
+                        // Stored the track in the task data, which can be cyclic utilized.
+                        taskData.predecessorRes = tracklet;
+                        // Send to all the successor nodes.
+                        for (Topic topic : succTopics) {
+                            taskData.changeCurNode(topic);
+
+                            byte[] serialized = serialize(taskData);
+                            logger.debug(
+                                    "To sendWithLog message with size: "
+                                            + serialized.length);
+                            sendWithLog(topic,
+                                    task._1(),
+                                    serialized,
+                                    producerSingleton.getInst(),
+                                    logger);
+                        }
+                    }
+                });
+            });
         }
     }
 }

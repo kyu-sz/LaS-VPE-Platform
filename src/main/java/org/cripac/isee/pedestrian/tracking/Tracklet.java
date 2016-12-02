@@ -52,7 +52,7 @@ public class Tracklet implements Serializable {
      * information of the video. Its default value is -1, meaning the index has
      * not been determined yet.
      */
-    @SerializedName("start-frame-index")
+    @SerializedName("run-frame-index")
     public int startFrameIndex = -1;
     /**
      * A sequence of locations (as a form of BoundingBox) of the pedestrian
@@ -70,7 +70,7 @@ public class Tracklet implements Serializable {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("@Tracklet\n");
-        sb.append("Video URL: " + id.videoURL + "\n");
+        sb.append("Video URL: " + id.videoID + "\n");
         sb.append("Serial number: " + id.serialNumber + "/" + numTracklets + "\n");
         sb.append("Range: " + startFrameIndex + " -> " + (startFrameIndex + locationSequence.length) + "\n");
         for (int i = 0; i < locationSequence.length; ++i) {
@@ -89,10 +89,13 @@ public class Tracklet implements Serializable {
         private static final long serialVersionUID = -4575631684877590629L;
 
         /**
-         * The URL indicating where the source video is stored.
+         * Identifier of the video where the track is generated.
+         * This can be the storing URL of the video,
+         * or a combination of the IP address real-time camera and
+         * the starting time of the video fragment.
          */
         @SerializedName("video-url")
-        public String videoURL = "unknown";
+        public String videoID = "unknown";
 
         /**
          * The serial number of the track in the video. The number is usually
@@ -106,12 +109,15 @@ public class Tracklet implements Serializable {
         /**
          * Create an identifier with URL of source video and the serial number.
          *
-         * @param videoURL     URL of the video where the track is generated.
+         * @param videoID      Identifier of the video where the track is generated.
+         *                     This can be the storing URL of the video,
+         *                     or a combination of the IP address real-time camera and
+         *                     the starting time of the video fragment.
          * @param serialNumber The serial number of the track in the video (1, 2, 3...).
          */
-        public Identifier(@Nonnull String videoURL,
+        public Identifier(@Nonnull String videoID,
                           int serialNumber) {
-            this.videoURL = videoURL;
+            this.videoID = videoID;
             this.serialNumber = serialNumber;
         }
 
@@ -128,7 +134,7 @@ public class Tracklet implements Serializable {
          */
         @Override
         public String toString() {
-            return videoURL + "_tarid" + serialNumber;
+            return videoID + "_tarid" + serialNumber;
         }
     }
 

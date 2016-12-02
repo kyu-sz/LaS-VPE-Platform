@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * The MainController class initializes the system environment (currently only
- * checks the required topics), and provides entrance to start any spark
+ * checks the required topics), and provides entrance to run any spark
  * streaming applications.
  *
  * @author Ken Yu, CRIPAC, 2016

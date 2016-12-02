@@ -31,6 +31,8 @@ import io.vertx.core.http.HttpServerResponse;
  */
 public class UIServer {
 
+    public final static int PORT = 9100;
+
     private Vertx vertx;
     private HttpServer server;
 
@@ -67,6 +69,6 @@ public class UIServer {
 
     public void main(String[] args) {
         UIServer server = new UIServer();
-        server.listen(8080);
+        server.listen(PORT);
     }
 }
