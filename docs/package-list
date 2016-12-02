@@ -1,6 +1,8 @@
+org.cripac.isee.pedestrian
 org.cripac.isee.pedestrian.attr
 org.cripac.isee.pedestrian.reid
 org.cripac.isee.pedestrian.tracking
+org.cripac.isee.vpe
 org.cripac.isee.vpe.alg
 org.cripac.isee.vpe.common
 org.cripac.isee.vpe.ctrl
