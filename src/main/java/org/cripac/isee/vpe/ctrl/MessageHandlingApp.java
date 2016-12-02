@@ -32,13 +32,12 @@ import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.data.DataManagingApp;
 import org.cripac.isee.vpe.data.HDFSReader;
-import org.cripac.isee.vpe.util.Factory;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
-import scala.Tuple2;
 
+import java.io.Serializable;
 import java.util.*;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
@@ -115,6 +114,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
         public final static String VIDEO_URL = "video-url";
         public final static String TRACKING_CONF_FILE = "tracking-conf-file";
         public final static String TRACKLET_SERIAL_NUM = "tracklet-serial-num";
+        public final static String WEBCAM_LOGIN_PARAM = "webcam-login-param";
 
         private Parameter() {
         }
@@ -126,12 +126,14 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * @author Ken Yu, CRIPAC, 2016
      */
     public static class CommandType {
-        public final static String TRACK_ONLY = "track-only";
-        public final static String TRACK_AND_RECOG_ATTR = "track-and-recog-attr";
-        public final static String RECOG_ATTR_ONLY = "recog-attr-only";
-        public final static String REID_ONLY = "reid-only";
-        public final static String RECOG_ATTR_AND_REID = "recog-attr-and-reid";
-        public final static String TRACK_AND_RECOG_ATTR_AND_REID = "track-and-recog-attr-and-reid";
+        public final static String TRACK_ONLY = "track";
+        public final static String TRACK_ATTRRECOG = "track-attrrecog";
+        public final static String ATTRRECOG_ONLY = "attrrecog";
+        public final static String REID_ONLY = "reid";
+        public final static String ATTRRECOG_REID = "attrrecog-reid";
+        public final static String TRACK_ATTRRECOG_REID = "track-attrrecog-reid";
+        public final static String RT_TRACK_ONLY = "rttrack";
+        public final static String RT_TRACK_ATTRRECOG_REID = "rt-track-attrrecog-reid";
     }
 
     public static class UnsupportedCommandException extends Exception {
@@ -178,12 +180,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     propCenter.verbose ? Level.DEBUG : Level.INFO,
                     propCenter.reportListenerAddr,
                     propCenter.reportListenerPort));
-            hdfsReaderSingleton = new Singleton<>(new Factory<HDFSReader>() {
-                @Override
-                public HDFSReader produce() throws Exception {
-                    return new HDFSReader();
-                }
-            });
+            hdfsReaderSingleton = new Singleton<>(() -> new HDFSReader());
         }
 
         /**
@@ -194,7 +191,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
          * @return Execution plan corresponding to the command.
          * @throws UnsupportedCommandException On dealing with unsupported command.
          */
-        private ExecutionPlan createPlanByCmdAndParam(String cmd, Map<String, String> param)
+        private ExecutionPlan createPlanByCmdAndParam(String cmd, Map<String, Serializable> param)
                 throws UnsupportedCommandException, DataTypeUnmatchException {
             ExecutionPlan plan = new ExecutionPlan();
 
@@ -202,14 +199,24 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.TRACK_ONLY: {
                     // Perform tracking only.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.TrackingStream.INFO,
+                            PedestrianTrackingApp.VideoFragmentTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     // The letNodeOutputTo method will automatically add the DataManagingApp node.
                     plan.letNodeOutputTo(trackingNode,
                             DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC);
                     break;
                 }
-                case CommandType.RECOG_ATTR_ONLY: {
+                case CommandType.RT_TRACK_ONLY: {
+                    // Perform tracking only.
+                    ExecutionPlan.Node trackingNode = plan.addNode(
+                            PedestrianTrackingApp.RTVideoStreamTrackingStream.INFO,
+                            param.get(Parameter.TRACKING_CONF_FILE));
+                    // The letNodeOutputTo method will automatically add the DataManagingApp node.
+                    plan.letNodeOutputTo(trackingNode,
+                            DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC);
+                    break;
+                }
+                case CommandType.ATTRRECOG_ONLY: {
                     // Retrieve track data, then feed it to attr recog module.
                     ExecutionPlan.Node trackletDataNode = plan.addNode(
                             DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
@@ -221,10 +228,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC);
                     break;
                 }
-                case CommandType.TRACK_AND_RECOG_ATTR: {
+                case CommandType.TRACK_ATTRRECOG: {
                     // Do tracking, then output to attr recog module.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.TrackingStream.INFO,
+                            PedestrianTrackingApp.VideoFragmentTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -249,7 +256,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             DataManagingApp.SavingStream.PED_IDRANK_SAVING_TOPIC);
                     break;
                 }
-                case CommandType.RECOG_ATTR_AND_REID: {
+                case CommandType.ATTRRECOG_REID: {
                     ExecutionPlan.Node trackletDataNode = plan.addNode(
                             DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
@@ -268,9 +275,31 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             DataManagingApp.SavingStream.PED_IDRANK_SAVING_TOPIC);
                     break;
                 }
-                case CommandType.TRACK_AND_RECOG_ATTR_AND_REID: {
+                case CommandType.TRACK_ATTRRECOG_REID: {
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.TrackingStream.INFO,
+                            PedestrianTrackingApp.VideoFragmentTrackingStream.INFO,
+                            param.get(Parameter.TRACKING_CONF_FILE));
+                    ExecutionPlan.Node attrRecogNode = plan.addNode(
+                            PedestrianAttrRecogApp.RecogStream.INFO);
+                    ExecutionPlan.Node reidNode = plan.addNode(
+                            PedestrianReIDUsingAttrApp.ReIDStream.INFO);
+                    plan.letNodeOutputTo(trackingNode,
+                            PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
+                    plan.letNodeOutputTo(trackingNode,
+                            PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_TOPIC);
+                    plan.letNodeOutputTo(attrRecogNode,
+                            PedestrianReIDUsingAttrApp.ReIDStream.ATTR_TOPIC);
+                    plan.letNodeOutputTo(trackingNode,
+                            DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC);
+                    plan.letNodeOutputTo(attrRecogNode,
+                            DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC);
+                    plan.letNodeOutputTo(reidNode,
+                            DataManagingApp.SavingStream.PED_IDRANK_SAVING_TOPIC);
+                    break;
+                }
+                case CommandType.RT_TRACK_ATTRRECOG_REID: {
+                    ExecutionPlan.Node trackingNode = plan.addNode(
+                            PedestrianTrackingApp.RTVideoStreamTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -306,81 +335,114 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
                             // Get a next command message.
                             String cmd = msg._1();
-                            Map<String, String> param = (Map<String, String>) deserialize(msg._2());
+                            Map<String, Serializable> param = (Map<String, Serializable>) deserialize(msg._2());
 
-                            List<Path> videoPaths =
-                                    hdfsReaderSingleton.getInst().listSubfiles(
-                                            new Path(param.get(Parameter.VIDEO_URL)));
+                            switch (cmd) {
+                                case CommandType.RT_TRACK_ONLY:
+                                case CommandType.RT_TRACK_ATTRRECOG_REID: {
+                                    // Process real-time data.
+                                    ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
+                                    TaskData taskData = new TaskData(
+                                            plan.findNode(
+                                                    PedestrianTrackingApp.RTVideoStreamTrackingStream
+                                                            .LOGIN_PARAM_TOPIC),
+                                            plan,
+                                            param.get(Parameter.WEBCAM_LOGIN_PARAM));
+                                    sendWithLog(
+                                            PedestrianTrackingApp.RTVideoStreamTrackingStream
+                                                    .LOGIN_PARAM_TOPIC,
+                                            taskID.toString(),
+                                            serialize(taskData),
+                                            producerSingleton.getInst(),
+                                            loggerSingleton.getInst());
+                                    break;
+                                }
+                                case CommandType.TRACK_ONLY:
+                                case CommandType.TRACK_ATTRRECOG:
+                                case CommandType.TRACK_ATTRRECOG_REID:
+                                case CommandType.ATTRRECOG_ONLY:
+                                case CommandType.ATTRRECOG_REID:
+                                case CommandType.REID_ONLY: {
+                                    // Process stored videos.
+                                    List<Path> videoPaths =
+                                            hdfsReaderSingleton.getInst().listSubfiles(
+                                                    new Path((String) param.get(Parameter.VIDEO_URL)));
 
-                            // Create an execution plan according to the command.
-                            ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
+                                    // Create an execution plan according to the command.
+                                    ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
 
-                            // For each video to be processed
-                            for (Path path : videoPaths) {
-                                // Choose modules to sendWithLog data according to the command.
-                                switch (cmd) {
-                                    // These commands need only sending video URLs to the tracking module.
-                                    case CommandType.TRACK_ONLY:
-                                    case CommandType.TRACK_AND_RECOG_ATTR:
-                                    case CommandType.TRACK_AND_RECOG_ATTR_AND_REID: {
-                                        TaskData taskData = new TaskData(
-                                                plan.findNode(PedestrianTrackingApp
-                                                        .TrackingStream
-                                                        .VIDEO_URL_TOPIC),
-                                                plan,
-                                                param.get(Parameter.VIDEO_URL));
-                                        sendWithLog(PedestrianTrackingApp.TrackingStream.VIDEO_URL_TOPIC,
-                                                taskID.toString(),
-                                                serialize(taskData),
-                                                producerSingleton.getInst(),
-                                                loggerSingleton.getInst());
-                                        break;
+                                    // For each video to be processed
+                                    for (Path path : videoPaths) {
+                                        // Choose modules to send data to according to the command.
+                                        switch (cmd) {
+                                            // These commands need to send only video URLs to
+                                            // the tracking module.
+                                            case CommandType.TRACK_ONLY:
+                                            case CommandType.TRACK_ATTRRECOG:
+                                            case CommandType.TRACK_ATTRRECOG_REID: {
+                                                TaskData taskData = new TaskData(
+                                                        plan.findNode(
+                                                                PedestrianTrackingApp.VideoFragmentTrackingStream
+                                                                        .VIDEO_URL_TOPIC),
+                                                        plan,
+                                                        param.get(Parameter.VIDEO_URL));
+                                                sendWithLog(
+                                                        PedestrianTrackingApp.VideoFragmentTrackingStream
+                                                                .VIDEO_URL_TOPIC,
+                                                        taskID.toString(),
+                                                        serialize(taskData),
+                                                        producerSingleton.getInst(),
+                                                        loggerSingleton.getInst());
+                                                break;
+                                            }
+                                            // These commands need only sending tracklet IDs to the
+                                            // data managing module to retrieve tracklets.
+                                            case CommandType.ATTRRECOG_ONLY:
+                                            case CommandType.ATTRRECOG_REID: {
+                                                Tracklet.Identifier id = new Tracklet.Identifier(
+                                                        path.toString(),
+                                                        Integer.valueOf((String) param.get(
+                                                                Parameter.TRACKLET_SERIAL_NUM)));
+                                                TaskData taskData = new TaskData(
+                                                        plan.findNode(DataManagingApp
+                                                                .PedestrainTrackletRetrievingStream
+                                                                .PED_TRACKLET_RTRV_JOB_TOPIC),
+                                                        plan,
+                                                        id);
+                                                sendWithLog(DataManagingApp
+                                                                .PedestrainTrackletRetrievingStream
+                                                                .PED_TRACKLET_RTRV_JOB_TOPIC,
+                                                        taskID.toString(),
+                                                        serialize(taskData),
+                                                        producerSingleton.getInst(),
+                                                        loggerSingleton.getInst());
+                                                break;
+                                            }
+                                            // This command needs only sending tracklet IDs to the
+                                            // data managing module to retrieve tracklets and attributes.
+                                            case CommandType.REID_ONLY: {
+                                                Tracklet.Identifier id = new Tracklet.Identifier(
+                                                        path.toString(),
+                                                        Integer.valueOf((String) param.get(
+                                                                Parameter.TRACKLET_SERIAL_NUM)));
+                                                TaskData taskData = new TaskData(
+                                                        plan.findNode(DataManagingApp
+                                                                .PedestrainTrackletAttrRetrievingStream
+                                                                .JOB_TOPIC),
+                                                        plan,
+                                                        id);
+                                                sendWithLog(DataManagingApp
+                                                                .PedestrainTrackletAttrRetrievingStream
+                                                                .JOB_TOPIC,
+                                                        taskID.toString(),
+                                                        serialize(taskData),
+                                                        producerSingleton.getInst(),
+                                                        loggerSingleton.getInst());
+                                                break;
+                                            }
+                                        }
                                     }
-                                    // These commands need only sending tracklet IDs to the
-                                    // data managing module to retrieve tracklets.
-                                    case CommandType.RECOG_ATTR_ONLY:
-                                    case CommandType.RECOG_ATTR_AND_REID: {
-                                        Tracklet.Identifier id = new Tracklet.Identifier(
-                                                path.toString(),
-                                                Integer.valueOf(param.get(
-                                                        Parameter.TRACKLET_SERIAL_NUM)));
-                                        TaskData taskData = new TaskData(
-                                                plan.findNode(DataManagingApp
-                                                        .PedestrainTrackletRetrievingStream
-                                                        .PED_TRACKLET_RTRV_JOB_TOPIC),
-                                                plan,
-                                                id);
-                                        sendWithLog(DataManagingApp
-                                                        .PedestrainTrackletRetrievingStream
-                                                        .PED_TRACKLET_RTRV_JOB_TOPIC,
-                                                taskID.toString(),
-                                                serialize(taskData),
-                                                producerSingleton.getInst(),
-                                                loggerSingleton.getInst());
-                                        break;
-                                    }
-                                    // This command needs only sending tracklet IDs to the
-                                    // data managing module to retrieve tracklets and attributes.
-                                    case CommandType.REID_ONLY: {
-                                        Tracklet.Identifier id = new Tracklet.Identifier(
-                                                path.toString(),
-                                                Integer.valueOf(param.get(
-                                                        Parameter.TRACKLET_SERIAL_NUM)));
-                                        TaskData taskData = new TaskData(
-                                                plan.findNode(DataManagingApp
-                                                        .PedestrainTrackletAttrRetrievingStream
-                                                        .JOB_TOPIC),
-                                                plan,
-                                                id);
-                                        sendWithLog(DataManagingApp
-                                                        .PedestrainTrackletAttrRetrievingStream
-                                                        .JOB_TOPIC,
-                                                taskID.toString(),
-                                                serialize(taskData),
-                                                producerSingleton.getInst(),
-                                                loggerSingleton.getInst());
-                                        break;
-                                    }
+                                    break;
                                 }
                             }
                         });

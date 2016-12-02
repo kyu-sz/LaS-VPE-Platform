@@ -19,11 +19,13 @@ package org.cripac.isee.vpe.ctrl;
 
 import org.apache.commons.collections.map.HashedMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
-import org.junit.Test;
 
 import java.io.Serializable;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.util.Map;
 import java.util.Properties;
 
@@ -72,7 +74,7 @@ public class MessageHandlingAppTest implements Serializable {
 
 //    @Test
     public void generatePresetCommand() throws Exception {
-        Map<String, String> param = new HashedMap();
+        Map<String, Serializable> param = new HashedMap();
         param.put(
                 MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "pedestrian-tracking-isee-basic-CAM01_0.conf");
@@ -80,6 +82,9 @@ public class MessageHandlingAppTest implements Serializable {
                 MessageHandlingApp.Parameter.VIDEO_URL,
                 "source_data/video/CAM01/2014_04_25/20140425184816-20140425190532.h264");
         param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
+        param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
+                new WebCameraConnector.LoginParam(
+                        InetAddress.getLocalHost(), 0, "Ken Yu", "I love Shenzhen!"));
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_ONLY,
@@ -88,13 +93,13 @@ public class MessageHandlingAppTest implements Serializable {
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
-                MessageHandlingApp.CommandType.RECOG_ATTR_ONLY,
+                MessageHandlingApp.CommandType.ATTRRECOG_ONLY,
                 serialize(param),
                 producer,
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
-                MessageHandlingApp.CommandType.TRACK_AND_RECOG_ATTR,
+                MessageHandlingApp.CommandType.TRACK_ATTRRECOG,
                 serialize(param),
                 producer,
                 logger);
@@ -106,13 +111,13 @@ public class MessageHandlingAppTest implements Serializable {
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
-                MessageHandlingApp.CommandType.RECOG_ATTR_AND_REID,
+                MessageHandlingApp.CommandType.ATTRRECOG_REID,
                 serialize(param),
                 producer,
                 logger);
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
-                MessageHandlingApp.CommandType.TRACK_AND_RECOG_ATTR_AND_REID,
+                MessageHandlingApp.CommandType.TRACK_ATTRRECOG_REID,
                 serialize(param),
                 producer,
                 logger);

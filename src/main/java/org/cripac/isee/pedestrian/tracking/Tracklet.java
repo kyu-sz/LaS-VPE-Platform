@@ -91,7 +91,7 @@ public class Tracklet implements Serializable {
         /**
          * Identifier of the video where the track is generated.
          * This can be the storing URL of the video,
-         * or a combination of the IP address real-time camera and
+         * or a combination of the WEBCAM_LOGIN_PARAM address real-time camera and
          * the starting time of the video fragment.
          */
         @SerializedName("video-url")
@@ -111,7 +111,7 @@ public class Tracklet implements Serializable {
          *
          * @param videoID      Identifier of the video where the track is generated.
          *                     This can be the storing URL of the video,
-         *                     or a combination of the IP address real-time camera and
+         *                     or a combination of the WEBCAM_LOGIN_PARAM address real-time camera and
          *                     the starting time of the video fragment.
          * @param serialNumber The serial number of the track in the video (1, 2, 3...).
          */

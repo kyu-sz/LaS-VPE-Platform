@@ -30,6 +30,12 @@ public enum DataType {
     TRACKLET_ID,
     TRACKLET_ATTR,
     URL,
-    RAW_VIDEO_FRAG,
+    RAW_VIDEO_FRAG_BYTES,
+    /**
+     * Login parameters for web cameras.
+     *
+     * @see org.cripac.isee.vpe.data.WebCameraConnector.LoginParam
+     */
+    WEBCAM_LOGIN_PARAM,
     NONE
 }
