@@ -28,12 +28,12 @@ import java.util.stream.Collectors;
 /**
  * Created by ken.yu on 16-10-24.
  */
-public class ConfigFileManagerTest {
+public class CfgFileManagerTest {
     @Test
     public void getConfigFileList() throws Exception {
         List<String> cfgFiles =
-                ConfigFileManager
-                        .getConfigFileList("pedestrian-tracking", "isee-basic")
+                CfgFileManager
+                        .getCfgFileList("pedestrian-tracking", "isee-basic")
                         .stream()
                         .map(fileDescriptor -> fileDescriptor.getConcatName())
                         .collect(Collectors.toList());
@@ -44,7 +44,7 @@ public class ConfigFileManagerTest {
 
     @Test
     public void getConcatConfigFilePathList() throws Exception {
-        String list = ConfigFileManager.getConcatConfigFilePathList(",");
+        String list = CfgFileManager.getConcatCfgFilePathList(",");
         System.out.println("List: " + list);
         for (String path : list.split(",")) {
             System.out.println(new BufferedReader(new InputStreamReader(new FileInputStream(path))).readLine());

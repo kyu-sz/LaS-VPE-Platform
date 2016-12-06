@@ -15,12 +15,24 @@ package org.cripac.isee.vpe.util.logging;/**************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
+import org.apache.log4j.Level;
+
 import javax.annotation.Nonnull;
 
 /**
  * Created by ken.yu on 16-10-24.
  */
 public abstract class Logger {
+
+    protected Level level;
+
+    public Logger(Level level) {
+        setLevel(level);
+    }
+
+    public void setLevel(Level level) {
+        this.level = level;
+    }
 
     public abstract void debug(@Nonnull Object message);
 

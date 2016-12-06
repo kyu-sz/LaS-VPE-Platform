@@ -20,6 +20,7 @@ package org.cripac.isee.vpe.alg;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.log4j.Level;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
@@ -88,7 +89,7 @@ public class PedestrianAttrRecogAppTest {
         producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         producer = new KafkaProducer<>(producerProp);
-        logger = new ConsoleLogger();
+        logger = new ConsoleLogger(Level.DEBUG);
 
         Properties consumerProp = new Properties();
         consumerProp.put("bootstrap.servers", propCenter.kafkaBrokers);

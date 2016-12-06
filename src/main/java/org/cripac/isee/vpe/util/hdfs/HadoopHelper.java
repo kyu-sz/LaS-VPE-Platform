@@ -23,6 +23,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.HarFileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.log4j.Level;
 import org.bytedeco.javacpp.opencv_core;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
@@ -67,6 +69,9 @@ public class HadoopHelper {
             System.out.printf("Setting hadoop configuration: %s=%s\n", prop.getKey(), prop.getValue());
             hadoopConf.set(prop.getKey(), prop.getValue());
         }
+        // According to Da Li, this is necessary for some hadoop environments,
+        // otherwise the error "No Filesystem for scheme: hdfs" will be raised.
+        hadoopConf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
         return hadoopConf;
     }
 
@@ -81,7 +86,7 @@ public class HadoopHelper {
                                             @Nonnull Tracklet.Identifier id,
                                             @Nullable Logger logger) {
         if (logger == null) {
-            logger = new ConsoleLogger();
+            logger = new ConsoleLogger(Level.INFO);
         }
         try {
             // Open the Hadoop Archive of the task the track is generated in.

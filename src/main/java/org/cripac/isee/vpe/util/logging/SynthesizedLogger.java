@@ -40,7 +40,6 @@ public class SynthesizedLogger extends Logger {
     private InetAddress listenerAddr;
     private String localName;
     private int listenerPort;
-    private Level level;
 
     /**
      * Create a synthesized logger specifying address and port to sendWithLog report
@@ -57,8 +56,9 @@ public class SynthesizedLogger extends Logger {
                              @Nonnull Level level,
                              @Nonnull String reportListenerAddr,
                              int reportListenerPort) {
+        super(level);
+
         this.appName = appName;
-        this.level = level;
 
         PropertyConfigurator.configure("log4j.properties");
         log4jLogger = LogManager.getRootLogger();

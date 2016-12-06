@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.data;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.log4j.Level;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -81,7 +82,7 @@ public class DataManagingAppTest {
         producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         producer = new KafkaProducer<>(producerProp);
-        logger = new ConsoleLogger();
+        logger = new ConsoleLogger(Level.DEBUG);
     }
 
 //    @Test
