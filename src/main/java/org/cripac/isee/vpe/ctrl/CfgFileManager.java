@@ -76,7 +76,8 @@ public class CfgFileManager {
 
     private static void prepareTmpCfgFiles() throws IOException {
         tmpDir = System.getProperty("java.io.tmpdir");
-        List<FileDescriptor> fileList = CfgFileManager.getCfgFileList("pedestrian-tracking");
+        List<FileDescriptor> fileList =
+                CfgFileManager.getCfgFileList(PedestrianTrackingApp.APP_NAME);
         for (FileDescriptor file : fileList) {
             File tmp = new File(tmpDir + "/" + file.getConcatName());
             tmp.createNewFile();

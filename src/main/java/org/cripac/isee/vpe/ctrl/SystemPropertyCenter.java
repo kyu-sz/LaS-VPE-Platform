@@ -97,7 +97,7 @@ public class SystemPropertyCenter {
      * The hadoop queue to use for allocation requests (Default: 'default')
      */
     public String hadoopQueue = "default";
-    public String sysPropFilePath = "conf/system.properties";
+    public String sysPropFilePath = "cfg/system.properties";
     /**
      * Application-specific property file. Properties loaded from it
      * will override those loaded from the system property file.
@@ -105,8 +105,8 @@ public class SystemPropertyCenter {
      * that in default places according to the application specified.
      */
     public String appPropFilePath = null;
-    public String sparkConfFilePath = "conf/spark-defaults.conf";
-    public String log4jPropFilePath = "conf/log4j.properties";
+    public String sparkConfFilePath = "cfg/spark-defaults.conf";
+    public String log4jPropFilePath = "cfg/log4j.properties";
     public String hdfsDefaultName = "localhost:9000";
     public String yarnResourceManagerHostname = "localhost";
     public String jarPath = "bin/vpe-platform.jar";
