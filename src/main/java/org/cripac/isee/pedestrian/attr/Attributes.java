@@ -17,6 +17,7 @@
 
 package org.cripac.isee.pedestrian.attr;
 
+import com.google.gson.annotations.SerializedName;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 
 import java.io.Serializable;
@@ -33,59 +34,383 @@ import java.io.Serializable;
  */
 public class Attributes implements Serializable {
 
-    private static final long serialVersionUID = -7873269416770994896L;
-    /**
-     * The direction the pedestrian is facing at this moment.
-     */
-    public int facing;
-    /**
-     * The sex of the pedestrian in the track.
-     */
-    public int sex;
-    public String videoURL = null;
-    /**
-     * This field enables matching an attribute to a track in the same task.
-     * Attribute generating algorithms do not need to fill in this field.
-     */
-    public Tracklet.Identifier trackletID = null;
+    @SerializedName("tracklet_id")
+    public Tracklet.Identifier trackletID;
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Object#toString()
-     */
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
+    @SerializedName("gender_male")
+    public float genderMale;
 
-        sb.append("@Attributes\n");
-        sb.append("Tracklet IDRANK: " + trackletID + "\n");
-        sb.append("Facing: " + facing + "\n");
-        sb.append("Sex: " + sex + "\n");
+    @SerializedName("gender_female")
+    public float genderFemale;
 
-        return sb.toString();
-    }
+    @SerializedName("gender_other")
+    public float genderOther;
 
-    /**
-     * Enumeration of possible facing status.
-     *
-     * @author Ken Yu, CRIPAC, 2016
-     */
-    public static class Facing {
-        public static final int LEFT = 0;
-        public static final int RIGHT = 1;
-        public static final int FRONT = 2;
-        public static final int BACK = 3;
-    }
+    @SerializedName("age_16")
+    public float ageSixteen;
 
-    /**
-     * Enumeration of possible sexes.
-     *
-     * @author Ken Yu, CRIPAC, 2016
-     */
-    public static class Sex {
-        public static final int MALE = 0;
-        public static final int FEMALE = 1;
-        public static final int UNDETERMINED = 2;
-    }
+    @SerializedName("age_30")
+    public float ageThirty;
+
+    @SerializedName("age_45")
+    public float ageFortyFive;
+
+    @SerializedName("age_60")
+    public float ageSixty;
+
+    @SerializedName("age_older_60")
+    public float ageOtherSixty;
+
+    @SerializedName("weight_very_fat")
+    public float weightVeryFat;
+
+    @SerializedName("weight_little_fat")
+    public float weightLittleFat;
+
+    @SerializedName("weight_normal")
+    public float weightNormal;
+
+    @SerializedName("weight_little_thin")
+    public float weightLittleThin;
+
+    @SerializedName("weight_very_thin")
+    public float weightVeryThin;
+
+    @SerializedName("role_client")
+    public float roleClient;
+
+    @SerializedName("role_uniform")
+    public float roleUniform;
+
+    @SerializedName("hair_style_null")
+    public float hairStyleNull;
+
+    @SerializedName("hair_style_long")
+    public float hairStyleLong;
+
+    @SerializedName("head_shoulder_black_hair")
+    public float headShoulderBlackHair;
+
+    @SerializedName("head_shoulder_with_hat")
+    public float headShouldWithHat;
+
+    @SerializedName("head_shoulder_glasses")
+    public float headShouldGlasses;
+
+    @SerializedName("head_shoulder_sunglasses")
+    public float headShouldSunglasses;
+
+    @SerializedName("head_shoulder_scarf")
+    public float headShouldScarf;
+
+    @SerializedName("head_shoulder_mask")
+    public float headShouldMask;
+
+    @SerializedName("upper_shirt")
+    public float upperShirt;
+
+    @SerializedName("upper_sweater")
+    public float upperSweater;
+
+    @SerializedName("upper_vest")
+    public float upperVest;
+
+    @SerializedName("upper_tshirt")
+    public float upperTshirt;
+
+    @SerializedName("upper_cotton")
+    public float upperCotton;
+
+    @SerializedName("upper_jacket")
+    public float upperJacket;
+
+    @SerializedName("upper_suit")
+    public float upperSuit;
+
+    @SerializedName("upper_hoodie")
+    public float upperHoodie;
+
+    @SerializedName("upper_cotta")
+    public float upperCotta;
+
+    @SerializedName("upper_other")
+    public float upperOhter;
+
+    @SerializedName("upper_black")
+    public float upperBlack;
+
+    @SerializedName("upper_white")
+    public float upperWhite;
+
+    @SerializedName("upper_gray")
+    public float upperGray;
+
+    @SerializedName("upper_red")
+    public float upperRed;
+
+    @SerializedName("upper_green")
+    public float upperGreen;
+
+    @SerializedName("upper_blue")
+    public float upperBlue;
+
+    @SerializedName("upper_silvery")
+    public float upperSilvery;
+
+    @SerializedName("upper_yellow")
+    public float upperYellow;
+
+    @SerializedName("upper_brown")
+    public float upperBrown;
+
+    @SerializedName("upper_purple")
+    public float upperPurple;
+
+    @SerializedName("upper_pink")
+    public float upperPink;
+
+    @SerializedName("upper_orange")
+    public float upperOrange;
+
+    @SerializedName("upper_mix_color")
+    public float upperMixColor;
+
+    @SerializedName("upper_other_color")
+    public float upperOtherColor;
+
+    @SerializedName("lower_pants")
+    public float lowerPants;
+
+    @SerializedName("lower_short_pants")
+    public float lowerShortPants;
+
+    @SerializedName("lower_skirt")
+    public float lowerSkirt;
+
+    @SerializedName("lower_short_skirt")
+    public float lowerShortSkirt;
+
+    @SerializedName("lower_long_skirt")
+    public float lowerLongSkirt;
+
+    @SerializedName("lower_one_piece")
+    public float lowerOnePiece;
+
+    @SerializedName("lower_jean")
+    public float lowerJean;
+
+    @SerializedName("lower_tight_pants")
+    public float lowerTightPants;
+
+    @SerializedName("lower_black")
+    public float lowerBlack;
+
+    @SerializedName("lower_white")
+    public float lowerWhite;
+
+    @SerializedName("lower_gray")
+    public float lowerGray;
+
+    @SerializedName("lower_red")
+    public float lowerRed;
+
+    @SerializedName("lower_green")
+    public float lowerGreen;
+
+    @SerializedName("lower_blue")
+    public float lowerBlue;
+
+    @SerializedName("lower_silver")
+    public float lowerSilver;
+
+    @SerializedName("lower_yellow")
+    public float lowerYellow;
+
+    @SerializedName("lower_brown")
+    public float lowerBrown;
+
+    @SerializedName("lower_purple")
+    public float lowerPurple;
+
+    @SerializedName("lower_pink")
+    public float lowerPink;
+
+    @SerializedName("lower_orange")
+    public float lowerOrange;
+
+    @SerializedName("lower_mix_color")
+    public float lowerMixColor;
+
+    @SerializedName("lower_other_color")
+    public float lowerOtherColor;
+
+    @SerializedName("shoes_leather")
+    public float shoesLeather;
+
+    @SerializedName("shoes_sport")
+    public float shoesSport;
+
+    @SerializedName("shoes_boot")
+    public float shoesBoot;
+
+    @SerializedName("shoes_cloth")
+    public float shoesCloth;
+
+    @SerializedName("shoes_shandle")
+    public float shoesShandle;
+
+    @SerializedName("shoes_casual")
+    public float shoesCasual;
+
+    @SerializedName("shoes_other")
+    public float shoesOther;
+
+    @SerializedName("shoes_black")
+    public float shoesBlack;
+
+    @SerializedName("shoes_white")
+    public float shoesWhite;
+
+    @SerializedName("shoes_gray")
+    public float shoesGray;
+
+    @SerializedName("shoes_red")
+    public float shoesRed;
+
+    @SerializedName("shoes_green")
+    public float shoesGreen;
+
+    @SerializedName("shoes_blue")
+    public float shoesBlue;
+
+    @SerializedName("shoes_silver")
+    public float shoesSilver;
+
+    @SerializedName("shoes_yellow")
+    public float shoesYellow;
+
+    @SerializedName("shoes_brown")
+    public float shoesBrown;
+
+    @SerializedName("shoes_purple")
+    public float shoesPurple;
+
+    @SerializedName("shoes_pink")
+    public float shoesPink;
+
+    @SerializedName("shoes_orange")
+    public float shoesOrange;
+
+    @SerializedName("shoes_mix_color")
+    public float shoesMixColor;
+
+    @SerializedName("shoes_other_color")
+    public float shoesOtherColor;
+
+    @SerializedName("accessory_backpack")
+    public float accessoryBackPack;
+
+    @SerializedName("accessory_shoulderbag")
+    public float accessorySholderBag;
+
+    @SerializedName("accessory_handbag")
+    public float accessoryHandBag;
+
+    @SerializedName("accessory_waistbag")
+    public float accessoryWaistBag;
+
+    @SerializedName("accessory_box")
+    public float accessoryBox;
+
+    @SerializedName("accessory_plasticbag")
+    public float accessoryPlasticBag;
+
+    @SerializedName("accessory_paperbag")
+    public float accessoryPaperBag;
+
+    @SerializedName("accessory_cart")
+    public float accessoryCart;
+
+    @SerializedName("accessory_kid")
+    public float accessoryKid;
+
+    @SerializedName("accessory_other")
+    public float accessoryOther;
+
+    @SerializedName("action_calling")
+    public float actionCalling;
+
+    @SerializedName("action_armstretching")
+    public float actionArmStretching;
+
+    @SerializedName("action_chatting")
+    public float actionChatting;
+
+    @SerializedName("action_gathering")
+    public float actionGathering;
+
+    @SerializedName("action_lying")
+    public float actionLying;
+
+    @SerializedName("action_crouching")
+    public float actionCrouching;
+
+    @SerializedName("action_running")
+    public float actionRunning;
+
+    @SerializedName("action_holdthing")
+    public float actionHolding;
+
+    @SerializedName("action_pushing")
+    public float actionPushing;
+
+    @SerializedName("action_pulling")
+    public float actionPulling;
+
+    @SerializedName("action_nipthing")
+    public float actionNipThing;
+
+    @SerializedName("action_picking")
+    public float actionPicking;
+
+    @SerializedName("action_other")
+    public float actionOther;
+
+    @SerializedName("view_angle_left")
+    public float viewAngleLeft;
+
+    @SerializedName("view_angle_right")
+    public float viewAngleRight;
+
+    @SerializedName("view_angle_front")
+    public float viewAngleFront;
+
+    @SerializedName("view_angle_back")
+    public float viewAngleBack;
+
+    @SerializedName("occlusion_left")
+    public float occlusionLeft;
+
+    @SerializedName("occlusion_right")
+    public float occlusionRight;
+
+    @SerializedName("occlusion_up")
+    public float occlusionUp;
+
+    @SerializedName("occlusion_down")
+    public float occlusionDown;
+
+    @SerializedName("occlusion_environment")
+    public float occlusionEnvironment;
+
+    @SerializedName("occlusion_accessory")
+    public float occlusionAccessory;
+
+    @SerializedName("occlusion_object")
+    public float occlusionObject;
+
+    @SerializedName("occlusion_other")
+    public float occlusionOther;
+
+
 }

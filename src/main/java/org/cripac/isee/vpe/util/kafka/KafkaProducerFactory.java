@@ -41,12 +41,8 @@ public class KafkaProducerFactory<K, V> implements Factory<KafkaProducer<K, V>> 
     /**
      * Input a property for constructing the Kafka producer.
      */
-    public KafkaProducerFactory(@Nullable Properties prop) {
-        if (prop == null) {
-            this.config = prop;
-        } else {
-            this.config = new Properties();
-        }
+    public KafkaProducerFactory(@Nonnull Properties prop) {
+        this.config = prop;
     }
 
     /*
