@@ -147,6 +147,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private Singleton<SynthesizedLogger> loggerSingleton;
 
         public RecogStream(SystemPropertyCenter propCenter) throws Exception {
+            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
+                    INFO.NAME,
+                    propCenter.verbose ? Level.DEBUG : Level.INFO,
+                    propCenter.reportListenerAddr,
+                    propCenter.reportListenerPort));
+
             trackletTopicMap.put(TRACKLET_TOPIC.NAME, propCenter.kafkaNumPartitions);
 
             // Common kafka settings.
@@ -164,15 +170,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
             producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
 
+            loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBrokers);
+
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             attrRecogSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
-                    Inet4Address.getByName("192.168.1.90"), 8500
+                    Inet4Address.getByName("172.18.33.90"), 8500
             ));
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort));
         }
 
         @Override
