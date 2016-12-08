@@ -162,7 +162,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
             System.out.println("|INFO|MessageHandlingApp: metadata.broker.list=" + propCenter.kafkaBrokers);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
-            kafkaParams.put("group.id", "MessageHandlingApp" + UUID.randomUUID());
+            kafkaParams.put("group.id", INFO.NAME);
             // Determine where the stream starts (default: largest)
             kafkaParams.put("auto.offset.reset", "smallest");
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);

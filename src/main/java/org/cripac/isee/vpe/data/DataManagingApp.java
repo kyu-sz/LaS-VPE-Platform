@@ -157,7 +157,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     propCenter.kafkaNumPartitions);
 
             // Common Kafka settings
-            kafkaParams.put("group.id", "MetadataSavingApp" + UUID.randomUUID());
+            kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)
@@ -262,7 +262,7 @@ public class DataManagingApp extends SparkStreamingApp {
             trackletAttrRtrvJobTopicMap.put(JOB_TOPIC.NAME, propCenter.kafkaNumPartitions);
 
             // Common Kafka settings
-            kafkaParams.put("group.id", "MetadataSavingApp" + UUID.randomUUID());
+            kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)
@@ -368,7 +368,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     propCenter.kafkaNumPartitions);
 
             // Common Kafka settings
-            kafkaParams.put("group.id", "MetadataSavingApp" + UUID.randomUUID());
+            kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)

@@ -147,7 +147,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             trackletTopicMap.put(TRACKLET_TOPIC.NAME, propCenter.kafkaNumPartitions);
 
             // Common kafka settings.
-            kafkaParams.put("group.id", "PedestrianAttrRecogApp" + UUID.randomUUID());
+            kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
             kafkaParams.put("auto.offset.reset", "smallest");

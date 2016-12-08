@@ -21,6 +21,8 @@ import javax.annotation.Nonnull;
 import java.io.Serializable;
 
 /**
+ * A simple logger for output logs to the console only.
+ *
  * Created by ken.yu on 16-10-24.
  */
 public class ConsoleLogger extends Logger implements Serializable {

@@ -32,6 +32,7 @@ import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.bytedeco.javacpp.opencv_videoio;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.pedestrian.tracking.Tracker;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
@@ -216,8 +217,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     propCenter.kafkaNumPartitions);
 
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
-            kafkaParams.put("group.id",
-                    "PedestrianTrackingApp" + UUID.randomUUID());
+            kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
             kafkaParams.put("auto.offset.reset", "smallest");
@@ -334,8 +334,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     propCenter.kafkaNumPartitions);
 
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
-            kafkaParams.put("group.id",
-                    "PedestrianTrackingApp" + UUID.randomUUID());
+            kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
             kafkaParams.put("auto.offset.reset", "smallest");

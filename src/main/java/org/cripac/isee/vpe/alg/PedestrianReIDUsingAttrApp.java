@@ -181,7 +181,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             bufDuration = propCenter.bufDuration;
 
             // Common kafka settings.
-            kafkaParams.put("group.id", "PedestrianReIDWithAttrApp" + UUID.randomUUID());
+            kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
             kafkaParams.put("auto.offset.reset", "smallest");
