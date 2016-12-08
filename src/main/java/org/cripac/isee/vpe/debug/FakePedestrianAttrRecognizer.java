@@ -18,8 +18,6 @@
 package org.cripac.isee.vpe.debug;
 
 import org.cripac.isee.pedestrian.attr.Attributes;
-import org.cripac.isee.pedestrian.attr.Attributes.Facing;
-import org.cripac.isee.pedestrian.attr.Attributes.Sex;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 
@@ -33,33 +31,6 @@ public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
     @Override
     public Attributes recognize(@Nonnull Tracklet tracklet) {
         Attributes attribute = new Attributes();
-
-        switch (random.nextInt(4)) {
-            case 0:
-                attribute.facing = Facing.FRONT;
-                break;
-            case 1:
-                attribute.facing = Facing.BACK;
-                break;
-            case 2:
-                attribute.facing = Facing.LEFT;
-                break;
-            case 3:
-                attribute.facing = Facing.RIGHT;
-                break;
-        }
-
-        switch (random.nextInt(3)) {
-            case 0:
-                attribute.sex = Sex.FEMALE;
-                break;
-            case 1:
-                attribute.sex = Sex.MALE;
-                break;
-            case 2:
-                attribute.sex = Sex.UNDETERMINED;
-                break;
-        }
 
         return attribute;
     }
