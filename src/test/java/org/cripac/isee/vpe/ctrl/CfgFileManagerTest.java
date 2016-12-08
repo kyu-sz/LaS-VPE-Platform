@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.junit.Test;
 
 import java.io.BufferedReader;
@@ -33,7 +34,8 @@ public class CfgFileManagerTest {
     public void getConfigFileList() throws Exception {
         List<String> cfgFiles =
                 CfgFileManager
-                        .getCfgFileList("pedestrian-tracking", "isee-basic")
+                        .getCfgFileList(PedestrianTrackingApp.APP_NAME,
+                                "isee-basic")
                         .stream()
                         .map(fileDescriptor -> fileDescriptor.getConcatName())
                         .collect(Collectors.toList());

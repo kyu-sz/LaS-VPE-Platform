@@ -103,8 +103,6 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
     @Override
     public Attributes getPedestrianAttributes(@Nonnull String id) throws NoSuchElementException {
         Attributes attr = new Attributes();
-        attr.facing = rand.nextInt(Attributes.Facing.RIGHT);
-        attr.sex = rand.nextInt(Attributes.Sex.UNDETERMINED);
         return attr;
     }
 

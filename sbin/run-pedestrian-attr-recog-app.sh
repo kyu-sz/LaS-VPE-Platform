@@ -1,1 +1,1 @@
-java -jar las-vpe-platform-0.0.1-full.jar -a PedestrianAttrRecognizing -v
+java -jar bin/las-vpe-platform-0.0.1-full.jar -a PedestrianAttrRecognizing -v

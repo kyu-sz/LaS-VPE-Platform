@@ -69,10 +69,7 @@ then
   exit $?
 fi
 ##################################################
-rm -r -f build
-mkdir build
-cd build
-cmake ..
+cmake .
 if [ $? -ne 0 ]
 then
   exit $?
@@ -85,7 +82,7 @@ then
   exit $?
 fi
 ##################################################
-cp -Rpu ../lib/libbasic_pedestrian_tracker.so ${PROJECT_PATH}/lib/linux || :
+cp -Rpu lib/libbasic_pedestrian_tracker.so ${PROJECT_PATH}/lib/linux || :
 cp -Rpu lib/jni/libbasic_pedestrian_tracker_jni.so ${PROJECT_PATH}/lib/linux || :
 ##################################################
 
