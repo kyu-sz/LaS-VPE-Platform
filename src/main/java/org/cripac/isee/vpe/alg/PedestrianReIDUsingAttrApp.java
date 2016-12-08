@@ -60,7 +60,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
     /**
      * The NAME of this application.
      */
-    public static final String APP_NAME = "PedestrianReIDUsingAttr";
+    public static final String APP_NAME = "pedestrian-reID-using-attr";
 
     private Stream reidStream;
 
@@ -122,7 +122,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
     public static class ReIDStream extends Stream {
 
-        public static final Info INFO = new Info("PedestrianReIDUsingAttr", DataType.IDRANK);
+        public static final Info INFO =
+                new Info("PedestrianReIDUsingAttr", DataType.IDRANK);
 
         /**
          * Topic to input pedestrian tracklets from Kafka.

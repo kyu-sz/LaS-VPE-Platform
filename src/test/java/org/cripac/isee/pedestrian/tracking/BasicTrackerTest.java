@@ -35,7 +35,9 @@ public class BasicTrackerTest {
         System.out.println("Performing memory leak test...");
 
         byte[] conf = IOUtils.toByteArray(new FileInputStream(
-                "cfg/" + PedestrianTrackingApp.APP_NAME + "/isee-basic/CAM01_0.conf"));
+                "conf/"
+                        + PedestrianTrackingApp.APP_NAME
+                        + "/isee-basic/CAM01_0.conf"));
         for (int i = 0; i < 100000; ++i) {
             BasicTracker tracker = new BasicTracker(conf, new ConsoleLogger(Level.DEBUG));
         }
@@ -55,7 +57,7 @@ public class BasicTrackerTest {
         BasicTracker tracker =
                 new BasicTracker(
                         IOUtils.toByteArray(new FileInputStream(
-                                "cfg/"
+                                "conf/"
                                         + PedestrianTrackingApp.APP_NAME
                                         + "/isee-basic/CAM01_0.conf")),
                         new ConsoleLogger(Level.DEBUG));

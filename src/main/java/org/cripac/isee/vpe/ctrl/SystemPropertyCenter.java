@@ -97,7 +97,7 @@ public class SystemPropertyCenter {
      * The hadoop queue to use for allocation requests (Default: 'default')
      */
     public String hadoopQueue = "default";
-    public String sysPropFilePath = "cfg/system.properties";
+    public String sysPropFilePath = "conf/system.properties";
     /**
      * Application-specific property file. Properties loaded from it
      * will override those loaded from the system property file.
@@ -105,8 +105,8 @@ public class SystemPropertyCenter {
      * that in default places according to the application specified.
      */
     public String appPropFilePath = null;
-    public String sparkConfFilePath = "cfg/spark-defaults.conf";
-    public String log4jPropFilePath = "cfg/log4j.properties";
+    public String sparkConfFilePath = "conf/spark-defaults.conf";
+    public String log4jPropFilePath = "conf/log4j.properties";
     public String hdfsDefaultName = "localhost:9000";
     public String yarnResourceManagerHostname = "localhost";
     public String jarPath = "bin/vpe-platform.jar";
@@ -228,27 +228,33 @@ public class SystemPropertyCenter {
             return;
         }
 
-        try {
-            if (appPropFilePath.contains("hdfs:/")) {
-                logger.debug("Loading application-specific properties using HDFS platform from "
-                        + appPropFilePath + "...");
-                FileSystem hdfs = FileSystem.get(new URI(appPropFilePath), HadoopHelper.getDefaultConf());
-                FSDataInputStream hdfsInputStream = hdfs.open(new Path(appPropFilePath));
-                propInputStream = new BufferedInputStream(hdfsInputStream);
-            } else {
-                logger.debug("Loading application-specific properties locally from "
-                        + appPropFilePath + "...");
-                propInputStream = new BufferedInputStream(new FileInputStream(appPropFilePath));
+        if (appPropFilePath != null) {
+            try {
+                if (appPropFilePath.contains("hdfs:/")) {
+                    logger.debug("Loading application-specific properties"
+                            + " using HDFS platform from "
+                            + appPropFilePath + "...");
+                    FileSystem hdfs = FileSystem.get(
+                            new URI(appPropFilePath),
+                            HadoopHelper.getDefaultConf());
+                    FSDataInputStream hdfsInputStream =
+                            hdfs.open(new Path(appPropFilePath));
+                    propInputStream = new BufferedInputStream(hdfsInputStream);
+                } else {
+                    logger.debug("Loading application-specific properties locally from "
+                            + appPropFilePath + "...");
+                    propInputStream = new BufferedInputStream(new FileInputStream(appPropFilePath));
+                }
+                sysProps.load(propInputStream);
+                propInputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+                logger.error("Cannot find application-specific property file at specified path: \""
+                        + appPropFilePath + "\"!\n");
+                logger.error("Try use '-h' for more information.");
+                System.exit(0);
+                return;
             }
-            sysProps.load(propInputStream);
-            propInputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-            logger.error("Cannot find application-specific property file at specified path: \""
-                    + appPropFilePath + "\"!\n");
-            logger.error("Try use '-h' for more information.");
-            System.exit(0);
-            return;
         }
 
         // Digest the settings.

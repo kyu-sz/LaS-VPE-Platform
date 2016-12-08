@@ -71,7 +71,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     /**
      * The NAME of this application.
      */
-    public static final String APP_NAME = "PedestrianTracking";
+    public static final String APP_NAME = "pedestrian-tracking";
 
     private Stream fragmentTrackingStream;
     private Stream rtTrackingStream;
@@ -185,7 +185,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     public static class RTVideoStreamTrackingStream extends Stream {
 
         public static final Info INFO =
-                new Info("RTVideoStreamPedestrianTracking", DataType.TRACKLET);
+                new Info("rt-video-tracking", DataType.TRACKLET);
 
         /**
          * Topic for inputting from Kafka the IPs of cameras.
@@ -290,7 +290,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     public static class VideoFragmentTrackingStream extends Stream {
 
         public static final Info INFO =
-                new Info("VideoFragmentPedestrianTracking", DataType.TRACKLET);
+                new Info("video-fragment-tracking", DataType.TRACKLET);
 
         /**
          * Topic to input video URLs from Kafka.
@@ -391,7 +391,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             .mapValues(bytes -> (TaskData) SerializationHelper.deserialize(bytes));
 
             fragFromURLDStream.union(fragFromBytesDStream).foreachRDD(rdd -> {
-                final Broadcast<Map<String, byte[]>> cfgPool =
+                final Broadcast<Map<String, byte[]>> confPool =
                         ConfigPool.getInst(
                                 new JavaSparkContext(rdd.context()),
                                 hdfsSingleton.getInst(),
@@ -408,8 +408,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     // execution data of this node.
                     VideoFragment frag = (VideoFragment) taskData.predecessorRes;
                     // Get tracking configuration for this execution.
-                    String cfgFile = (String) curNode.getExecData();
-                    if (cfgFile == null) {
+                    String confFile = (String) curNode.getExecData();
+                    if (confFile == null) {
                         logger.error("Tracking configuration file" +
                                 " is not specified for this node!");
                         return;
@@ -421,15 +421,15 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     taskData.curNode.markExecuted();
 
                     // Load tracking configuration to create a tracker.
-                    if (!cfgPool.getValue().containsKey(cfgFile)) {
+                    if (!confPool.getValue().containsKey(confFile)) {
                         logger.error(
                                 "Cannot find tracking config file "
-                                        + cfgFile);
+                                        + confFile);
                         return;
                     }
-                    byte[] confBytes = cfgPool.getValue().get(cfgFile);
+                    byte[] confBytes = confPool.getValue().get(confFile);
                     if (confBytes == null) {
-                        logger.fatal("cfgPool contains key " + cfgFile
+                        logger.fatal("confPool contains key " + confFile
                                 + " but value is null!");
                         return;
                     }

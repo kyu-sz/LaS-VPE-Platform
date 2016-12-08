@@ -61,7 +61,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
     /**
      * The NAME of this application.
      */
-    public static final String APP_NAME = "PedestrianAttrRecognizing";
+    public static final String APP_NAME = "pedestrian-attr-recog";
 
     private Stream attrRecogStream;
 
@@ -123,7 +123,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
     public static class RecogStream extends Stream {
 
-        public static final Info INFO = new Info("RecogStream", DataType.ATTR);
+        public static final Info INFO = new Info("recog", DataType.ATTR);
 
         /**
          * Topic to input tracklets from Kafka.

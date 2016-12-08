@@ -55,7 +55,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     /**
      * The NAME of this application.
      */
-    public static final String APP_NAME = "MessageHandling";
+    public static final String APP_NAME = "message-handling";
     private Stream msgHandlingStream;
 
     /**
@@ -142,7 +142,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
     public static class MessageHandlingStream extends Stream {
 
-        public static final Info INFO = new Info("MessageHandling", DataType.NONE);
+        public static final Info INFO = new Info("msg-handling", DataType.NONE);
         /**
          * Topic of command.
          */

@@ -31,14 +31,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * The class CfgFileManager manages configuration files other than several
+ * The class ConfManager manages configuration files other than several
  * preset ones to be uploaded to Spark. Note that it is only usable before
  * the system is submitted to YARN.
  * <p>
  * <p/>
  * Created by ken.yu on 16-10-8.
  */
-public class CfgFileManager {
+public class ConfManager {
     /**
      * Get a list of all the configuration files registered under the path.
      *
@@ -77,18 +77,18 @@ public class CfgFileManager {
     private static void prepareTmpCfgFiles() throws IOException {
         tmpDir = System.getProperty("java.io.tmpdir");
         List<FileDescriptor> fileList =
-                CfgFileManager.getCfgFileList(PedestrianTrackingApp.APP_NAME);
+                ConfManager.getCfgFileList(PedestrianTrackingApp.APP_NAME);
         for (FileDescriptor file : fileList) {
             File tmp = new File(tmpDir + "/" + file.getConcatName());
             tmp.createNewFile();
             FileOutputStream tmpOutputStream = new FileOutputStream(tmp);
-            IOUtils.copy(new FileInputStream(CFG_DIR + "/" + file.getPath()), tmpOutputStream);
+            IOUtils.copy(new FileInputStream(CONF_DIR + "/" + file.getPath()), tmpOutputStream);
             tmpOutputStream.close();
             tmp.deleteOnExit();
         }
     }
 
-    private final static String CFG_DIR = "cfg";
+    private final static String CONF_DIR = "conf";
 
     private static String tmpDir = null;
 
@@ -101,7 +101,7 @@ public class CfgFileManager {
      * Register all the new configuration files here.
      */
     static {
-        top = DirectoryHierarchy.createTop(CFG_DIR);
+        top = DirectoryHierarchy.createTop(CONF_DIR);
 
         // Register pedestrian tracking configuration file hierarchy.
         DirectoryHierarchy pedestrianTracking =
@@ -114,8 +114,8 @@ public class CfgFileManager {
     }
 
     /**
-     * The CfgFileManager cannot be instantiated.
+     * The ConfManager cannot be instantiated.
      */
-    private CfgFileManager() {
+    private ConfManager() {
     }
 }

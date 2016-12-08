@@ -32,21 +32,21 @@ import java.util.stream.Collectors;
 public class CfgFileManagerTest {
     @Test
     public void getConfigFileList() throws Exception {
-        List<String> cfgFiles =
-                CfgFileManager
+        List<String> confFiles =
+                ConfManager
                         .getCfgFileList(PedestrianTrackingApp.APP_NAME,
                                 "isee-basic")
                         .stream()
                         .map(fileDescriptor -> fileDescriptor.getConcatName())
                         .collect(Collectors.toList());
-        for (String file : cfgFiles) {
+        for (String file : confFiles) {
             System.out.println("Name: " + file);
         }
     }
 
     @Test
     public void getConcatConfigFilePathList() throws Exception {
-        String list = CfgFileManager.getConcatCfgFilePathList(",");
+        String list = ConfManager.getConcatCfgFilePathList(",");
         System.out.println("List: " + list);
         for (String path : list.split(",")) {
             System.out.println(new BufferedReader(new InputStreamReader(new FileInputStream(path))).readLine());

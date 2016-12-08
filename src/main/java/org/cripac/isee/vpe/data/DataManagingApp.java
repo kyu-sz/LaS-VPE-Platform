@@ -83,7 +83,7 @@ public class DataManagingApp extends SparkStreamingApp {
     /**
      * The NAME of this application.
      */
-    public static final String APP_NAME = "DataManaging";
+    public static final String APP_NAME = "data-managing";
 
     private Stream pedTrackletRtrvStream;
     private Stream pedTrackletAttrRtrvStream;
@@ -139,7 +139,7 @@ public class DataManagingApp extends SparkStreamingApp {
     public static class PedestrainTrackletRetrievingStream extends Stream {
 
         public static final Info INFO = new Info(
-                "pedestrian-tracklet-rtrv-stream",
+                "pedestrian-tracklet-rtrv",
                 DataType.TRACKLET);
         public static final Topic PED_TRACKLET_RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID, INFO);
@@ -247,7 +247,7 @@ public class DataManagingApp extends SparkStreamingApp {
     public static class PedestrainTrackletAttrRetrievingStream extends Stream {
 
         public static final Info INFO = new Info(
-                "pedestrian-tracklet-attr-rtrv-stream",
+                "pedestrian-tracklet-attr-rtrv",
                 DataType.TRACKLET_ATTR);
         public static final Topic JOB_TOPIC =
                 new Topic("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID, INFO);
@@ -332,7 +332,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
     public static class SavingStream extends Stream {
 
-        public static final Info INFO = new Info("Saving", DataType.NONE);
+        public static final Info INFO = new Info("saving", DataType.NONE);
         public static final Topic PED_TRACKLET_SAVING_TOPIC =
                 new Topic("pedestrian-tracklet-saving",
                         DataType.TRACKLET,

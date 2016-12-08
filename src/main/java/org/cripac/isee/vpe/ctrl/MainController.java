@@ -127,7 +127,7 @@ public class MainController {
                         .setVerbose(propCenter.verbose)
                         .addFile(propCenter.log4jPropFilePath)
                         .addFile(propCenter.sysPropFilePath)
-                        .addFile(CfgFileManager.getConcatCfgFilePathList(","))
+                        .addFile(ConfManager.getConcatCfgFilePathList(","))
                         .setConf(SparkLauncher.DRIVER_MEMORY, propCenter.driverMem)
                         .setConf(SparkLauncher.EXECUTOR_MEMORY, propCenter.executorMem)
                         .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
