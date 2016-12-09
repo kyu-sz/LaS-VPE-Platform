@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 /**
  * Created by ken.yu on 16-10-24.
  */
-public class CfgFileManagerTest {
+public class ConfManagerTest {
     @Test
     public void getConfigFileList() throws Exception {
         List<String> confFiles =

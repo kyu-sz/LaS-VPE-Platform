@@ -88,7 +88,7 @@ public class ConfManager {
         }
     }
 
-    private final static String CONF_DIR = "conf";
+    public final static String CONF_DIR = "conf";
 
     private static String tmpDir = null;
 

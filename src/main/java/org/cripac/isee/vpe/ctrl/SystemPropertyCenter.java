@@ -105,8 +105,8 @@ public class SystemPropertyCenter {
      * that in default places according to the application specified.
      */
     public String appPropFilePath = null;
-    public String sparkConfFilePath = "conf/spark-defaults.conf";
-    public String log4jPropFilePath = "conf/log4j.properties";
+    public String sparkConfFilePath = ConfManager.CONF_DIR + "/spark-defaults.conf";
+    public String log4jPropFilePath = ConfManager.CONF_DIR + "/log4j.properties";
     public String hdfsDefaultName = "localhost:9000";
     public String yarnResourceManagerHostname = "localhost";
     public String jarPath = "bin/vpe-platform.jar";
@@ -352,7 +352,7 @@ public class SystemPropertyCenter {
             optList.add("-v");
         }
 
-        if (appPropFilePath != null) {
+        if (appPropFilePath != null && new File(appPropFilePath).exists()) {
             optList.add("--app-property-file");
             optList.add(new File(appPropFilePath).getName());
         }

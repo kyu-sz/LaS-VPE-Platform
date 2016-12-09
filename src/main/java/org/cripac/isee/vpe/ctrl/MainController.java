@@ -115,7 +115,7 @@ public class MainController {
             boolean useDefaultAppProperties = (propCenter.appPropFilePath == null);
             for (String appName : propCenter.appsToStart) {
                 if (useDefaultAppProperties) {
-                    propCenter.appPropFilePath = appName + "/" + "app.properties";
+                    propCenter.appPropFilePath = ConfManager.CONF_DIR + "/" + appName + "/app.properties";
                 }
 
                 SparkLauncher launcher = new SparkLauncher()

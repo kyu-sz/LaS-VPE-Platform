@@ -51,26 +51,26 @@ public class TopicManager {
         topics.add(topic);
     }
 
-    public static void checkTopics(@Nonnull SystemPropertyCenter propertyCenter) {
-        System.out.println("|INFO|Connecting to zookeeper: " + propertyCenter.zkConn);
+    public static void checkTopics(@Nonnull SystemPropertyCenter propCenter) {
+        System.out.println("|INFO|Connecting to zookeeper: " + propCenter.zkConn);
         ZkClient zkClient = new ZkClient(
-                propertyCenter.zkConn,
-                propertyCenter.sessionTimeoutMs,
-                propertyCenter.connectionTimeoutMs);
+                propCenter.zkConn,
+                propCenter.sessionTimeoutMs,
+                propCenter.connectionTimeoutMs);
         for (Topic topic : topics) {
             System.out.println("|INFO|Checking topic: " + topic);
             if (!AdminUtils.topicExists(zkClient, topic.NAME)) {
                 // AdminUtils.createTopic(zkClient, topic,
-                // propertyCenter.kafkaNumPartitions,
-                // propertyCenter.kafkaReplFactor, new Properties());
+                // propCenter.kafkaNumPartitions,
+                // propCenter.kafkaReplFactor, new Properties());
                 System.out.println("|INFO|Creating topic: " + topic);
                 kafka.admin.TopicCommand.main(
                         new String[]{
                                 "--create",
-                                "--zookeeper", propertyCenter.zkConn,
+                                "--zookeeper", propCenter.zkConn,
                                 "--topic", topic.NAME,
-                                "--partitions", "" + propertyCenter.kafkaNumPartitions,
-                                "--replication-factor", "" + propertyCenter.kafkaReplFactor});
+                                "--partitions", "" + propCenter.kafkaNumPartitions,
+                                "--replication-factor", "" + propCenter.kafkaReplFactor});
             }
         }
         System.out.println("|INFO|Topics checked!");

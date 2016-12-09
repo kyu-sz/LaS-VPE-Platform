@@ -11,6 +11,6 @@ rsync -rav -e ssh --include '*/' \
  --include='*.sh' --include='*.jar' --include='*.so' --include='*.dll' --include='*.lib'\
  --include='*.conf' --include='*.properties' --include='*.xml' --include='*.conf' \
  --include='*.cpp' --include='*.hpp' --include='*.c' --include='*.h' --include='*.txt' \
- --exclude='*' \
+ --exclude='*' --exclude='CMakeCache.txt'\
  . \
  ${DRIVER_USER}@${DRIVER_NODE}:${VPE_FOLDER}

@@ -34,7 +34,7 @@ public class InputStreamReaderRunnable implements Runnable {
     private BufferedReader reader;
 
     private String name;
-    private boolean errorStream = false;
+    private boolean isErrStream = false;
 
     /**
      * Create a thread to read from a input stream and print it to the console.
@@ -46,7 +46,7 @@ public class InputStreamReaderRunnable implements Runnable {
                                      @Nonnull String name) {
         this.reader = new BufferedReader(new InputStreamReader(is));
         this.name = name;
-        errorStream = name.toLowerCase().contains("error");
+        isErrStream = name.toLowerCase().contains("error");
     }
 
     /*
@@ -59,7 +59,7 @@ public class InputStreamReaderRunnable implements Runnable {
         try {
             String line = reader.readLine();
             while (line != null) {
-                if (errorStream) {
+                if (isErrStream) {
                     System.err.println("[" + name + "]" + line);
                 } else {
                     System.out.println("[" + name + "]" + line);
