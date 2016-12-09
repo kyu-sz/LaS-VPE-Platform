@@ -44,7 +44,8 @@ git clone --recursive https://github.com/kyu-sz/LaS-VPE-Platform
 Build and pack the system into a JAR:
 
 ```Shell
-mvn compile && mvn package
+./sbin/build-native-libs.sh
+mvn package
 ```
 
 Configure the environment and running properties in the files in [conf](conf).
@@ -57,9 +58,13 @@ Upload the whole project to your cluster:
 ./sbin/upload.sh
 ```
 
-If the platform depends on native libraries (currently it does), deliver them to worker nodes using [install.sh](sbin/install.sh) in [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_ environment variable.
+Then switch to the terminal of your cluster, change to the platform folder and deliver native libraries to worker nodes using [install.sh](sbin/install.sh) in [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_ environment variable.
 
-Invoke the scripts in the home directory by command like "./sbin/run-*.sh".
+```Shell
+./sbin/install.sh
+```
+
+Finally, you can start the applications by invoking the scripts in the home directory by command like "./sbin/run-*.sh".
 
 It is recommended to last start the [run-command-generating-app.sh](sbin/run-command-generating-app.sh), which is the debugging tool to simulate commands to the message handling application.
 
