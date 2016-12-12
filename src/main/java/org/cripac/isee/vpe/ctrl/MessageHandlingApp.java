@@ -159,10 +159,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<HDFSReader> hdfsReaderSingleton;
-        final SystemPropertyCenter propCenter;
+        private final int procTime;
 
         public MessageHandlingStream(SystemPropertyCenter propCenter) throws Exception {
-            this.propCenter = propCenter;
+            this.procTime = propCenter.procTime;
 
             kafkaParams = new HashMap<>();
             System.out.println("|INFO|MessageHandlingApp: bootstrap.servers=" + propCenter.kafkaBrokers);
@@ -340,10 +340,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Handle the messages received from Kafka,
-            buildBytesDirectStream(jssc,
-                    Arrays.asList(COMMAND_TOPIC.NAME),
-                    kafkaParams,
-                    propCenter.procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(COMMAND_TOPIC.NAME), kafkaParams, procTime)
                     .foreachRDD(rdd ->
                         rdd.foreach(msg -> {
                             UUID taskID = UUID.randomUUID();

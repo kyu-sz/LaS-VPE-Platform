@@ -144,10 +144,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
 
-        final SystemPropertyCenter propCenter;
+        private final int procTime;
 
         public RecogStream(SystemPropertyCenter propCenter) throws Exception {
-            this.propCenter = propCenter;
+            this.procTime = propCenter.procTime;
 
             loggerSingleton =
                     new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
@@ -188,10 +188,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            buildBytesDirectStream(jssc,
-                    Arrays.asList(TRACKLET_TOPIC.NAME),
-                    kafkaParams,
-                    propCenter.procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams, procTime)
                     .mapValues(taskDataBytes ->
                             (TaskData) deserialize(taskDataBytes))
                     .foreachRDD(rdd ->

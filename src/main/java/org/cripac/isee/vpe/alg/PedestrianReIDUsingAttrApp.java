@@ -165,10 +165,10 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         private Singleton<PedestrianReIDer> reidSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
 
-        final SystemPropertyCenter propCenter;
+        private final int procTime;
 
         public ReIDStream(SystemPropertyCenter propCenter) throws Exception {
-            this.propCenter = propCenter;
+            this.procTime = propCenter.procTime;
 
             bufDuration = propCenter.bufDuration;
 
@@ -212,7 +212,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                     buildBytesDirectStream(jssc,
                             Arrays.asList(TRACKLET_TOPIC.NAME),
                             kafkaParams,
-                            propCenter.procTime)
+                            procTime)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
                             .mapToPair(taskDataBytes -> {
@@ -227,10 +227,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc,
-                            Arrays.asList(ATTR_TOPIC.NAME),
-                            kafkaParams,
-                            propCenter.procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(ATTR_TOPIC.NAME), kafkaParams, procTime)
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
@@ -324,10 +321,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
             JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
-                    buildBytesDirectStream(jssc,
-                            Arrays.asList(TRACKLET_ATTR_TOPIC.NAME),
-                            kafkaParams,
-                            propCenter.procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams, procTime)
                             .mapValues(bytes -> (TaskData) deserialize(bytes));
 
             // Union the two track with attribute streams and perform ReID.

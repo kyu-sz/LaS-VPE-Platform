@@ -199,7 +199,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 new Topic("cam-ip-for-pedestrian-tracking",
                         DataType.WEBCAM_LOGIN_PARAM, INFO);
 
-        final SystemPropertyCenter propCenter;
+        private final int procTime;
 
         /**
          * Kafka parameters for creating input streams pulling messages
@@ -214,7 +214,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
-            this.propCenter = propCenter;
+            this.procTime = propCenter.procTime;
 
             kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             kafkaParams.put("group.id", INFO.NAME);
@@ -246,10 +246,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            buildBytesDirectStream(jssc,
-                    Arrays.asList(LOGIN_PARAM_TOPIC.NAME),
-                    kafkaParams,
-                    propCenter.procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(LOGIN_PARAM_TOPIC.NAME), kafkaParams, procTime)
                     .foreachRDD(rdd ->
                         rdd.foreach(kvPair -> {
                             // Recover data.
@@ -317,11 +314,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
-        final SystemPropertyCenter propCenter;
+        private final int procTime;
 
         public VideoFragmentTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
-            this.propCenter = propCenter;
+            this.procTime = propCenter.procTime;
 
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
@@ -365,7 +362,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     buildBytesDirectStream(jssc,
                             Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME),
                             kafkaParams,
-                            propCenter.procTime)
+                            procTime)
                             .mapToPair(kvPair -> {
                                 String taskID = kvPair._1();
 
@@ -389,7 +386,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     buildBytesDirectStream(jssc,
                             Arrays.asList(VIDEO_URL_TOPIC.NAME),
                             kafkaParams,
-                            propCenter.procTime)
+                            procTime)
                             .mapValues(bytes -> (TaskData) SerializationHelper.deserialize(bytes));
 
             JavaPairDStream<String, TaskData> fragUnionStream =
