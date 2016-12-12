@@ -27,8 +27,13 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -156,18 +161,18 @@ public class DataManagingApp extends SparkStreamingApp {
             this.propCenter = propCenter;
 
             // Common Kafka settings
-            kafkaParams.put("group.id", INFO.NAME);
+            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
+            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "latest");
-            kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
             producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
@@ -264,19 +269,26 @@ public class DataManagingApp extends SparkStreamingApp {
             this.propCenter = propCenter;
 
             // Common Kafka settings
-            kafkaParams.put("group.id", INFO.NAME);
+            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
+            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "latest");
-            kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
+                    "" + propCenter.kafkaFetchMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                    StringDeserializer.class.getName());
+            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                    ByteArrayDeserializer.class.getName());
 
             Properties producerProp = new Properties();
             producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
             producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                    StringSerializer.class.getName());
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                    ByteArraySerializer.class.getName());
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
@@ -360,12 +372,12 @@ public class DataManagingApp extends SparkStreamingApp {
             this.propCenter = propCenter;
 
             // Common Kafka settings
-            kafkaParams.put("group.id", INFO.NAME);
+            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
+            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "latest");
-            kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, "" + propCenter.kafkaFetchMsgMaxBytes);
 
             metadataDir = propCenter.metadataDir;
 
@@ -373,8 +385,8 @@ public class DataManagingApp extends SparkStreamingApp {
             producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
             producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));

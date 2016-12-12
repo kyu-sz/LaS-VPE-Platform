@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.common;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.spark.streaming.api.java.JavaInputDStream;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.*;
@@ -108,7 +109,7 @@ public abstract class Stream implements Serializable {
                            @Nonnull Collection<String> topics,
                            @Nonnull Map<String, Object> kafkaParams,
                            int procTime) {
-        kafkaParams.put("enable.auto.commit", false);
+        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         JavaInputDStream<ConsumerRecord<String, byte[]>> inputStream = KafkaUtils
                 .createDirectStream(jssc,
                         LocationStrategies.PreferConsistent(),
