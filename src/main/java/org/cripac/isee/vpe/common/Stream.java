@@ -17,11 +17,11 @@
 
 package org.cripac.isee.vpe.common;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka010.ConsumerStrategies;
-import org.apache.spark.streaming.kafka010.KafkaUtils;
-import org.apache.spark.streaming.kafka010.LocationStrategies;
+import org.apache.spark.streaming.kafka010.*;
 import scala.Tuple2;
 
 import javax.annotation.Nonnull;
@@ -94,22 +94,34 @@ public abstract class Stream implements Serializable {
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
-     * @param jssc      The streaming context of the applications.
-     * @param kafkaParams           Parameters for reading from Kafka.
-     * @param topics                Topics from which the direct stream reads.
+     * @param jssc        The streaming context of the applications.
+     * @param kafkaParams Parameters for reading from Kafka.
+     * @param topics      Topics from which the direct stream reads.
+     * @param procTime    Estimated time in milliseconds to be consumed in the
+     *                    following process of each RDD from the input stream.
+     *                    After this time, it is viewed that output has
+     *                    finished, and offsets will be committed to Kafka.
      * @return A Kafka non-receiver input stream.
      */
-    protected JavaPairDStream<String,byte[]>
+    protected JavaPairDStream<String, byte[]>
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
-                           @Nonnull Map<String, Object> kafkaParams) {
+                           @Nonnull Map<String, Object> kafkaParams,
+                           int procTime) {
         kafkaParams.put("enable.auto.commit", false);
-        return KafkaUtils
+        JavaInputDStream<ConsumerRecord<String, byte[]>> inputStream = KafkaUtils
                 .createDirectStream(jssc,
                         LocationStrategies.PreferConsistent(),
                         ConsumerStrategies.<String, byte[]>Subscribe(
                                 topics,
-                                kafkaParams))
-                .mapToPair(rec -> new Tuple2(rec.key(), rec.value()));
+                                kafkaParams));
+        // TODO(Ken Yu): Check if this offset commit can help recovering
+        // Kafka offset when checkpoint is deleted.
+        inputStream.foreachRDD(rdd -> {
+            OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+            Thread.sleep(procTime);
+            ((CanCommitOffsets) inputStream.inputDStream()).commitAsync(offsetRanges);
+        });
+        return inputStream.mapToPair(rec -> new Tuple2(rec.key(), rec.value()));
     }
 }

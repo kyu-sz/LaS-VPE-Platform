@@ -129,21 +129,21 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         /**
          * Topic to input pedestrian tracklets from Kafka.
          */
-        public static final Topic TRACKLET_TOPIC = new Topic(
-                "pedestrian-tracklet-for-reid-using-attr",
-                DataType.TRACKLET, INFO);
+        public static final Topic TRACKLET_TOPIC =
+                new Topic("pedestrian-tracklet-for-reid-using-attr",
+                        DataType.TRACKLET, INFO);
         /**
          * Topic to input pedestrian attributes from Kafka.
          */
-        public static final Topic ATTR_TOPIC = new Topic(
-                "pedestrian-attr-for-reid-using-attr",
-                DataType.ATTR, INFO);
+        public static final Topic ATTR_TOPIC =
+                new Topic("pedestrian-attr-for-reid-using-attr",
+                        DataType.ATTR, INFO);
         /**
          * Topic to input pedestrian track with attributes from Kafka.
          */
-        public static final Topic TRACKLET_ATTR_TOPIC = new Topic(
-                "pedestrian-track-attr-for-reid-using-attr",
-                DataType.TRACKLET, INFO);
+        public static final Topic TRACKLET_ATTR_TOPIC =
+                new Topic("pedestrian-track-attr-for-reid-using-attr",
+                        DataType.TRACKLET, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
@@ -160,7 +160,11 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         private Singleton<PedestrianReIDer> reidSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
 
+        final SystemPropertyCenter propCenter;
+
         public ReIDStream(SystemPropertyCenter propCenter) throws Exception {
+            this.propCenter = propCenter;
+
             bufDuration = propCenter.bufDuration;
 
             // Common kafka settings.
@@ -196,7 +200,10 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         public void addToContext(JavaStreamingContext jssc) {
             JavaPairDStream<String, TaskData> trackletDStream =
                     // Read track bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc,
+                            Arrays.asList(TRACKLET_TOPIC.NAME),
+                            kafkaParams,
+                            propCenter.procTime)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
                             .mapToPair(taskDataBytes -> {
@@ -211,7 +218,10 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Arrays.asList(ATTR_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc,
+                            Arrays.asList(ATTR_TOPIC.NAME),
+                            kafkaParams,
+                            propCenter.procTime)
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
@@ -305,7 +315,10 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
             JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc,
+                            Arrays.asList(TRACKLET_ATTR_TOPIC.NAME),
+                            kafkaParams,
+                            propCenter.procTime)
                             .mapValues(bytes -> (TaskData) deserialize(bytes));
 
             // Union the two track with attribute streams and perform ReID.

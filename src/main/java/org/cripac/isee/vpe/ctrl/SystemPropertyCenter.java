@@ -127,6 +127,10 @@ public class SystemPropertyCenter {
      */
     public int reportListenerPort = -1;
     /**
+     * Estimated time in milliseconds to be consumed in the process of each RDD.
+     */
+    public int procTime = 10000;
+    /**
      * Whether to print verbose running information.
      */
     public boolean verbose = false;
@@ -326,6 +330,9 @@ public class SystemPropertyCenter {
                     break;
                 case "vpe.buf.duration":
                     bufDuration = new Integer((String) entry.getValue());
+                    break;
+                case "process.time":
+                    procTime = new Integer((String) entry.getValue());
                     break;
             }
         }

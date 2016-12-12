@@ -40,8 +40,6 @@ import java.io.Serializable;
  */
 public abstract class SparkStreamingApp implements Serializable {
 
-    private static final long serialVersionUID = 2780614096112566164L;
-
     /**
      * Common Spark Streaming context variable.
      */

@@ -194,6 +194,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 new Topic("cam-ip-for-pedestrian-tracking",
                         DataType.WEBCAM_LOGIN_PARAM, INFO);
 
+        final SystemPropertyCenter propCenter;
+
         /**
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
@@ -207,6 +209,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
+            this.propCenter = propCenter;
+
             kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -225,8 +229,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
+            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
                     propCenter.verbose ? Level.DEBUG : Level.INFO,
                     propCenter.reportListenerAddr,
                     propCenter.reportListenerPort));
@@ -236,8 +239,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            buildBytesDirectStream(jssc, Arrays.asList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
-                    .foreachRDD(rdd -> {
+            buildBytesDirectStream(jssc,
+                    Arrays.asList(LOGIN_PARAM_TOPIC.NAME),
+                    kafkaParams,
+                    propCenter.procTime)
+                    .foreachRDD(rdd ->
                         rdd.foreach(kvPair -> {
                             // Recover data.
                             final String taskID = kvPair._1();
@@ -263,9 +269,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 cameraConnector = connectorPool.get(loginParam.camID).getInst();
                             } else {
                                 Singleton<WebCameraConnector> cameraConnectorSingleton =
-                                        new Singleton(
-                                                new FakeWebCameraConnector
-                                                        .FakeWebCameraConnectorFactory(loginParam));
+                                        new Singleton(new FakeWebCameraConnector
+                                                .FakeWebCameraConnectorFactory(loginParam));
                                 connectorPool.put(loginParam.camID, cameraConnectorSingleton);
                                 cameraConnector = cameraConnectorSingleton.getInst();
                             }
@@ -273,8 +278,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             // Connect to camera.
                             InputStream rtVideoStream = cameraConnector.getStream();
                             // TODO(Ken Yu): Perform tracking on the real-time video stream.
-                        });
-                    });
+                        })
+                    );
         }
     }
 
@@ -305,9 +310,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
+        final SystemPropertyCenter propCenter;
 
         public VideoFragmentTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
+            this.propCenter = propCenter;
+
             kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -326,8 +334,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
+            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
                     propCenter.verbose ? Level.DEBUG : Level.INFO,
                     propCenter.reportListenerAddr,
                     propCenter.reportListenerPort));
@@ -342,7 +349,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             JavaPairDStream<String, TaskData> fragFromURLDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc,
+                            Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME),
+                            kafkaParams,
+                            propCenter.procTime)
                             .mapToPair(kvPair -> {
                                 String taskID = kvPair._1();
 
@@ -354,21 +364,27 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 // execution data of this node.
                                 frag.videoID = (String) taskData.predecessorRes;
                                 // Retrieve video fragment bytes.
-                                frag.bytes = IOUtils.toByteArray(
-                                        hdfsSingleton.getInst().open(new Path(frag.videoID)));
+                                frag.bytes = IOUtils.toByteArray(hdfsSingleton
+                                        .getInst()
+                                        .open(new Path(frag.videoID)));
 
                                 taskData.predecessorRes = frag;
                                 return new Tuple2<>(taskID, taskData);
                             });
 
             JavaPairDStream<String, TaskData> fragFromBytesDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc,
+                            Arrays.asList(VIDEO_URL_TOPIC.NAME),
+                            kafkaParams,
+                            propCenter.procTime)
                             .mapValues(bytes -> (TaskData) SerializationHelper.deserialize(bytes));
 
-            fragFromURLDStream.union(fragFromBytesDStream).foreachRDD(rdd -> {
+            JavaPairDStream<String, TaskData> fragUnionStream =
+                    fragFromURLDStream.union(fragFromBytesDStream);
+
+            fragUnionStream.foreachRDD(rdd -> {
                 final Broadcast<Map<String, byte[]>> confPool =
-                        ConfigPool.getInst(
-                                new JavaSparkContext(rdd.context()),
+                        ConfigPool.getInst(new JavaSparkContext(rdd.context()),
                                 hdfsSingleton.getInst(),
                                 loggerSingleton.getInst());
 
@@ -397,9 +413,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                     // Load tracking configuration to create a tracker.
                     if (!confPool.getValue().containsKey(confFile)) {
-                        logger.error(
-                                "Cannot find tracking config file "
-                                        + confFile);
+                        logger.error("Cannot find tracking config file "
+                                + confFile);
                         return;
                     }
                     byte[] confBytes = confPool.getValue().get(confFile);
@@ -428,9 +443,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             taskData.changeCurNode(topic);
 
                             byte[] serialized = serialize(taskData);
-                            logger.debug(
-                                    "To sendWithLog message with size: "
-                                            + serialized.length);
+                            logger.debug("To sendWithLog message with size: "
+                                    + serialized.length);
                             sendWithLog(topic,
                                     task._1(),
                                     serialized,

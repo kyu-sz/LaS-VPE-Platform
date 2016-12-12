@@ -125,8 +125,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         /**
          * Topic to input tracklets from Kafka.
          */
-        public static final Topic TRACKLET_TOPIC = new Topic(
-                "pedestrian-tracklet-for-attr-recog", DataType.TRACKLET, INFO);
+        public static final Topic TRACKLET_TOPIC =
+                new Topic("pedestrian-tracklet-for-attr-recog",
+                        DataType.TRACKLET, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
@@ -138,12 +139,16 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
 
+        final SystemPropertyCenter propCenter;
+
         public RecogStream(SystemPropertyCenter propCenter) throws Exception {
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort));
+            this.propCenter = propCenter;
+
+            loggerSingleton =
+                    new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
+                            propCenter.verbose ? Level.DEBUG : Level.INFO,
+                            propCenter.reportListenerAddr,
+                            propCenter.reportListenerPort));
 
             // Common kafka settings.
             kafkaParams.put("group.id", INFO.NAME);
@@ -174,10 +179,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc,
+                    Arrays.asList(TRACKLET_TOPIC.NAME),
+                    kafkaParams,
+                    propCenter.procTime)
                     .mapValues(taskDataBytes ->
                             (TaskData) deserialize(taskDataBytes))
-                    .foreachRDD(rdd -> {
+                    .foreachRDD(rdd ->
                         rdd.foreach(taskWithTracklet -> {
                             Logger logger = loggerSingleton.getInst();
 
@@ -216,8 +224,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                         producerSingleton.getInst(),
                                         logger);
                             }
-                        });
-                    });
+                        })
+                    );
         }
     }
 }
