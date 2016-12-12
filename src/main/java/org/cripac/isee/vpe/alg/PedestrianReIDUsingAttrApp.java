@@ -17,11 +17,11 @@
 
 package org.cripac.isee.vpe.alg;
 
-import com.google.common.base.Optional;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.*;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -42,6 +42,8 @@ import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import org.apache.spark.api.java.Optional;
+import scala.Option;
 import scala.Tuple2;
 
 import java.util.*;
@@ -148,22 +150,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages from Kafka
          * Brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
-        /**
-         * Topics for inputting tracklets. Each assigned a number of threads the Kafka
-         * consumer should use.
-         */
-        private Map<String, Integer> trackTopicMap = new HashMap<>();
-        /**
-         * Topics for inputting attributes. Each assigned a number of threads the
-         * Kafka consumer should use.
-         */
-        private Map<String, Integer> attrTopicMap = new HashMap<>();
-        /**
-         * Topics for inputting tracklets with attributes. Each assigned a number of
-         * threads the Kafka consumer should use. partitions.
-         */
-        private Map<String, Integer> trackWithAttrTopicMap = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
 
         /**
          * Duration for buffering results.
@@ -175,10 +162,6 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         private Singleton<SynthesizedLogger> loggerSingleton;
 
         public ReIDStream(SystemPropertyCenter propCenter) throws Exception {
-            trackTopicMap.put(TRACKLET_TOPIC.NAME, propCenter.kafkaNumPartitions);
-            attrTopicMap.put(ATTR_TOPIC.NAME, propCenter.kafkaNumPartitions);
-            trackWithAttrTopicMap.put(TRACKLET_ATTR_TOPIC.NAME, propCenter.kafkaNumPartitions);
-
             bufDuration = propCenter.bufDuration;
 
             // Common kafka settings.
@@ -190,12 +173,12 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer",
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                     "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer",
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                     "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(
@@ -211,10 +194,10 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {
+        public void addToContext(JavaStreamingContext jssc) {
             JavaPairDStream<String, TaskData> trackletDStream =
                     // Read track bytes in parallel from Kafka.
-                    buildBytesDirectStream(jsc, kafkaParams, trackTopicMap)
+                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
                             .mapToPair(taskDataBytes -> {
@@ -229,7 +212,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
-                    buildBytesDirectStream(jsc, kafkaParams, attrTopicMap)
+                    buildBytesDirectStream(jssc, Arrays.asList(ATTR_TOPIC.NAME), kafkaParams)
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
@@ -323,7 +306,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
             JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
-                    buildBytesDirectStream(jsc, kafkaParams, trackWithAttrTopicMap)
+                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams)
                             .mapValues(bytes -> (TaskData) deserialize(bytes));
 
             // Union the two track with attribute streams and perform ReID.

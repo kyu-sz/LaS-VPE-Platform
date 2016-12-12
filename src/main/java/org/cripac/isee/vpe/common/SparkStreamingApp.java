@@ -17,19 +17,11 @@
 
 package org.cripac.isee.vpe.common;
 
-import kafka.common.OffsetAndMetadata;
-import kafka.common.TopicAndPartition;
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.kafka.common.requests.OffsetCommitRequest;
 import org.apache.log4j.Level;
-import org.apache.spark.storage.StorageLevel;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 
@@ -37,10 +29,6 @@ import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,

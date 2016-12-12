@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -143,8 +144,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 DataType.TRACKLET);
         public static final Topic PED_TRACKLET_RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID, INFO);
-        private Map<String, Integer> trackletRtrvJobTopicMap = new HashMap<>();
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
@@ -152,10 +152,6 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter)
                 throws Exception {
-            trackletRtrvJobTopicMap.put(
-                    PED_TRACKLET_RTRV_JOB_TOPIC.NAME,
-                    propCenter.kafkaNumPartitions);
-
             // Common Kafka settings
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -165,11 +161,10 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-            producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
@@ -182,10 +177,10 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {// Read track retrieving jobs in parallel from Kafka.
+        public void addToContext(JavaStreamingContext jssc) {// Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
-            buildBytesDirectStream(jsc, kafkaParams, trackletRtrvJobTopicMap)
+            buildBytesDirectStream(jssc, Arrays.asList(PED_TRACKLET_RTRV_JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets.
                     .foreachRDD(rdd -> {
                         rdd.foreach(job -> {
@@ -251,16 +246,13 @@ public class DataManagingApp extends SparkStreamingApp {
                 DataType.TRACKLET_ATTR);
         public static final Topic JOB_TOPIC =
                 new Topic("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID, INFO);
-        private Map<String, Integer> trackletAttrRtrvJobTopicMap = new HashMap<>();
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
-            trackletAttrRtrvJobTopicMap.put(JOB_TOPIC.NAME, propCenter.kafkaNumPartitions);
-
             // Common Kafka settings
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -270,11 +262,11 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
@@ -287,9 +279,9 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {
+        public void addToContext(JavaStreamingContext jssc) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
-            buildBytesDirectStream(jsc, kafkaParams, trackletAttrRtrvJobTopicMap)
+            buildBytesDirectStream(jssc, Arrays.asList(JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> {
                         rdd.foreach(job -> {
@@ -345,10 +337,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 new Topic("pedestrian-idrank-saving",
                         DataType.IDRANK,
                         SavingStream.INFO);
-        private Map<String, Integer> trackletSavingTopicMap = new HashMap<>();
-        private Map<String, Integer> attrSavingTopicMap = new HashMap<>();
-        private Map<String, Integer> idRankSavingTopicMap = new HashMap<>();
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
         private String metadataDir;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
@@ -357,16 +346,6 @@ public class DataManagingApp extends SparkStreamingApp {
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         public SavingStream(@Nonnull SystemPropertyCenter propCenter) throws Exception {
-            trackletSavingTopicMap.put(
-                    PED_TRACKLET_SAVING_TOPIC.NAME,
-                    propCenter.kafkaNumPartitions);
-            attrSavingTopicMap.put(
-                    PED_ATTR_SAVING_TOPIC.NAME,
-                    propCenter.kafkaNumPartitions);
-            idRankSavingTopicMap.put(
-                    PED_IDRANK_SAVING_TOPIC.NAME,
-                    propCenter.kafkaNumPartitions);
-
             // Common Kafka settings
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -378,11 +357,11 @@ public class DataManagingApp extends SparkStreamingApp {
             metadataDir = propCenter.metadataDir;
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
@@ -449,8 +428,8 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(@Nonnull JavaStreamingContext jsc) {// Save tracklets.
-            buildBytesDirectStream(jsc, kafkaParams, trackletSavingTopicMap)
+        public void addToContext(@Nonnull JavaStreamingContext jssc) {// Save tracklets.
+            buildBytesDirectStream(jssc, Arrays.asList(PED_TRACKLET_SAVING_TOPIC.NAME), kafkaParams)
                     .groupByKey()
                     .foreachRDD(rdd -> {
                         rdd.foreach(trackGroup -> {
@@ -527,7 +506,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
-            buildBytesDirectStream(jsc, kafkaParams, attrSavingTopicMap)
+            buildBytesDirectStream(jssc, Arrays.asList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> {
                         rdd.foreach(result -> {
                             try {
@@ -546,14 +525,14 @@ public class DataManagingApp extends SparkStreamingApp {
                                         .debug("Saved " + result._1() + ": " + attr);
                             } catch (IOException e) {
                                 loggerSingleton.getInst()
-                                        .error("Exception caught when decompressing attributes", e);
+                                        .error("When decompressing attributes", e);
                             }
                         });
                     });
 
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
-            buildBytesDirectStream(jsc, kafkaParams, idRankSavingTopicMap)
+            buildBytesDirectStream(jssc, Arrays.asList(PED_IDRANK_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> {
                         rdd.foreach(res -> {
                             int[] idRank;
@@ -568,7 +547,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                         + ": Pedestrian IDRANK rank: " + rankStr);
                                 //TODO(Ken Yu): Save IDs to database.
                             } catch (IOException e) {
-                                loggerSingleton.getInst().error("Exception caught when decompressing IDRANK", e);
+                                loggerSingleton.getInst()
+                                        .error("When decompressing IDRANK", e);
                             }
                         });
                     });

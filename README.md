@@ -29,7 +29,9 @@ LaS-VPE Platform is released under the GPL License.
 	```Shell
 	sudo apt-get install maven
 	```
-2. Deploy Kafka(>=0.8), HDFS(>=2.2) and YARN(>=2.2) properly on your cluster.
+	
+2. Deploy Kafka(>=0.10.1.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2) properly on your cluster.
+
 To enable multi-appications running concurrently, see [Job-Scheduling](https://spark.apache.org/docs/1.2.0/job-scheduling.html) and configure your environment.
 
 ## How to run
@@ -47,6 +49,8 @@ Build and pack the system into a JAR:
 ./sbin/build-native-libs.sh
 mvn package
 ```
+
+If your maven resolves dependencies at a low speed, try ```mvn -Dmaven.artifact.threads=100 package``` or add ```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.
 
 Configure the environment and running properties in the files in [conf](conf).
 

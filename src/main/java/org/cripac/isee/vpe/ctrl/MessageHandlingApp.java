@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.ctrl;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -149,15 +150,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
         public static final Topic COMMAND_TOPIC = new Topic(
                 "command", DataType.COMMAND, MessageHandlingStream.INFO);
 
-        private Map<String, Integer> cmdTopicMap = new HashMap<>();
-        private Map<String, String> kafkaParams;
+        private Map<String, Object> kafkaParams;
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<HDFSReader> hdfsReaderSingleton;
 
         public MessageHandlingStream(SystemPropertyCenter propCenter) throws Exception {
-            cmdTopicMap.put(COMMAND_TOPIC.NAME, propCenter.kafkaNumPartitions);
-
             kafkaParams = new HashMap<>();
             System.out.println("|INFO|MessageHandlingApp: metadata.broker.list=" + propCenter.kafkaBrokers);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -168,11 +166,11 @@ public class MessageHandlingApp extends SparkStreamingApp {
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
             loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
@@ -327,8 +325,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {// Handle the messages received from Kafka,
-            buildBytesDirectStream(jsc, kafkaParams, cmdTopicMap)
+        public void addToContext(JavaStreamingContext jssc) {// Handle the messages received from Kafka,
+            buildBytesDirectStream(jssc, Arrays.asList(COMMAND_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> {
                         rdd.foreach(msg -> {
                             UUID taskID = UUID.randomUUID();

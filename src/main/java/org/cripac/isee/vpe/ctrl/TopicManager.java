@@ -18,7 +18,9 @@
 package org.cripac.isee.vpe.ctrl;
 
 import kafka.admin.AdminUtils;
+import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.cripac.isee.vpe.common.Topic;
 
 import javax.annotation.Nonnull;
@@ -53,13 +55,12 @@ public class TopicManager {
 
     public static void checkTopics(@Nonnull SystemPropertyCenter propCenter) {
         System.out.println("|INFO|Connecting to zookeeper: " + propCenter.zkConn);
-        ZkClient zkClient = new ZkClient(
-                propCenter.zkConn,
-                propCenter.sessionTimeoutMs,
-                propCenter.connectionTimeoutMs);
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn);
+        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
         for (Topic topic : topics) {
             System.out.println("|INFO|Checking topic: " + topic);
-            if (!AdminUtils.topicExists(zkClient, topic.NAME)) {
+            if (!AdminUtils.topicExists(zkUtils, topic.NAME)) {
                 // AdminUtils.createTopic(zkClient, topic,
                 // propCenter.kafkaNumPartitions,
                 // propCenter.kafkaReplFactor, new Properties());

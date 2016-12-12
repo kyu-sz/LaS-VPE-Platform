@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -198,13 +199,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
-
-        /**
-         * Topics for inputting camera IPs. Each assigned a number of
-         * threads the Kafka consumer should use.
-         */
-        private Map<String, Integer> camIPTopicMap = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
@@ -213,9 +208,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
-            camIPTopicMap.put(LOGIN_PARAM_TOPIC.NAME,
-                    propCenter.kafkaNumPartitions);
-
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -225,12 +217,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer",
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                     "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer",
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                     "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
@@ -244,8 +236,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {
-            buildBytesDirectStream(jsc, kafkaParams, camIPTopicMap)
+        public void addToContext(JavaStreamingContext jssc) {
+            buildBytesDirectStream(jssc, Arrays.asList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> {
                         rdd.foreach(kvPair -> {
                             // Recover data.
@@ -309,18 +301,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
-
-        /**
-         * Topics for inputting video URLs. Each assigned a number of
-         * threads the Kafka consumer should use.
-         */
-        private Map<String, Integer> videoURLTopicMap = new HashMap<>();
-        /**
-         * Topics for inputting video bytes. Each assigned a number of
-         * threads the Kafka consumer should use.
-         */
-        private Map<String, Integer> videoFragBytesTopicMap = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<SynthesizedLogger> loggerSingleton;
@@ -328,11 +309,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         public VideoFragmentTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
-            videoURLTopicMap.put(VIDEO_URL_TOPIC.NAME,
-                    propCenter.kafkaNumPartitions);
-            videoFragBytesTopicMap.put(VIDEO_FRAG_BYTES_TOPIC.NAME,
-                    propCenter.kafkaNumPartitions);
-
             kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -342,12 +318,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
             producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer",
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                     "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer",
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                     "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
@@ -365,9 +341,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {
+        public void addToContext(JavaStreamingContext jssc) {
             JavaPairDStream<String, TaskData> fragFromURLDStream =
-                    buildBytesDirectStream(jsc, kafkaParams, videoURLTopicMap)
+                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME), kafkaParams)
                             .mapToPair(kvPair -> {
                                 String taskID = kvPair._1();
 
@@ -387,7 +363,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             });
 
             JavaPairDStream<String, TaskData> fragFromBytesDStream =
-                    buildBytesDirectStream(jsc, kafkaParams, videoFragBytesTopicMap)
+                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams)
                             .mapValues(bytes -> (TaskData) SerializationHelper.deserialize(bytes));
 
             fragFromURLDStream.union(fragFromBytesDStream).foreachRDD(rdd -> {

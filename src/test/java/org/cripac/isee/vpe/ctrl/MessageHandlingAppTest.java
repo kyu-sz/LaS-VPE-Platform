@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.ctrl;
 
 import org.apache.commons.collections.map.HashedMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Level;
 import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -66,9 +67,9 @@ public class MessageHandlingAppTest implements Serializable {
         TopicManager.checkTopics(propCenter);
 
         Properties producerProp = new Properties();
-        producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-        producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
+        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
     }

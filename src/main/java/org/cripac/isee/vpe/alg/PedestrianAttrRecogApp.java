@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.alg;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -135,12 +136,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages from Kafka
          * Brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
-        /**
-         * Topics for inputting tracklets. Each assigned a number of threads the Kafka
-         * consumer should use.
-         */
-        private Map<String, Integer> trackletTopicMap = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
@@ -153,8 +149,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     propCenter.reportListenerAddr,
                     propCenter.reportListenerPort));
 
-            trackletTopicMap.put(TRACKLET_TOPIC.NAME, propCenter.kafkaNumPartitions);
-
             // Common kafka settings.
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
@@ -164,11 +158,14 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-            producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                    "10000000");
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                    "org.apache.kafka.common.serialization.StringSerializer");
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                    "org.apache.kafka.common.serialization.ByteArraySerializer");
 
             loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBrokers);
 
@@ -179,9 +176,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {// Extract tracklets from the data.
+        public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            buildBytesDirectStream(jsc, kafkaParams, trackletTopicMap)
+            buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams)
                     .mapValues(taskDataBytes ->
                             (TaskData) deserialize(taskDataBytes))
                     .foreachRDD(rdd -> {
