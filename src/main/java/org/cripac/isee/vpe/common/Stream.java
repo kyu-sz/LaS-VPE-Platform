@@ -17,11 +17,6 @@
 
 package org.cripac.isee.vpe.common;
 
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.ConsumerStrategies;
@@ -108,12 +103,13 @@ public abstract class Stream implements Serializable {
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
                            @Nonnull Map<String, Object> kafkaParams) {
+        kafkaParams.put("enable.auto.commit", false);
         return KafkaUtils
                 .createDirectStream(jssc,
                         LocationStrategies.PreferConsistent(),
                         ConsumerStrategies.<String, byte[]>Subscribe(
                                 topics,
                                 kafkaParams))
-                .mapToPair(rec -> new Tuple2<>(rec.key(), rec.value()));
+                .mapToPair(rec -> new Tuple2(rec.key(), rec.value()));
     }
 }

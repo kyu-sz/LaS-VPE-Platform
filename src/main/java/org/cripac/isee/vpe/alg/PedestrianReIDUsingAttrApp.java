@@ -21,7 +21,8 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.*;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.Optional;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -42,8 +43,6 @@ import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
-import org.apache.spark.api.java.Optional;
-import scala.Option;
 import scala.Tuple2;
 
 import java.util.*;
@@ -168,8 +167,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "smallest");
-            kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
+            kafkaParams.put("auto.offset.reset", "latest");
+            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();

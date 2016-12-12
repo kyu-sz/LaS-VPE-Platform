@@ -155,9 +155,9 @@ public class DataManagingApp extends SparkStreamingApp {
             // Common Kafka settings
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
+            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "smallest");
+            kafkaParams.put("auto.offset.reset", "latest");
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
@@ -256,9 +256,9 @@ public class DataManagingApp extends SparkStreamingApp {
             // Common Kafka settings
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
+            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "smallest");
+            kafkaParams.put("auto.offset.reset", "latest");
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
@@ -349,9 +349,9 @@ public class DataManagingApp extends SparkStreamingApp {
             // Common Kafka settings
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
+            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "smallest");
+            kafkaParams.put("auto.offset.reset", "latest");
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             metadataDir = propCenter.metadataDir;

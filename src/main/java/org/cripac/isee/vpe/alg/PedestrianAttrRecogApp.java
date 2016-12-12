@@ -35,9 +35,6 @@ import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
-import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
-import org.cripac.isee.vpe.util.Factory;
-import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
@@ -45,7 +42,6 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import java.net.Inet4Address;
-import java.net.InetAddress;
 import java.util.*;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
@@ -153,8 +149,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             kafkaParams.put("group.id", INFO.NAME);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "smallest");
-            kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
+            kafkaParams.put("auto.offset.reset", "latest");
+            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();

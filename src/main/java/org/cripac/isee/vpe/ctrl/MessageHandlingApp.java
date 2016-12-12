@@ -157,12 +157,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
         public MessageHandlingStream(SystemPropertyCenter propCenter) throws Exception {
             kafkaParams = new HashMap<>();
-            System.out.println("|INFO|MessageHandlingApp: metadata.broker.list=" + propCenter.kafkaBrokers);
+            System.out.println("|INFO|MessageHandlingApp: bootstrap.servers=" + propCenter.kafkaBrokers);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
+            kafkaParams.put("bootstrap.servers", propCenter.kafkaBrokers);
             kafkaParams.put("group.id", INFO.NAME);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "smallest");
+            kafkaParams.put("auto.offset.reset", "latest");
             kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
