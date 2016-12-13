@@ -123,25 +123,26 @@ public abstract class Stream implements Serializable {
                            @Nonnull Collection<String> topics,
                            @Nonnull Map<String, Object> kafkaParams,
                            int procTime) {
-        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+//        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         JavaInputDStream<ConsumerRecord<String, byte[]>> inputStream =
                 KafkaUtils.createDirectStream(jssc,
                         LocationStrategies.PreferConsistent(),
                         ConsumerStrategies.<String, byte[]>Subscribe(topics, kafkaParams));
-        // TODO(Ken Yu): Check if this offset commit can help recovering
-        // Kafka offset when checkpoint is deleted.
-        inputStream.foreachRDD(rdd -> {
-            final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-
-            rdd.foreachPartition(consumerRecordIterator -> {
-                OffsetRange offsetRange = offsetRanges[TaskContext.get().partitionId()];
-                loggerSingleton.getInst().debug("Received: " + offsetRange);
-            });
-
-            Thread.sleep(procTime);
-            ((CanCommitOffsets) inputStream.inputDStream()).commitAsync(offsetRanges);
-            loggerSingleton.getInst().debug("Committed offset ranges!");
-        });
+//        // TODO(Ken Yu): Check if this offset commit can help recovering
+//        // Kafka offset when checkpoint is deleted.
+//        inputStream.foreachRDD(rdd -> {
+//            final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+//
+//            rdd.foreachPartition(consumerRecordIterator -> {
+//                OffsetRange offsetRange = offsetRanges[TaskContext.get().partitionId()];
+//                loggerSingleton.getInst().debug("Received: " + offsetRange);
+//            });
+//
+//            Thread.sleep(procTime);
+//            ((CanCommitOffsets) inputStream.inputDStream()).commitAsync(offsetRanges);
+//            loggerSingleton.getInst().debug("Committed offset ranges!");
+//        });
         return inputStream.mapToPair(rec -> new Tuple2(rec.key(), rec.value()));
     }
 }
