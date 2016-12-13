@@ -47,7 +47,6 @@ import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.debug.FakeWebCameraConnector;
-import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
@@ -60,8 +59,8 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.util.*;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.apache.commons.lang.SerializationUtils.deserialize;
+import static org.apache.commons.lang.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -251,7 +250,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         rdd.foreach(kvPair -> {
                             // Recover data.
                             final String taskID = kvPair._1();
-                            TaskData taskData = (TaskData) SerializationHelper.deserialize(kvPair._2());
+                            TaskData taskData = (TaskData) deserialize(kvPair._2());
 
                             // Get camera WEBCAM_LOGIN_PARAM.
                             if (taskData.predecessorRes == null) {
@@ -388,7 +387,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             Arrays.asList(VIDEO_URL_TOPIC.NAME),
                             kafkaParams,
                             procTime)
-                            .mapValues(bytes -> (TaskData) SerializationHelper.deserialize(bytes));
+                            .mapValues(bytes -> (TaskData) deserialize(bytes));
 
             JavaPairDStream<String, TaskData> fragUnionStream =
                     fragFromURLDStream.union(fragFromBytesDStream);

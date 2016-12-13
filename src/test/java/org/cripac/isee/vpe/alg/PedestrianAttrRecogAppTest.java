@@ -43,8 +43,8 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.apache.commons.lang.SerializationUtils.deserialize;
+import static org.apache.commons.lang.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -53,7 +53,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * The application should be run on YARN in advance.
  * This test only sends fake data messages to and receives results
  * from the already running application through Kafka.
- *
+ * <p>
  * Created by ken.yu on 16-10-31.
  */
 public class PedestrianAttrRecogAppTest {
@@ -117,7 +117,7 @@ public class PedestrianAttrRecogAppTest {
         consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
     }
 
-//    @Test
+    //    @Test
     public void testAttrRecog() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node recogNode =
@@ -137,12 +137,8 @@ public class PedestrianAttrRecogAppTest {
         ConsumerRecords<String, byte[]> records = consumer.poll(0);
         records.forEach(rec -> {
             TaskData attrData = null;
-            try {
-                attrData = (TaskData) deserialize(rec.value());
-                logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + attrData.predecessorRes);
-            } catch (ClassNotFoundException e) {
-                e.printStackTrace();
-            }
+            attrData = (TaskData) deserialize(rec.value());
+            logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + attrData.predecessorRes);
         });
     }
 }

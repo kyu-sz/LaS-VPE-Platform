@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.ctrl;
 
-import org.apache.commons.collections.map.HashedMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -29,10 +28,10 @@ import org.junit.Before;
 
 import java.io.Serializable;
 import java.net.InetAddress;
-import java.util.Map;
+import java.util.Hashtable;
 import java.util.Properties;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.apache.commons.lang3.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -80,9 +79,9 @@ public class MessageHandlingAppTest implements Serializable {
         logger = new ConsoleLogger(Level.DEBUG);
     }
 
-//    @Test
+    //    @Test
     public void generatePresetCommand() throws Exception {
-        Map<String, Serializable> param = new HashedMap();
+        Hashtable<String, Serializable> param = new Hashtable<>();
         param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "pedestrian-tracking-isee-basic-CAM01_0.conf");
         param.put(MessageHandlingApp.Parameter.VIDEO_URL,

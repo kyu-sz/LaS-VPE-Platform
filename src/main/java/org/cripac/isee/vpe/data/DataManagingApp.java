@@ -55,7 +55,6 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
-import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
@@ -66,9 +65,10 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.*;
 
+import static org.apache.commons.lang.SerializationUtils.deserialize;
+import static org.apache.commons.lang.SerializationUtils.serialize;
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
@@ -205,8 +205,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             Logger logger = loggerSingleton.getInst();
 
                             // Recover task data.
-                            TaskData taskData = (TaskData)
-                                    deserialize(job._2());
+                            TaskData taskData = (TaskData) deserialize(job._2());
                             if (taskData.predecessorRes == null) {
                                 logger.fatal("TaskData from " + taskData.predecessorInfo
                                         + " contains no result data!");
@@ -248,7 +247,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 taskData.changeCurNode(topic);
                                 sendWithLog(topic,
                                         job._1(),
-                                        SerializationHelper.serialize(taskData),
+                                        serialize(taskData),
                                         producerSingleton.getInst(),
                                         loggerSingleton.getInst());
                             }
@@ -343,7 +342,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 taskData.changeCurNode(topic);
                                 sendWithLog(topic,
                                         job._1(),
-                                        SerializationHelper.serialize(taskData),
+                                        serialize(taskData),
                                         producerSingleton.getInst(),
                                         loggerSingleton.getInst());
                             }
