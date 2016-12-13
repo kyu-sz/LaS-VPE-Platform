@@ -69,7 +69,7 @@ public class MessageHandlingAppTest implements Serializable {
 
         Properties producerProp = new Properties();
         producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBrokers);
+                propCenter.kafkaBootstrapServers);
         producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
                 propCenter.kafkaMaxRequestSize);
         producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
@@ -83,16 +83,14 @@ public class MessageHandlingAppTest implements Serializable {
 //    @Test
     public void generatePresetCommand() throws Exception {
         Map<String, Serializable> param = new HashedMap();
-        param.put(
-                MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
+        param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "pedestrian-tracking-isee-basic-CAM01_0.conf");
-        param.put(
-                MessageHandlingApp.Parameter.VIDEO_URL,
+        param.put(MessageHandlingApp.Parameter.VIDEO_URL,
                 "source_data/video/CAM01/2014_04_25/20140425184816-20140425190532.h264");
         param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
-                new WebCameraConnector.LoginParam(
-                        InetAddress.getLocalHost(), 0, "Ken Yu", "I love Shenzhen!"));
+                new WebCameraConnector.LoginParam(InetAddress.getLocalHost(), 0,
+                        "Ken Yu", "I love Shenzhen!"));
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_ONLY,

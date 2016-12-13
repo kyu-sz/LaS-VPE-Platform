@@ -73,7 +73,7 @@ public abstract class Stream implements Serializable {
 
         @Override
         public String toString() {
-            return "[" + OUTPUT_TYPE + "]" + NAME;
+            return "Topic(name: \'" + NAME + "\', output type: \'" + OUTPUT_TYPE + "\')";
         }
 
         @Override
@@ -128,7 +128,6 @@ public abstract class Stream implements Serializable {
                 KafkaUtils.createDirectStream(jssc,
                         LocationStrategies.PreferConsistent(),
                         ConsumerStrategies.<String, byte[]>Subscribe(topics, kafkaParams));
-        inputStream.cache();
         // TODO(Ken Yu): Check if this offset commit can help recovering
         // Kafka offset when checkpoint is deleted.
         inputStream.foreachRDD(rdd -> {

@@ -59,7 +59,7 @@ public class SystemPropertyCenter {
     public int sessionTimeoutMs = 10 * 10000;
     public int connectionTimeoutMs = 8 * 1000;
     // Kafka properties
-    public String kafkaBrokers = "localhost:9092";
+    public String kafkaBootstrapServers = "localhost:9092";
     public int kafkaNumPartitions = 1;
     public int kafkaReplFactor = 1;
     public int kafkaFetchMsgMaxBytes = 100000000;
@@ -272,8 +272,8 @@ public class SystemPropertyCenter {
                 case "zookeeper.connect":
                     zkConn = (String) entry.getValue();
                     break;
-                case "kafka.brokers":
-                    kafkaBrokers = (String) entry.getValue();
+                case "kafka.bootstrap.servers":
+                    kafkaBootstrapServers = (String) entry.getValue();
                     break;
                 case "kafka.partitions":
                     kafkaNumPartitions = new Integer((String) entry.getValue());

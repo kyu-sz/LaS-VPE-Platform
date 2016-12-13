@@ -54,17 +54,17 @@ public class TopicManager {
     }
 
     public static void checkTopics(@Nonnull SystemPropertyCenter propCenter) {
-        System.out.println("|INFO|Connecting to zookeeper: " + propCenter.zkConn);
+        System.out.println("[INFO]Connecting to zookeeper: " + propCenter.zkConn);
         ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
         ZkClient zkClient = new ZkClient(zkConn);
         ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
         for (Topic topic : topics) {
-            System.out.println("|INFO|Checking topic: " + topic);
+            System.out.println("[INFO]Checking topic: " + topic);
             if (!AdminUtils.topicExists(zkUtils, topic.NAME)) {
                 // AdminUtils.createTopic(zkClient, topic,
                 // propCenter.kafkaNumPartitions,
                 // propCenter.kafkaReplFactor, new Properties());
-                System.out.println("|INFO|Creating topic: " + topic);
+                System.out.println("[INFO]Creating topic: " + topic);
                 kafka.admin.TopicCommand.main(
                         new String[]{
                                 "--create",
@@ -74,6 +74,6 @@ public class TopicManager {
                                 "--replication-factor", "" + propCenter.kafkaReplFactor});
             }
         }
-        System.out.println("|INFO|Topics checked!");
+        System.out.println("[INFO]Topics checked!");
     }
 }

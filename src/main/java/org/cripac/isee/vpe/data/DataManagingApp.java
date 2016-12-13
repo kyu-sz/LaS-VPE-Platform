@@ -164,10 +164,11 @@ public class DataManagingApp extends SparkStreamingApp {
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
-            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
+            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
+                    INFO.NAME);
+//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBrokers);
+                    propCenter.kafkaBootstrapServers);
             // Determine where the stream starts (default: largest)
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                     "latest");
@@ -180,7 +181,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
             Properties producerProp = new Properties();
             producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBrokers);
+                    propCenter.kafkaBootstrapServers);
             producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
                     propCenter.kafkaMaxRequestSize);
             producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
@@ -278,11 +279,13 @@ public class DataManagingApp extends SparkStreamingApp {
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
-            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
-            // Determine where the stream starts (default: largest)
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
+                    INFO.NAME);
+//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
+            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBootstrapServers);
+            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                    "latest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -292,7 +295,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
             Properties producerProp = new Properties();
             producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBrokers);
+                    propCenter.kafkaBootstrapServers);
             producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
                     propCenter.kafkaMaxRequestSize);
             producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
@@ -381,11 +384,13 @@ public class DataManagingApp extends SparkStreamingApp {
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
-            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
-            // Determine where the stream starts (default: largest)
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
+                    INFO.NAME);
+//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
+            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBootstrapServers);
+            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                    "latest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -397,7 +402,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
             Properties producerProp = new Properties();
             producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBrokers);
+                    propCenter.kafkaBootstrapServers);
             producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
                     propCenter.kafkaMaxRequestSize);
             producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,

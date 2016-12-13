@@ -59,7 +59,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 public class PedestrianAttrRecogAppTest {
 
     public static final Topic TEST_PED_ATTR_RECV_TOPIC
-            = new Topic("test-ped-attr-recv", DataType.ATTR, null);
+            = new Topic("test-pedestrian-attr-recv", DataType.ATTR, null);
 
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
@@ -92,7 +92,7 @@ public class PedestrianAttrRecogAppTest {
 
         Properties producerProp = new Properties();
         producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBrokers);
+                propCenter.kafkaBootstrapServers);
         producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
                 propCenter.kafkaMaxRequestSize);
         producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
@@ -104,9 +104,11 @@ public class PedestrianAttrRecogAppTest {
 
         Properties consumerProp = new Properties();
         consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBrokers);
-        consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG, "test");
-        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+                propCenter.kafkaBootstrapServers);
+        consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG,
+                "test");
+        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+                true);
         consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                 StringDeserializer.class.getName());
         consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,

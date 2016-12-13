@@ -49,7 +49,6 @@ public class AppManager {
     }
 
     public static String getMainClassName(@Nonnull String appName) throws NoAppSpecifiedException {
-        System.out.println("|INFO|Searching class NAME of App " + appName + "...");
         if (classNameMap.containsKey(appName))
             return classNameMap.get(appName);
         else

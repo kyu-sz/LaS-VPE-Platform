@@ -153,12 +153,16 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             this.procTime = propCenter.procTime;
 
             // Common kafka settings.
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
-            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
+            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
+                    INFO.NAME);
+//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, "" + propCenter.kafkaFetchMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                    "latest");
+            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBootstrapServers);
+            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
+                    "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                     StringDeserializer.class.getName());
             kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
@@ -166,7 +170,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
             Properties producerProp = new Properties();
             producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBrokers);
+                    propCenter.kafkaBootstrapServers);
             producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
                     propCenter.kafkaMaxRequestSize);
             producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
@@ -174,7 +178,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                     ByteArraySerializer.class.getName());
 
-            loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBrokers);
+            loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBootstrapServers);
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             attrRecogSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(

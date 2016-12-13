@@ -43,7 +43,7 @@ public class KafkaHelper {
         if (logger == null) {
             logger = new ConsoleLogger();
         }
-        logger.debug("Sending to Kafka" + " <" + topic + ">\t" + key);
+        logger.debug("Sending to Kafka <" + topic + ">\t" + key);
         Future<RecordMetadata> future = producer.send(new ProducerRecord<>(
                 topic.NAME,
                 key,
