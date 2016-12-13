@@ -17,7 +17,7 @@
 
 package org.cripac.isee.vpe.ctrl;
 
-import org.cripac.isee.vpe.common.DataTypeUnmatchException;
+import org.cripac.isee.vpe.common.DataTypeNotMatchedException;
 import org.cripac.isee.vpe.common.RecordNotFoundException;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.common.Topic;
@@ -38,6 +38,7 @@ import java.util.Map;
  */
 public class TaskData implements Serializable, Cloneable {
 
+    private static final long serialVersionUID = 6817584209784831375L;
     /**
      * Current node to execute.
      */
@@ -222,9 +223,9 @@ public class TaskData implements Serializable, Cloneable {
          * @param tailNodeTopic Input topic of the tail node.
          */
         public void letNodeOutputTo(@Nonnull Node headNode,
-                                    @Nonnull Topic tailNodeTopic) throws DataTypeUnmatchException {
+                                    @Nonnull Topic tailNodeTopic) throws DataTypeNotMatchedException {
             if (headNode.getStreamInfo().OUTPUT_TYPE != tailNodeTopic.INPUT_TYPE) {
-                throw new DataTypeUnmatchException("Output INPUT_TYPE of stream "
+                throw new DataTypeNotMatchedException("Output INPUT_TYPE of stream "
                         + headNode.getStreamInfo() + " does not match with input INPUT_TYPE of topic"
                         + tailNodeTopic);
             }
