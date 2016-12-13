@@ -146,7 +146,7 @@ public class DataManagingApp extends SparkStreamingApp {
         public static final Info INFO = new Info(
                 "pedestrian-tracklet-rtrv",
                 DataType.TRACKLET);
-        public static final Topic PED_TRACKLET_RTRV_JOB_TOPIC =
+        public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID, INFO);
         private Map<String, Object> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
@@ -198,7 +198,7 @@ public class DataManagingApp extends SparkStreamingApp {
         public void addToContext(JavaStreamingContext jssc) {// Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
-            buildBytesDirectStream(jssc, Arrays.asList(PED_TRACKLET_RTRV_JOB_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams, procTime)
                     // Retrieve and deliver tracklets.
                     .foreachRDD(rdd -> {
                         rdd.foreach(job -> {
@@ -261,7 +261,7 @@ public class DataManagingApp extends SparkStreamingApp {
         public static final Info INFO = new Info(
                 "pedestrian-tracklet-attr-rtrv",
                 DataType.TRACKLET_ATTR);
-        public static final Topic JOB_TOPIC =
+        public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID, INFO);
         private Map<String, Object> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
@@ -310,7 +310,7 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
-            buildBytesDirectStream(jssc, Arrays.asList(JOB_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams, procTime)
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> {
                         rdd.foreach(job -> {

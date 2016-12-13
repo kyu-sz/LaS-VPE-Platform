@@ -15,6 +15,7 @@ package org.cripac.isee.vpe.debug;/*********************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
+import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.util.Factory;
 

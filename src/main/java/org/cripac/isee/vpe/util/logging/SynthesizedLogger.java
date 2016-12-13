@@ -22,7 +22,9 @@ import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
 
 import javax.annotation.Nonnull;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.*;
 
 /**
@@ -124,9 +126,16 @@ public class SynthesizedLogger extends Logger {
             log4jLogger.debug(message, t);
 
             String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message;
+            try {
+                String stackTrace = "";
+                PrintStream printStream = new PrintStream(stackTrace);
+                t.printStackTrace(printStream);
+                printStream.close();
+                richMsg += "\n" + stackTrace;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
             System.out.println(richMsg);
-            t.printStackTrace();
-
             send(richMsg);
 
             String stackTraceMsg = "";
@@ -152,8 +161,16 @@ public class SynthesizedLogger extends Logger {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message, t);
             String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message;
+            try {
+                String stackTrace = "";
+                PrintStream printStream = new PrintStream(stackTrace);
+                t.printStackTrace(printStream);
+                printStream.close();
+                richMsg += "\n" + stackTrace;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
             System.out.println(richMsg);
-            t.printStackTrace();
             send(richMsg);
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
@@ -179,8 +196,16 @@ public class SynthesizedLogger extends Logger {
             log4jLogger.warn(message, t);
 
             String richMsg = "|WARN |" + localName + "\t" + appName + ":\t" + message;
+            try {
+                String stackTrace = "";
+                PrintStream printStream = new PrintStream(stackTrace);
+                t.printStackTrace(printStream);
+                printStream.close();
+                richMsg += "\n" + stackTrace;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
             System.out.println(richMsg);
-            t.printStackTrace();
 
             send(richMsg);
 
@@ -208,9 +233,16 @@ public class SynthesizedLogger extends Logger {
             log4jLogger.error(message, t);
 
             String richMsg = "[ERROR]" + localName + "\t" + appName + ":\t" + message;
+            try {
+                String stackTrace = "";
+                PrintStream printStream = new PrintStream(stackTrace);
+                t.printStackTrace(printStream);
+                printStream.close();
+                richMsg += "\n" + stackTrace;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
             System.err.println(richMsg);
-            t.printStackTrace();
-
             send(richMsg);
 
             String stackTraceMsg = "";
@@ -236,8 +268,16 @@ public class SynthesizedLogger extends Logger {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message, t);
             String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message;
+            try {
+                String stackTrace = "";
+                PrintStream printStream = new PrintStream(stackTrace);
+                t.printStackTrace(printStream);
+                printStream.close();
+                richMsg += "\n" + stackTrace;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
             System.err.println(richMsg);
-            t.printStackTrace();
             send(richMsg);
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
