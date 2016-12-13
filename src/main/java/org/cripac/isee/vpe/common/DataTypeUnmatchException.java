@@ -23,7 +23,9 @@ import javax.annotation.Nonnull;
  * Created by ken.yu on 16-10-27.
  */
 public class DataTypeUnmatchException extends Exception {
-    
+
+    private static final long serialVersionUID = -3305030593272597265L;
+
     public DataTypeUnmatchException() {
         super();
     }

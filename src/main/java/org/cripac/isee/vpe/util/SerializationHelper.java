@@ -74,7 +74,7 @@ public class SerializationHelper {
         try {
             objectInput = new ObjectInputStream(byteArrayInputStream);
             return (Serializable) objectInput.readObject();
-        } catch (IOException e) {
+        } catch (IOException|ClassNotFoundException e) {
             e.printStackTrace();
             return null;
         } finally {
