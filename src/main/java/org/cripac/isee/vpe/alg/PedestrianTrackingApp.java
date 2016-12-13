@@ -188,14 +188,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     public static class RTVideoStreamTrackingStream extends Stream {
 
         public static final Info INFO =
-                new Info("rt-video-tracking", DataType.TRACKLET);
+                new Info("rt-video-tracking", DataTypes.TRACKLET);
 
         /**
          * Topic for inputting from Kafka the IPs of cameras.
          */
         public static final Topic LOGIN_PARAM_TOPIC =
                 new Topic("cam-ip-for-pedestrian-tracking",
-                        DataType.WEBCAM_LOGIN_PARAM, INFO);
+                        DataTypes.WEBCAM_LOGIN_PARAM, INFO);
 
         private final int procTime;
 
@@ -289,20 +289,20 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     public static class VideoFragmentTrackingStream extends Stream {
 
         public static final Info INFO =
-                new Info("video-fragment-tracking", DataType.TRACKLET);
+                new Info("video-fragment-tracking", DataTypes.TRACKLET);
 
         /**
          * Topic to input video URLs from Kafka.
          */
         public static final Topic VIDEO_URL_TOPIC =
                 new Topic("video-url-for-pedestrian-tracking",
-                        DataType.URL, INFO);
+                        DataTypes.URL, INFO);
         /**
          * Topic to input video bytes from Kafka.
          */
         public static final Topic VIDEO_FRAG_BYTES_TOPIC =
                 new Topic("video-fragment-bytes-for-pedestrian-tracking",
-                        DataType.RAW_VIDEO_FRAG_BYTES, INFO);
+                        DataTypes.RAW_VIDEO_FRAG_BYTES, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages

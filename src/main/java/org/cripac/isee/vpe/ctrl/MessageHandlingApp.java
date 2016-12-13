@@ -118,10 +118,14 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * the MessageHandlingApp may use, as well as their keys.
      */
     public static class Parameter {
-        public final static String VIDEO_URL = "video-url";
-        public final static String TRACKING_CONF_FILE = "tracking-conf-file";
-        public final static String TRACKLET_SERIAL_NUM = "tracklet-serial-num";
-        public final static String WEBCAM_LOGIN_PARAM = "webcam-login-param";
+        public final static String VIDEO_URL
+                = "video-url (" + String.class.getName() + ")";
+        public final static String TRACKING_CONF_FILE
+                = "tracking-conf-file (" + String.class.getName() + ")";
+        public final static String TRACKLET_SERIAL_NUM
+                = "tracklet-serial-num (" + String.class.getName() + ")";
+        public final static String WEBCAM_LOGIN_PARAM
+                = "webcam-login-param (" + LoginParam.class.getName() + ")";
 
         private Parameter() {
         }
@@ -149,12 +153,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
     public static class MessageHandlingStream extends Stream {
 
-        public static final Info INFO = new Info("msg-handling", DataType.NONE);
+        public static final Info INFO = new Info("msg-handling", DataTypes.NONE);
         /**
          * Topic of command.
          */
         public static final Topic COMMAND_TOPIC = new Topic(
-                "command", DataType.COMMAND, MessageHandlingStream.INFO);
+                "command", DataTypes.COMMAND, MessageHandlingStream.INFO);
 
         private Map<String, Object> kafkaParams;
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
@@ -480,7 +484,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                         }
                                     }
                                 } catch (Exception e) {
-                                    loggerSingleton.getInst().error(e);
+                                    loggerSingleton.getInst().error("During msg handling", e);
                                 }
                             })
                     );

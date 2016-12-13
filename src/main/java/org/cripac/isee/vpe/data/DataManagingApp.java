@@ -47,7 +47,7 @@ import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.common.Topic;
@@ -145,10 +145,10 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public static final Info INFO = new Info(
                 "pedestrian-tracklet-rtrv",
-                DataType.TRACKLET);
+                DataTypes.TRACKLET);
         public static final Topic RTRV_JOB_TOPIC =
-                new Topic("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID, INFO);
-        private Map<String, Object> kafkaParams = new HashMap<>();
+                new Topic("pedestrian-tracklet-rtrv-job", DataTypes.TRACKLET_ID, INFO);
+        private Map<String, String> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
@@ -260,10 +260,10 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public static final Info INFO = new Info(
                 "pedestrian-tracklet-attr-rtrv",
-                DataType.TRACKLET_ATTR);
+                DataTypes.TRACKLET_ATTR);
         public static final Topic RTRV_JOB_TOPIC =
-                new Topic("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID, INFO);
-        private Map<String, Object> kafkaParams = new HashMap<>();
+                new Topic("pedestrian-tracklet-attr-rtrv-job", DataTypes.TRACKLET_ID, INFO);
+        private Map<String, String> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
@@ -353,20 +353,20 @@ public class DataManagingApp extends SparkStreamingApp {
 
     public static class SavingStream extends Stream {
 
-        public static final Info INFO = new Info("saving", DataType.NONE);
+        public static final Info INFO = new Info("saving", DataTypes.NONE);
         public static final Topic PED_TRACKLET_SAVING_TOPIC =
                 new Topic("pedestrian-tracklet-saving",
-                        DataType.TRACKLET,
+                        DataTypes.TRACKLET,
                         SavingStream.INFO);
         public static final Topic PED_ATTR_SAVING_TOPIC =
                 new Topic("pedestrian-attr-saving",
-                        DataType.ATTR,
+                        DataTypes.ATTR,
                         SavingStream.INFO);
         public static final Topic PED_IDRANK_SAVING_TOPIC =
                 new Topic("pedestrian-idrank-saving",
-                        DataType.IDRANK,
+                        DataTypes.IDRANK,
                         SavingStream.INFO);
-        private Map<String, Object> kafkaParams = new HashMap<>();
+        private Map<String, String> kafkaParams = new HashMap<>();
         private String metadataDir;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;

@@ -54,14 +54,14 @@ public abstract class Stream implements Serializable {
         /**
          * Type of output.
          */
-        public final DataType OUTPUT_TYPE;
+        public final DataTypes OUTPUT_TYPE;
 
         /**
          * Construct a stream with NAME specified.
          *
          * @param name Name of the stream.
          */
-        public Info(String name, DataType outputType) {
+        public Info(String name, DataTypes outputType) {
             this.NAME = name;
             this.OUTPUT_TYPE = outputType;
         }
@@ -121,7 +121,7 @@ public abstract class Stream implements Serializable {
     protected JavaPairDStream<String, byte[]>
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
-                           @Nonnull Map<String, Object> kafkaParams,
+                           @Nonnull Map<String, String> kafkaParams,
                            int procTime) {
         kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         JavaInputDStream<ConsumerRecord<String, byte[]>> inputStream =

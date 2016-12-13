@@ -27,7 +27,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
-import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
@@ -59,7 +59,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 public class PedestrianAttrRecogAppTest {
 
     public static final Topic TEST_PED_ATTR_RECV_TOPIC
-            = new Topic("test-pedestrian-attr-recv", DataType.ATTR, null);
+            = new Topic("test-pedestrian-attr-recv", DataTypes.ATTR, null);
 
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
