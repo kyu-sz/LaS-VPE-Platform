@@ -22,7 +22,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
-import org.cripac.isee.vpe.data.WebCameraConnector;
+import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 
@@ -88,7 +88,7 @@ public class MessageHandlingAppTest implements Serializable {
                 "source_data/video/CAM01/2014_04_25/20140425184816-20140425190532.h264");
         param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
-                new WebCameraConnector.LoginParam(InetAddress.getLocalHost(), 0,
+                new LoginParam(InetAddress.getLocalHost(), 0,
                         "Ken Yu", "I love Shenzhen!"));
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,

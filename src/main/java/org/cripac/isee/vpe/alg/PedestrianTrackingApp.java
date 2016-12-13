@@ -264,17 +264,17 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                                 + taskData.predecessorRes.getClass().getName() + "!");
                                 return;
                             }
-                            WebCameraConnector.LoginParam loginParam =
-                                    (WebCameraConnector.LoginParam) taskData.predecessorRes;
+                            LoginParam loginParam =
+                                    (LoginParam) taskData.predecessorRes;
 
                             WebCameraConnector cameraConnector;
-                            if (connectorPool.containsKey(loginParam.camID)) {
-                                cameraConnector = connectorPool.get(loginParam.camID).getInst();
+                            if (connectorPool.containsKey(loginParam.serverID)) {
+                                cameraConnector = connectorPool.get(loginParam.serverID).getInst();
                             } else {
                                 Singleton<WebCameraConnector> cameraConnectorSingleton =
                                         new Singleton(new FakeWebCameraConnector
                                                 .FakeWebCameraConnectorFactory(loginParam));
-                                connectorPool.put(loginParam.camID, cameraConnectorSingleton);
+                                connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
                                 cameraConnector = cameraConnectorSingleton.getInst();
                             }
 

@@ -33,12 +33,14 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
-import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp.RTVideoStreamTrackingStream;
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp.VideoFragmentTrackingStream;
 import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.data.DataManagingApp;
+import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletAttrRetrievingStream;
+import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletRetrievingStream;
 import org.cripac.isee.vpe.data.HDFSReader;
-import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -94,8 +96,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     protected JavaStreamingContext getStreamContext() {
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc =
-                new JavaStreamingContext(sparkContext, Durations.seconds(1));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(1));
 
         msgHandlingStream.addToContext(jsc);
 
@@ -214,7 +215,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.TRACK_ONLY: {
                     // Perform tracking only.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.VideoFragmentTrackingStream.INFO,
+                            VideoFragmentTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     // The letNodeOutputTo method will automatically add the DataManagingApp node.
                     plan.letNodeOutputTo(trackingNode,
@@ -224,7 +225,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.RT_TRACK_ONLY: {
                     // Perform tracking only.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.RTVideoStreamTrackingStream.INFO,
+                            RTVideoStreamTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     // The letNodeOutputTo method will automatically add the DataManagingApp node.
                     plan.letNodeOutputTo(trackingNode,
@@ -234,7 +235,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.ATTRRECOG_ONLY: {
                     // Retrieve track data, then feed it to attr recog module.
                     ExecutionPlan.Node trackletDataNode = plan.addNode(
-                            DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
+                            PedestrainTrackletRetrievingStream.INFO);
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
                     plan.letNodeOutputTo(trackletDataNode,
@@ -246,7 +247,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.TRACK_ATTRRECOG: {
                     // Do tracking, then output to attr recog module.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.VideoFragmentTrackingStream.INFO,
+                            VideoFragmentTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -262,7 +263,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     // Retrieve track and attr data integrally, then feed them to ReID
                     // module.
                     ExecutionPlan.Node trackWithAttrDataNode = plan.addNode(
-                            DataManagingApp.PedestrainTrackletAttrRetrievingStream.INFO);
+                            PedestrainTrackletAttrRetrievingStream.INFO);
                     ExecutionPlan.Node reidNode = plan.addNode(
                             PedestrianReIDUsingAttrApp.ReIDStream.INFO);
                     plan.letNodeOutputTo(trackWithAttrDataNode,
@@ -273,7 +274,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 }
                 case CommandType.ATTRRECOG_REID: {
                     ExecutionPlan.Node trackletDataNode = plan.addNode(
-                            DataManagingApp.PedestrainTrackletRetrievingStream.INFO);
+                            PedestrainTrackletRetrievingStream.INFO);
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
                     ExecutionPlan.Node reidNode = plan.addNode(
@@ -292,7 +293,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 }
                 case CommandType.TRACK_ATTRRECOG_REID: {
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.VideoFragmentTrackingStream.INFO,
+                            VideoFragmentTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -314,7 +315,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 }
                 case CommandType.RT_TRACK_ATTRRECOG_REID: {
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.RTVideoStreamTrackingStream.INFO,
+                            RTVideoStreamTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -369,14 +370,15 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                             // Process real-time data.
                                             ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
                                             Serializable tmp = param.get(Parameter.WEBCAM_LOGIN_PARAM);
-                                            if (!(tmp instanceof WebCameraConnector.LoginParam)) {
-                                                throw new DataTypeNotMatchedException("Expecting a WebCameraConnector.LoginParam but received " + tmp);
+                                            if (!(tmp instanceof LoginParam)) {
+                                                throw new DataTypeNotMatchedException(
+                                                        "Expecting a LoginParam but received " + tmp);
                                             }
                                             TaskData taskData = new TaskData(
-                                                    plan.findNode(PedestrianTrackingApp.RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
+                                                    plan.findNode(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
                                                     plan, tmp);
                                             sendWithLog(
-                                                    PedestrianTrackingApp.RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
+                                                    RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
                                                     taskID.toString(),
                                                     serialize(taskData),
                                                     producerSingleton.getInst(),
@@ -392,7 +394,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                             // Process stored videos.
                                             List<Path> videoPaths =
                                                     hdfsReaderSingleton.getInst()
-                                                            .listSubfiles(new Path((String) param.get(Parameter.VIDEO_URL)));
+                                                            .listSubfiles(
+                                                                    new Path((String) param.get(Parameter.VIDEO_URL)));
 
                                             // Create an execution plan according to the command.
                                             ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
@@ -408,14 +411,15 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                     case CommandType.TRACK_ATTRRECOG_REID: {
                                                         Serializable tmp = param.get(Parameter.VIDEO_URL);
                                                         if (!(tmp instanceof String)) {
-                                                            throw new DataTypeNotMatchedException("Expecting a String but received " + tmp);
+                                                            throw new DataTypeNotMatchedException(
+                                                                    "Expecting a String but received " + tmp);
                                                         }
                                                         TaskData taskData = new TaskData(
-                                                                plan.findNode(PedestrianTrackingApp.VideoFragmentTrackingStream.VIDEO_URL_TOPIC),
+                                                                plan.findNode(
+                                                                        VideoFragmentTrackingStream.VIDEO_URL_TOPIC),
                                                                 plan,
                                                                 tmp);
-                                                        sendWithLog(
-                                                                PedestrianTrackingApp.VideoFragmentTrackingStream.VIDEO_URL_TOPIC,
+                                                        sendWithLog(VideoFragmentTrackingStream.VIDEO_URL_TOPIC,
                                                                 taskID.toString(),
                                                                 serialize(taskData),
                                                                 producerSingleton.getInst(),
@@ -428,16 +432,18 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                     case CommandType.ATTRRECOG_REID: {
                                                         Serializable tmp = param.get(Parameter.TRACKLET_SERIAL_NUM);
                                                         if (!(tmp instanceof String)) {
-                                                            throw new DataTypeNotMatchedException("Expecting a String but received " + tmp);
+                                                            throw new DataTypeNotMatchedException(
+                                                                    "Expecting a String but received " + tmp);
                                                         }
                                                         Tracklet.Identifier id = new Tracklet.Identifier(
                                                                 path.toString(),
                                                                 Integer.valueOf((String) tmp));
                                                         TaskData taskData = new TaskData(
-                                                                plan.findNode(DataManagingApp.PedestrainTrackletRetrievingStream.PED_TRACKLET_RTRV_JOB_TOPIC),
+                                                                plan.findNode(PedestrainTrackletRetrievingStream
+                                                                        .RTRV_JOB_TOPIC),
                                                                 plan,
                                                                 id);
-                                                        sendWithLog(DataManagingApp.PedestrainTrackletRetrievingStream.PED_TRACKLET_RTRV_JOB_TOPIC,
+                                                        sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
                                                                 taskID.toString(),
                                                                 serialize(taskData),
                                                                 producerSingleton.getInst(),
@@ -449,16 +455,19 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                     case CommandType.REID_ONLY: {
                                                         Serializable tmp = param.get(Parameter.TRACKLET_SERIAL_NUM);
                                                         if (!(tmp instanceof String)) {
-                                                            throw new DataTypeNotMatchedException("Expecting a String but received " + tmp);
+                                                            throw new DataTypeNotMatchedException(
+                                                                    "Expecting a String but received " + tmp);
                                                         }
                                                         Tracklet.Identifier id = new Tracklet.Identifier(
                                                                 path.toString(),
                                                                 Integer.valueOf((String) tmp));
                                                         TaskData taskData = new TaskData(
-                                                                plan.findNode(DataManagingApp.PedestrainTrackletAttrRetrievingStream.JOB_TOPIC),
+                                                                plan.findNode(PedestrainTrackletAttrRetrievingStream
+                                                                        .RTRV_JOB_TOPIC),
                                                                 plan,
                                                                 id);
-                                                        sendWithLog(DataManagingApp.PedestrainTrackletAttrRetrievingStream.JOB_TOPIC,
+                                                        sendWithLog(
+                                                                PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
                                                                 taskID.toString(),
                                                                 serialize(taskData),
                                                                 producerSingleton.getInst(),
