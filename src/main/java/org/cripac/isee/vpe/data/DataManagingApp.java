@@ -148,7 +148,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 DataType.TRACKLET);
         public static final Topic PED_TRACKLET_RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID, INFO);
-        private Map<String, Object> kafkaParams = new HashMap<>();
+        private Map<String, String> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
@@ -171,7 +171,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     propCenter.kafkaBootstrapServers);
             // Determine where the stream starts (default: largest)
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -264,7 +264,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 DataType.TRACKLET_ATTR);
         public static final Topic JOB_TOPIC =
                 new Topic("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID, INFO);
-        private Map<String, Object> kafkaParams = new HashMap<>();
+        private Map<String, String> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
@@ -285,7 +285,7 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                     propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -367,7 +367,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 new Topic("pedestrian-idrank-saving",
                         DataType.IDRANK,
                         SavingStream.INFO);
-        private Map<String, Object> kafkaParams = new HashMap<>();
+        private Map<String, String> kafkaParams = new HashMap<>();
         private String metadataDir;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
@@ -390,7 +390,7 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                     propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
