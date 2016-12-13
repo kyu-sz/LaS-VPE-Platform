@@ -194,7 +194,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          * Topic for inputting from Kafka the IPs of cameras.
          */
         public static final Topic LOGIN_PARAM_TOPIC =
-                new Topic("cam-ip-for-pedestrian-tracking",
+                new Topic("cam-address-for-pedestrian-tracking",
                         DataTypes.WEBCAM_LOGIN_PARAM, INFO);
 
         private final int procTime;
