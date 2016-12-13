@@ -348,6 +348,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             String cmd = msg._1();
                             Map<String, Serializable> param = (Map<String, Serializable>) deserialize(msg._2());
 
+                            loggerSingleton.getInst().debug("Received command: " + cmd);
+
                             switch (cmd) {
                                 case CommandType.RT_TRACK_ONLY:
                                 case CommandType.RT_TRACK_ATTRRECOG_REID: {

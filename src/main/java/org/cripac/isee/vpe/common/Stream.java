@@ -129,15 +129,17 @@ public abstract class Stream implements Serializable {
                         ConsumerStrategies.<String, byte[]>Subscribe(
                                 topics,
                                 kafkaParams));
+        inputStream.cache();
         // TODO(Ken Yu): Check if this offset commit can help recovering
         // Kafka offset when checkpoint is deleted.
         inputStream.foreachRDD(rdd -> {
             OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
             for (OffsetRange offsetRange : offsetRanges) {
-                loggerSingleton.getInst().debug("Received offset range: " + offsetRange);
+                loggerSingleton.getInst().debug("Received: " + offsetRange);
             }
             Thread.sleep(procTime);
             ((CanCommitOffsets) inputStream.inputDStream()).commitAsync(offsetRanges);
+            loggerSingleton.getInst().debug("Committed offset ranges!");
         });
         return inputStream.mapToPair(rec -> new Tuple2(rec.key(), rec.value()));
     }

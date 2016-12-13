@@ -332,7 +332,7 @@ public class SystemPropertyCenter {
                 case "vpe.buf.duration":
                     bufDuration = new Integer((String) entry.getValue());
                     break;
-                case "process.time":
+                case "vpe.process.time":
                     procTime = new Integer((String) entry.getValue());
                     break;
                 case "kafka.max.request.size":
