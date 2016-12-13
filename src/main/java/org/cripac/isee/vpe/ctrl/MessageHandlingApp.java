@@ -168,13 +168,15 @@ public class MessageHandlingApp extends SparkStreamingApp {
             this.procTime = propCenter.procTime;
 
             kafkaParams = new HashMap<>();
-            System.out.println("|INFO|MessageHandlingApp: bootstrap.servers=" + propCenter.kafkaBrokers);
+            loggerSingleton.getInst().debug("bootstrap.servers=" + propCenter.kafkaBrokers);
             kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
+            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBrokers);
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);
             // Determine where the stream starts (default: largest)
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, "" + propCenter.kafkaFetchMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
+                    "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                     StringDeserializer.class.getName());
             kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,

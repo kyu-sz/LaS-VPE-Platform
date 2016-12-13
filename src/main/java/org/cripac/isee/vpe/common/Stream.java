@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.common;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.spark.TaskContext;
 import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -123,20 +124,21 @@ public abstract class Stream implements Serializable {
                            @Nonnull Map<String, Object> kafkaParams,
                            int procTime) {
         kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        JavaInputDStream<ConsumerRecord<String, byte[]>> inputStream = KafkaUtils
-                .createDirectStream(jssc,
+        JavaInputDStream<ConsumerRecord<String, byte[]>> inputStream =
+                KafkaUtils.createDirectStream(jssc,
                         LocationStrategies.PreferConsistent(),
-                        ConsumerStrategies.<String, byte[]>Subscribe(
-                                topics,
-                                kafkaParams));
+                        ConsumerStrategies.<String, byte[]>Subscribe(topics, kafkaParams));
         inputStream.cache();
         // TODO(Ken Yu): Check if this offset commit can help recovering
         // Kafka offset when checkpoint is deleted.
         inputStream.foreachRDD(rdd -> {
-            OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-            for (OffsetRange offsetRange : offsetRanges) {
+            final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+
+            rdd.foreachPartition(consumerRecordIterator -> {
+                OffsetRange offsetRange = offsetRanges[TaskContext.get().partitionId()];
                 loggerSingleton.getInst().debug("Received: " + offsetRange);
-            }
+            });
+
             Thread.sleep(procTime);
             ((CanCommitOffsets) inputStream.inputDStream()).commitAsync(offsetRanges);
             loggerSingleton.getInst().debug("Committed offset ranges!");
