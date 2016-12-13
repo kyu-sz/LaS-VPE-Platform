@@ -32,10 +32,13 @@ import java.net.InetAddress;
  */
 public abstract class WebCameraConnector implements Serializable {
 
+    private static final long serialVersionUID = -7032169432448187588L;
+
     /**
      * Parameters for web camera login, including camera IP, port, username and password.
      */
     public static class LoginParam implements Serializable {
+        private static final long serialVersionUID = -3831767044437766754L;
         public ServerID camID;
         public String username;
         public String password;
@@ -47,7 +50,7 @@ public abstract class WebCameraConnector implements Serializable {
         }
     }
 
-    LoginParam loginParam;
+    protected LoginParam loginParam;
 
     /**
      * Create a web camera connector.
