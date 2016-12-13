@@ -60,7 +60,6 @@ import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import javax.annotation.Nonnull;
@@ -152,12 +151,16 @@ public class DataManagingApp extends SparkStreamingApp {
         private Map<String, Object> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
         private final int procTime;
 
         public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter)
                 throws Exception {
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
+                    propCenter.verbose ? Level.DEBUG : Level.INFO,
+                    propCenter.reportListenerAddr,
+                    propCenter.reportListenerPort)));
+
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
@@ -176,11 +179,6 @@ public class DataManagingApp extends SparkStreamingApp {
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort));
             dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
         }
 
@@ -257,11 +255,15 @@ public class DataManagingApp extends SparkStreamingApp {
         private Map<String, Object> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
         private final int procTime;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
+                    propCenter.verbose ? Level.DEBUG : Level.INFO,
+                    propCenter.reportListenerAddr,
+                    propCenter.reportListenerPort)));
+
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
@@ -288,11 +290,6 @@ public class DataManagingApp extends SparkStreamingApp {
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort));
             dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
         }
 
@@ -359,12 +356,16 @@ public class DataManagingApp extends SparkStreamingApp {
         private String metadataDir;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
         private final int procTime;
 
         public SavingStream(@Nonnull SystemPropertyCenter propCenter) throws Exception {
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
+                    propCenter.verbose ? Level.DEBUG : Level.INFO,
+                    propCenter.reportListenerAddr,
+                    propCenter.reportListenerPort)));
+
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
@@ -386,11 +387,6 @@ public class DataManagingApp extends SparkStreamingApp {
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort));
             hdfsSingleton = new Singleton<>(new HDFSFactory());
             dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
         }

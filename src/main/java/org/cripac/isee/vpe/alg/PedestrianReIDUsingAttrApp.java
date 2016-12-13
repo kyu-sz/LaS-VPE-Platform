@@ -46,7 +46,6 @@ import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
 
@@ -163,11 +162,15 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<PedestrianReIDer> reidSingleton;
-        private Singleton<SynthesizedLogger> loggerSingleton;
 
         private final int procTime;
 
         public ReIDStream(SystemPropertyCenter propCenter) throws Exception {
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
+                    propCenter.verbose ? Level.DEBUG : Level.INFO,
+                    propCenter.reportListenerAddr,
+                    propCenter.reportListenerPort)));
+
             this.procTime = propCenter.procTime;
 
             bufDuration = propCenter.bufDuration;
@@ -197,12 +200,6 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                     new KafkaProducerFactory<String, byte[]>(producerProp));
             reidSingleton = new Singleton<>(
                     () -> new FakePedestrianReIDerWithAttr());
-            loggerSingleton = new Singleton<>(
-                    new SynthesizedLoggerFactory(
-                            INFO.NAME,
-                            propCenter.verbose ? Level.DEBUG : Level.INFO,
-                            propCenter.reportListenerAddr,
-                            propCenter.reportListenerPort));
         }
 
         @Override

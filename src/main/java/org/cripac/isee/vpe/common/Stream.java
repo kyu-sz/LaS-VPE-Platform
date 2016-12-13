@@ -17,12 +17,14 @@
 
 package org.cripac.isee.vpe.common;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.spark.streaming.api.java.JavaInputDStream;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.*;
+import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.logging.Logger;
 import scala.Tuple2;
 
 import javax.annotation.Nonnull;
@@ -84,6 +86,17 @@ public abstract class Stream implements Serializable {
         }
     }
 
+    protected Singleton<Logger> loggerSingleton;
+
+    /**
+     * Require inputting a logger singleton for this class and all its subclasses.
+     *
+     * @param loggerSingleton A singleton of logger.
+     */
+    public Stream(@Nonnull Singleton<Logger> loggerSingleton) {
+        this.loggerSingleton = loggerSingleton;
+    }
+
     /**
      * Add the stream to a Spark Streaming context.
      *
@@ -120,6 +133,9 @@ public abstract class Stream implements Serializable {
         // Kafka offset when checkpoint is deleted.
         inputStream.foreachRDD(rdd -> {
             OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+            for (OffsetRange offsetRange : offsetRanges) {
+                loggerSingleton.getInst().debug("Received offset range: " + offsetRange);
+            }
             Thread.sleep(procTime);
             ((CanCommitOffsets) inputStream.inputDStream()).commitAsync(offsetRanges);
         });

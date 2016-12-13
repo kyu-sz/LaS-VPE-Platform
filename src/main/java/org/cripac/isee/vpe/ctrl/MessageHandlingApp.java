@@ -40,7 +40,6 @@ import org.cripac.isee.vpe.data.DataManagingApp;
 import org.cripac.isee.vpe.data.HDFSReader;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import java.io.Serializable;
@@ -157,11 +156,15 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
         private Map<String, Object> kafkaParams;
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<SynthesizedLogger> loggerSingleton;
         private Singleton<HDFSReader> hdfsReaderSingleton;
         private final int procTime;
 
         public MessageHandlingStream(SystemPropertyCenter propCenter) throws Exception {
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
+                    propCenter.verbose ? Level.DEBUG : Level.INFO,
+                    propCenter.reportListenerAddr,
+                    propCenter.reportListenerPort)));
+
             this.procTime = propCenter.procTime;
 
             kafkaParams = new HashMap<>();
@@ -187,11 +190,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     ByteArraySerializer.class.getName());
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
-            loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(
-                    INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort));
             hdfsReaderSingleton = new Singleton<>(() -> new HDFSReader());
         }
 

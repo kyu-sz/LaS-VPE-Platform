@@ -43,7 +43,6 @@ import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import java.net.Inet4Address;
@@ -142,18 +141,16 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
-        private Singleton<SynthesizedLogger> loggerSingleton;
 
         private final int procTime;
 
         public RecogStream(SystemPropertyCenter propCenter) throws Exception {
-            this.procTime = propCenter.procTime;
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
+                    propCenter.verbose ? Level.DEBUG : Level.INFO,
+                    propCenter.reportListenerAddr,
+                    propCenter.reportListenerPort)));
 
-            loggerSingleton =
-                    new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                            propCenter.verbose ? Level.DEBUG : Level.INFO,
-                            propCenter.reportListenerAddr,
-                            propCenter.reportListenerPort));
+            this.procTime = propCenter.procTime;
 
             // Common kafka settings.
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, INFO.NAME);

@@ -27,9 +27,7 @@ import javax.annotation.Nonnull;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class SynthesizedLoggerFactory implements Factory<SynthesizedLogger> {
-
-    private static final long serialVersionUID = -6857919300875993611L;
+public class SynthesizedLoggerFactory implements Factory<Logger> {
 
     /**
      * The address the logger may need to sendWithLog logs to.
