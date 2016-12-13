@@ -171,7 +171,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     propCenter.kafkaBootstrapServers);
             // Determine where the stream starts (default: largest)
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -284,7 +284,7 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                     propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -389,7 +389,7 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                     propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,

@@ -203,7 +203,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
          */
-        private Map<String, Object> kafkaParams = new HashMap<>();
+        private Map<String, String> kafkaParams = new HashMap<>();
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
@@ -224,7 +224,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     INFO.NAME);
 //            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
 
@@ -308,7 +308,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
          */
-        private Map<String, Object> kafkaParams = new HashMap<>();
+        private Map<String, String> kafkaParams = new HashMap<>();
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
@@ -329,7 +329,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     INFO.NAME);
 //            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,

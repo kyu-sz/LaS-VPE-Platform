@@ -157,7 +157,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
         public static final Topic COMMAND_TOPIC = new Topic(
                 "command", DataTypes.COMMAND, MessageHandlingStream.INFO);
 
-        private Map<String, Object> kafkaParams;
+        private Map<String, String> kafkaParams;
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<HDFSReader> hdfsReaderSingleton;
         private final int procTime;
@@ -178,7 +178,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
                     INFO.NAME);
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
                     "" + propCenter.kafkaFetchMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,

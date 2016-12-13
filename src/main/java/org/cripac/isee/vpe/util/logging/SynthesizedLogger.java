@@ -22,9 +22,7 @@ import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
 
 import javax.annotation.Nonnull;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.*;
 
 /**
@@ -126,11 +124,8 @@ public class SynthesizedLogger extends Logger {
             log4jLogger.debug(message, t);
 
             String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message + t;
-            StackTraceElement[] elements = t.getStackTrace();
-            for (StackTraceElement element : elements) {
-                richMsg += "\n\t\t" + element;
-            }
             System.out.println(richMsg);
+            t.printStackTrace();
             send(richMsg);
 
             String stackTraceMsg = "";
@@ -145,7 +140,7 @@ public class SynthesizedLogger extends Logger {
     public void info(@Nonnull Object message) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message);
-            String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[INFO]" + localName + "\t" + appName + ":\t" + message;
             System.out.println(richMsg);
             send(richMsg);
         }
@@ -155,12 +150,9 @@ public class SynthesizedLogger extends Logger {
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message, t);
-            String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message + t;
-            StackTraceElement[] elements = t.getStackTrace();
-            for (StackTraceElement element : elements) {
-                richMsg += "\n\t\t" + element;
-            }
+            String richMsg = "[INFO]" + localName + "\t" + appName + ":\t" + message + t;
             System.out.println(richMsg);
+            t.printStackTrace();
             send(richMsg);
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
@@ -174,7 +166,7 @@ public class SynthesizedLogger extends Logger {
     public void warn(@Nonnull Object message) {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message);
-            String richMsg = "|WARN |" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[WARN]" + localName + "\t" + appName + ":\t" + message;
             System.out.println(richMsg);
             send(richMsg);
         }
@@ -185,13 +177,9 @@ public class SynthesizedLogger extends Logger {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message, t);
 
-            String richMsg = "|WARN |" + localName + "\t" + appName + ":\t" + message + t;
-            StackTraceElement[] elements = t.getStackTrace();
-            for (StackTraceElement element : elements) {
-                richMsg += "\n\t\t" + element;
-            }
+            String richMsg = "[WARN]" + localName + "\t" + appName + ":\t" + message + t;
             System.out.println(richMsg);
-
+            t.printStackTrace();
             send(richMsg);
 
             String stackTraceMsg = "";
@@ -218,11 +206,8 @@ public class SynthesizedLogger extends Logger {
             log4jLogger.error(message, t);
 
             String richMsg = "[ERROR]" + localName + "\t" + appName + ":\t" + message + "\t" + t;
-            StackTraceElement[] elements = t.getStackTrace();
-            for (StackTraceElement element : elements) {
-                richMsg += "\n\t\t" + element;
-            }
             System.err.println(richMsg);
+            t.printStackTrace();
             send(richMsg);
 
             String stackTraceMsg = "";
@@ -248,12 +233,10 @@ public class SynthesizedLogger extends Logger {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message, t);
             String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message + t;
-            StackTraceElement[] elements = t.getStackTrace();
-            for (StackTraceElement element : elements) {
-                richMsg += "\n\t\t" + element;
-            }
             System.err.println(richMsg);
+            t.printStackTrace();
             send(richMsg);
+
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {

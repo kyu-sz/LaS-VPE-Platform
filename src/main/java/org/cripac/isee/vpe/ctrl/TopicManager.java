@@ -57,10 +57,9 @@ public class TopicManager {
         System.out.println("[INFO]Connecting to zookeeper: " + propCenter.zkConn);
         ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
         ZkClient zkClient = new ZkClient(zkConn);
-        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
         for (Topic topic : topics) {
             System.out.println("[INFO]Checking topic: " + topic);
-            if (!AdminUtils.topicExists(zkUtils, topic.NAME)) {
+            if (!AdminUtils.topicExists(zkClient, topic.NAME)) {
                 // AdminUtils.createTopic(zkClient, topic,
                 // propCenter.kafkaNumPartitions,
                 // propCenter.kafkaReplFactor, new Properties());

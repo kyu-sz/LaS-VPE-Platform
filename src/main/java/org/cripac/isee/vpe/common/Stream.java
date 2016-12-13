@@ -17,21 +17,18 @@
 
 package org.cripac.isee.vpe.common;
 
+import kafka.serializer.DefaultDecoder;
+import kafka.serializer.StringDecoder;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.spark.TaskContext;
-import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka010.*;
+import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
-import scala.Tuple2;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
+import java.util.*;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
@@ -126,25 +123,10 @@ public abstract class Stream implements Serializable {
                            @Nonnull Collection<String> topics,
                            @Nonnull Map<String, String> kafkaParams,
                            int procTime) {
-        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        JavaInputDStream<ConsumerRecord<String, byte[]>> inputStream =
-                KafkaUtils.createDirectStream(jssc,
-                        LocationStrategies.PreferConsistent(),
-                        ConsumerStrategies.<String, byte[]>Subscribe(topics, kafkaParams));
-        // TODO(Ken Yu): Check if this offset commit can help recovering
-        // Kafka offset when checkpoint is deleted.
-        inputStream.foreachRDD(rdd -> {
-            final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-
-            rdd.foreachPartition(consumerRecordIterator -> {
-                OffsetRange offsetRange = offsetRanges[TaskContext.get().partitionId()];
-                loggerSingleton.getInst().debug("Received: " + offsetRange);
-            });
-
-            Thread.sleep(procTime);
-            ((CanCommitOffsets) inputStream.inputDStream()).commitAsync(offsetRanges);
-            loggerSingleton.getInst().debug("Committed offset ranges!");
-        });
-        return inputStream.mapToPair(rec -> new Tuple2(rec.key(), rec.value()));
+        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+        return KafkaUtils.createDirectStream(jssc,
+                String.class, byte[].class,
+                StringDecoder.class, DefaultDecoder.class,
+                kafkaParams, new HashSet(topics));
     }
 }

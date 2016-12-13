@@ -136,7 +136,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages from Kafka
          * Brokers.
          */
-        private Map<String, Object> kafkaParams = new HashMap<>();
+        private Map<String, String> kafkaParams = new HashMap<>();
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
@@ -157,7 +157,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 //            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "latest");
+                    "largest");
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                     propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
