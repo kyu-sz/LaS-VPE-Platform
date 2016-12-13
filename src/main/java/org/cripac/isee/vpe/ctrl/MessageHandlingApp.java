@@ -45,8 +45,8 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import java.io.Serializable;
 import java.util.*;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.apache.commons.lang.SerializationUtils.deserialize;
+import static org.apache.commons.lang.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -168,8 +168,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
             this.procTime = propCenter.procTime;
 
             kafkaParams = new HashMap<>();
-            loggerSingleton.getInst().debug("bootstrap.servers=" + propCenter.kafkaBootstrapServers);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
+            loggerSingleton.getInst().debug("bootstrap.servers="
+                    + propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                     propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
@@ -349,14 +349,14 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
                                 // Get a next command message.
                                 String cmd = msg._1();
-                                Map<String, Serializable> param;
+                                Hashtable<String, Serializable> param;
                                 {
-                                    Serializable tmp = deserialize(msg._2());
-                                    if (!(tmp instanceof Map)) {
+                                    Object tmp = deserialize(msg._2());
+                                    if (!(tmp instanceof Hashtable)) {
                                         loggerSingleton.getInst().error("Expecting Map but received " + tmp);
                                         return;
                                     }
-                                    param = (Map<String, Serializable>) tmp;
+                                    param = (Hashtable<String, Serializable>) tmp;
                                 }
 
                                 loggerSingleton.getInst().debug("Received command: " + cmd);
@@ -367,14 +367,11 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                         // Process real-time data.
                                         ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
                                         TaskData taskData = new TaskData(
-                                                plan.findNode(
-                                                        PedestrianTrackingApp.RTVideoStreamTrackingStream
-                                                                .LOGIN_PARAM_TOPIC),
+                                                plan.findNode(PedestrianTrackingApp.RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
                                                 plan,
                                                 param.get(Parameter.WEBCAM_LOGIN_PARAM));
                                         sendWithLog(
-                                                PedestrianTrackingApp.RTVideoStreamTrackingStream
-                                                        .LOGIN_PARAM_TOPIC,
+                                                PedestrianTrackingApp.RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
                                                 taskID.toString(),
                                                 serialize(taskData),
                                                 producerSingleton.getInst(),
