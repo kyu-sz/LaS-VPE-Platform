@@ -51,14 +51,14 @@ public abstract class Stream implements Serializable {
         /**
          * Type of output.
          */
-        public final DataType OUTPUT_TYPE;
+        public final DataTypes OUTPUT_TYPE;
 
         /**
          * Construct a stream with NAME specified.
          *
          * @param name Name of the stream.
          */
-        public Info(String name, DataType outputType) {
+        public Info(String name, DataTypes outputType) {
             this.NAME = name;
             this.OUTPUT_TYPE = outputType;
         }

@@ -33,7 +33,7 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.common.Topic;
@@ -123,14 +123,14 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
     public static class RecogStream extends Stream {
 
-        public static final Info INFO = new Info("recog", DataType.ATTR);
+        public static final Info INFO = new Info("recog", DataTypes.ATTR);
 
         /**
          * Topic to input tracklets from Kafka.
          */
         public static final Topic TRACKLET_TOPIC =
                 new Topic("pedestrian-tracklet-for-attr-recog",
-                        DataType.TRACKLET, INFO);
+                        DataTypes.TRACKLET, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka

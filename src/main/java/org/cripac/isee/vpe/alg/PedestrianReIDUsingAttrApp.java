@@ -35,7 +35,7 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.common.Topic;
@@ -128,26 +128,26 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
     public static class ReIDStream extends Stream {
 
         public static final Info INFO =
-                new Info("PedestrianReIDUsingAttr", DataType.IDRANK);
+                new Info("PedestrianReIDUsingAttr", DataTypes.IDRANK);
 
         /**
          * Topic to input pedestrian tracklets from Kafka.
          */
         public static final Topic TRACKLET_TOPIC =
                 new Topic("pedestrian-tracklet-for-reid-using-attr",
-                        DataType.TRACKLET, INFO);
+                        DataTypes.TRACKLET, INFO);
         /**
          * Topic to input pedestrian attributes from Kafka.
          */
         public static final Topic ATTR_TOPIC =
                 new Topic("pedestrian-attr-for-reid-using-attr",
-                        DataType.ATTR, INFO);
+                        DataTypes.ATTR, INFO);
         /**
          * Topic to input pedestrian track with attributes from Kafka.
          */
         public static final Topic TRACKLET_ATTR_TOPIC =
                 new Topic("pedestrian-track-attr-for-reid-using-attr",
-                        DataType.TRACKLET, INFO);
+                        DataTypes.TRACKLET, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
