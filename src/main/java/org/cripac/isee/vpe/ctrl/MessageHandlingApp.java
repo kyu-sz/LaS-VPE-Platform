@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import com.google.gson.Gson;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -118,14 +119,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * the MessageHandlingApp may use, as well as their keys.
      */
     public static class Parameter {
-        public final static String VIDEO_URL
-                = "video-url (" + String.class.getName() + ")";
-        public final static String TRACKING_CONF_FILE
-                = "tracking-conf-file (" + String.class.getName() + ")";
-        public final static String TRACKLET_SERIAL_NUM
-                = "tracklet-serial-num (" + String.class.getName() + ")";
-        public final static String WEBCAM_LOGIN_PARAM
-                = "webcam-login-param (" + LoginParam.class.getName() + ")";
+        public final static String VIDEO_URL = "video-url";
+        public final static String TRACKING_CONF_FILE = "tracking-conf-file";
+        public final static String TRACKLET_SERIAL_NUM = "tracklet-serial-num";
+        public final static String WEBCAM_LOGIN_PARAM = "webcam-login-param";
 
         private Parameter() {
         }
@@ -356,17 +353,17 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
                                     // Get a next command message.
                                     String cmd = msg._1();
+                                    loggerSingleton.getInst().debug("Received command: " + cmd);
+
                                     Hashtable<String, Serializable> param;
                                     {
                                         Object tmp = deserialize(msg._2());
                                         if (!(tmp instanceof Hashtable)) {
-                                            loggerSingleton.getInst().error("Expecting Map but received " + tmp);
+                                            loggerSingleton.getInst().error("Expecting Hashtable but received " + tmp);
                                             return;
                                         }
                                         param = (Hashtable<String, Serializable>) tmp;
                                     }
-
-                                    loggerSingleton.getInst().debug("Received command: " + cmd);
 
                                     switch (cmd) {
                                         case CommandType.RT_TRACK_ONLY:
@@ -374,13 +371,13 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                             // Process real-time data.
                                             ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
                                             Serializable tmp = param.get(Parameter.WEBCAM_LOGIN_PARAM);
-                                            if (!(tmp instanceof LoginParam)) {
+                                            if (!(tmp instanceof String)) {
                                                 throw new DataTypeNotMatchedException(
-                                                        "Expecting a LoginParam but received " + tmp);
+                                                        "Expecting a String but received " + tmp);
                                             }
                                             TaskData taskData = new TaskData(
                                                     plan.findNode(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
-                                                    plan, tmp);
+                                                    plan, new Gson().fromJson((String) tmp, LoginParam.class));
                                             sendWithLog(
                                                     RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
                                                     taskID.toString(),

@@ -27,6 +27,7 @@ import java.io.Serializable;
  * Created by ken.yu on 16-10-5.
  */
 public final class Topic implements Serializable {
+    private static final long serialVersionUID = -7567029992452814611L;
     /**
      * Name of the topic to appear in Kafka.
      */

@@ -82,7 +82,7 @@ To briefly monitor, some informations are printed to the console that starts eac
 
 To fully monitor your Spark application, you might need to access the log files in the slave nodes. However, if your application runs on a cluster without desktop, and you connect remotely to the cluster, you might not be able to access the web pages loaded from the slave nodes.
 
-To solve this problem, first add the ip address of the slave nodes to the /etc/hosts in the master node. Make sure the master node can access the pages on slave nodes by terminal browsers like w3m or lynx. In Ubuntu, they can be installed by ```sudo apt-get install w3m``` or ```sudo apt-get install lynx```.
+To solve this problem, first add the address address of the slave nodes to the /etc/hosts in the master node. Make sure the master node can access the pages on slave nodes by terminal browsers like w3m or lynx. In Ubuntu, they can be installed by ```sudo apt-get install w3m``` or ```sudo apt-get install lynx```.
 
 Then, configure your master node to be a proxy server using Squid. Tutors can be found in websites like [Help-Ubuntu-Squid](https://help.ubuntu.com/community/Squid).
 

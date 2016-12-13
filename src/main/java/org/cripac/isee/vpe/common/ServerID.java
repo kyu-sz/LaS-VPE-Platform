@@ -24,11 +24,17 @@ import java.net.InetAddress;
  * Created by ken.yu on 16-12-2.
  */
 public class ServerID implements Serializable {
-    public InetAddress ip;
+    private static final long serialVersionUID = 2091306632553954507L;
+    public InetAddress address;
     public int port;
 
-    public ServerID(InetAddress ip, int port) {
-        this.ip = ip;
+    public ServerID(InetAddress address, int port) {
+        this.address = address;
         this.port = port;
+    }
+
+    @Override
+    public String toString() {
+        return address + ":" + port;
     }
 }

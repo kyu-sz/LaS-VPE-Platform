@@ -37,12 +37,15 @@ import java.util.*;
  */
 public abstract class Stream implements Serializable {
 
+    private static final long serialVersionUID = 7965952554107861881L;
+
     /**
      * The Info class is designed to force the output data INPUT_TYPE to
      * be assigned to a stream, so that INPUT_TYPE matching checking can
      * be conducted.
      */
     public static class Info implements Serializable {
+        private static final long serialVersionUID = -2859100367977900846L;
         /**
          * Name of the stream.
          */

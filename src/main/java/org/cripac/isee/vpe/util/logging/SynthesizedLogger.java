@@ -125,15 +125,10 @@ public class SynthesizedLogger extends Logger {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message, t);
 
-            String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message;
-            try {
-                String stackTrace = "";
-                PrintStream printStream = new PrintStream(stackTrace);
-                t.printStackTrace(printStream);
-                printStream.close();
-                richMsg += "\n" + stackTrace;
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
+            String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message + t;
+            StackTraceElement[] elements = t.getStackTrace();
+            for (StackTraceElement element : elements) {
+                richMsg += "\n\t\t" + element;
             }
             System.out.println(richMsg);
             send(richMsg);
@@ -160,15 +155,10 @@ public class SynthesizedLogger extends Logger {
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message, t);
-            String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message;
-            try {
-                String stackTrace = "";
-                PrintStream printStream = new PrintStream(stackTrace);
-                t.printStackTrace(printStream);
-                printStream.close();
-                richMsg += "\n" + stackTrace;
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
+            String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message + t;
+            StackTraceElement[] elements = t.getStackTrace();
+            for (StackTraceElement element : elements) {
+                richMsg += "\n\t\t" + element;
             }
             System.out.println(richMsg);
             send(richMsg);
@@ -195,15 +185,10 @@ public class SynthesizedLogger extends Logger {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message, t);
 
-            String richMsg = "|WARN |" + localName + "\t" + appName + ":\t" + message;
-            try {
-                String stackTrace = "";
-                PrintStream printStream = new PrintStream(stackTrace);
-                t.printStackTrace(printStream);
-                printStream.close();
-                richMsg += "\n" + stackTrace;
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
+            String richMsg = "|WARN |" + localName + "\t" + appName + ":\t" + message + t;
+            StackTraceElement[] elements = t.getStackTrace();
+            for (StackTraceElement element : elements) {
+                richMsg += "\n\t\t" + element;
             }
             System.out.println(richMsg);
 
@@ -232,15 +217,10 @@ public class SynthesizedLogger extends Logger {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message, t);
 
-            String richMsg = "[ERROR]" + localName + "\t" + appName + ":\t" + message;
-            try {
-                String stackTrace = "";
-                PrintStream printStream = new PrintStream(stackTrace);
-                t.printStackTrace(printStream);
-                printStream.close();
-                richMsg += "\n" + stackTrace;
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
+            String richMsg = "[ERROR]" + localName + "\t" + appName + ":\t" + message + "\t" + t;
+            StackTraceElement[] elements = t.getStackTrace();
+            for (StackTraceElement element : elements) {
+                richMsg += "\n\t\t" + element;
             }
             System.err.println(richMsg);
             send(richMsg);
@@ -267,15 +247,10 @@ public class SynthesizedLogger extends Logger {
                       @Nonnull Throwable t) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message, t);
-            String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message;
-            try {
-                String stackTrace = "";
-                PrintStream printStream = new PrintStream(stackTrace);
-                t.printStackTrace(printStream);
-                printStream.close();
-                richMsg += "\n" + stackTrace;
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
+            String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message + t;
+            StackTraceElement[] elements = t.getStackTrace();
+            for (StackTraceElement element : elements) {
+                richMsg += "\n\t\t" + element;
             }
             System.err.println(richMsg);
             send(richMsg);

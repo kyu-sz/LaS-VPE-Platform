@@ -15,6 +15,8 @@ package org.cripac.isee.vpe.common;/********************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
+import com.google.gson.annotations.SerializedName;
+
 import java.io.Serializable;
 import java.net.InetAddress;
 
@@ -23,6 +25,7 @@ import java.net.InetAddress;
  */
 public class LoginParam implements Serializable {
     private static final long serialVersionUID = -3831767044437766754L;
+    @SerializedName("server-id")
     public ServerID serverID;
     public String username;
     public String password;
