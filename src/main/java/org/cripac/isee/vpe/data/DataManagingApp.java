@@ -172,10 +172,14 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                    propCenter.kafkaMaxRequestSize);
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                    StringSerializer.class.getName());
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                    ByteArraySerializer.class.getName());
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
@@ -280,9 +284,10 @@ public class DataManagingApp extends SparkStreamingApp {
                     ByteArrayDeserializer.class.getName());
 
             Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
-            producerProp.put("compression.codec", "1");
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                    propCenter.kafkaMaxRequestSize);
             producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                     StringSerializer.class.getName());
             producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
@@ -379,11 +384,14 @@ public class DataManagingApp extends SparkStreamingApp {
             metadataDir = propCenter.metadataDir;
 
             Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
-            producerProp.put("compression.codec", "1");
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                    propCenter.kafkaMaxRequestSize);
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                    StringSerializer.class.getName());
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                    ByteArraySerializer.class.getName());
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));

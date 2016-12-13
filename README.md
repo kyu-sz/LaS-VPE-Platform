@@ -32,6 +32,8 @@ LaS-VPE Platform is released under the GPL License.
 	
 2. Deploy Kafka(>=0.10.1.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2) properly on your cluster.
 
+Before you start your Kafka cluster, remember to configure the "max.request.size" to a large number, e.g. 157286400, so as to enable large message transferring through Kafka. This should be configured in "server.properties".
+
 To enable multi-appications running concurrently, see [Job-Scheduling](https://spark.apache.org/docs/1.2.0/job-scheduling.html) and configure your environment.
 
 ## How to run

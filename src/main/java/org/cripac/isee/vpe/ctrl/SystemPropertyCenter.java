@@ -62,7 +62,8 @@ public class SystemPropertyCenter {
     public String kafkaBrokers = "localhost:9092";
     public int kafkaNumPartitions = 1;
     public int kafkaReplFactor = 1;
-    public int kafkaFetchMsgMaxBytes = 10000000;
+    public int kafkaFetchMsgMaxBytes = 100000000;
+    public int kafkaMaxRequestSize = 100000000;
     // Spark properties
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "metadata";
@@ -333,6 +334,9 @@ public class SystemPropertyCenter {
                     break;
                 case "process.time":
                     procTime = new Integer((String) entry.getValue());
+                    break;
+                case "kafka.max.request.size":
+                    kafkaMaxRequestSize = new Integer((String) entry.getValue());
                     break;
             }
         }

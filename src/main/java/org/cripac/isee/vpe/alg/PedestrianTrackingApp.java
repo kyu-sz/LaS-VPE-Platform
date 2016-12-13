@@ -230,9 +230,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     "" + propCenter.kafkaFetchMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
-            producerProp.put("compression.codec", "1");
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                    propCenter.kafkaMaxRequestSize);
             producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                     StringSerializer.class.getName());
             producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
@@ -338,9 +339,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     ByteArrayDeserializer.class.getName());
 
             Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, propCenter.kafkaBrokers);
-            producerProp.put("compression.codec", "1");
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10000000");
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBrokers);
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                    propCenter.kafkaMaxRequestSize);
             producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                     StringSerializer.class.getName());
             producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,

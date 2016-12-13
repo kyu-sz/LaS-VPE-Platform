@@ -83,6 +83,8 @@ public class DataManagingAppTest {
         Properties producerProp = new Properties();
         producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 propCenter.kafkaBrokers);
+        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                propCenter.kafkaMaxRequestSize);
         producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                 StringSerializer.class.getName());
         producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
