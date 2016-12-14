@@ -54,6 +54,7 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
@@ -333,7 +334,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
                     INFO.NAME);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                     "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
@@ -419,68 +419,71 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 loggerSingleton.getInst());
 
                 rdd.foreach(task -> {
-                    Logger logger = loggerSingleton.getInst();
+                    try {
+                        Logger logger = loggerSingleton.getInst();
 
-                    // Get the task data.
-                    TaskData taskData = task._2();
-                    TaskData.ExecutionPlan.Node curNode =
-                            taskData.curNode;
-                    // Get the videoID of the video to process from the
-                    // execution data of this node.
-                    VideoFragment frag = (VideoFragment) taskData.predecessorRes;
-                    // Get tracking configuration for this execution.
-                    String confFile = (String) curNode.getExecData();
-                    if (confFile == null) {
-                        logger.error("Tracking configuration file" +
-                                " is not specified for this node!");
-                        return;
-                    }
-
-                    // Get the IDs of successor nodes.
-                    List<Topic> succTopics = curNode.getSuccessors();
-                    // Mark the current node as executed in advance.
-                    taskData.curNode.markExecuted();
-
-                    // Load tracking configuration to create a tracker.
-                    if (!confPool.getValue().containsKey(confFile)) {
-                        logger.error("Cannot find tracking config file "
-                                + confFile);
-                        return;
-                    }
-                    byte[] confBytes = confPool.getValue().get(confFile);
-                    if (confBytes == null) {
-                        logger.fatal("confPool contains key " + confFile
-                                + " but value is null!");
-                        return;
-                    }
-                    Tracker tracker = new BasicTracker(confBytes, logger);
-                    //Tracker tracker = new FakePedestrianTracker();
-
-                    // Conduct tracking on video read from HDFS.
-                    logger.debug("Performing tracking on " + frag.videoID);
-                    Tracklet[] tracklets = tracker.track(frag.bytes);
-                    logger.debug("Finished tracking on " + frag.videoID);
-
-                    // Send tracklets.
-                    for (int i = 0; i < tracklets.length; ++i) {
-                        Tracklet tracklet = tracklets[i];
-                        // Complete identifier of each tracklet.
-                        tracklet.id = new Tracklet.Identifier(frag.videoID, i);
-                        // Stored the track in the task data, which can be cyclic utilized.
-                        taskData.predecessorRes = tracklet;
-                        // Send to all the successor nodes.
-                        for (Topic topic : succTopics) {
-                            taskData.changeCurNode(topic);
-
-                            byte[] serialized = serialize(taskData);
-                            logger.debug("To sendWithLog message with size: "
-                                    + serialized.length);
-                            sendWithLog(topic,
-                                    task._1(),
-                                    serialized,
-                                    producerSingleton.getInst(),
-                                    logger);
+                        // Get the task data.
+                        TaskData taskData = task._2();
+                        TaskData.ExecutionPlan.Node curNode =
+                                taskData.curNode;
+                        // Get the videoID of the video to process from the
+                        // execution data of this node.
+                        VideoFragment frag = (VideoFragment) taskData.predecessorRes;
+                        // Get tracking configuration for this execution.
+                        String confFile = (String) curNode.getExecData();
+                        if (confFile == null) {
+                            logger.error("Tracking configuration file" +
+                                    " is not specified for this node!");
+                            return;
                         }
+
+                        // Get the IDs of successor nodes.
+                        List<Topic> succTopics = curNode.getSuccessors();
+                        // Mark the current node as executed in advance.
+                        taskData.curNode.markExecuted();
+
+                        // Load tracking configuration to create a tracker.
+                        if (!confPool.getValue().containsKey(confFile)) {
+                            throw new FileNotFoundException("Cannot find tracking config file "
+                                    + confFile);
+                        }
+                        byte[] confBytes = confPool.getValue().get(confFile);
+                        if (confBytes == null) {
+                            logger.fatal("confPool contains key " + confFile
+                                    + " but value is null!");
+                            return;
+                        }
+                        Tracker tracker = new BasicTracker(confBytes, logger);
+                        //Tracker tracker = new FakePedestrianTracker();
+
+                        // Conduct tracking on video read from HDFS.
+                        logger.debug("Performing tracking on " + frag.videoID);
+                        Tracklet[] tracklets = tracker.track(frag.bytes);
+                        logger.debug("Finished tracking on " + frag.videoID);
+
+                        // Send tracklets.
+                        for (int i = 0; i < tracklets.length; ++i) {
+                            Tracklet tracklet = tracklets[i];
+                            // Complete identifier of each tracklet.
+                            tracklet.id = new Tracklet.Identifier(frag.videoID, i);
+                            // Stored the track in the task data, which can be cyclic utilized.
+                            taskData.predecessorRes = tracklet;
+                            // Send to all the successor nodes.
+                            for (Topic topic : succTopics) {
+                                taskData.changeCurNode(topic);
+
+                                byte[] serialized = serialize(taskData);
+                                logger.debug("To sendWithLog message with size: "
+                                        + serialized.length);
+                                sendWithLog(topic,
+                                        task._1(),
+                                        serialized,
+                                        producerSingleton.getInst(),
+                                        logger);
+                            }
+                        }
+                    } catch (Exception e) {
+                        loggerSingleton.getInst().error("During tracking.", e);
                     }
                 });
             });

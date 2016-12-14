@@ -33,10 +33,7 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataTypes;
-import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -198,45 +195,48 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         }
                     })
                     .foreachRDD(rdd ->
-                        rdd.foreach(taskWithTracklet -> {
-                            Logger logger = loggerSingleton.getInst();
+                            rdd.foreach(taskWithTracklet -> {
+                                try {
+                                    Logger logger = loggerSingleton.getInst();
 
-                            String taskID = taskWithTracklet._1();
-                            TaskData taskData = taskWithTracklet._2();
+                                    String taskID = taskWithTracklet._1();
+                                    TaskData taskData = taskWithTracklet._2();
 
-                            if (!(taskData.predecessorRes instanceof Tracklet)) {
-                                logger.fatal("Predecessor result sent by "
+                                    if (!(taskData.predecessorRes instanceof Tracklet)) {
+                                        throw new DataTypeNotMatchedException("Predecessor result sent by "
                                                 + taskData.predecessorInfo
-                                                + " is expected to be a tracklet,"
+                                                + " is expected to be a Tracklet,"
                                                 + " but received \""
                                                 + taskData.predecessorRes + "\"!");
-                                return;
-                            }
+                                    }
 
-                            Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                                    Tracklet tracklet = (Tracklet) taskData.predecessorRes;
 
-                            // Recognize attributes.
-                            Attributes attr = attrRecogSingleton.getInst().recognize(tracklet);
-                            attr.trackletID = tracklet.id;
+                                    // Recognize attributes.
+                                    Attributes attr = attrRecogSingleton.getInst().recognize(tracklet);
+                                    attr.trackletID = tracklet.id;
 
-                            // Prepare new task data.
-                            // Stored the track in the task data, which can be
-                            // cyclic utilized.
-                            taskData.predecessorRes = attr;
-                            // Get the IDs of successor nodes.
-                            List<Topic> succTopics = taskData.curNode.getSuccessors();
-                            // Mark the current node as executed.
-                            taskData.curNode.markExecuted();
-                            // Send to all the successor nodes.
-                            for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
-                                sendWithLog(topic,
-                                        taskID,
-                                        serialize(taskData),
-                                        producerSingleton.getInst(),
-                                        logger);
-                            }
-                        })
+                                    // Prepare new task data.
+                                    // Stored the track in the task data, which can be
+                                    // cyclic utilized.
+                                    taskData.predecessorRes = attr;
+                                    // Get the IDs of successor nodes.
+                                    List<Topic> succTopics = taskData.curNode.getSuccessors();
+                                    // Mark the current node as executed.
+                                    taskData.curNode.markExecuted();
+                                    // Send to all the successor nodes.
+                                    for (Topic topic : succTopics) {
+                                        taskData.changeCurNode(topic);
+                                        sendWithLog(topic,
+                                                taskID,
+                                                serialize(taskData),
+                                                producerSingleton.getInst(),
+                                                logger);
+                                    }
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During processing attributes.", e);
+                                }
+                            })
                     );
         }
     }

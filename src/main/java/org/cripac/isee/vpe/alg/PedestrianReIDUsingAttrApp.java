@@ -346,44 +346,44 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)
                     .foreachRDD(rdd -> {
                         rdd.foreach(taskWithTrackletAttr -> {
-                            Logger logger = loggerSingleton.getInst();
-                            String taskID = taskWithTrackletAttr._1();
-                            TaskData taskData = taskWithTrackletAttr._2();
-                            if (taskData.predecessorRes == null) {
-                                logger.fatal("TaskData from " + taskData.predecessorInfo
-                                        + " contains no result data!");
-                                return;
-                            }
-                            if (!(taskData.predecessorRes instanceof PedestrianInfo)) {
-                                logger.fatal("TaskData from " + taskData.predecessorInfo
-                                        + " contains no result data!");
-                                logger.fatal("Result sent by "
-                                        + taskData.predecessorInfo
-                                        + " is expected to be a PedestrianInfo,"
-                                        + " but received \""
-                                        + taskData.predecessorRes + "\"!");
-                                return;
-                            }
-                            PedestrianInfo trackletWithAttr =
-                                    (PedestrianInfo) taskData.predecessorRes;
+                            try {
+                                Logger logger = loggerSingleton.getInst();
+                                String taskID = taskWithTrackletAttr._1();
+                                TaskData taskData = taskWithTrackletAttr._2();
+                                if (taskData.predecessorRes == null) {
+                                    throw new DataTypeNotMatchedException("TaskData from " + taskData.predecessorInfo
+                                            + " contains no result data!");
+                                }
+                                if (!(taskData.predecessorRes instanceof PedestrianInfo)) {
+                                    throw new DataTypeNotMatchedException("Result sent by "
+                                            + taskData.predecessorInfo
+                                            + " is expected to be a PedestrianInfo,"
+                                            + " but received \""
+                                            + taskData.predecessorRes + "\"!");
+                                }
+                                PedestrianInfo trackletWithAttr =
+                                        (PedestrianInfo) taskData.predecessorRes;
 
-                            // Perform ReID.
-                            int[] idRank = reidSingleton.getInst().reid(trackletWithAttr);
+                                // Perform ReID.
+                                int[] idRank = reidSingleton.getInst().reid(trackletWithAttr);
 
-                            // Prepare new task data with the pedestrian IDRANK.
-                            taskData.predecessorRes = idRank;
-                            // Get the IDs of successor nodes.
-                            List<Topic> succTopics = taskData.curNode.getSuccessors();
-                            // Mark the current node as executed.
-                            taskData.curNode.markExecuted();
-                            // Send to all the successor nodes.
-                            for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
-                                sendWithLog(topic,
-                                        taskID,
-                                        serialize(taskData),
-                                        producerSingleton.getInst(),
-                                        logger);
+                                // Prepare new task data with the pedestrian IDRANK.
+                                taskData.predecessorRes = idRank;
+                                // Get the IDs of successor nodes.
+                                List<Topic> succTopics = taskData.curNode.getSuccessors();
+                                // Mark the current node as executed.
+                                taskData.curNode.markExecuted();
+                                // Send to all the successor nodes.
+                                for (Topic topic : succTopics) {
+                                    taskData.changeCurNode(topic);
+                                    sendWithLog(topic,
+                                            taskID,
+                                            serialize(taskData),
+                                            producerSingleton.getInst(),
+                                            logger);
+                                }
+                            } catch (Exception e) {
+                                loggerSingleton.getInst().error("During ReID.", e);
                             }
                         });
                     });

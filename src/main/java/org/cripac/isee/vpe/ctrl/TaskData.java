@@ -119,6 +119,7 @@ public class TaskData implements Serializable, Cloneable {
      */
     public static class ExecutionPlan implements Serializable, Cloneable {
 
+        private static final long serialVersionUID = 1773757386865681468L;
         /**
          * Map for finding nodes according to the class of its module.
          */

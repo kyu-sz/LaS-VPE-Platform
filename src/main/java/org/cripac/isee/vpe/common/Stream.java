@@ -28,7 +28,9 @@ import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
@@ -127,6 +129,10 @@ public abstract class Stream implements Serializable {
         return KafkaUtils.createDirectStream(jssc,
                 String.class, byte[].class,
                 StringDecoder.class, DefaultDecoder.class,
-                kafkaParams, new HashSet(topics));
+                kafkaParams, new HashSet(topics))
+                .transformToPair(rdd -> {
+                    rdd.repartition(jssc.sparkContext().defaultParallelism());
+                    return rdd;
+                });
     }
 }
