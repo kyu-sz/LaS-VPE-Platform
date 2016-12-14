@@ -130,9 +130,6 @@ public abstract class Stream implements Serializable {
                 String.class, byte[].class,
                 StringDecoder.class, DefaultDecoder.class,
                 kafkaParams, new HashSet(topics))
-                .transformToPair(rdd -> {
-                    rdd.repartition(jssc.sparkContext().defaultParallelism());
-                    return rdd;
-                });
+                .repartition(jssc.sparkContext().defaultParallelism());
     }
 }
