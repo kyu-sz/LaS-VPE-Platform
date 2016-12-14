@@ -35,10 +35,7 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataTypes;
-import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -217,13 +214,18 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                             procTime)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
-                            .mapToPair(taskDataBytes -> {
-                                TaskData taskData =
-                                        (TaskData) deserialize(taskDataBytes._2());
+                            .mapToPair(kvPair -> {
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(kvPair._2());
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return null;
+                                }
                                 loggerSingleton.getInst().info(
                                         "Received track: " + ((Tracklet) taskData.predecessorRes).id);
                                 return new Tuple2<>(
-                                        taskDataBytes._1() + ":" + ((Tracklet) taskData.predecessorRes).id,
+                                        kvPair._1() + ":" + ((Tracklet) taskData.predecessorRes).id,
                                         taskData);
                             });
 
@@ -233,12 +235,17 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
-                            .mapToPair(taskDataBytes -> {
-                                TaskData taskData =
-                                        (TaskData) deserialize(taskDataBytes._2());
+                            .mapToPair(kvPair -> {
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(kvPair._2());
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return null;
+                                }
 
                                 if (!(taskData.predecessorRes instanceof Attributes)) {
-                                    throw new ClassCastException(
+                                    throw new DataTypeNotMatchedException(
                                             "Predecessor result is expected to be attributes,"
                                                     + " but received \""
                                                     + taskData.predecessorRes
@@ -246,8 +253,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                 }
 
                                 loggerSingleton.getInst().info(
-                                        "Received " + taskDataBytes._1() + ": " + taskData);
-                                return new Tuple2<>(taskDataBytes._1() + ":"
+                                        "Received " + kvPair._1() + ": " + taskData);
+                                return new Tuple2<>(kvPair._1() + ":"
                                         + ((Attributes) taskData.predecessorRes).trackletID,
                                         taskData);
                             });
@@ -324,7 +331,16 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // attributes belong to.
             JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
                     buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams, procTime)
-                            .mapValues(bytes -> (TaskData) deserialize(bytes));
+                            .mapValues(bytes -> {
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(bytes);
+                                    return taskData;
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return null;
+                                }
+                            });
 
             // Union the two track with attribute streams and perform ReID.
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)

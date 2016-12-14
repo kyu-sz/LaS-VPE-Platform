@@ -250,7 +250,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         rdd.foreach(kvPair -> {
                             // Recover data.
                             final String taskID = kvPair._1();
-                            TaskData taskData = (TaskData) deserialize(kvPair._2());
+                            TaskData taskData;
+                            try {
+                                taskData = (TaskData) deserialize(kvPair._2());
+                            } catch (Exception e) {
+                                loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                return;
+                            }
 
                             // Get camera WEBCAM_LOGIN_PARAM.
                             if (taskData.predecessorRes == null) {
@@ -364,8 +370,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 String taskID = kvPair._1();
 
                                 // Get the task data.
-                                TaskData taskData =
-                                        (TaskData) deserialize(kvPair._2());
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(kvPair._2());
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return null;
+                                }
                                 VideoFragment frag = new VideoFragment();
                                 // Get the videoID of the video to process from
                                 // the execution data of this node. Here, the
@@ -387,7 +398,16 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             Arrays.asList(VIDEO_URL_TOPIC.NAME),
                             kafkaParams,
                             procTime)
-                            .mapValues(bytes -> (TaskData) deserialize(bytes));
+                            .mapValues(bytes -> {
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(bytes);
+                                    return taskData;
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return null;
+                                }
+                            });
 
             JavaPairDStream<String, TaskData> fragUnionStream =
                     fragFromURLDStream.union(fragFromBytesDStream);

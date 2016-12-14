@@ -154,8 +154,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             // Common kafka settings.
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
                     INFO.NAME);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            // Determine where the stream starts (default: largest)
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                     "largest");
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -189,8 +187,16 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
             buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams, procTime)
-                    .mapValues(taskDataBytes ->
-                            (TaskData) deserialize(taskDataBytes))
+                    .mapValues(taskDataBytes -> {
+                        TaskData taskData;
+                        try {
+                            taskData = (TaskData) deserialize(taskDataBytes);
+                            return taskData;
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During TaskData deserialization", e);
+                            return null;
+                        }
+                    })
                     .foreachRDD(rdd ->
                         rdd.foreach(taskWithTracklet -> {
                             Logger logger = loggerSingleton.getInst();

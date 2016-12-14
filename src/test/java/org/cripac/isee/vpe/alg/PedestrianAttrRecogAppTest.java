@@ -136,9 +136,14 @@ public class PedestrianAttrRecogAppTest {
         // Receive result (attributes).
         ConsumerRecords<String, byte[]> records = consumer.poll(0);
         records.forEach(rec -> {
-            TaskData attrData = null;
-            attrData = (TaskData) deserialize(rec.value());
-            logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + attrData.predecessorRes);
+            TaskData taskData;
+            try {
+                taskData = (TaskData) deserialize(rec.value());
+            } catch (Exception e) {
+                logger.error("During TaskData deserialization", e);
+                return;
+            }
+            logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
         });
     }
 }

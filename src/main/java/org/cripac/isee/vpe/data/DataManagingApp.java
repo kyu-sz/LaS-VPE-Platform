@@ -205,7 +205,13 @@ public class DataManagingApp extends SparkStreamingApp {
                             Logger logger = loggerSingleton.getInst();
 
                             // Recover task data.
-                            TaskData taskData = (TaskData) deserialize(job._2());
+                            TaskData taskData;
+                            try {
+                                taskData = (TaskData) deserialize(job._2());
+                            } catch (Exception e) {
+                                logger.error("During TaskData deserialization", e);
+                                return;
+                            }
                             if (taskData.predecessorRes == null) {
                                 logger.fatal("TaskData from " + taskData.predecessorInfo
                                         + " contains no result data!");
@@ -315,8 +321,13 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> {
                         rdd.foreach(job -> {
                             // Recover task data.
-                            TaskData taskData =
-                                    (TaskData) deserialize(job._2());
+                            TaskData taskData;
+                            try {
+                                taskData = (TaskData) deserialize(job._2());
+                            } catch (Exception e) {
+                                loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                return;
+                            }
                             // Get parameters for the job.
                             Tracklet.Identifier trackletID =
                                     (Tracklet.Identifier) taskData.predecessorRes;
@@ -474,73 +485,80 @@ public class DataManagingApp extends SparkStreamingApp {
                     .groupByKey()
                     .foreachRDD(rdd -> {
                         rdd.foreach(trackGroup -> {
-                            // RuntimeException: No native JavaCPP library
-                            // in memory. (Has Loader.load() been called?)
-                            Loader.load(opencv_core.class);
-                            Loader.load(opencv_imgproc.class);
+                            try {
+                                // RuntimeException: No native JavaCPP library
+                                // in memory. (Has Loader.load() been called?)
+                                Loader.load(opencv_core.class);
+                                Loader.load(opencv_imgproc.class);
 
-                            FileSystem hdfs = hdfsSingleton.getInst();
+                                FileSystem hdfs = hdfsSingleton.getInst();
 
-                            String taskID = trackGroup._1();
-                            Iterator<byte[]> trackIterator = trackGroup._2().iterator();
-                            Tracklet tracklet = (Tracklet)
-                                    ((TaskData) deserialize(
-                                            trackIterator.next())).predecessorRes;
-                            int numTracklets = tracklet.numTracklets;
-                            String videoRoot = metadataDir + "/" + tracklet.id.videoID;
-                            String taskRoot = videoRoot + "/" + taskID;
-                            hdfs.mkdirs(new Path(taskRoot));
+                                String taskID = trackGroup._1();
+                                Iterator<byte[]> trackIterator = trackGroup._2().iterator();
+                                TaskData taskData;
+                                taskData = (TaskData) deserialize(trackIterator.next());
+                                Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                                int numTracklets = tracklet.numTracklets;
+                                String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                                String taskRoot = videoRoot + "/" + taskID;
+                                hdfs.mkdirs(new Path(taskRoot));
 
-                            while (true) {
-                                loggerSingleton.getInst()
-                                        .info("Task " + taskID
-                                                + " got track: " + tracklet.id + "!");
+                                while (true) {
+                                    loggerSingleton.getInst().info(
+                                            "Task " + taskID + " got track: " + tracklet.id + "!");
 
-                                String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
-                                hdfs.mkdirs(new Path(storeDir));
+                                    String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                    hdfs.mkdirs(new Path(storeDir));
 
-                                storeTracklet(storeDir, tracklet);
+                                    storeTracklet(storeDir, tracklet);
 
-                                if (!trackIterator.hasNext()) {
-                                    break;
+                                    if (!trackIterator.hasNext()) {
+                                        break;
+                                    }
+                                    try {
+                                        tracklet = (Tracklet)
+                                                ((TaskData) deserialize(trackIterator.next())).predecessorRes;
+                                    } catch (Exception e) {
+                                        loggerSingleton.getInst().error("During recovering tracklet.", e);
+                                        return;
+                                    }
                                 }
-                                tracklet = (Tracklet)
-                                        ((TaskData) deserialize(
-                                                trackIterator.next())).predecessorRes;
-                            }
 
-                            // If all the tracklets from a task are saved,
-                            // it's time to pack them into a HAR!
-                            ContentSummary contentSummary = hdfs.getContentSummary(new Path(taskRoot));
-                            long cnt = contentSummary.getDirectoryCount();
-                            // Decrease one for directory counter.
-                            if (cnt - 1 == numTracklets) {
-                                loggerSingleton.getInst()
-                                        .info("Task " + taskID
-                                                + "(" + tracklet.id.videoID + ") finished!");
+                                // If all the tracklets from a task are saved,
+                                // it's time to pack them into a HAR!
+                                ContentSummary contentSummary = hdfs.getContentSummary(new Path(taskRoot));
+                                long cnt = contentSummary.getDirectoryCount();
+                                // Decrease one for directory counter.
+                                if (cnt - 1 == numTracklets) {
+                                    loggerSingleton.getInst()
+                                            .info("Task " + taskID
+                                                    + "(" + tracklet.id.videoID + ") finished!");
 
-                                HadoopArchives arch = new HadoopArchives(new Configuration());
-                                ArrayList<String> opt = new ArrayList<>();
-                                opt.add("-archiveName");
-                                opt.add(taskID + ".har");
-                                opt.add("-p");
-                                opt.add(taskRoot);
-                                opt.add(videoRoot);
-                                arch.run(Arrays.copyOf(opt.toArray(), opt.size(), String[].class));
+                                    HadoopArchives arch = new HadoopArchives(new Configuration());
+                                    ArrayList<String> opt = new ArrayList<>();
+                                    opt.add("-archiveName");
+                                    opt.add(taskID + ".har");
+                                    opt.add("-p");
+                                    opt.add(taskRoot);
+                                    opt.add(videoRoot);
+                                    arch.run(Arrays.copyOf(opt.toArray(), opt.size(), String[].class));
 
-                                loggerSingleton.getInst()
-                                        .info("Task " + taskID
-                                                + "(" + tracklet.id.videoID + ") packed!");
+                                    loggerSingleton.getInst()
+                                            .info("Task " + taskID
+                                                    + "(" + tracklet.id.videoID + ") packed!");
 
-                                dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.toString(),
-                                        videoRoot + "/" + taskID + ".har");
+                                    dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.toString(),
+                                            videoRoot + "/" + taskID + ".har");
 
-                                // Delete the original folder recursively.
-                                hdfs.delete(new Path(taskRoot), true);
-                            } else {
-                                loggerSingleton.getInst().info("Task " + taskID
-                                        + "(" + tracklet.id.videoID + ") need "
-                                        + (numTracklets - cnt + 1) + "/" + numTracklets + " more tracklets!");
+                                    // Delete the original folder recursively.
+                                    hdfs.delete(new Path(taskRoot), true);
+                                } else {
+                                    loggerSingleton.getInst().info("Task " + taskID
+                                            + "(" + tracklet.id.videoID + ") need "
+                                            + (numTracklets - cnt + 1) + "/" + numTracklets + " more tracklets!");
+                                }
+                            } catch (Exception e) {
+                                loggerSingleton.getInst().error("During storing tracklets.", e);
                             }
                         });
                     });
@@ -549,22 +567,22 @@ public class DataManagingApp extends SparkStreamingApp {
             // TODO Modify the streaming steps from here to store the meta data.
             buildBytesDirectStream(jssc, Arrays.asList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams, procTime)
                     .foreachRDD(rdd -> {
-                        rdd.foreach(result -> {
+                        rdd.foreach(res -> {
                             try {
-                                Attributes attr = (Attributes)
-                                        ((TaskData) deserialize(result._2()))
-                                                .predecessorRes;
+                                TaskData taskData;
+                                taskData = (TaskData) deserialize(res._2());
+                                Attributes attr = (Attributes) taskData.predecessorRes;
 
                                 loggerSingleton.getInst()
-                                        .debug("Received " + result._1() + ": " + attr);
+                                        .debug("Received " + res._1() + ": " + attr);
 
                                 dbConnSingleton.getInst().setPedestrianAttributes(
                                         attr.trackletID.toString(),
                                         attr);
 
                                 loggerSingleton.getInst()
-                                        .debug("Saved " + result._1() + ": " + attr);
-                            } catch (IOException e) {
+                                        .debug("Saved " + res._1() + ": " + attr);
+                            } catch (Exception e) {
                                 loggerSingleton.getInst()
                                         .error("When decompressing attributes", e);
                             }
@@ -578,8 +596,9 @@ public class DataManagingApp extends SparkStreamingApp {
                         rdd.foreach(res -> {
                             int[] idRank;
                             try {
-                                idRank = (int[]) ((TaskData) deserialize(res._2()))
-                                        .predecessorRes;
+                                TaskData taskData;
+                                taskData = (TaskData) deserialize(res._2());
+                                idRank = (int[]) taskData.predecessorRes;
                                 String rankStr = "";
                                 for (int id : idRank) {
                                     rankStr = rankStr + id + " ";
@@ -587,7 +606,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 loggerSingleton.getInst().info("Metadata saver received: " + res._1()
                                         + ": Pedestrian IDRANK rank: " + rankStr);
                                 //TODO(Ken Yu): Save IDs to database.
-                            } catch (IOException e) {
+                            } catch (Exception e) {
                                 loggerSingleton.getInst()
                                         .error("When decompressing IDRANK", e);
                             }
