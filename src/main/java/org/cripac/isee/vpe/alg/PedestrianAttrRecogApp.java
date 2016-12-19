@@ -201,6 +201,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
                                     String taskID = taskWithTracklet._1();
                                     TaskData taskData = taskWithTracklet._2();
+                                    logger.debug("Received task " + taskID + "!");
 
                                     if (!(taskData.predecessorRes instanceof Tracklet)) {
                                         throw new DataTypeNotMatchedException("Predecessor result sent by "
@@ -211,9 +212,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     }
 
                                     Tracklet tracklet = (Tracklet) taskData.predecessorRes;
-
+                                    logger.debug("To recognize attributes for task " + taskID + "!");
                                     // Recognize attributes.
                                     Attributes attr = attrRecogSingleton.getInst().recognize(tracklet);
+                                    logger.debug("Attributes retrieved for task " + taskID + "!");
                                     attr.trackletID = tracklet.id;
 
                                     // Prepare new task data.

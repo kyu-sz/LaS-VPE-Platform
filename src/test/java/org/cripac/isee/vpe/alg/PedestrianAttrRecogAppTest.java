@@ -133,8 +133,10 @@ public class PedestrianAttrRecogAppTest {
                 producer,
                 logger);
 
+        logger.info("Waiting for response...");
         // Receive result (attributes).
         ConsumerRecords<String, byte[]> records = consumer.poll(0);
+        logger.info("Response received!");
         records.forEach(rec -> {
             TaskData taskData;
             try {
