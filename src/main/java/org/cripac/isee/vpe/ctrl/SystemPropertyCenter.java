@@ -62,7 +62,7 @@ public class SystemPropertyCenter {
     public String kafkaBootstrapServers = "localhost:9092";
     public int kafkaNumPartitions = 1;
     public int kafkaReplFactor = 1;
-    public int kafkaFetchMsgMaxBytes = 100000000;
+    public int kafkaMsgMaxBytes = 100000000;
     public int kafkaMaxRequestSize = 100000000;
     // Spark properties
     public String checkpointRootDir = "checkpoint";
@@ -281,8 +281,8 @@ public class SystemPropertyCenter {
                 case "kafka.replication.factor":
                     kafkaReplFactor = new Integer((String) entry.getValue());
                     break;
-                case "kafka.fetch.message.max.bytes":
-                    kafkaFetchMsgMaxBytes = new Integer((String) entry.getValue());
+                case "kafka.message.max.bytes":
+                    kafkaMsgMaxBytes = new Integer((String) entry.getValue());
                     break;
                 case "spark.checkpoint.dir":
                     checkpointRootDir = (String) entry.getValue();

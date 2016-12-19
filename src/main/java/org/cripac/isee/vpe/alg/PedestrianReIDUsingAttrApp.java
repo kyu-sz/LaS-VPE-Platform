@@ -182,11 +182,15 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                     propCenter.kafkaBootstrapServers);
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaFetchMsgMaxBytes);
+                    "" + propCenter.kafkaMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                     StringDeserializer.class.getName());
             kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                     ByteArrayDeserializer.class.getName());
+            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
 
             Properties producerProp = new Properties();
             producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -197,6 +201,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                     StringSerializer.class.getName());
             producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                     ByteArraySerializer.class.getName());
+            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
 
             producerSingleton = new Singleton<>(
                     new KafkaProducerFactory<String, byte[]>(producerProp));

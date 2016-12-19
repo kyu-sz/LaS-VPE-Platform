@@ -99,6 +99,8 @@ public class PedestrianAttrRecogAppTest {
                 StringSerializer.class.getName());
         producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                 ByteArraySerializer.class.getName());
+        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
+                "" + propCenter.kafkaMsgMaxBytes);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
 
