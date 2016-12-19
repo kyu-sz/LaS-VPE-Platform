@@ -137,17 +137,24 @@ public class PedestrianAttrRecogAppTest {
 
         logger.info("Waiting for response...");
         // Receive result (attributes).
-        ConsumerRecords<String, byte[]> records = consumer.poll(0);
-        logger.info("Response received!");
-        records.forEach(rec -> {
-            TaskData taskData;
-            try {
-                taskData = (TaskData) deserialize(rec.value());
-            } catch (Exception e) {
-                logger.error("During TaskData deserialization", e);
-                return;
+        ConsumerRecords<String, byte[]> records;
+        while (true) {
+            records = consumer.poll(0);
+            if (records.isEmpty()) {
+                continue;
             }
-            logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
-        });
+
+            logger.info("Response received!");
+            records.forEach(rec -> {
+                TaskData taskData;
+                try {
+                    taskData = (TaskData) deserialize(rec.value());
+                } catch (Exception e) {
+                    logger.error("During TaskData deserialization", e);
+                    return;
+                }
+                logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
+            });
+        }
     }
 }
