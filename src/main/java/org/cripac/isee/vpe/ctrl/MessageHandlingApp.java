@@ -43,6 +43,7 @@ import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletAttrRetrieving
 import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletRetrievingStream;
 import org.cripac.isee.vpe.data.HDFSReader;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
@@ -51,7 +52,6 @@ import java.util.*;
 
 import static org.apache.commons.lang.SerializationUtils.deserialize;
 import static org.apache.commons.lang.SerializationUtils.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The MessageHandlingApp class is a Spark Streaming application responsible for
@@ -384,7 +384,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                             TaskData taskData = new TaskData(
                                                     plan.findNode(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
                                                     plan, new Gson().fromJson((String) tmp, LoginParam.class));
-                                            sendWithLog(
+                                            KafkaHelper.sendWithLog(
                                                     RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
                                                     taskID.toString(),
                                                     serialize(taskData),
@@ -426,7 +426,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                         VideoFragmentTrackingStream.VIDEO_URL_TOPIC),
                                                                 plan,
                                                                 tmp);
-                                                        sendWithLog(VideoFragmentTrackingStream.VIDEO_URL_TOPIC,
+                                                        KafkaHelper.sendWithLog(VideoFragmentTrackingStream.VIDEO_URL_TOPIC,
                                                                 taskID.toString(),
                                                                 serialize(taskData),
                                                                 producerSingleton.getInst(),
@@ -450,7 +450,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                         .RTRV_JOB_TOPIC),
                                                                 plan,
                                                                 id);
-                                                        sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
+                                                        KafkaHelper.sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
                                                                 taskID.toString(),
                                                                 serialize(taskData),
                                                                 producerSingleton.getInst(),
@@ -473,7 +473,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                         .RTRV_JOB_TOPIC),
                                                                 plan,
                                                                 id);
-                                                        sendWithLog(
+                                                        KafkaHelper.sendWithLog(
                                                                 PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
                                                                 taskID.toString(),
                                                                 serialize(taskData),

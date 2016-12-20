@@ -49,6 +49,7 @@ import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.debug.FakeWebCameraConnector;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -62,7 +63,6 @@ import java.util.*;
 
 import static org.apache.commons.lang.SerializationUtils.deserialize;
 import static org.apache.commons.lang.SerializationUtils.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The PedestrianTrackingApp class takes in video URLs from Kafka, then process
@@ -487,7 +487,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 byte[] serialized = serialize(taskData);
                                 logger.debug("To sendWithLog message with size: "
                                         + serialized.length);
-                                sendWithLog(topic,
+                                KafkaHelper.sendWithLog(topic,
                                         task._1(),
                                         serialized,
                                         producerSingleton.getInst(),

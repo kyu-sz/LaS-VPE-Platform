@@ -24,6 +24,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.cripac.isee.vpe.common.LoginParam;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 
@@ -33,7 +34,6 @@ import java.util.Hashtable;
 import java.util.Properties;
 
 import static org.apache.commons.lang3.SerializationUtils.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The MessageHandlingAppTest class is for simulating commands sent to the message
@@ -94,37 +94,37 @@ public class MessageHandlingAppTest implements Serializable {
                 new Gson().toJson(new LoginParam(InetAddress.getLocalHost(), 0,
                         "Ken Yu", "I love Shenzhen!")));
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        KafkaHelper.sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_ONLY,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        KafkaHelper.sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.ATTRRECOG_ONLY,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        KafkaHelper.sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_ATTRRECOG,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        KafkaHelper.sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.REID_ONLY,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        KafkaHelper.sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.ATTRRECOG_REID,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        KafkaHelper.sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_ATTRRECOG_REID,
                 serialize(param),
                 producer,

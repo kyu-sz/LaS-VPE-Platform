@@ -33,6 +33,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 import org.xml.sax.SAXException;
@@ -45,7 +46,6 @@ import java.util.UUID;
 
 import static org.apache.commons.lang.SerializationUtils.deserialize;
 import static org.apache.commons.lang.SerializationUtils.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * This is a JUnit test for the DataManagingApp.
@@ -129,7 +129,7 @@ public class PedestrianAttrRecogAppTest {
         // Send request (fake tracklet).
         TaskData trackletData = new TaskData(recogNode, plan,
                 new FakePedestrianTracker().track(new byte[0]));
-        sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
+        KafkaHelper.sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(trackletData),
                 producer,

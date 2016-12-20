@@ -68,6 +68,21 @@ public class ConsoleLogger extends Logger implements Serializable {
     }
 
     @Override
+    public void warn(@Nonnull Object msg) {
+        if (Level.WARN.isGreaterOrEqual(level)) {
+            System.out.println("[INFO]localhost\t" + msg);
+        }
+    }
+
+    @Override
+    public void warn(@Nonnull Object msg, @Nonnull Throwable t) {
+        if (Level.ERROR.isGreaterOrEqual(level)) {
+            System.err.println("[ERROR]localhost\t" + msg);
+            System.out.println(t.getStackTrace());
+        }
+    }
+
+    @Override
     public void error(@Nonnull Object msg) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             System.err.println("[ERROR]localhost\t" + msg);

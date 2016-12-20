@@ -47,16 +47,14 @@ import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataTypes;
-import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -70,7 +68,6 @@ import static org.apache.commons.lang.SerializationUtils.serialize;
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
 import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The DataManagingApp class combines two functions: meta data saving and data
@@ -257,7 +254,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             // Send to all the successor nodes.
                             for (Topic topic : succTopics) {
                                 taskData.changeCurNode(topic);
-                                sendWithLog(topic,
+                                KafkaHelper.sendWithLog(topic,
                                         job._1(),
                                         serialize(taskData),
                                         producerSingleton.getInst(),
@@ -363,7 +360,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             // Send to all the successor nodes.
                             for (Topic topic : succTopics) {
                                 taskData.changeCurNode(topic);
-                                sendWithLog(topic,
+                                KafkaHelper.sendWithLog(topic,
                                         job._1(),
                                         serialize(taskData),
                                         producerSingleton.getInst(),

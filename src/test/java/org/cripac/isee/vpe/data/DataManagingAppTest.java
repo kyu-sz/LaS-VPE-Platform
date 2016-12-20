@@ -27,6 +27,7 @@ import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 
@@ -34,7 +35,6 @@ import java.util.Properties;
 import java.util.UUID;
 
 import static org.apache.commons.lang3.SerializationUtils.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * This is a JUnit test for the DataManagingApp.
@@ -102,7 +102,7 @@ public class DataManagingAppTest {
                 plan.addNode(DataManagingApp.SavingStream.INFO);
         TaskData data = new TaskData(savingNode, plan,
                 new FakePedestrianTracker().track(new byte[0]));
-        sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
+        KafkaHelper.sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,
@@ -117,7 +117,7 @@ public class DataManagingAppTest {
         TaskData data = new TaskData(savingNode, plan,
                 new FakePedestrianAttrRecognizer().recognize(
                         new FakePedestrianTracker().track(new byte[0])[0]));
-        sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,
+        KafkaHelper.sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,

@@ -17,20 +17,27 @@
 
 package org.cripac.isee.vpe.common;
 
+import kafka.common.TopicAndPartition;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.HasOffsetRanges;
 import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.apache.spark.streaming.kafka.OffsetRange;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.Logger;
+import scala.Tuple2;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
@@ -107,6 +114,24 @@ public abstract class Stream implements Serializable {
      */
     public abstract void addToContext(JavaStreamingContext jssc);
 
+    public static class ByteArrayRecord {
+        private final String key;
+        private final byte[] value;
+
+        public ByteArrayRecord(String key, byte[] value) {
+            this.key = key;
+            this.value = value;
+        }
+
+        public String key() {
+            return key;
+        }
+
+        public byte[] value() {
+            return value;
+        }
+    }
+
     /**
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
@@ -126,10 +151,55 @@ public abstract class Stream implements Serializable {
                            @Nonnull Map<String, String> kafkaParams,
                            int procTime) {
         kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-        return KafkaUtils.createDirectStream(jssc,
-                String.class, byte[].class,
-                StringDecoder.class, DefaultDecoder.class,
-                kafkaParams, new HashSet(topics))
+
+        // Retrieve fromOffsets stored at Kafka brokers.
+        Map<TopicAndPartition, Long> fromOffsets = KafkaHelper.getFromOffsets(topics, kafkaParams);
+
+        // Retrieve untilOffsets.
+        Map<TopicAndPartition, Long> untilOffsets =
+                KafkaHelper.getUntilOffsets(
+                        kafkaParams.get(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG),
+                        topics,
+                        kafkaParams.get(ConsumerConfig.GROUP_ID_CONFIG));
+
+        // For each partition in each topic.
+        fromOffsets.entrySet().forEach(fromOffset -> {
+            // If fromOffset > untilOffset
+            if (fromOffset.getValue() > untilOffsets.get(fromOffset.getKey())) {
+                // Reset the fromOffset to zero.
+                fromOffset.setValue(0L);
+            }
+        });
+
+        // create direct stream
+        JavaInputDStream<ByteArrayRecord> message = KafkaUtils.createDirectStream(
+                jssc,
+                String.class,
+                byte[].class,
+                StringDecoder.class,
+                DefaultDecoder.class,
+                ByteArrayRecord.class,
+                kafkaParams,
+                fromOffsets,
+                v1 -> new ByteArrayRecord(v1.key(), v1.message())
+        );
+
+        // Save the offsets of each partition of each topic.
+        final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<OffsetRange[]>();
+        JavaDStream<ByteArrayRecord> javaDStream = message.transform(rdd-> {
+                OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+                offsetRanges.set(offsets);
+                return rdd;
+        });
+
+        // Submit offsets to Kafka cluster.
+        javaDStream.foreachRDD(v1 -> {
+            if (!v1.isEmpty()) {
+                KafkaHelper.submitOffset(offsetRanges.get(), kafkaParams);
+            }
+        });
+
+        return message.mapToPair(record -> new Tuple2<>(record.key(), record.value()))
                 .repartition(jssc.sparkContext().defaultParallelism());
     }
 }

@@ -41,6 +41,7 @@ import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -50,7 +51,6 @@ import java.util.*;
 
 import static org.apache.commons.lang.SerializationUtils.deserialize;
 import static org.apache.commons.lang.SerializationUtils.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The PedestrianReIDApp class is a Spark Streaming application which performs
@@ -382,7 +382,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                 // Send to all the successor nodes.
                                 for (Topic topic : succTopics) {
                                     taskData.changeCurNode(topic);
-                                    sendWithLog(topic,
+                                    KafkaHelper.sendWithLog(topic,
                                             taskID,
                                             serialize(taskData),
                                             producerSingleton.getInst(),

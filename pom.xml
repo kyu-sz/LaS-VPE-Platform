@@ -1,9 +1,23 @@
 <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.cripac.isee</groupId>
     <artifactId>las-vpe-platform</artifactId>
     <name>LaS-VPE Platform</name>
-    <description>A large-scale video processing and evaluating platform.</description>
+    <version>0.0.1</version>
+    <organization>
+        <name>Center for Research on Intelligent Perception and Computing (CRIPAC)</name>
+        <url>http://cripac.ia.ac.cn/en/EN/volumn/home.shtml</url>
+    </organization>
+    <modelVersion>4.0.0</modelVersion>
+    <description>A large-scale distributed video processing and evaluating platform.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <java.version>1.8</java.version>
+        <scala.base>2.11</scala.base>
+        <scala.version>${scala.base}.8</scala.version>
+    </properties>
 
     <build>
         <directory>bin</directory>
@@ -18,6 +32,21 @@
         </resources>
 
         <plugins>
+            <!-- scala and java mix compilation -->
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>scala-compile</id>
+                        <goals><goal>compile</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>scala-test-compile</id>
+                        <goals><goal>testCompile</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.5.1</version>
@@ -25,7 +54,29 @@
                     <source>1.8</source>
                     <target>1.8</target>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
             </plugin>
+            <!-- run scala test -->
+            <plugin>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <goals><goal>test</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Specify main class when jarring -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -47,13 +98,14 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Enable jarring with dependencies -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <executions>
                     <execution>
                         <id>jar-with-dependencies</id>
-                        <phase>prepare-package</phase>
+                        <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
@@ -82,12 +134,6 @@
         </plugins>
     </build>
 
-    <groupId>org.cripac.isee</groupId>
-    <version>0.0.1</version>
-    <organization>
-        <name>Center for Research on Intelligent Perception and Computing (CRIPAC)</name>
-        <url>http://cripac.ia.ac.cn/en/EN/volumn/home.shtml</url>
-    </organization>
     <dependencies>
         <dependency>
             <groupId>org.bytedeco</groupId>
@@ -123,6 +169,12 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_${scala.base}</artifactId>
+            <version>3.0.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
