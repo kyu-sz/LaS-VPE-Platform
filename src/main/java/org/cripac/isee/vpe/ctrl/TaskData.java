@@ -38,7 +38,7 @@ import java.util.Map;
  */
 public class TaskData implements Serializable, Cloneable {
 
-    private static final long serialVersionUID = 6817584209784831375L;
+    public static final long serialVersionUID = 6817584209784831375L;
     /**
      * Current node to execute.
      */
