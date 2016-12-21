@@ -213,6 +213,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     TaskData taskData = taskWithTracklet._2();
                                     logger.debug("Received task " + taskID + "!");
 
+                                    if (taskData.predecessorRes == null) {
+                                        throw new DataTypeNotMatchedException("Predecessor result sent by "
+                                                + taskData.predecessorInfo
+                                                + " is null!");
+                                    }
                                     if (!(taskData.predecessorRes instanceof Tracklet)) {
                                         throw new DataTypeNotMatchedException("Predecessor result sent by "
                                                 + taskData.predecessorInfo

@@ -51,7 +51,6 @@ public class FakePedestrianTracker extends Tracker {
     }
 
     private Tracklet[] generateRandomTrackSet() {
-
         int numTracks = random.nextInt(30) + 3;
         Tracklet[] tracklets = new Tracklet[numTracks];
         for (int i = 0; i < numTracks; ++i) {

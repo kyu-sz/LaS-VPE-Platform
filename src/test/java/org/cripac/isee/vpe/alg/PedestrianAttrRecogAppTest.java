@@ -27,6 +27,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
+import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
@@ -128,7 +129,8 @@ public class PedestrianAttrRecogAppTest {
 
         // Send request (fake tracklet).
         TaskData trackletData = new TaskData(recogNode, plan,
-                new FakePedestrianTracker().track(new byte[0]));
+                new FakePedestrianTracker().track(new byte[0])[0]);
+        assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
         sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(trackletData),
