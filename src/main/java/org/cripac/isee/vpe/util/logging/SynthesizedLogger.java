@@ -123,7 +123,7 @@ public class SynthesizedLogger extends Logger {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message, t);
 
-            String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message + t;
+            String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message + ": " + t;
             System.out.println(richMsg);
             t.printStackTrace();
             send(richMsg);
@@ -150,7 +150,7 @@ public class SynthesizedLogger extends Logger {
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message, t);
-            String richMsg = "[INFO]" + localName + "\t" + appName + ":\t" + message + t;
+            String richMsg = "[INFO]" + localName + "\t" + appName + ":\t" + message + ": " + t;
             System.out.println(richMsg);
             t.printStackTrace();
             send(richMsg);
@@ -177,7 +177,7 @@ public class SynthesizedLogger extends Logger {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message, t);
 
-            String richMsg = "[WARN]" + localName + "\t" + appName + ":\t" + message + t;
+            String richMsg = "[WARN]" + localName + "\t" + appName + ":\t" + message + ": " + t;
             System.out.println(richMsg);
             t.printStackTrace();
             send(richMsg);
@@ -232,7 +232,7 @@ public class SynthesizedLogger extends Logger {
                       @Nonnull Throwable t) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message, t);
-            String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message + t;
+            String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message + ": " + t;
             System.err.println(richMsg);
             t.printStackTrace();
             send(richMsg);
