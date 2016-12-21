@@ -69,6 +69,14 @@ public class TaskData implements Serializable, Cloneable {
     }
 
     /**
+     * Create an empty task.
+     */
+    public TaskData() {
+        this.curNode = null;
+        this.executionPlan = null;
+    }
+
+    /**
      * Create a task with an execution plan with no predecessor result.
      *
      * @param curNode       Current node to execute.

@@ -195,7 +195,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             // Recognize attributes from the tracklets.
             buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams, procTime)
                     .mapValues(taskDataBytes -> {
-                        TaskData taskData;
+                        TaskData taskData = new TaskData();
                         try {
                             taskData = (TaskData) deserialize(taskDataBytes);
                             return taskData;
