@@ -18,7 +18,9 @@
 package org.cripac.isee.vpe.ctrl;
 
 import kafka.admin.AdminUtils;
+import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.cripac.isee.vpe.common.Topic;
 
 import javax.annotation.Nonnull;
@@ -51,28 +53,26 @@ public class TopicManager {
         topics.add(topic);
     }
 
-    public static void checkTopics(@Nonnull SystemPropertyCenter propertyCenter) {
-        System.out.println("|INFO|Connecting to zookeeper: " + propertyCenter.zkConn);
-        ZkClient zkClient = new ZkClient(
-                propertyCenter.zkConn,
-                propertyCenter.sessionTimeoutMs,
-                propertyCenter.connectionTimeoutMs);
+    public static void checkTopics(@Nonnull SystemPropertyCenter propCenter) {
+        System.out.println("[INFO]Connecting to zookeeper: " + propCenter.zkConn);
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn);
         for (Topic topic : topics) {
-            System.out.println("|INFO|Checking topic: " + topic);
+            System.out.println("[INFO]Checking topic: " + topic);
             if (!AdminUtils.topicExists(zkClient, topic.NAME)) {
                 // AdminUtils.createTopic(zkClient, topic,
-                // propertyCenter.kafkaNumPartitions,
-                // propertyCenter.kafkaReplFactor, new Properties());
-                System.out.println("|INFO|Creating topic: " + topic);
+                // propCenter.kafkaNumPartitions,
+                // propCenter.kafkaReplFactor, new Properties());
+                System.out.println("[INFO]Creating topic: " + topic);
                 kafka.admin.TopicCommand.main(
                         new String[]{
                                 "--create",
-                                "--zookeeper", propertyCenter.zkConn,
+                                "--zookeeper", propCenter.zkConn,
                                 "--topic", topic.NAME,
-                                "--partitions", "" + propertyCenter.kafkaNumPartitions,
-                                "--replication-factor", "" + propertyCenter.kafkaReplFactor});
+                                "--partitions", "" + propCenter.kafkaNumPartitions,
+                                "--replication-factor", "" + propCenter.kafkaReplFactor});
             }
         }
-        System.out.println("|INFO|Topics checked!");
+        System.out.println("[INFO]Topics checked!");
     }
 }

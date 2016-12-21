@@ -18,6 +18,8 @@
 package org.cripac.isee.pedestrian.tracking;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.log4j.Level;
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Assert;
 import org.junit.Test;
@@ -33,9 +35,11 @@ public class BasicTrackerTest {
         System.out.println("Performing memory leak test...");
 
         byte[] conf = IOUtils.toByteArray(new FileInputStream(
-                "conf/pedestrian-tracking/isee-basic/CAM01_0.conf"));
+                "conf/"
+                        + PedestrianTrackingApp.APP_NAME
+                        + "/isee-basic/CAM01_0.conf"));
         for (int i = 0; i < 100000; ++i) {
-            BasicTracker tracker = new BasicTracker(conf, new ConsoleLogger());
+            BasicTracker tracker = new BasicTracker(conf, new ConsoleLogger(Level.DEBUG));
         }
     }
 
@@ -53,8 +57,10 @@ public class BasicTrackerTest {
         BasicTracker tracker =
                 new BasicTracker(
                         IOUtils.toByteArray(new FileInputStream(
-                                "conf/pedestrian-tracking/isee-basic/CAM01_0.conf")),
-                        new ConsoleLogger());
+                                "conf/"
+                                        + PedestrianTrackingApp.APP_NAME
+                                        + "/isee-basic/CAM01_0.conf")),
+                        new ConsoleLogger(Level.DEBUG));
 
         System.out.println("Start tracking...");
         Tracklet[] tracklets = tracker.track(videoBytes);

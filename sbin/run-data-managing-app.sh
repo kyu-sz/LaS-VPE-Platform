@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-java -jar bin/las-vpe-platform-0.0.1-full.jar -a DataManaging -v
+java -jar bin/las-vpe-platform-0.0.1-full.jar -a data-managing -v

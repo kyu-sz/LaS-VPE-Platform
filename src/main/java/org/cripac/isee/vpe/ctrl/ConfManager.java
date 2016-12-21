@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.ctrl;
 
 import org.apache.commons.io.IOUtils;
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.cripac.isee.vpe.util.tracking.DirectoryHierarchy;
 import org.cripac.isee.vpe.util.tracking.FileDescriptor;
 
@@ -30,21 +31,21 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * The class ConfigFileManager manages configuration files other than several
+ * The class ConfManager manages configuration files other than several
  * preset ones to be uploaded to Spark. Note that it is only usable before
  * the system is submitted to YARN.
  * <p>
  * <p/>
  * Created by ken.yu on 16-10-8.
  */
-public class ConfigFileManager {
+public class ConfManager {
     /**
      * Get a list of all the configuration files registered under the path.
      *
      * @param path A length-variable array of names of hierarchies.
      * @return A list of descriptors of all the configuration files.
      */
-    public static List<FileDescriptor> getConfigFileList(@Nonnull String... path) {
+    public static List<FileDescriptor> getCfgFileList(@Nonnull String... path) {
         DirectoryHierarchy dir = top;
         for (String name : path) {
             dir = dir.getSubHierarchy(name);
@@ -63,19 +64,20 @@ public class ConfigFileManager {
      * @return A string of concatenated paths.
      * @throws IOException On error preparing temporary configuration files.
      */
-    public static String getConcatConfigFilePathList(@Nonnull String connector,
-                                                     @Nonnull String... path) throws IOException {
+    public static String getConcatCfgFilePathList(@Nonnull String connector,
+                                                  @Nonnull String... path) throws IOException {
         if (tmpDir == null) {
-            prepareTmpConfigFiles();
+            prepareTmpCfgFiles();
         }
-        return getConfigFileList(path).stream()
+        return getCfgFileList(path).stream()
                 .map(descriptor -> tmpDir + "/" + descriptor.getConcatName())
                 .collect(Collectors.joining(connector));
     }
 
-    private static void prepareTmpConfigFiles() throws IOException {
+    private static void prepareTmpCfgFiles() throws IOException {
         tmpDir = System.getProperty("java.io.tmpdir");
-        List<FileDescriptor> fileList = ConfigFileManager.getConfigFileList("pedestrian-tracking");
+        List<FileDescriptor> fileList =
+                ConfManager.getCfgFileList(PedestrianTrackingApp.APP_NAME);
         for (FileDescriptor file : fileList) {
             File tmp = new File(tmpDir + "/" + file.getConcatName());
             tmp.createNewFile();
@@ -86,7 +88,7 @@ public class ConfigFileManager {
         }
     }
 
-    private final static String CONF_DIR = "conf";
+    public final static String CONF_DIR = "conf";
 
     private static String tmpDir = null;
 
@@ -103,7 +105,7 @@ public class ConfigFileManager {
 
         // Register pedestrian tracking configuration file hierarchy.
         DirectoryHierarchy pedestrianTracking =
-                new DirectoryHierarchy("pedestrian-tracking", top);
+                new DirectoryHierarchy(PedestrianTrackingApp.APP_NAME, top);
 
         // Register ISEE Basic Pedestrian Tracker configuration files.
         DirectoryHierarchy iseeBasicPedestrianTracking =
@@ -112,8 +114,8 @@ public class ConfigFileManager {
     }
 
     /**
-     * The ConfigFileManager cannot be instantiated.
+     * The ConfManager cannot be instantiated.
      */
-    private ConfigFileManager() {
+    private ConfManager() {
     }
 }

@@ -17,16 +17,11 @@
 
 package org.cripac.isee.vpe.common;
 
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Level;
-import org.apache.spark.storage.StorageLevel;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 
@@ -34,9 +29,6 @@ import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,
@@ -48,67 +40,11 @@ import java.util.Map;
  */
 public abstract class SparkStreamingApp implements Serializable {
 
-    private static final long serialVersionUID = 2780614096112566164L;
-
+    private static final long serialVersionUID = 3098753124157119358L;
     /**
      * Common Spark Streaming context variable.
      */
     private transient JavaStreamingContext streamingContext = null;
-
-    /**
-     * Utilization function for all applications to receive messages with byte
-     * array values from Kafka in parallel.
-     *
-     * @param streamingContext      The streaming context of the applications.
-     * @param numRecvStreams        Number of streams to use for parallelization.
-     * @param kafkaParams           Parameters for reading from Kafka.
-     * @param numPartitionsPerTopic A map specifying topics to read from, each assigned number of
-     *                              partitions for the topic.
-     * @return A paralleled Kafka receiver input stream.
-     */
-    protected static JavaPairDStream<String, byte[]>
-    buildBytesParRecvStream(@Nonnull JavaStreamingContext streamingContext,
-                            int numRecvStreams,
-                            @Nonnull Map<String, String> kafkaParams,
-                            @Nonnull Map<String, Integer> numPartitionsPerTopic) {
-        // Read bytes in parallel from Kafka.
-        List<JavaPairDStream<String, byte[]>> parStreams = new ArrayList<>(numRecvStreams);
-        for (int i = 0; i < numRecvStreams; i++) {
-            parStreams.add(KafkaUtils.createStream(streamingContext, String.class, byte[].class, StringDecoder.class,
-                    DefaultDecoder.class, kafkaParams, numPartitionsPerTopic, StorageLevel.MEMORY_AND_DISK_SER()));
-        }
-        // Union the parallel bytes streams.
-        return streamingContext.union(parStreams.get(0), parStreams.subList(1, parStreams.size()));
-    }
-
-    /**
-     * Utility function for all applications to receive messages with byte
-     * array values from Kafka with direct stream.
-     *
-     * @param streamingContext      The streaming context of the applications.
-     * @param kafkaParams           Parameters for reading from Kafka.
-     * @param numPartitionsPerTopic A map specifying topics to read from, each assigned number of
-     *                              partitions for the topic.
-     * @return A Kafka non-receiver input stream.
-     */
-    protected static JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(@Nonnull JavaStreamingContext streamingContext,
-                           @Nonnull Map<String, String> kafkaParams,
-                           @Nonnull Map<String, Integer> numPartitionsPerTopic) {
-        return KafkaUtils
-                // TODO(Ken Yu): Fetch offset from Zookeeper and restart from that.
-                .createDirectStream(
-                        streamingContext,
-                        String.class, byte[].class,
-                        StringDecoder.class, DefaultDecoder.class,
-                        kafkaParams,
-                        numPartitionsPerTopic.keySet())
-                .transformToPair(rdd -> {
-                    // TODO(Ken Yu): Report offset to Zookeeper.
-                    rdd.context().setLocalProperty("spark.scheduler.pool", "vpe");
-                    return rdd;
-                });
-    }
 
     /**
      * Implemented by subclasses, this method produces an application-specified

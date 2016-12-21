@@ -22,7 +22,7 @@ package org.cripac.isee.vpe.common;
  *
  * Created by ken.yu on 16-10-27.
  */
-public enum DataType {
+public enum DataTypes {
     ATTR,
     COMMAND,
     IDRANK,
@@ -34,7 +34,7 @@ public enum DataType {
     /**
      * Login parameters for web cameras.
      *
-     * @see org.cripac.isee.vpe.data.WebCameraConnector.LoginParam
+     * @see LoginParam
      */
     WEBCAM_LOGIN_PARAM,
     NONE

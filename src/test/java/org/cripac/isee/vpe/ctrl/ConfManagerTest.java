@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.junit.Test;
 
 import java.io.BufferedReader;
@@ -28,23 +29,23 @@ import java.util.stream.Collectors;
 /**
  * Created by ken.yu on 16-10-24.
  */
-public class ConfigFileManagerTest {
+public class ConfManagerTest {
     @Test
     public void getConfigFileList() throws Exception {
-        List<String> cfgFiles =
-                ConfigFileManager
-                        .getConfigFileList("pedestrian-tracking", "isee-basic")
+        List<String> confFiles =
+                ConfManager
+                        .getCfgFileList(PedestrianTrackingApp.APP_NAME, "isee-basic")
                         .stream()
                         .map(fileDescriptor -> fileDescriptor.getConcatName())
                         .collect(Collectors.toList());
-        for (String file : cfgFiles) {
+        for (String file : confFiles) {
             System.out.println("Name: " + file);
         }
     }
 
     @Test
     public void getConcatConfigFilePathList() throws Exception {
-        String list = ConfigFileManager.getConcatConfigFilePathList(",");
+        String list = ConfManager.getConcatCfgFilePathList(",");
         System.out.println("List: " + list);
         for (String path : list.split(",")) {
             System.out.println(new BufferedReader(new InputStreamReader(new FileInputStream(path))).readLine());

@@ -17,7 +17,7 @@
 
 package org.cripac.isee.vpe.data;
 
-import org.cripac.isee.vpe.common.ServerID;
+import org.cripac.isee.vpe.common.LoginParam;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,22 +32,9 @@ import java.net.InetAddress;
  */
 public abstract class WebCameraConnector implements Serializable {
 
-    /**
-     * Parameters for web camera login, including camera IP, port, username and password.
-     */
-    public static class LoginParam implements Serializable {
-        public ServerID camID;
-        public String username;
-        public String password;
+    private static final long serialVersionUID = -7032169432448187588L;
 
-        public LoginParam(InetAddress ip, int port, String username, String password) {
-            this.camID = new ServerID(ip, port);
-            this.username = username;
-            this.password = password;
-        }
-    }
-
-    LoginParam loginParam;
+    protected LoginParam loginParam;
 
     /**
      * Create a web camera connector.

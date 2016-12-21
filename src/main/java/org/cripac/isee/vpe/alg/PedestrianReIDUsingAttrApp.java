@@ -17,11 +17,17 @@
 
 package org.cripac.isee.vpe.alg;
 
-import com.google.common.base.Optional;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.Optional;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -29,10 +35,7 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataType;
-import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -40,14 +43,13 @@ import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
 
 import java.util.*;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.apache.commons.lang.SerializationUtils.deserialize;
+import static org.apache.commons.lang.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -60,7 +62,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
     /**
      * The NAME of this application.
      */
-    public static final String APP_NAME = "PedestrianReIDUsingAttr";
+    public static final String APP_NAME = "pedestrian-reID-using-attr";
 
     private Stream reidStream;
 
@@ -122,47 +124,33 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
     public static class ReIDStream extends Stream {
 
-        public static final Info INFO = new Info("PedestrianReIDUsingAttr", DataType.IDRANK);
+        public static final Info INFO =
+                new Info("PedestrianReIDUsingAttr", DataTypes.IDRANK);
 
         /**
          * Topic to input pedestrian tracklets from Kafka.
          */
-        public static final Topic TRACKLET_TOPIC = new Topic(
-                "pedestrian-tracklet-for-reid-using-attr",
-                DataType.TRACKLET, INFO);
+        public static final Topic TRACKLET_TOPIC =
+                new Topic("pedestrian-tracklet-for-reid-using-attr",
+                        DataTypes.TRACKLET, INFO);
         /**
          * Topic to input pedestrian attributes from Kafka.
          */
-        public static final Topic ATTR_TOPIC = new Topic(
-                "pedestrian-attr-for-reid-using-attr",
-                DataType.ATTR, INFO);
+        public static final Topic ATTR_TOPIC =
+                new Topic("pedestrian-attr-for-reid-using-attr",
+                        DataTypes.ATTR, INFO);
         /**
          * Topic to input pedestrian track with attributes from Kafka.
          */
-        public static final Topic TRACKLET_ATTR_TOPIC = new Topic(
-                "pedestrian-track-attr-for-reid-using-attr",
-                DataType.TRACKLET, INFO);
+        public static final Topic TRACKLET_ATTR_TOPIC =
+                new Topic("pedestrian-track-attr-for-reid-using-attr",
+                        DataTypes.TRACKLET, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
          * Brokers.
          */
         private Map<String, String> kafkaParams = new HashMap<>();
-        /**
-         * Topics for inputting tracklets. Each assigned a number of threads the Kafka
-         * consumer should use.
-         */
-        private Map<String, Integer> trackTopicMap = new HashMap<>();
-        /**
-         * Topics for inputting attributes. Each assigned a number of threads the
-         * Kafka consumer should use.
-         */
-        private Map<String, Integer> attrTopicMap = new HashMap<>();
-        /**
-         * Topics for inputting tracklets with attributes. Each assigned a number of
-         * threads the Kafka consumer should use. partitions.
-         */
-        private Map<String, Integer> trackWithAttrTopicMap = new HashMap<>();
 
         /**
          * Duration for buffering results.
@@ -171,73 +159,99 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<PedestrianReIDer> reidSingleton;
-        private Singleton<SynthesizedLogger> loggerSingleton;
+
+        private final int procTime;
 
         public ReIDStream(SystemPropertyCenter propCenter) throws Exception {
-            trackTopicMap.put(TRACKLET_TOPIC.NAME, propCenter.kafkaNumPartitions);
-            attrTopicMap.put(ATTR_TOPIC.NAME, propCenter.kafkaNumPartitions);
-            trackWithAttrTopicMap.put(TRACKLET_ATTR_TOPIC.NAME, propCenter.kafkaNumPartitions);
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
+                    propCenter.verbose ? Level.DEBUG : Level.INFO,
+                    propCenter.reportListenerAddr,
+                    propCenter.reportListenerPort)));
+
+            this.procTime = propCenter.procTime;
 
             bufDuration = propCenter.bufDuration;
 
             // Common kafka settings.
-            kafkaParams.put("group.id", "PedestrianReIDWithAttrApp" + UUID.randomUUID());
-            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
+            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
+                    INFO.NAME);
+//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
             // Determine where the stream starts (default: largest)
-            kafkaParams.put("auto.offset.reset", "smallest");
-            kafkaParams.put("metadata.broker.list", propCenter.kafkaBrokers);
-            kafkaParams.put("fetch.message.max.bytes", "" + propCenter.kafkaFetchMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                    "largest");
+            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBootstrapServers);
+            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                    StringDeserializer.class.getName());
+            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                    ByteArrayDeserializer.class.getName());
+            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
 
             Properties producerProp = new Properties();
-            producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-            producerProp.put("compression.codec", "1");
-            producerProp.put("max.request.size", "10000000");
-            producerProp.put("key.serializer",
-                    "org.apache.kafka.common.serialization.StringSerializer");
-            producerProp.put("value.serializer",
-                    "org.apache.kafka.common.serialization.ByteArraySerializer");
+            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                    propCenter.kafkaBootstrapServers);
+            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                    propCenter.kafkaMaxRequestSize);
+            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                    StringSerializer.class.getName());
+            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                    ByteArraySerializer.class.getName());
+            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
 
             producerSingleton = new Singleton<>(
                     new KafkaProducerFactory<String, byte[]>(producerProp));
             reidSingleton = new Singleton<>(
                     () -> new FakePedestrianReIDerWithAttr());
-            loggerSingleton = new Singleton<>(
-                    new SynthesizedLoggerFactory(
-                            INFO.NAME,
-                            propCenter.verbose ? Level.DEBUG : Level.INFO,
-                            propCenter.reportListenerAddr,
-                            propCenter.reportListenerPort));
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jsc) {
+        public void addToContext(JavaStreamingContext jssc) {
             JavaPairDStream<String, TaskData> trackletDStream =
                     // Read track bytes in parallel from Kafka.
-                    buildBytesDirectStream(jsc, kafkaParams, trackTopicMap)
+                    buildBytesDirectStream(jssc,
+                            Arrays.asList(TRACKLET_TOPIC.NAME),
+                            kafkaParams,
+                            procTime)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
-                            .mapToPair(taskDataBytes -> {
-                                TaskData taskData =
-                                        (TaskData) deserialize(taskDataBytes._2());
+                            .mapToPair(kvPair -> {
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(kvPair._2());
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return null;
+                                }
                                 loggerSingleton.getInst().info(
                                         "Received track: " + ((Tracklet) taskData.predecessorRes).id);
                                 return new Tuple2<>(
-                                        taskDataBytes._1() + ":" + ((Tracklet) taskData.predecessorRes).id,
+                                        kvPair._1() + ":" + ((Tracklet) taskData.predecessorRes).id,
                                         taskData);
                             });
 
             JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
-                    buildBytesDirectStream(jsc, kafkaParams, attrTopicMap)
+                    buildBytesDirectStream(jssc, Arrays.asList(ATTR_TOPIC.NAME), kafkaParams, procTime)
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
-                            .mapToPair(taskDataBytes -> {
-                                TaskData taskData =
-                                        (TaskData) deserialize(taskDataBytes._2());
+                            .mapToPair(kvPair -> {
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(kvPair._2());
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return null;
+                                }
 
                                 if (!(taskData.predecessorRes instanceof Attributes)) {
-                                    throw new ClassCastException(
+                                    throw new DataTypeNotMatchedException(
                                             "Predecessor result is expected to be attributes,"
                                                     + " but received \""
                                                     + taskData.predecessorRes
@@ -245,8 +259,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                 }
 
                                 loggerSingleton.getInst().info(
-                                        "Received " + taskDataBytes._1() + ": " + taskData);
-                                return new Tuple2<>(taskDataBytes._1() + ":"
+                                        "Received " + kvPair._1() + ": " + taskData);
+                                return new Tuple2<>(kvPair._1() + ":"
                                         + ((Attributes) taskData.predecessorRes).trackletID,
                                         taskData);
                             });
@@ -322,51 +336,60 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
             JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
-                    buildBytesDirectStream(jsc, kafkaParams, trackWithAttrTopicMap)
-                            .mapValues(bytes -> (TaskData) deserialize(bytes));
+                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams, procTime)
+                            .mapValues(bytes -> {
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(bytes);
+                                    return taskData;
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return null;
+                                }
+                            });
 
             // Union the two track with attribute streams and perform ReID.
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)
                     .foreachRDD(rdd -> {
                         rdd.foreach(taskWithTrackletAttr -> {
-                            Logger logger = loggerSingleton.getInst();
-                            String taskID = taskWithTrackletAttr._1();
-                            TaskData taskData = taskWithTrackletAttr._2();
-                            if (taskData.predecessorRes == null) {
-                                logger.fatal("TaskData from " + taskData.predecessorInfo
-                                        + " contains no result data!");
-                                return;
-                            }
-                            if (!(taskData.predecessorRes instanceof PedestrianInfo)) {
-                                logger.fatal("TaskData from " + taskData.predecessorInfo
-                                        + " contains no result data!");
-                                logger.fatal("Result sent by "
-                                        + taskData.predecessorInfo
-                                        + " is expected to be a PedestrianInfo,"
-                                        + " but received \""
-                                        + taskData.predecessorRes + "\"!");
-                                return;
-                            }
-                            PedestrianInfo trackletWithAttr =
-                                    (PedestrianInfo) taskData.predecessorRes;
+                            try {
+                                Logger logger = loggerSingleton.getInst();
+                                String taskID = taskWithTrackletAttr._1();
+                                TaskData taskData = taskWithTrackletAttr._2();
+                                if (taskData.predecessorRes == null) {
+                                    throw new DataTypeNotMatchedException("TaskData from " + taskData.predecessorInfo
+                                            + " contains no result data!");
+                                }
+                                if (!(taskData.predecessorRes instanceof PedestrianInfo)) {
+                                    throw new DataTypeNotMatchedException("Result sent by "
+                                            + taskData.predecessorInfo
+                                            + " is expected to be a PedestrianInfo,"
+                                            + " but received \""
+                                            + taskData.predecessorRes + "\"!");
+                                }
+                                PedestrianInfo trackletWithAttr =
+                                        (PedestrianInfo) taskData.predecessorRes;
 
-                            // Perform ReID.
-                            int[] idRank = reidSingleton.getInst().reid(trackletWithAttr);
+                                // Perform ReID.
+                                int[] idRank = reidSingleton.getInst().reid(trackletWithAttr);
 
-                            // Prepare new task data with the pedestrian IDRANK.
-                            taskData.predecessorRes = idRank;
-                            // Get the IDs of successor nodes.
-                            List<Topic> succTopics = taskData.curNode.getSuccessors();
-                            // Mark the current node as executed.
-                            taskData.curNode.markExecuted();
-                            // Send to all the successor nodes.
-                            for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
-                                sendWithLog(topic,
-                                        taskID,
-                                        serialize(taskData),
-                                        producerSingleton.getInst(),
-                                        logger);
+                                // Prepare new task data with the pedestrian IDRANK.
+                                taskData.predecessorRes = idRank;
+                                // Get the IDs of successor nodes.
+                                List<Topic> succTopics = taskData.curNode.getSuccessors();
+                                // Mark the current node as executed.
+                                taskData.curNode.markExecuted();
+                                // Send to all the successor nodes.
+                                for (Topic topic : succTopics) {
+                                    taskData.changeCurNode(topic);
+                                    sendWithLog(topic,
+                                            taskID,
+                                            serialize(taskData),
+                                            producerSingleton.getInst(),
+                                            logger);
+                                }
+                            } catch (Exception e) {
+                                loggerSingleton.getInst().error("During ReID.", e);
                             }
                         });
                     });

@@ -40,7 +40,6 @@ public class SynthesizedLogger extends Logger {
     private InetAddress listenerAddr;
     private String localName;
     private int listenerPort;
-    private Level level;
 
     /**
      * Create a synthesized logger specifying address and port to sendWithLog report
@@ -57,8 +56,9 @@ public class SynthesizedLogger extends Logger {
                              @Nonnull Level level,
                              @Nonnull String reportListenerAddr,
                              int reportListenerPort) {
+        super(level);
+
         this.appName = appName;
-        this.level = level;
 
         PropertyConfigurator.configure("log4j.properties");
         log4jLogger = LogManager.getRootLogger();
@@ -98,20 +98,21 @@ public class SynthesizedLogger extends Logger {
                 sender.send(sendPacket);
             } catch (IOException e) {
                 System.err.println(
-                        "|ERROR|" + localName + "\t" + appName
-                                + ":\tError occurred when reporting to " + listenerAddr + ":" + listenerPort);
+                        "[ERROR]" + localName + "\t" + appName
+                                + ":\tError occurred when reporting to "
+                                + listenerAddr + ":" + listenerPort);
                 e.printStackTrace();
                 sender = null;
             }
         } else {
-            System.err.println("|ERROR|" + localName + "\t" + appName + ":\tSender dead!");
+            System.err.println("[ERROR]" + localName + "\t" + appName + ":\tSender dead!");
         }
     }
 
     public void debug(@Nonnull Object message) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message);
-            String richMsg = "|DEBUG|" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message;
             System.out.println(richMsg);
             send(richMsg);
         }
@@ -122,10 +123,9 @@ public class SynthesizedLogger extends Logger {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message, t);
 
-            String richMsg = "|DEBUG|" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message + t;
             System.out.println(richMsg);
             t.printStackTrace();
-
             send(richMsg);
 
             String stackTraceMsg = "";
@@ -140,7 +140,7 @@ public class SynthesizedLogger extends Logger {
     public void info(@Nonnull Object message) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message);
-            String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[INFO]" + localName + "\t" + appName + ":\t" + message;
             System.out.println(richMsg);
             send(richMsg);
         }
@@ -150,7 +150,7 @@ public class SynthesizedLogger extends Logger {
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message, t);
-            String richMsg = "|INFO |" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[INFO]" + localName + "\t" + appName + ":\t" + message + t;
             System.out.println(richMsg);
             t.printStackTrace();
             send(richMsg);
@@ -166,7 +166,7 @@ public class SynthesizedLogger extends Logger {
     public void warn(@Nonnull Object message) {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message);
-            String richMsg = "|WARN |" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[WARN]" + localName + "\t" + appName + ":\t" + message;
             System.out.println(richMsg);
             send(richMsg);
         }
@@ -177,10 +177,9 @@ public class SynthesizedLogger extends Logger {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message, t);
 
-            String richMsg = "|WARN |" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[WARN]" + localName + "\t" + appName + ":\t" + message + t;
             System.out.println(richMsg);
             t.printStackTrace();
-
             send(richMsg);
 
             String stackTraceMsg = "";
@@ -195,7 +194,7 @@ public class SynthesizedLogger extends Logger {
     public void error(@Nonnull Object message) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message);
-            String richMsg = "|ERROR|" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[ERROR]" + localName + "\t" + appName + ":\t" + message;
             System.err.println(richMsg);
             send(richMsg);
         }
@@ -206,10 +205,9 @@ public class SynthesizedLogger extends Logger {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message, t);
 
-            String richMsg = "|ERROR|" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[ERROR]" + localName + "\t" + appName + ":\t" + message + "\t" + t;
             System.err.println(richMsg);
             t.printStackTrace();
-
             send(richMsg);
 
             String stackTraceMsg = "";
@@ -224,7 +222,7 @@ public class SynthesizedLogger extends Logger {
     public void fatal(@Nonnull Object message) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message);
-            String richMsg = "|FATAL|" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message;
             System.err.println(richMsg);
             send(richMsg);
         }
@@ -234,10 +232,11 @@ public class SynthesizedLogger extends Logger {
                       @Nonnull Throwable t) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message, t);
-            String richMsg = "|FATAL|" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message + t;
             System.err.println(richMsg);
             t.printStackTrace();
             send(richMsg);
+
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {

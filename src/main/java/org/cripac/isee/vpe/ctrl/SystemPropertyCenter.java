@@ -18,15 +18,20 @@
 package org.cripac.isee.vpe.ctrl;
 
 import org.apache.commons.cli.*;
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.log4j.Level;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -46,36 +51,63 @@ import java.util.Properties;
  */
 public class SystemPropertyCenter {
 
+    // Logger for parsing.
+    private Logger logger = new ConsoleLogger(Level.INFO);
+
     // Zookeeper properties
     public String zkConn = "localhost:2181";
     public int sessionTimeoutMs = 10 * 10000;
     public int connectionTimeoutMs = 8 * 1000;
     // Kafka properties
-    public String kafkaBrokers = "localhost:9092";
+    public String kafkaBootstrapServers = "localhost:9092";
     public int kafkaNumPartitions = 1;
     public int kafkaReplFactor = 1;
-    public int kafkaFetchMsgMaxBytes = 10000000;
+    public int kafkaMsgMaxBytes = 100000000;
+    public int kafkaMaxRequestSize = 100000000;
     // Spark properties
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "metadata";
     public String sparkMaster = "local[*]";
     public String sparkDeployMode = "client";
     public String[] appsToStart = null;
-    public boolean onYARN = false;
-    public String executorMem = "1G"; // Memory per executor (e.g. 1000M, 2G)
-    // (Default: 1G)
-    public int numExecutors = 2; // Number of executors to run (Default: 2)
-    public int executorCores = 1; // Number of cores per executor (Default: 1)
-    public String driverMem = "1G"; // Memory for driver (e.g. 1000M, 2G)
-    // (Default: 1024 Mb)
-    public int driverCores = 1; // Number of cores used by the driver (Default:
-    // 1).
-    public String hadoopQueue = "default"; // The hadoop queue to use for
-    public String systemPropertiesFilePath = "conf/system.properties";
-    // allocation requests (Default:
-    // 'default')
-    public String sparkConfFilePath = "conf/spark-defaults.conf";
-    public String log4jPropertiesFilePath = "conf/log4j.properties";
+    /**
+     * Memory per executor (e.g. 1000M, 2G) (Default: 1G)
+     */
+    public String executorMem = "1G";
+    /**
+     * Number of executors to run (Default: 2)
+     */
+    public int numExecutors = 2;
+    /**
+     * Number of cores per executor (Default: 1)
+     */
+    public int executorCores = 1;
+    /**
+     * Total cores for all executors (Spark standalone and Mesos only).
+     */
+    public int totalExecutorCores = 1;
+    /**
+     * Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)
+     */
+    public String driverMem = "1G";
+    /**
+     * Number of cores used by the driver (Default: 1)
+     */
+    public int driverCores = 1;
+    /**
+     * The hadoop queue to use for allocation requests (Default: 'default')
+     */
+    public String hadoopQueue = "default";
+    public String sysPropFilePath = "conf/system.properties";
+    /**
+     * Application-specific property file. Properties loaded from it
+     * will override those loaded from the system property file.
+     * Leaving it as null will let the system automatically find
+     * that in default places according to the application specified.
+     */
+    public String appPropFilePath = null;
+    public String sparkConfFilePath = ConfManager.CONF_DIR + "/spark-defaults.conf";
+    public String log4jPropFilePath = ConfManager.CONF_DIR + "/log4j.properties";
     public String hdfsDefaultName = "localhost:9000";
     public String yarnResourceManagerHostname = "localhost";
     public String jarPath = "bin/vpe-platform.jar";
@@ -90,11 +122,15 @@ public class SystemPropertyCenter {
     /**
      * The address listening to reports.
      */
-    public String reportListenerAddr = "localhost";
+    public String reportListenerAddr = null;
     /**
      * The port of the address listening to reports.
      */
-    public int reportListenerPort = 0;
+    public int reportListenerPort = -1;
+    /**
+     * Estimated time in milliseconds to be consumed in the process of each RDD.
+     */
+    public int procTime = 10000;
     /**
      * Whether to print verbose running information.
      */
@@ -112,92 +148,132 @@ public class SystemPropertyCenter {
             throws URISyntaxException, ParserConfigurationException, SAXException {
         CommandLineParser parser = new BasicParser();
         Options options = new Options();
+        options.addOption("h", "help", false, "Print this help message.");
         options.addOption("v", "verbose", false, "Display debug information.");
         options.addOption("a", "application", true, "Application specified to run.");
-        options.addOption(null, "spark-properties-file", true, "File path of the spark property file.");
-        options.addOption(null, "system-properties-file", true, "File path of the system property file.");
-        options.addOption(null, "log4j-properties-file", true, "File path of the log4j property file.");
-        options.addOption(null, "report-listening-addr", true, "");
-        options.addOption(null, "report-listening-port", true, "");
+        options.addOption(null, "spark-property-file", true,
+                "File path of the spark property file.");
+        options.addOption(null, "system-property-file", true,
+                "File path of the system property file.");
+        options.addOption(null, "app-property-file", true,
+                "File path of the application-specific system property file.");
+        options.addOption(null, "log4j-property-file", true,
+                "File path of the log4j property file.");
+        options.addOption(null, "report-listening-addr", true,
+                "Address of runtime report listener.");
+        options.addOption(null, "report-listening-port", true,
+                "Port of runtime report listener.");
         CommandLine commandLine;
 
         try {
             commandLine = parser.parse(options, args);
         } catch (ParseException e) {
             e.printStackTrace();
-            System.out.println("Try using '-h' for more information.");
+            logger.debug("Try using '-h' for more information.");
             System.exit(0);
             return;
         }
 
-        if (commandLine.hasOption('v')) {
-            verbose = true;
+        if (commandLine.hasOption('h')) {
+            HelpFormatter formatter = new HelpFormatter();
+            formatter.printHelp("LaS-VPE Platform", options);
+            System.exit(0);
+            return;
+        }
+
+        verbose = commandLine.hasOption('v');
+        if (verbose) {
+            logger.setLevel(Level.DEBUG);
         }
 
         if (commandLine.hasOption('a')) {
             appsToStart = commandLine.getOptionValues('a');
-            if (verbose) {
-                System.out.println("[INFO]To run application:");
-                for (String app : appsToStart) {
-                    System.out.println("\t\t" + app);
-                }
+            logger.debug("[INFO]To run application:");
+            for (String app : appsToStart) {
+                logger.debug("\t\t" + app);
             }
         }
 
-        if (commandLine.hasOption("system-properties-file")) {
-            systemPropertiesFilePath = commandLine.getOptionValue("system-properties-file");
+        if (commandLine.hasOption("system-property-file")) {
+            sysPropFilePath = commandLine.getOptionValue("system-property-file");
         }
-        if (commandLine.hasOption("log4j-properties-file")) {
-            log4jPropertiesFilePath = commandLine.getOptionValue("log4j-properties-file");
+        if (commandLine.hasOption("log4j-property-file")) {
+            log4jPropFilePath = commandLine.getOptionValue("log4j-property-file");
         }
-        if (commandLine.hasOption("spark-properties-file")) {
-            sparkConfFilePath = commandLine.getOptionValue("spark-properties-file");
+        if (commandLine.hasOption("spark-property-file")) {
+            sparkConfFilePath = commandLine.getOptionValue("spark-property-file");
+        }
+        if (commandLine.hasOption("app-property-file")) {
+            appPropFilePath = commandLine.getOptionValue("app-property-file");
         }
 
-        // Load the property file.
-        Properties systemProperties = new Properties();
+        // Load properties from file.
+        Properties sysProps = new Properties();
         BufferedInputStream propInputStream;
         try {
-            if (systemPropertiesFilePath.contains("hdfs:/")) {
-                if (verbose) {
-                    System.out.println("[INFO]Loading properties using HDFS platform from "
-                            + systemPropertiesFilePath + "...");
-                }
-
-                FileSystem fileSystem =
-                        FileSystem.get(new URI(systemPropertiesFilePath), HadoopHelper.getDefaultConf());
-                FSDataInputStream hdfsInputStream = fileSystem.open(new Path(systemPropertiesFilePath));
+            if (sysPropFilePath.contains("hdfs:/")) {
+                logger.debug("Loading system-wise default properties using HDFS platform from "
+                        + sysPropFilePath + "...");
+                FileSystem hdfs = FileSystem.get(new URI(sysPropFilePath), HadoopHelper.getDefaultConf());
+                FSDataInputStream hdfsInputStream = hdfs.open(new Path(sysPropFilePath));
                 propInputStream = new BufferedInputStream(hdfsInputStream);
             } else {
-                if (verbose) {
-                    System.out.println("[INFO]Loading properties locally from "
-                            + systemPropertiesFilePath + "...");
-                }
-
-                propInputStream = new BufferedInputStream(new FileInputStream(systemPropertiesFilePath));
+                logger.debug("Loading system-wise default properties locally from "
+                        + sysPropFilePath + "...");
+                propInputStream = new BufferedInputStream(new FileInputStream(sysPropFilePath));
             }
-            systemProperties.load(propInputStream);
+            sysProps.load(propInputStream);
+            propInputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
-            System.err.printf("[ERROR]Cannot load system property file at specified path: \"%s\"!\n",
-                    systemPropertiesFilePath);
-            System.out.println("[ERROR]Try use '-h' for more information.");
+            logger.error("Cannot find system-wise default property file at specified path: \""
+                    + sysPropFilePath + "\"!\n");
+            logger.error("Try use '-h' for more information.");
             System.exit(0);
             return;
         }
 
+        if (appPropFilePath != null) {
+            try {
+                if (appPropFilePath.contains("hdfs:/")) {
+                    logger.debug("Loading application-specific properties"
+                            + " using HDFS platform from "
+                            + appPropFilePath + "...");
+                    FileSystem hdfs = FileSystem.get(
+                            new URI(appPropFilePath),
+                            HadoopHelper.getDefaultConf());
+                    FSDataInputStream hdfsInputStream =
+                            hdfs.open(new Path(appPropFilePath));
+                    propInputStream = new BufferedInputStream(hdfsInputStream);
+                } else {
+                    logger.debug("Loading application-specific properties locally from "
+                            + appPropFilePath + "...");
+                    propInputStream = new BufferedInputStream(new FileInputStream(appPropFilePath));
+                }
+                sysProps.load(propInputStream);
+                propInputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+                logger.error("Cannot find application-specific property file at specified path: \""
+                        + appPropFilePath + "\"!\n");
+                logger.error("Try use '-h' for more information.");
+                System.exit(0);
+                return;
+            }
+        }
+
         // Digest the settings.
-        for (Entry<Object, Object> entry : systemProperties.entrySet()) {
+        for (Entry<Object, Object> entry : sysProps.entrySet()) {
             if (verbose) {
-                System.out.println("[INFO]Read from property file: " + entry.getKey()
+                logger.debug("Read from property file: " + entry.getKey()
                         + "=" + entry.getValue());
             }
             switch ((String) entry.getKey()) {
                 case "zookeeper.connect":
                     zkConn = (String) entry.getValue();
                     break;
-                case "kafka.brokers":
-                    kafkaBrokers = (String) entry.getValue();
+                case "kafka.bootstrap.servers":
+                    kafkaBootstrapServers = (String) entry.getValue();
                     break;
                 case "kafka.partitions":
                     kafkaNumPartitions = new Integer((String) entry.getValue());
@@ -205,8 +281,8 @@ public class SystemPropertyCenter {
                 case "kafka.replication.factor":
                     kafkaReplFactor = new Integer((String) entry.getValue());
                     break;
-                case "kafka.fetch.message.max.bytes":
-                    kafkaFetchMsgMaxBytes = new Integer((String) entry.getValue());
+                case "kafka.message.max.bytes":
+                    kafkaMsgMaxBytes = new Integer((String) entry.getValue());
                     break;
                 case "spark.checkpoint.dir":
                     checkpointRootDir = (String) entry.getValue();
@@ -238,6 +314,9 @@ public class SystemPropertyCenter {
                 case "executor.cores":
                     executorCores = new Integer((String) entry.getValue());
                     break;
+                case "total.executor.cores":
+                    totalExecutorCores = new Integer((String) entry.getValue());
+                    break;
                 case "driver.memory":
                     driverMem = (String) entry.getValue();
                     break;
@@ -253,6 +332,12 @@ public class SystemPropertyCenter {
                 case "vpe.buf.duration":
                     bufDuration = new Integer((String) entry.getValue());
                     break;
+                case "vpe.process.time":
+                    procTime = new Integer((String) entry.getValue());
+                    break;
+                case "kafka.max.request.size":
+                    kafkaMaxRequestSize = new Integer((String) entry.getValue());
+                    break;
             }
         }
 
@@ -261,13 +346,6 @@ public class SystemPropertyCenter {
         }
         if (commandLine.hasOption("report-listening-port")) {
             reportListenerPort = new Integer(commandLine.getOptionValue("report-listening-port"));
-        }
-
-        if (sparkMaster.contains("yarn") && !onYARN) {
-            onYARN = true;
-            if (verbose) {
-                System.out.println("[INFO]To run on YARN...");
-            }
         }
     }
 
@@ -279,33 +357,46 @@ public class SystemPropertyCenter {
      * @throws NoAppSpecifiedException When no application is specified to run.
      */
     public String[] getArgs() throws NoAppSpecifiedException {
-        ArrayList<String> options = new ArrayList<>();
+        ArrayList<String> optList = new ArrayList<>();
 
         if (verbose) {
-            options.add("-v");
+            optList.add("-v");
         }
 
-        options.add("--system-properties-file");
-        if (onYARN) {
-            options.add("system.properties");
+        if (appPropFilePath != null && new File(appPropFilePath).exists()) {
+            optList.add("--app-property-file");
+            optList.add(new File(appPropFilePath).getName());
+        }
+
+        optList.add("--system-property-file");
+        if (sparkMaster.toLowerCase().contains("yarn")) {
+            optList.add("system.properties");
+        } else if (sparkMaster.toLowerCase().contains("local")) {
+            optList.add(sysPropFilePath);
         } else {
-            options.add(systemPropertiesFilePath);
+            throw new NotImplementedException(
+                    "System is currently not supporting deploy mode: "
+                            + sparkMaster);
         }
 
-        options.add("--log4j-properties-file");
-        if (onYARN) {
-            options.add("log4j.properties");
+        optList.add("--log4j-property-file");
+        if (sparkMaster.toLowerCase().contains("yarn")) {
+            optList.add("log4j.properties");
+        } else if (sparkMaster.toLowerCase().contains("local")) {
+            optList.add(log4jPropFilePath);
         } else {
-            options.add(log4jPropertiesFilePath);
+            throw new NotImplementedException(
+                    "System is currently not supporting deploy mode: "
+                            + sparkMaster);
         }
 
-        options.add("--report-listening-addr");
-        options.add(reportListenerAddr);
+        optList.add("--report-listening-addr");
+        optList.add(reportListenerAddr);
 
-        options.add("--report-listening-port");
-        options.add("" + reportListenerPort);
+        optList.add("--report-listening-port");
+        optList.add("" + reportListenerPort);
 
-        return Arrays.copyOf(options.toArray(), options.size(), String[].class);
+        return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);
     }
 
     /**

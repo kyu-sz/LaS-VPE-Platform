@@ -17,10 +17,17 @@
 
 package org.cripac.isee.vpe.alg;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.cripac.isee.vpe.common.DataType;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.log4j.Level;
+import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
@@ -36,8 +43,8 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.apache.commons.lang.SerializationUtils.deserialize;
+import static org.apache.commons.lang.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -46,13 +53,13 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * The application should be run on YARN in advance.
  * This test only sends fake data messages to and receives results
  * from the already running application through Kafka.
- *
+ * <p>
  * Created by ken.yu on 16-10-31.
  */
 public class PedestrianAttrRecogAppTest {
 
     public static final Topic TEST_PED_ATTR_RECV_TOPIC
-            = new Topic("test-ped-attr-recv", DataType.ATTR, null);
+            = new Topic("test-pedestrian-attr-recv", DataTypes.ATTR, null);
 
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
@@ -84,23 +91,35 @@ public class PedestrianAttrRecogAppTest {
         TopicManager.checkTopics(propCenter);
 
         Properties producerProp = new Properties();
-        producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-        producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                propCenter.kafkaBootstrapServers);
+        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                propCenter.kafkaMaxRequestSize);
+        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                StringSerializer.class.getName());
+        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                ByteArraySerializer.class.getName());
+        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
+                "" + propCenter.kafkaMsgMaxBytes);
         producer = new KafkaProducer<>(producerProp);
-        logger = new ConsoleLogger();
+        logger = new ConsoleLogger(Level.DEBUG);
 
         Properties consumerProp = new Properties();
-        consumerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-        consumerProp.put("group.id", "test");
-        consumerProp.put("enable.auto.commit", true);
-        consumerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        consumerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+        consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                propCenter.kafkaBootstrapServers);
+        consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG,
+                "test");
+        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+                true);
+        consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                StringDeserializer.class.getName());
+        consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                ByteArrayDeserializer.class.getName());
         consumer = new KafkaConsumer<>(consumerProp);
         consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
     }
 
-//    @Test
+    //    @Test
     public void testAttrRecog() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node recogNode =
@@ -116,16 +135,26 @@ public class PedestrianAttrRecogAppTest {
                 producer,
                 logger);
 
+        logger.info("Waiting for response...");
         // Receive result (attributes).
-        ConsumerRecords<String, byte[]> records = consumer.poll(0);
-        records.forEach(rec -> {
-            TaskData attrData = null;
-            try {
-                attrData = (TaskData) deserialize(rec.value());
-                logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + attrData.predecessorRes);
-            } catch (ClassNotFoundException e) {
-                e.printStackTrace();
+        ConsumerRecords<String, byte[]> records;
+        while (true) {
+            records = consumer.poll(0);
+            if (records.isEmpty()) {
+                continue;
             }
-        });
+
+            logger.info("Response received!");
+            records.forEach(rec -> {
+                TaskData taskData;
+                try {
+                    taskData = (TaskData) deserialize(rec.value());
+                } catch (Exception e) {
+                    logger.error("During TaskData deserialization", e);
+                    return;
+                }
+                logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
+            });
+        }
     }
 }

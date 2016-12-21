@@ -29,7 +29,11 @@ LaS-VPE Platform is released under the GPL License.
 	```Shell
 	sudo apt-get install maven
 	```
-2. Deploy Kafka(>=0.8), HDFS(>=2.2) and YARN(>=2.2) properly on your cluster.
+	
+2. Deploy Kafka(>=0.10.1.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2) properly on your cluster.
+
+Before you start your Kafka cluster, remember to configure the "max.request.size" to a large number, e.g. 157286400, so as to enable large message transferring through Kafka. This should be configured in "server.properties".
+
 To enable multi-appications running concurrently, see [Job-Scheduling](https://spark.apache.org/docs/1.2.0/job-scheduling.html) and configure your environment.
 
 ## How to run
@@ -44,8 +48,11 @@ git clone --recursive https://github.com/kyu-sz/LaS-VPE-Platform
 Build and pack the system into a JAR:
 
 ```Shell
-mvn compile && mvn package
+./sbin/build-native-libs.sh
+mvn package
 ```
+
+If your maven resolves dependencies at a low speed, try ```mvn -Dmaven.artifact.threads=100 package``` or add ```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.
 
 Configure the environment and running properties in the files in [conf](conf).
 
@@ -57,9 +64,13 @@ Upload the whole project to your cluster:
 ./sbin/upload.sh
 ```
 
-If the platform depends on native libraries (currently it does), deliver them to worker nodes using [install.sh](sbin/install.sh) in [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_ environment variable.
+Then switch to the terminal of your cluster, change to the platform folder and deliver native libraries to worker nodes using [install.sh](sbin/install.sh) in [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_ environment variable.
 
-Invoke the scripts in the home directory by command like "./sbin/run-*.sh".
+```Shell
+./sbin/install.sh
+```
+
+Finally, you can start the applications by invoking the scripts in the home directory by command like "./sbin/run-*.sh".
 
 It is recommended to last start the [run-command-generating-app.sh](sbin/run-command-generating-app.sh), which is the debugging tool to simulate commands to the message handling application.
 
@@ -71,7 +82,7 @@ To briefly monitor, some informations are printed to the console that starts eac
 
 To fully monitor your Spark application, you might need to access the log files in the slave nodes. However, if your application runs on a cluster without desktop, and you connect remotely to the cluster, you might not be able to access the web pages loaded from the slave nodes.
 
-To solve this problem, first add the ip address of the slave nodes to the /etc/hosts in the master node. Make sure the master node can access the pages on slave nodes by terminal browsers like w3m or lynx. In Ubuntu, they can be installed by ```sudo apt-get install w3m``` or ```sudo apt-get install lynx```.
+To solve this problem, first add the address address of the slave nodes to the /etc/hosts in the master node. Make sure the master node can access the pages on slave nodes by terminal browsers like w3m or lynx. In Ubuntu, they can be installed by ```sudo apt-get install w3m``` or ```sudo apt-get install lynx```.
 
 Then, configure your master node to be a proxy server using Squid. Tutors can be found in websites like [Help-Ubuntu-Squid](https://help.ubuntu.com/community/Squid).
 

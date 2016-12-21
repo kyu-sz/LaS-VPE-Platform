@@ -27,6 +27,7 @@ import java.io.Serializable;
  * Created by ken.yu on 16-10-5.
  */
 public final class Topic implements Serializable {
+    private static final long serialVersionUID = -7567029992452814611L;
     /**
      * Name of the topic to appear in Kafka.
      */
@@ -34,7 +35,7 @@ public final class Topic implements Serializable {
     /**
      * Type of the topic used within the system.
      */
-    public final DataType INPUT_TYPE;
+    public final DataTypes INPUT_TYPE;
     /**
      * Name of stream this topic belongs to.
      */
@@ -50,7 +51,7 @@ public final class Topic implements Serializable {
      *                   which is only used within external tests.
      */
     public Topic(@Nonnull String name,
-                 @Nonnull DataType type,
+                 @Nonnull DataTypes type,
                  @Nullable Stream.Info streamInfo) {
         this.NAME = name;
         this.INPUT_TYPE = type;

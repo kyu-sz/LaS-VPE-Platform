@@ -18,6 +18,10 @@
 package org.cripac.isee.vpe.data;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.log4j.Level;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -29,7 +33,7 @@ import org.junit.Before;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.apache.commons.lang3.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -77,11 +81,18 @@ public class DataManagingAppTest {
         TopicManager.checkTopics(propCenter);
 
         Properties producerProp = new Properties();
-        producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-        producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                propCenter.kafkaBootstrapServers);
+        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                propCenter.kafkaMaxRequestSize);
+        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                StringSerializer.class.getName());
+        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                ByteArraySerializer.class.getName());
+        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
+                "" + propCenter.kafkaMsgMaxBytes);
         producer = new KafkaProducer<>(producerProp);
-        logger = new ConsoleLogger();
+        logger = new ConsoleLogger(Level.DEBUG);
     }
 
 //    @Test

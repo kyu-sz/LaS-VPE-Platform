@@ -17,9 +17,20 @@
 
 package org.cripac.isee.vpe.common;
 
+import kafka.serializer.DefaultDecoder;
+import kafka.serializer.StringDecoder;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.logging.Logger;
 
+import javax.annotation.Nonnull;
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
@@ -27,12 +38,16 @@ import java.io.Serializable;
  * Created by ken.yu on 16-10-26.
  */
 public abstract class Stream implements Serializable {
+
+    private static final long serialVersionUID = 7965952554107861881L;
+
     /**
      * The Info class is designed to force the output data INPUT_TYPE to
      * be assigned to a stream, so that INPUT_TYPE matching checking can
      * be conducted.
      */
     public static class Info implements Serializable {
+        private static final long serialVersionUID = -2859100367977900846L;
         /**
          * Name of the stream.
          */
@@ -41,14 +56,14 @@ public abstract class Stream implements Serializable {
         /**
          * Type of output.
          */
-        public final DataType OUTPUT_TYPE;
+        public final DataTypes OUTPUT_TYPE;
 
         /**
          * Construct a stream with NAME specified.
          *
          * @param name Name of the stream.
          */
-        public Info(String name, DataType outputType) {
+        public Info(String name, DataTypes outputType) {
             this.NAME = name;
             this.OUTPUT_TYPE = outputType;
         }
@@ -60,7 +75,7 @@ public abstract class Stream implements Serializable {
 
         @Override
         public String toString() {
-            return "[" + OUTPUT_TYPE + "]" + NAME;
+            return "Topic(name: \'" + NAME + "\', output type: \'" + OUTPUT_TYPE + "\')";
         }
 
         @Override
@@ -74,10 +89,47 @@ public abstract class Stream implements Serializable {
         }
     }
 
+    protected Singleton<Logger> loggerSingleton;
+
+    /**
+     * Require inputting a logger singleton for this class and all its subclasses.
+     *
+     * @param loggerSingleton A singleton of logger.
+     */
+    public Stream(@Nonnull Singleton<Logger> loggerSingleton) {
+        this.loggerSingleton = loggerSingleton;
+    }
+
     /**
      * Add the stream to a Spark Streaming context.
      *
-     * @param jsc A Spark Streaming context.
+     * @param jssc A Spark Streaming context.
      */
-    public abstract void addToContext(JavaStreamingContext jsc);
+    public abstract void addToContext(JavaStreamingContext jssc);
+
+    /**
+     * Utility function for all applications to receive messages with byte
+     * array values from Kafka with direct stream.
+     *
+     * @param jssc        The streaming context of the applications.
+     * @param kafkaParams Parameters for reading from Kafka.
+     * @param topics      Topics from which the direct stream reads.
+     * @param procTime    Estimated time in milliseconds to be consumed in the
+     *                    following process of each RDD from the input stream.
+     *                    After this time, it is viewed that output has
+     *                    finished, and offsets will be committed to Kafka.
+     * @return A Kafka non-receiver input stream.
+     */
+    protected JavaPairDStream<String, byte[]>
+    buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
+                           @Nonnull Collection<String> topics,
+                           @Nonnull Map<String, String> kafkaParams,
+                           int procTime) {
+        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+        return KafkaUtils.createDirectStream(jssc,
+                String.class, byte[].class,
+                StringDecoder.class, DefaultDecoder.class,
+                kafkaParams, new HashSet(topics))
+                .repartition(jssc.sparkContext().defaultParallelism());
+    }
 }

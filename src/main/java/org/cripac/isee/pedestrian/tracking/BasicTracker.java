@@ -42,22 +42,22 @@ public class BasicTracker extends Tracker {
         System.out.println("Native libraries for BasicTracker successfully loaded!");
     }
 
-    private byte[] cfg;
+    private byte[] conf;
     private Logger logger;
 
-    public BasicTracker(@Nonnull byte[] cfg) {
-        this(cfg, null);
+    public BasicTracker(@Nonnull byte[] conf) {
+        this(conf, null);
     }
 
     /**
      * Construct a tracker with a configuration. The configuration should be
      * provided in a form of byte array.
      *
-     * @param cfg The byte data of the configuration file.
+     * @param conf The byte data of the configuration file.
      */
-    public BasicTracker(@Nonnull byte[] cfg,
+    public BasicTracker(@Nonnull byte[] conf,
                         @Nullable Logger logger) {
-        this.cfg = cfg;
+        this.conf = conf;
         if (logger == null) {
             this.logger = logger;
         } else {
@@ -92,11 +92,11 @@ public class BasicTracker extends Tracker {
         VideoDecoder.VideoInfo videoInfo = videoDecoder.getVideoInfo();
         logger.debug("To perform tracking on video with width=" + videoInfo.width + " height=" + videoInfo.height + "!");
 
-        if (cfg == null) {
+        if (conf == null) {
             logger.fatal("Configuration file is NULL!");
             return null;
         }
-        long trackerPointer = initialize(videoInfo.width, videoInfo.height, videoInfo.channels, cfg);
+        long trackerPointer = initialize(videoInfo.width, videoInfo.height, videoInfo.channels, conf);
         logger.debug("Initialized tracker!");
 
         int cnt = 0;

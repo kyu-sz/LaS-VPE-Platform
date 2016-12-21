@@ -17,19 +17,22 @@
 
 package org.cripac.isee.vpe.ctrl;
 
-import org.apache.commons.collections.map.HashedMap;
+import com.google.gson.Gson;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.cripac.isee.vpe.data.WebCameraConnector;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.log4j.Level;
+import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 
 import java.io.Serializable;
-import java.net.Inet4Address;
 import java.net.InetAddress;
-import java.util.Map;
+import java.util.Hashtable;
 import java.util.Properties;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.apache.commons.lang3.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -65,26 +68,31 @@ public class MessageHandlingAppTest implements Serializable {
         TopicManager.checkTopics(propCenter);
 
         Properties producerProp = new Properties();
-        producerProp.put("bootstrap.servers", propCenter.kafkaBrokers);
-        producerProp.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        producerProp.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                propCenter.kafkaBootstrapServers);
+        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
+                propCenter.kafkaMaxRequestSize);
+        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                StringSerializer.class.getName());
+        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                ByteArraySerializer.class.getName());
+        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
+                "" + propCenter.kafkaMsgMaxBytes);
         producer = new KafkaProducer<>(producerProp);
-        logger = new ConsoleLogger();
+        logger = new ConsoleLogger(Level.DEBUG);
     }
 
-//    @Test
+    //    @Test
     public void generatePresetCommand() throws Exception {
-        Map<String, Serializable> param = new HashedMap();
-        param.put(
-                MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
+        Hashtable<String, Serializable> param = new Hashtable<>();
+        param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "pedestrian-tracking-isee-basic-CAM01_0.conf");
-        param.put(
-                MessageHandlingApp.Parameter.VIDEO_URL,
+        param.put(MessageHandlingApp.Parameter.VIDEO_URL,
                 "source_data/video/CAM01/2014_04_25/20140425184816-20140425190532.h264");
         param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
-                new WebCameraConnector.LoginParam(
-                        InetAddress.getLocalHost(), 0, "Ken Yu", "I love Shenzhen!"));
+                new Gson().toJson(new LoginParam(InetAddress.getLocalHost(), 0,
+                        "Ken Yu", "I love Shenzhen!")));
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.TRACK_ONLY,

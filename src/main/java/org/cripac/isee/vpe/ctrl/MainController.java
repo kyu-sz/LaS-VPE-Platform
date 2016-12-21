@@ -23,6 +23,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
+import java.io.File;
 import java.io.IOException;
 import java.net.*;
 import java.util.LinkedList;
@@ -52,36 +53,43 @@ public class MainController {
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
         // Prepare system configuration.
-        if (propCenter.onYARN) {
+        if (propCenter.sparkMaster.toLowerCase().contains("yarn")) {
             System.setProperty("SPARK_YARN_MODE", "true");
 
-            // Create a UDP server for receiving reports.
-            DatagramSocket server = new DatagramSocket(0);
-            server.setSoTimeout(1000);
+            // If report listener is not specified by user, the terminal
+            // starting this application is also responsible for listening
+            // to runtime report.
+            if (propCenter.reportListenerAddr == null) {
+                // Create a UDP server for receiving reports.
+                DatagramSocket server = new DatagramSocket(0);
+                server.setSoTimeout(1000);
 
-            // Create a thread to listen to reports.
-            Thread listener = new Thread(() -> {
-                byte[] recvBuf = new byte[10000];
-                DatagramPacket recvPacket = new DatagramPacket(recvBuf, recvBuf.length);
-                while (listening) {
-                    try {
-                        server.receive(recvPacket);
-                        String recvStr =
-                                new String(recvPacket.getData(), 0, recvPacket.getLength());
-                        System.out.println(recvStr);
-                    } catch (SocketTimeoutException e) {
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        break;
+                // Create a thread to listen to reports.
+                Thread listener = new Thread(() -> {
+                    byte[] recvBuf = new byte[10000];
+                    DatagramPacket recvPacket = new DatagramPacket(recvBuf, recvBuf.length);
+                    while (listening) {
+                        try {
+                            server.receive(recvPacket);
+                            String recvStr =
+                                    new String(recvPacket.getData(), 0, recvPacket.getLength());
+                            System.out.println(recvStr);
+                        } catch (SocketTimeoutException e) {
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            break;
+                        }
                     }
-                }
-                System.out.println("[INFO]Stop listening!");
-                server.close();
-            });
-            listener.start();
+                    System.out.println("[INFO]Stop listening!");
+                    server.close();
+                });
+                listener.start();
 
-            propCenter.reportListenerAddr = InetAddress.getLocalHost().getHostName();
-            propCenter.reportListenerPort = server.getLocalPort();
+                // Update the address and port of the report listener in the
+                // property center.
+                propCenter.reportListenerAddr = InetAddress.getLocalHost().getHostName();
+                propCenter.reportListenerPort = server.getLocalPort();
+            }
 
             String[] arguments = propCenter.getArgs();
 
@@ -102,34 +110,48 @@ public class MainController {
                     this.name = name;
                 }
             }
+
             List<ProcessWithName> processesWithNames = new LinkedList<>();
+            boolean useDefaultAppProperties = (propCenter.appPropFilePath == null);
             for (String appName : propCenter.appsToStart) {
-                Process launcherProcess = new SparkLauncher()
+                if (useDefaultAppProperties) {
+                    propCenter.appPropFilePath = ConfManager.CONF_DIR + "/" + appName + "/app.properties";
+                }
+
+                SparkLauncher launcher = new SparkLauncher()
                         .setAppResource(propCenter.jarPath)
                         .setMainClass(AppManager.getMainClassName(appName))
                         .setMaster(propCenter.sparkMaster)
-                        .setAppName(appName).setPropertiesFile(propCenter.sparkConfFilePath)
+                        .setAppName(appName)
+                        .setPropertiesFile(propCenter.sparkConfFilePath)
                         .setVerbose(propCenter.verbose)
-                        .addFile(propCenter.log4jPropertiesFilePath)
-                        .addFile(propCenter.systemPropertiesFilePath)
-                        .addFile(ConfigFileManager.getConcatConfigFilePathList(","))
+                        .addFile(propCenter.log4jPropFilePath)
+                        .addFile(propCenter.sysPropFilePath)
+                        .addFile(ConfManager.getConcatCfgFilePathList(","))
                         .setConf(SparkLauncher.DRIVER_MEMORY, propCenter.driverMem)
-                        .setConf(SparkLauncher.EXECUTOR_CORES, "" + propCenter.executorCores)
                         .setConf(SparkLauncher.EXECUTOR_MEMORY, propCenter.executorMem)
                         .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
-                        .addAppArgs(propCenter.getArgs())
-                        .launch();
+                        .setConf(SparkLauncher.EXECUTOR_CORES, "" + propCenter.executorCores)
+                        .addSparkArg("--driver-cores", "" + propCenter.driverCores)
+                        .addSparkArg("--num-executors", "" + propCenter.numExecutors)
+                        .addSparkArg("--total-executor-cores", "" + propCenter.totalExecutorCores)
+                        .addSparkArg("--queue", propCenter.hadoopQueue)
+                        .addAppArgs(propCenter.getArgs());
+                if (new File(propCenter.appPropFilePath).exists()) {
+                    launcher.addFile(propCenter.appPropFilePath);
+                }
+
+                Process launcherProcess = launcher.launch();
                 processesWithNames.add(new ProcessWithName(launcherProcess, appName));
 
                 // Create threads listening to output of the launcher process.
                 Thread infoThread = new Thread(
                         new InputStreamReaderRunnable(launcherProcess.getInputStream(), "INFO"),
                         "LogStreamReader info");
-                infoThread.start();
-
                 Thread errorThread = new Thread(
                         new InputStreamReaderRunnable(launcherProcess.getErrorStream(), "ERROR"),
                         "LogStreamReader error");
+                infoThread.start();
                 errorThread.start();
             }
 

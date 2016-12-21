@@ -1,4 +1,4 @@
-/***********************************************************************
+package org.cripac.isee.vpe.common;/***********************************************************************
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -15,25 +15,24 @@
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.cripac.isee.vpe.common;
+import com.google.gson.annotations.SerializedName;
 
-import javax.annotation.Nonnull;
+import java.io.Serializable;
+import java.net.InetAddress;
 
 /**
- * Created by ken.yu on 16-10-27.
+ * Parameters for server login (e.g. web camera), including camera IP, port, username and password.
  */
-public class DataTypeUnmatchException extends Exception {
-    
-    public DataTypeUnmatchException() {
-        super();
-    }
+public class LoginParam implements Serializable {
+    private static final long serialVersionUID = -3831767044437766754L;
+    @SerializedName("server-id")
+    public ServerID serverID;
+    public String username;
+    public String password;
 
-    public DataTypeUnmatchException(@Nonnull String s) {
-        super(s);
-    }
-
-    public DataTypeUnmatchException(@Nonnull String s,
-                                    @Nonnull Throwable t) {
-        super(s, t);
+    public LoginParam(InetAddress ip, int port, String username, String password) {
+        this.serverID = new ServerID(ip, port);
+        this.username = username;
+        this.password = password;
     }
 }
