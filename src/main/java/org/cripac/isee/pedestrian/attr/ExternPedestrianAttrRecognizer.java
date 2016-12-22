@@ -89,6 +89,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
     private Thread resListeningThread = null;
     private Map<UUID, Attributes> resultPool = new HashMap<>();
     private Logger logger;
+    private int numRequestWaiting = 0;
 
     /**
      * Constructor of ExternPedestrianAttrRecognizer specifying extern solver's
@@ -127,6 +128,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         // Write the bytes of the message to the socket.
         synchronized (socket) {
             message.getBytes(socket.getOutputStream());
+            ++numRequestWaiting;
         }
         logger.debug("Sent request " + message.id + " for tracklet " + tracklet.id);
 
@@ -240,6 +242,11 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             byte[] jsonBytes = null;
 
             while (true) {
+                if (numRequestWaiting == 0) {
+                    continue;
+                }
+                assert numRequestWaiting > 0;
+
                 UUID id;
 
                 // Receive data from socket.
@@ -279,6 +286,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                 // Store the results.
                 synchronized (resultPool) {
                     resultPool.put(id, attr);
+                    --numRequestWaiting;
                 }
                 logger.debug("Result listener: Result for request " + id + " is stored.");
             }
