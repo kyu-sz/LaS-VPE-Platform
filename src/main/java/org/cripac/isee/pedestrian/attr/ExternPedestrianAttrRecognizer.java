@@ -102,7 +102,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                                           int port,
                                           @Nullable Logger logger) throws IOException {
         socket = new Socket(solverAddress, port);
-        resListeningThread = new Thread(new ResultListener(socket.getInputStream()));
+        resListeningThread = new Thread(new ResultListener(new BufferedInputStream(socket.getInputStream())));
         resListeningThread.start();
         if (logger == null) {
             this.logger = new ConsoleLogger();
