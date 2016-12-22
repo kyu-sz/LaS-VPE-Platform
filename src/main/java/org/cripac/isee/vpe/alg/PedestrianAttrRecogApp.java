@@ -186,7 +186,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             attrRecogSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
-                    Inet4Address.getByName("172.18.33.90"), 8500
+                    Inet4Address.getByName("172.18.33.90"), 8500,
+                    loggerSingleton.getInst()
             ));
         }
 

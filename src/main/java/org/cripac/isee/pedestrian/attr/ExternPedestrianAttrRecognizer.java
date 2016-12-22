@@ -27,8 +27,11 @@ package org.cripac.isee.pedestrian.attr;
 import com.google.gson.Gson;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -85,6 +88,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
     protected Socket socket;
     private Thread resListeningThread = null;
     private Map<UUID, Attributes> resultPool = new HashMap<>();
+    private Logger logger;
 
     /**
      * Constructor of ExternPedestrianAttrRecognizer specifying extern solver's
@@ -95,10 +99,17 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      * @throws IOException
      */
     public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,
-                                          int port) throws IOException {
+                                          int port,
+                                          @Nullable Logger logger) throws IOException {
         socket = new Socket(solverAddress, port);
         resListeningThread = new Thread(new ResultListener(socket.getInputStream()));
         resListeningThread.start();
+        if (logger == null) {
+            this.logger = new ConsoleLogger();
+        } else {
+            this.logger = logger;
+        }
+
     }
 
     /*
@@ -117,6 +128,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         synchronized (socket) {
             message.getBytes(socket.getOutputStream());
         }
+        logger.debug("Sent request " + message.id + " for tracklet " + tracklet.id);
 
         // Wait until the result is received and stored in the result pool.
         while (true) {
@@ -228,7 +240,10 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             byte[] jsonBytes = null;
 
             while (true) {
+                UUID id;
+
                 // Receive data from socket.
+                logger.debug("Result listener: Starting a new round of message receiving.");
                 try {
                     int ret = 0;
                     // 8 * 2 bytes - Request UUID.
@@ -236,6 +251,8 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                     assert (idMSBBuf.length == ret);
                     ret = inputStream.read(idLSBBuf, 0, idLSBBuf.length);
                     assert (idLSBBuf.length == ret);
+                    id = new UUID(ByteBuffer.wrap(idMSBBuf).getLong(), ByteBuffer.wrap(idLSBBuf).getLong());
+                    logger.debug("Result listener: Receiving result for request " + id + ".");
 
                     // 4 bytes - Length of JSON.
                     ret = inputStream.read(jsonLenBytes, 0, jsonLenBytes.length);
@@ -244,6 +261,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                     int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
                     // Create a buffer for JSON.
                     jsonBytes = new byte[jsonLen];
+                    logger.debug("Result listener: To receive " + jsonLen + " bytes.");
 
                     // jsonLen bytes - Bytes of UTF-8 JSON string representing
                     // the attributes.
@@ -255,13 +273,14 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                 }
 
                 // Parse the data into results.
-                UUID id = new UUID(ByteBuffer.wrap(idMSBBuf).getLong(), ByteBuffer.wrap(idLSBBuf).getLong());
                 Attributes attr = new Gson().fromJson(new String(jsonBytes, StandardCharsets.UTF_8), Attributes.class);
+                logger.debug("Result listener: Result for request " + id + " is " + attr);
 
                 // Store the results.
                 synchronized (resultPool) {
                     resultPool.put(id, attr);
                 }
+                logger.debug("Result listener: Result for request " + id + " is stored.");
             }
         }
     }
