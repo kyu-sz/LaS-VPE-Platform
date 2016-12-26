@@ -80,10 +80,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
     public static class AppPropertyCenter extends SystemPropertyCenter {
 
+        private static final long serialVersionUID = -786439769732467646L;
         public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         public int externAttrRecogServerPort = 0;
 
-        public AppPropertyCenter(@Nonnull String[] args) throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
+        public AppPropertyCenter(@Nonnull String[] args)
+                throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
             super(args);
             // Digest the settings.
             for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {

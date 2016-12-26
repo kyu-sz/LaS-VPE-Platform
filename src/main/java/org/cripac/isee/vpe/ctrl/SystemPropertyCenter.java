@@ -30,10 +30,7 @@ import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -49,10 +46,11 @@ import java.util.Properties;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class SystemPropertyCenter {
+public class SystemPropertyCenter implements Serializable {
 
+    private static final long serialVersionUID = -6642856932636724919L;
     // Logger for parsing.
-    private Logger logger = new ConsoleLogger(Level.INFO);
+    private transient Logger logger = new ConsoleLogger(Level.INFO);
 
     // Zookeeper properties
     public String zkConn = "localhost:2181";
