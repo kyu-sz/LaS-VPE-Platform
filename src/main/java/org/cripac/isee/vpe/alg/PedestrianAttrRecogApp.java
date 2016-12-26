@@ -41,8 +41,13 @@ import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import org.xml.sax.SAXException;
 
-import java.net.Inet4Address;
+import javax.annotation.Nonnull;
+import javax.xml.parsers.ParserConfigurationException;
+import java.net.InetAddress;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.*;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
@@ -69,8 +74,29 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      * @param propCenter A class saving all the properties this application may need.
      * @throws Exception Any exception that might occur during execution.
      */
-    public PedestrianAttrRecogApp(SystemPropertyCenter propCenter) throws Exception {
+    public PedestrianAttrRecogApp(AppPropertyCenter propCenter) throws Exception {
         attrRecogStream = new RecogStream(propCenter);
+    }
+
+    private static class AppPropertyCenter extends SystemPropertyCenter {
+
+        public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
+        public int externAttrRecogServerPort = 0;
+
+        public AppPropertyCenter(@Nonnull String[] args) throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
+            super(args);
+            // Digest the settings.
+            for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
+                switch ((String) entry.getKey()) {
+                    case "vpe.ped.attr.ext.ip":
+                        externAttrRecogServerAddr = InetAddress.getByName((String) entry.getValue());
+                        break;
+                    case "vpe.ped.attr.ext.port":
+                        externAttrRecogServerPort = new Integer((String) entry.getValue());
+                        break;
+                }
+            }
+        }
     }
 
     /**
@@ -79,8 +105,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public static void main(String[] args) throws Exception {
         // Load system properties.
-        SystemPropertyCenter propCenter;
-        propCenter = new SystemPropertyCenter(args);
+        AppPropertyCenter propCenter = new AppPropertyCenter(args);
 
         // Start the pedestrian tracking application.
         PedestrianAttrRecogApp app = new PedestrianAttrRecogApp(propCenter);
@@ -140,7 +165,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
         private final int procTime;
 
-        public RecogStream(SystemPropertyCenter propCenter) throws Exception {
+        public RecogStream(AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
                     propCenter.verbose ? Level.DEBUG : Level.INFO,
                     propCenter.reportListenerAddr,
@@ -186,7 +211,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             attrRecogSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
-                    Inet4Address.getByName("172.18.33.90"), 8500,
+                    propCenter.externAttrRecogServerAddr, propCenter.externAttrRecogServerPort,
                     loggerSingleton.getInst()
             ));
         }

@@ -137,6 +137,11 @@ public class SystemPropertyCenter {
     public boolean verbose = false;
 
     /**
+     * Subclasses can continue to analyze this property storage.
+     */
+    protected Properties sysProps = new Properties();
+
+    /**
      * Construction function supporting allocating a SystemPropertyCenter then
      * filling in the properties manually.
      */
@@ -208,7 +213,6 @@ public class SystemPropertyCenter {
         }
 
         // Load properties from file.
-        Properties sysProps = new Properties();
         BufferedInputStream propInputStream;
         try {
             if (sysPropFilePath.contains("hdfs:/")) {
