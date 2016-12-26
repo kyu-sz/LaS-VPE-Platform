@@ -384,7 +384,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
     public static class SavingStream extends Stream {
 
-        public static final Info INFO = new Info("saving", DataTypes.NONE);
+        public static final Info INFO = new Info("data-saving", DataTypes.NONE);
         public static final Topic PED_TRACKLET_SAVING_TOPIC =
                 new Topic("pedestrian-tracklet-saving",
                         DataTypes.TRACKLET,
@@ -596,28 +596,23 @@ public class DataManagingApp extends SparkStreamingApp {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
             buildBytesDirectStream(jssc, Arrays.asList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams, procTime)
-                    .foreachRDD(rdd -> {
+                    .foreachRDD(rdd ->
                         rdd.foreach(res -> {
                             try {
                                 TaskData taskData;
                                 taskData = (TaskData) deserialize(res._2());
                                 Attributes attr = (Attributes) taskData.predecessorRes;
 
-                                loggerSingleton.getInst()
-                                        .debug("Received " + res._1() + ": " + attr);
+                                loggerSingleton.getInst().debug("Received " + res._1() + ": " + attr);
 
-                                dbConnSingleton.getInst().setPedestrianAttributes(
-                                        attr.trackletID.toString(),
-                                        attr);
+                                dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr);
 
-                                loggerSingleton.getInst()
-                                        .debug("Saved " + res._1() + ": " + attr);
+                                loggerSingleton.getInst().debug("Saved " + res._1() + ": " + attr);
                             } catch (Exception e) {
-                                loggerSingleton.getInst()
-                                        .error("When decompressing attributes", e);
+                                loggerSingleton.getInst().error("When decompressing attributes", e);
                             }
-                        });
-                    });
+                        })
+                    );
 
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
