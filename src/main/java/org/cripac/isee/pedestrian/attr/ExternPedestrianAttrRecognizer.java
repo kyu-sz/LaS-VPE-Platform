@@ -132,6 +132,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             ++numRequestWaiting;
         }
         logger.debug("Sent request " + message.id + " for tracklet " + tracklet.id);
+        logger.debug("Currently waiting requests: " + numRequestWaiting);
 
         // Wait until the result is received and stored in the result pool.
         while (true) {
@@ -244,6 +245,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
             while (true) {
                 if (numRequestWaiting == 0) {
+                    logger.debug("No waiting requests.");
                     continue;
                 }
                 assert numRequestWaiting > 0;
