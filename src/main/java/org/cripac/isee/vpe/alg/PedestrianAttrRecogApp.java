@@ -78,7 +78,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         attrRecogStream = new RecogStream(propCenter);
     }
 
-    private static class AppPropertyCenter extends SystemPropertyCenter {
+    public static class AppPropertyCenter extends SystemPropertyCenter {
 
         public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         public int externAttrRecogServerPort = 0;

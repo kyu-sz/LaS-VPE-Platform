@@ -27,10 +27,11 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
+import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
+import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.Topic;
-import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
@@ -39,7 +40,10 @@ import org.junit.Before;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.UUID;
@@ -65,6 +69,8 @@ public class PedestrianAttrRecogAppTest {
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
+    public InetAddress externAttrRecogServerAddr;
+    public int externAttrRecogServerPort = 0;
 
     public static void main(String[] args) {
         PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
@@ -75,7 +81,8 @@ public class PedestrianAttrRecogAppTest {
             return;
         }
         try {
-            test.testAttrRecog();
+            test.testExternAttrReognizer();
+            test.testAttrRecogApp();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -86,8 +93,13 @@ public class PedestrianAttrRecogAppTest {
         init(new String[0]);
     }
 
-    public void init(String[] args) throws SAXException, ParserConfigurationException, URISyntaxException {
-        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
+    public void init(String[] args)
+            throws SAXException, ParserConfigurationException, URISyntaxException, UnknownHostException {
+        PedestrianAttrRecogApp.AppPropertyCenter propCenter =
+                new PedestrianAttrRecogApp.AppPropertyCenter(args);
+
+        externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
+        externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
 
         TopicManager.checkTopics(propCenter);
 
@@ -121,7 +133,17 @@ public class PedestrianAttrRecogAppTest {
     }
 
     //    @Test
-    public void testAttrRecog() throws Exception {
+    public void testExternAttrReognizer() throws IOException {
+        PedestrianAttrRecognizer recognizer =
+                new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
+                        externAttrRecogServerPort, logger);
+
+        Tracklet tracklet = new FakePedestrianTracker().track(new byte[0])[0];
+        logger.info(recognizer.recognize(tracklet));
+    }
+
+    //    @Test
+    public void testAttrRecogApp() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node recogNode =
                 plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
