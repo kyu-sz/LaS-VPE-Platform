@@ -23,6 +23,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.Attributes;
+import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -99,25 +100,33 @@ public class DataManagingAppTest {
     //    @Test
     public void testTrackletSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode =
-                plan.addNode(DataManagingApp.SavingStream.INFO);
-        TaskData data = new TaskData(savingNode, plan,
-                new FakePedestrianTracker().track(new byte[0])[0]);
-        sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
-                UUID.randomUUID().toString(),
-                serialize(data),
-                producer,
-                logger);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
+
+        Tracklet[] tracklets = new FakePedestrianTracker().track(new byte[0]);
+        Tracklet.Identifier identifier = new Tracklet.Identifier("fake", 0);
+        String taskID = UUID.randomUUID().toString();
+        for (Tracklet tracklet : tracklets) {
+            tracklet.id = identifier;
+
+            TaskData data = new TaskData(savingNode, plan, tracklet);
+            sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
+                    taskID,
+                    serialize(data),
+                    producer,
+                    logger);
+        }
     }
 
     //    @Test
     public void testAttrSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode =
-                plan.addNode(DataManagingApp.SavingStream.INFO);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
+
         Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
                 new FakePedestrianTracker().track(new byte[0])[0]);
+        attributes.trackletID = new Tracklet.Identifier("fake", 0);
         assert attributes != null;
+
         TaskData data = new TaskData(savingNode, plan, attributes);
         sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
