@@ -573,9 +573,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                     opt.add(videoRoot);
                                     arch.run(Arrays.copyOf(opt.toArray(), opt.size(), String[].class));
 
-                                    loggerSingleton.getInst()
-                                            .info("Task " + taskID
-                                                    + "(" + tracklet.id.videoID + ") packed!");
+                                    loggerSingleton.getInst().info(
+                                            "Task " + taskID + "(" + tracklet.id.videoID + ") packed!");
 
                                     dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.toString(),
                                             videoRoot + "/" + taskID + ".har");

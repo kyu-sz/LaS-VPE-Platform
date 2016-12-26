@@ -103,10 +103,10 @@ public class DataManagingAppTest {
         TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
 
         Tracklet[] tracklets = new FakePedestrianTracker().track(new byte[0]);
-        Tracklet.Identifier identifier = new Tracklet.Identifier("fake", 0);
         String taskID = UUID.randomUUID().toString();
-        for (Tracklet tracklet : tracklets) {
-            tracklet.id = identifier;
+        for (int i = 0; i < tracklets.length; ++i) {
+            Tracklet tracklet = tracklets[i];
+            tracklet.id = new Tracklet.Identifier("fake", i);
 
             TaskData data = new TaskData(savingNode, plan, tracklet);
             sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
