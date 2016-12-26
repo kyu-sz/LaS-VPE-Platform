@@ -91,16 +91,6 @@ public class MainController {
                 propCenter.reportListenerPort = server.getLocalPort();
             }
 
-            String[] arguments = propCenter.getArgs();
-
-            if (propCenter.verbose) {
-                System.out.print("[INFO]Submitting with args:");
-                for (String arg : arguments) {
-                    System.out.print(" " + arg);
-                }
-                System.out.println("");
-            }
-
             final class ProcessWithName {
                 public Process process;
                 public String name;
@@ -118,25 +108,7 @@ public class MainController {
                     propCenter.appPropFilePath = ConfManager.CONF_DIR + "/" + appName + "/app.properties";
                 }
 
-                SparkLauncher launcher = new SparkLauncher()
-                        .setAppResource(propCenter.jarPath)
-                        .setMainClass(AppManager.getMainClassName(appName))
-                        .setMaster(propCenter.sparkMaster)
-                        .setAppName(appName)
-                        .setPropertiesFile(propCenter.sparkConfFilePath)
-                        .setVerbose(propCenter.verbose)
-                        .addFile(propCenter.log4jPropFilePath)
-                        .addFile(propCenter.sysPropFilePath)
-                        .addFile(ConfManager.getConcatCfgFilePathList(","))
-                        .setConf(SparkLauncher.DRIVER_MEMORY, propCenter.driverMem)
-                        .setConf(SparkLauncher.EXECUTOR_MEMORY, propCenter.executorMem)
-                        .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
-                        .setConf(SparkLauncher.EXECUTOR_CORES, "" + propCenter.executorCores)
-                        .addSparkArg("--driver-cores", "" + propCenter.driverCores)
-                        .addSparkArg("--num-executors", "" + propCenter.numExecutors)
-                        .addSparkArg("--total-executor-cores", "" + propCenter.totalExecutorCores)
-                        .addSparkArg("--queue", propCenter.hadoopQueue)
-                        .addAppArgs(propCenter.getArgs());
+                SparkLauncher launcher = propCenter.GetLauncher(appName);
                 if (new File(propCenter.appPropFilePath).exists()) {
                     launcher.addFile(propCenter.appPropFilePath);
                 }

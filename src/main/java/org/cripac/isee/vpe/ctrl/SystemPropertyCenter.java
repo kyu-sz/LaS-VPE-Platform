@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Level;
+import org.apache.spark.launcher.SparkLauncher;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
@@ -358,7 +359,7 @@ public class SystemPropertyCenter implements Serializable {
      * @return An array of string with format required by SparkSubmit client.
      * @throws NoAppSpecifiedException When no application is specified to run.
      */
-    public String[] getArgs() throws NoAppSpecifiedException {
+    private String[] getArgs() throws NoAppSpecifiedException {
         ArrayList<String> optList = new ArrayList<>();
 
         if (verbose) {
@@ -371,15 +372,7 @@ public class SystemPropertyCenter implements Serializable {
         }
 
         optList.add("--system-property-file");
-        if (sparkMaster.toLowerCase().contains("yarn")) {
-            optList.add("system.properties");
-        } else if (sparkMaster.toLowerCase().contains("local")) {
-            optList.add(sysPropFilePath);
-        } else {
-            throw new NotImplementedException(
-                    "System is currently not supporting deploy mode: "
-                            + sparkMaster);
-        }
+        optList.add(new File(sysPropFilePath).getName());
 
         optList.add("--log4j-property-file");
         if (sparkMaster.toLowerCase().contains("yarn")) {
@@ -399,6 +392,32 @@ public class SystemPropertyCenter implements Serializable {
         optList.add("" + reportListenerPort);
 
         return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);
+    }
+
+    public SparkLauncher GetLauncher(String appName) throws IOException {
+        SparkLauncher launcher = new SparkLauncher()
+                .setAppResource(jarPath)
+                .setMainClass(AppManager.getMainClassName(appName))
+                .setMaster(sparkMaster)
+                .setAppName(appName)
+                .setPropertiesFile(sparkConfFilePath)
+                .setVerbose(verbose)
+                .addFile(log4jPropFilePath)
+                .addFile(sysPropFilePath)
+                .addFile(ConfManager.getConcatCfgFilePathList(","))
+                .setConf(SparkLauncher.DRIVER_MEMORY, driverMem)
+                .setConf(SparkLauncher.EXECUTOR_MEMORY, executorMem)
+                .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
+                .setConf(SparkLauncher.EXECUTOR_CORES, "" + executorCores)
+                .addSparkArg("--driver-cores", "" + driverCores)
+                .addSparkArg("--num-executors", "" + numExecutors)
+                .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
+                .addSparkArg("--queue", hadoopQueue)
+                .addAppArgs(getArgs());
+        if (appPropFilePath != null) {
+            launcher = launcher.addFile(appPropFilePath);
+        }
+        return launcher;
     }
 
     /**

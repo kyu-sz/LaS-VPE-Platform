@@ -137,7 +137,6 @@ public class PedestrianAttrRecogAppTest {
         PedestrianAttrRecognizer recognizer =
                 new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
                         externAttrRecogServerPort, logger);
-
         Tracklet tracklet = new FakePedestrianTracker().track(new byte[0])[0];
         logger.info(recognizer.recognize(tracklet));
     }

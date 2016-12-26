@@ -102,14 +102,15 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
     public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,
                                           int port,
                                           @Nullable Logger logger) throws IOException {
-        socket = new Socket(solverAddress, port);
-        resListeningThread = new Thread(new ResultListener(new BufferedInputStream(socket.getInputStream())));
-        resListeningThread.start();
         if (logger == null) {
             this.logger = new ConsoleLogger();
         } else {
             this.logger = logger;
         }
+        logger.debug("Using extern recognition server at " + solverAddress.getHostAddress() + ":" + port);
+        socket = new Socket(solverAddress, port);
+        resListeningThread = new Thread(new ResultListener(new BufferedInputStream(socket.getInputStream())));
+        resListeningThread.start();
 
     }
 
