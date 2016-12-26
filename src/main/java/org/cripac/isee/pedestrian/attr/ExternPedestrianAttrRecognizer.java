@@ -38,8 +38,6 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -86,8 +84,6 @@ import java.util.UUID;
 public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
     protected Socket socket;
-    private Thread resListeningThread = null;
-    private Map<UUID, Attributes> resultPool = new HashMap<>();
     private Logger logger;
     private int numRequestWaiting = 0;
 
@@ -109,9 +105,6 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         }
         logger.debug("Using extern recognition server at " + solverAddress.getHostAddress() + ":" + port);
         socket = new Socket(solverAddress, port);
-        resListeningThread = new Thread(new ResultListener(new BufferedInputStream(socket.getInputStream())));
-        resListeningThread.start();
-
     }
 
     /*
@@ -134,20 +127,44 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         logger.debug("Sent request " + message.id + " for tracklet " + tracklet.id);
         logger.debug("Currently waiting requests: " + numRequestWaiting);
 
-        // Wait until the result is received and stored in the result pool.
-        while (true) {
-            synchronized (resultPool) {
-                if (resultPool.containsKey(message.id)) {
-                    return resultPool.get(message.id);
-                } else {
-                    try {
-                        Thread.sleep(5);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
+        byte[] idMSBBuf = new byte[8];
+        byte[] idLSBBuf = new byte[8];
+        byte[] jsonLenBytes = new byte[4];
+        byte[] jsonBytes = null;
+
+        InputStream inputStream = new BufferedInputStream(socket.getInputStream());
+
+        UUID id;
+
+        // Receive data from socket.
+        logger.debug("Starting to receive messages.");
+
+        int ret = 0;
+        // 8 * 2 bytes - Request UUID.
+        ret = inputStream.read(idMSBBuf, 0, idMSBBuf.length);
+        assert (idMSBBuf.length == ret);
+        ret = inputStream.read(idLSBBuf, 0, idLSBBuf.length);
+        assert (idLSBBuf.length == ret);
+        id = new UUID(ByteBuffer.wrap(idMSBBuf).getLong(), ByteBuffer.wrap(idLSBBuf).getLong());
+        logger.debug("Receiving result for request " + id + ".");
+
+        // 4 bytes - Length of JSON.
+        ret = inputStream.read(jsonLenBytes, 0, jsonLenBytes.length);
+        assert (jsonLenBytes.length == ret);
+
+        int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
+        // Create a buffer for JSON.
+        jsonBytes = new byte[jsonLen];
+        logger.debug("To receive " + jsonLen + " bytes.");
+
+        // jsonLen bytes - Bytes of UTF-8 JSON string representing
+        // the attributes.
+        ret = inputStream.read(jsonBytes, 0, jsonBytes.length);
+        assert (jsonBytes.length == ret);
+
+        // Parse the data into results.
+        Attributes attr = new Gson().fromJson(new String(jsonBytes, StandardCharsets.UTF_8), Attributes.class);
+        return attr;
     }
 
     /**
@@ -208,92 +225,4 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             bufferedStream.flush();
         }
     }
-
-    /**
-     * The ResultListener class listens to the socket for pedestrian attributes
-     * passed in JSON format then store them into the result pool.
-     *
-     * @author Ken Yu, CRIPAC, 2016
-     */
-    private class ResultListener implements Runnable {
-        /**
-         * The input stream of the socket.
-         */
-        InputStream inputStream;
-
-        /**
-         * Construct a listener listening to the socket.
-         *
-         * @param inputStream Input stream from the socket.
-         * @throws IOException
-         */
-        public ResultListener(@Nonnull InputStream inputStream) {
-            this.inputStream = inputStream;
-        }
-
-        /*
-         * (non-Javadoc)
-         *
-         * @see java.lang.Runnable#run()
-         */
-        @Override
-        public void run() {
-            byte[] idMSBBuf = new byte[8];
-            byte[] idLSBBuf = new byte[8];
-            byte[] jsonLenBytes = new byte[4];
-            byte[] jsonBytes = null;
-
-            while (true) {
-                if (numRequestWaiting == 0) {
-                    logger.debug("No waiting requests.");
-                    continue;
-                }
-                assert numRequestWaiting > 0;
-
-                UUID id;
-
-                // Receive data from socket.
-                logger.debug("Result listener: Starting a new round of message receiving.");
-                try {
-                    int ret = 0;
-                    // 8 * 2 bytes - Request UUID.
-                    ret = inputStream.read(idMSBBuf, 0, idMSBBuf.length);
-                    assert (idMSBBuf.length == ret);
-                    ret = inputStream.read(idLSBBuf, 0, idLSBBuf.length);
-                    assert (idLSBBuf.length == ret);
-                    id = new UUID(ByteBuffer.wrap(idMSBBuf).getLong(), ByteBuffer.wrap(idLSBBuf).getLong());
-                    logger.debug("Result listener: Receiving result for request " + id + ".");
-
-                    // 4 bytes - Length of JSON.
-                    ret = inputStream.read(jsonLenBytes, 0, jsonLenBytes.length);
-                    assert (jsonLenBytes.length == ret);
-
-                    int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
-                    // Create a buffer for JSON.
-                    jsonBytes = new byte[jsonLen];
-                    logger.debug("Result listener: To receive " + jsonLen + " bytes.");
-
-                    // jsonLen bytes - Bytes of UTF-8 JSON string representing
-                    // the attributes.
-                    ret = inputStream.read(jsonBytes, 0, jsonBytes.length);
-                    assert (jsonBytes.length == ret);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    return;
-                }
-
-                // Parse the data into results.
-                Attributes attr = new Gson().fromJson(new String(jsonBytes, StandardCharsets.UTF_8), Attributes.class);
-                logger.debug("Result listener: Result for request " + id + " is " + attr);
-
-                // Store the results.
-                synchronized (resultPool) {
-                    resultPool.put(id, attr);
-                    --numRequestWaiting;
-                }
-                logger.debug("Result listener: Result for request " + id + " is stored.");
-            }
-        }
-    }
-
 }
