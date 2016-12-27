@@ -134,22 +134,11 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
         InputStream inputStream = new BufferedInputStream(socket.getInputStream());
 
-        UUID id;
-
         // Receive data from socket.
         logger.debug("Starting to receive messages.");
 
-        int ret = 0;
-        // 8 * 2 bytes - Request UUID.
-        ret = inputStream.read(idMSBBuf, 0, idMSBBuf.length);
-        assert (idMSBBuf.length == ret);
-        ret = inputStream.read(idLSBBuf, 0, idLSBBuf.length);
-        assert (idLSBBuf.length == ret);
-        id = new UUID(ByteBuffer.wrap(idMSBBuf).getLong(), ByteBuffer.wrap(idLSBBuf).getLong());
-        logger.debug("Receiving result for request " + id + ".");
-
         // 4 bytes - Length of JSON.
-        ret = inputStream.read(jsonLenBytes, 0, jsonLenBytes.length);
+        int ret = ret = inputStream.read(jsonLenBytes, 0, jsonLenBytes.length);
         assert (jsonLenBytes.length == ret);
 
         int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
