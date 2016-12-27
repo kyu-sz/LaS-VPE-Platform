@@ -134,13 +134,14 @@ public class PedestrianAttrRecogAppTest {
 
     //    @Test
     public void testExternAttrReognizer() throws IOException {
+        logger.info("Testing extern attr recognizer.");
         PedestrianAttrRecognizer recognizer =
                 new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
                         externAttrRecogServerPort, logger);
         Tracklet tracklet = new FakePedestrianTracker().track(new byte[0])[0];
-        logger.debug("Tracklet length: " + tracklet.locationSequence.length);
+        logger.info("Tracklet length: " + tracklet.locationSequence.length);
         for (Tracklet.BoundingBox boundingBox : tracklet.locationSequence) {
-            logger.debug("\tbbox: " + boundingBox.x + " " + boundingBox.y
+            logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
                     + " " + boundingBox.width + " " + boundingBox.height);
         }
         logger.info(recognizer.recognize(tracklet));
@@ -148,6 +149,7 @@ public class PedestrianAttrRecogAppTest {
 
     //    @Test
     public void testAttrRecogApp() throws Exception {
+        logger.info("Testing attr recogn app.");
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
         plan.letNodeOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
