@@ -138,6 +138,11 @@ public class PedestrianAttrRecogAppTest {
                 new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
                         externAttrRecogServerPort, logger);
         Tracklet tracklet = new FakePedestrianTracker().track(new byte[0])[0];
+        logger.debug("Tracklet length: " + tracklet.locationSequence.length);
+        for (Tracklet.BoundingBox boundingBox : tracklet.locationSequence) {
+            logger.debug("\tbbox: " + boundingBox.x + " " + boundingBox.y
+                    + " " + boundingBox.width + " " + boundingBox.height);
+        }
         logger.info(recognizer.recognize(tracklet));
     }
 

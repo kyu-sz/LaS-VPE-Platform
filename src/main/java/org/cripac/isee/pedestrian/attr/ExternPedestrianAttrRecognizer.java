@@ -199,14 +199,8 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         public void getBytes(@Nonnull OutputStream outputStream) throws IOException {
             BufferedOutputStream bufferedStream = new BufferedOutputStream(outputStream);
 
-            // 16 bytes - Request UUID.
-            ByteBuffer buf = ByteBuffer.allocate(Long.BYTES * 2);
-            buf.putLong(id.getMostSignificantBits());
-            buf.putLong(id.getLeastSignificantBits());
-            bufferedStream.write(buf.array());
-
             // 4 bytes - Tracklet length (number of bounding boxes).
-            buf = ByteBuffer.allocate(Integer.BYTES);
+            ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
             buf.putInt(tracklet.locationSequence.length);
             bufferedStream.write(buf.array());
             // Each bounding box.
