@@ -82,7 +82,6 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
     protected Socket socket;
     private Logger logger;
-    private int numRequestWaiting = 0;
 
     /**
      * Constructor of ExternPedestrianAttrRecognizer specifying extern solver's
@@ -117,41 +116,12 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         RequestMessage message = new RequestMessage(tracklet);
 
         // Write the bytes of the message to the socket.
-        synchronized (socket) {
-            message.getBytes(socket.getOutputStream());
-            ++numRequestWaiting;
-        }
+        message.getBytes(socket.getOutputStream());
         logger.debug("Sent request for tracklet " + tracklet.id);
-        logger.debug("Currently waiting requests: " + numRequestWaiting);
-
-        byte[] jsonLenBytes = new byte[4];
-
-        InputStream inputStream = new BufferedInputStream(socket.getInputStream());
 
         // Receive data from socket.
         logger.debug("Starting to receive messages.");
-
-        // 4 bytes - Length of JSON.
-        int ret = ret = inputStream.read(jsonLenBytes, 0, jsonLenBytes.length);
-        assert (jsonLenBytes.length == ret);
-
-//        int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
-//        // Create a buffer for JSON.
-//        byte[] jsonBytes = new byte[jsonLen];
-//        logger.debug("To receive " + jsonLen + " bytes.");
-//
-//        // jsonLen bytes - Bytes of UTF-8 JSON string representing
-//        // the attributes.
-//        ret = inputStream.read(jsonBytes, 0, jsonBytes.length);
-//        assert (jsonBytes.length == ret);
-//
-//        // Parse the data into results.
-//        String json = new String(jsonBytes, StandardCharsets.US_ASCII);
-//        logger.debug("Received attr json (len=" + json.length() + "): " + json);
-//        logger.debug("Meets first EOF at " + json.indexOf("\0"));
-//        Attributes attr = new Gson().fromJson(json, Attributes.class);
-        Attributes attr = new Gson().fromJson(new InputStreamReader(socket.getInputStream()), Attributes.class);
-        return attr;
+        return new Gson().fromJson(new InputStreamReader(socket.getInputStream()), Attributes.class);
     }
 
     /**
