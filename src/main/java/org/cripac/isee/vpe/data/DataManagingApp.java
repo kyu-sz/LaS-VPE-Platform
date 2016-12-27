@@ -561,8 +561,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                 // Decrease one for directory counter.
                                 if (cnt - 1 == numTracklets) {
                                     loggerSingleton.getInst()
-                                            .info("Task " + taskID
-                                                    + "(" + tracklet.id.videoID + ") finished!");
+                                            .info("Starting to pack metadata for Task " + taskID
+                                                    + "(" + tracklet.id.videoID + ")!");
 
                                     HadoopArchives arch = new HadoopArchives(new Configuration());
                                     ArrayList<String> opt = new ArrayList<>();

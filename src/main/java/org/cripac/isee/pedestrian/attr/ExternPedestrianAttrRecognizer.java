@@ -38,7 +38,6 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
 /**
  * The class ExternPedestrianAttrRecognizer is a recognizer of pedestrian
@@ -124,13 +123,10 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             message.getBytes(socket.getOutputStream());
             ++numRequestWaiting;
         }
-        logger.debug("Sent request " + message.id + " for tracklet " + tracklet.id);
+        logger.debug("Sent request for tracklet " + tracklet.id);
         logger.debug("Currently waiting requests: " + numRequestWaiting);
 
-        byte[] idMSBBuf = new byte[8];
-        byte[] idLSBBuf = new byte[8];
         byte[] jsonLenBytes = new byte[4];
-        byte[] jsonBytes = null;
 
         InputStream inputStream = new BufferedInputStream(socket.getInputStream());
 
@@ -143,7 +139,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
         int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
         // Create a buffer for JSON.
-        jsonBytes = new byte[jsonLen];
+        byte[] jsonBytes = new byte[jsonLen];
         logger.debug("To receive " + jsonLen + " bytes.");
 
         // jsonLen bytes - Bytes of UTF-8 JSON string representing
@@ -152,7 +148,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         assert (jsonBytes.length == ret);
 
         // Parse the data into results.
-        String json = new String(jsonBytes, StandardCharsets.UTF_8);
+        String json = new String(jsonBytes, StandardCharsets.US_ASCII);
         logger.debug("Received attr json (len=" + json.length() + "): " + json);
         Attributes attr = new Gson().fromJson(json, Attributes.class);
         return attr;
@@ -168,7 +164,6 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
         private static final long serialVersionUID = -2921106573399450286L;
 
-        public UUID id = UUID.randomUUID();
         public Tracklet tracklet = null;
 
         /**
