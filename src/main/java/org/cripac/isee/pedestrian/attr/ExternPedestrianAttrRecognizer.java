@@ -153,7 +153,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
         // Parse the data into results.
         String json = new String(jsonBytes, StandardCharsets.UTF_8);
-        logger.debug("Received attr json: " + json);
+        logger.debug("Received attr json (len=" + json.length() + "): " + json);
         Attributes attr = new Gson().fromJson(json, Attributes.class);
         return attr;
     }
