@@ -385,7 +385,11 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                 taskData.curNode.markExecuted();
                                 // Send to all the successor nodes.
                                 for (Topic topic : succTopics) {
-                                    taskData.changeCurNode(topic);
+                                    try {
+                                        taskData.changeCurNode(topic);
+                                    } catch (RecordNotFoundException e) {
+                                        logger.warn("When changing node in TaskData", e);
+                                    }
                                     sendWithLog(topic,
                                             taskID,
                                             serialize(taskData),

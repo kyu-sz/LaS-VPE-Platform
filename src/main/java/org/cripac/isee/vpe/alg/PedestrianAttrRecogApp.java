@@ -223,10 +223,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             // Recognize attributes from the tracklets.
             buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams, procTime)
                     .mapValues(taskDataBytes -> {
-                        loggerSingleton.getInst().debug("Trying to recover " + TaskData.class.getName()
-                                + " with serialVersionUID=" + TaskData.serialVersionUID);
-                        loggerSingleton.getInst().debug(Class.forName(TaskData.class.getName(),
-                                true, TaskData.class.getClassLoader()).getName() + " can be found!");
                         TaskData taskData;
                         try {
                             taskData = (TaskData) deserialize(taskDataBytes);
@@ -275,7 +271,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     taskData.curNode.markExecuted();
                                     // Send to all the successor nodes.
                                     for (Topic topic : succTopics) {
-                                        taskData.changeCurNode(topic);
+                                        try {
+                                            taskData.changeCurNode(topic);
+                                        } catch (RecordNotFoundException e) {
+                                            logger.warn("When changing node in TaskData", e);
+                                        }
                                         sendWithLog(topic,
                                                 taskID,
                                                 serialize(taskData),

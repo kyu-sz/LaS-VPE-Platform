@@ -490,7 +490,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             taskData.predecessorRes = tracklet;
                             // Send to all the successor nodes.
                             for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
+                                try {
+                                    taskData.changeCurNode(topic);
+                                } catch (RecordNotFoundException e) {
+                                    logger.warn("When changing node in TaskData", e);
+                                }
 
                                 byte[] serialized = serialize(taskData);
                                 logger.debug("To sendWithLog message with size: "

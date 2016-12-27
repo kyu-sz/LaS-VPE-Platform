@@ -44,37 +44,22 @@ import java.nio.ByteBuffer;
  * responses containing the attributes. The requests and responses are processed
  * asynchronously, matched by request UUID.
  * Request format
- * </p>
+ * <p>
  * 16 bytes - Request UUID.
- * </ p>
+ * <p>
  * 4 bytes - Tracklet length (number of bounding boxes).
- * </ p>
  * <p>
  * foreach bounding box: {
- * </p>
  * <p>
  * 16 bytes - Bounding box data (x, y, width, height).
- * </p>
  * <p>
  * width * height * 3 bytes - Image data.
- * </p>
  * <p>
  * }
- * </p>
- * <p>
- * </p>
  * <p>
  * Response format
- * </p>
  * <p>
- * 16 bytes - Request UUID.
- * </p>
- * <p>
- * 4 bytes - Length of JSON representing the attributes (jsonLen).
- * </p>
- * <p>
- * jsonLen bytes - Bytes of UTF-8 JSON string representing the attributes.
- * </p>
+ * jsonLen bytes - Bytes of JSON string representing the attributes.
  *
  * @author Ken Yu, CRIPAC, 2016
  */

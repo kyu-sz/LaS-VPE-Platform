@@ -47,10 +47,7 @@ import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataTypes;
-import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -260,7 +257,11 @@ public class DataManagingApp extends SparkStreamingApp {
                             }
                             // Send to all the successor nodes.
                             for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
+                                try {
+                                    taskData.changeCurNode(topic);
+                                } catch (RecordNotFoundException e) {
+                                    logger.warn("When changing node in TaskData", e);
+                                }
                                 sendWithLog(topic,
                                         job._1(),
                                         serialize(taskData),
@@ -340,12 +341,13 @@ public class DataManagingApp extends SparkStreamingApp {
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> {
                         rdd.foreach(job -> {
+                            Logger logger = loggerSingleton.getInst();
                             // Recover task data.
                             TaskData taskData;
                             try {
                                 taskData = (TaskData) deserialize(job._2());
                             } catch (Exception e) {
-                                loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                logger.error("During TaskData deserialization", e);
                                 return;
                             }
                             // Get parameters for the job.
@@ -358,10 +360,9 @@ public class DataManagingApp extends SparkStreamingApp {
                             info.tracklet = retrieveTracklet(
                                     dbConnSingleton.getInst().getTrackletSavingDir(videoURL),
                                     trackletID,
-                                    loggerSingleton.getInst());
+                                    logger);
                             // Retrieve the attributes from database.
-                            info.attr = dbConnSingleton.getInst()
-                                    .getPedestrianAttributes(trackletID.toString());
+                            info.attr = dbConnSingleton.getInst().getPedestrianAttributes(trackletID.toString());
                             taskData.predecessorRes = info;
 
                             // Get the IDs of successor nodes.
@@ -370,12 +371,16 @@ public class DataManagingApp extends SparkStreamingApp {
                             taskData.curNode.markExecuted();
                             // Send to all the successor nodes.
                             for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
+                                try {
+                                    taskData.changeCurNode(topic);
+                                } catch (RecordNotFoundException e) {
+                                    logger.warn("When changing node in TaskData", e);
+                                }
                                 sendWithLog(topic,
                                         job._1(),
                                         serialize(taskData),
                                         producerSingleton.getInst(),
-                                        loggerSingleton.getInst());
+                                        logger);
                             }
                         });
                     });
