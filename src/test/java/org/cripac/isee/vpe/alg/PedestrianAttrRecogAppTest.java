@@ -144,8 +144,7 @@ public class PedestrianAttrRecogAppTest {
     //    @Test
     public void testAttrRecogApp() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node recogNode =
-                plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
+        TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
         plan.letNodeOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
 
         // Send request (fake tracklet).

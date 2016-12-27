@@ -43,6 +43,7 @@ public class FakePedestrianTracker extends Tracker {
             bbox.x = random.nextInt(bbox.width) + 1;
             bbox.y = random.nextInt(bbox.height) + 1;
             bbox.patchData = new byte[bbox.x * bbox.y * 3];
+            random.nextBytes(bbox.patchData);
 
             tracklet.locationSequence[i] = bbox;
         }
