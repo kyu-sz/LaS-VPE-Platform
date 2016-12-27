@@ -22,7 +22,7 @@ import java.io.Serializable;
 
 /**
  * A simple logger for output logs to the console only.
- *
+ * <p>
  * Created by ken.yu on 16-10-24.
  */
 public class ConsoleLogger extends Logger implements Serializable {
@@ -63,6 +63,22 @@ public class ConsoleLogger extends Logger implements Serializable {
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             System.out.println("[INFO]localhost\t" + msg);
+            t.printStackTrace();
+        }
+    }
+
+    @Override
+    public void warn(@Nonnull Object msg) {
+        if (Level.WARN.isGreaterOrEqual(level)) {
+            System.out.println("[WARN]localhost\t" + msg);
+        }
+    }
+
+    @Override
+    public void warn(@Nonnull Object msg,
+                     @Nonnull Throwable t) {
+        if (Level.WARN.isGreaterOrEqual(level)) {
+            System.out.println("[WARN]localhost\t" + msg);
             t.printStackTrace();
         }
     }

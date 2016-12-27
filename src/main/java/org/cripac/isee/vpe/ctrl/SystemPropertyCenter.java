@@ -400,10 +400,7 @@ public class SystemPropertyCenter implements Serializable {
                 .setMainClass(AppManager.getMainClassName(appName))
                 .setMaster(sparkMaster)
                 .setAppName(appName)
-                .setPropertiesFile(sparkConfFilePath)
                 .setVerbose(verbose)
-                .addFile(log4jPropFilePath)
-                .addFile(sysPropFilePath)
                 .addFile(ConfManager.getConcatCfgFilePathList(","))
                 .setConf(SparkLauncher.DRIVER_MEMORY, driverMem)
                 .setConf(SparkLauncher.EXECUTOR_MEMORY, executorMem)
@@ -414,8 +411,34 @@ public class SystemPropertyCenter implements Serializable {
                 .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
                 .addSparkArg("--queue", hadoopQueue)
                 .addAppArgs(getArgs());
+        if (sparkConfFilePath != null) {
+            if (new File(sparkConfFilePath).exists()) {
+                launcher = launcher.setPropertiesFile(sparkConfFilePath);
+            } else {
+                logger.warn("Spark configuration file " + sparkConfFilePath + " does not exist!");
+            }
+        }
+        if (log4jPropFilePath != null) {
+            if (new File(log4jPropFilePath).exists()) {
+                launcher = launcher.addFile(log4jPropFilePath);
+            } else {
+                logger.warn("Loj4j configuration file " + log4jPropFilePath + " does not exist!");
+            }
+        }
+        if (sysPropFilePath != null) {
+            if (new File(sysPropFilePath).exists()) {
+                launcher = launcher.addFile(sysPropFilePath);
+            } else {
+                logger.warn("System configuration file " + sysPropFilePath + " does not exist!");
+            }
+            launcher = launcher.addFile(sysPropFilePath);
+        }
         if (appPropFilePath != null) {
-            launcher = launcher.addFile(appPropFilePath);
+            if (new File(appPropFilePath).exists()) {
+                launcher = launcher.addFile(appPropFilePath);
+            } else {
+                logger.warn("App configuration file " + appPropFilePath + " does not exist!");
+            }
         }
         return launcher;
     }

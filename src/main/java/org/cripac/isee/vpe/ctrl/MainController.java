@@ -23,7 +23,6 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.File;
 import java.io.IOException;
 import java.net.*;
 import java.util.LinkedList;
@@ -102,16 +101,8 @@ public class MainController {
             }
 
             List<ProcessWithName> processesWithNames = new LinkedList<>();
-            boolean useDefaultAppProperties = (propCenter.appPropFilePath == null);
             for (String appName : propCenter.appsToStart) {
-                if (useDefaultAppProperties) {
-                    propCenter.appPropFilePath = ConfManager.CONF_DIR + "/" + appName + "/app.properties";
-                }
-
                 SparkLauncher launcher = propCenter.GetLauncher(appName);
-                if (new File(propCenter.appPropFilePath).exists()) {
-                    launcher.addFile(propCenter.appPropFilePath);
-                }
 
                 Process launcherProcess = launcher.launch();
                 processesWithNames.add(new ProcessWithName(launcherProcess, appName));
