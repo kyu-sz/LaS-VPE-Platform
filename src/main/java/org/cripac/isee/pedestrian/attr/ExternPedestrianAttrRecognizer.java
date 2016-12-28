@@ -65,8 +65,10 @@ import java.nio.ByteBuffer;
  */
 public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
-    protected Socket socket;
     private Logger logger;
+    private Socket socket;
+    private InetAddress solverAddress;
+    private int port;
 
     /**
      * Constructor of ExternPedestrianAttrRecognizer specifying extern solver's
@@ -85,7 +87,29 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             this.logger = logger;
         }
         logger.debug("Using extern recognition server at " + solverAddress.getHostAddress() + ":" + port);
-        socket = new Socket(solverAddress, port);
+        connect(solverAddress, port);
+    }
+
+    public void connect(@Nonnull InetAddress solverAddress, int port) {
+        this.solverAddress = solverAddress;
+        this.port = port;
+        connect();
+    }
+
+    private void connect() {
+        while (true) {
+            try {
+                socket = new Socket(solverAddress, port);
+                break;
+            } catch (IOException e) {
+                logger.error("When connecting to extern attr recog server", e);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e1) {
+                    e1.printStackTrace();
+                }
+            }
+        }
     }
 
     /*
@@ -96,17 +120,24 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      * Tracklet)
      */
     @Override
-    public Attributes recognize(@Nonnull Tracklet tracklet) throws IOException {
+    public Attributes recognize(@Nonnull Tracklet tracklet) {
         // Create a new message consisting the comparation task.
         RequestMessage message = new RequestMessage(tracklet);
 
         // Write the bytes of the message to the socket.
-        message.getBytes(socket.getOutputStream());
-        logger.debug("Sent request for tracklet " + tracklet.id);
+        while (true) {
+            try {
+                message.getBytes(socket.getOutputStream());
+                logger.debug("Sent request for tracklet " + tracklet.id);
 
-        // Receive data from socket.
-        logger.debug("Starting to receive messages.");
-        return new Gson().fromJson(new InputStreamReader(socket.getInputStream()), Attributes.class);
+                // Receive data from socket.
+                logger.debug("Starting to receive messages.");
+                return new Gson().fromJson(new InputStreamReader(socket.getInputStream()), Attributes.class);
+            } catch (IOException e) {
+                logger.error("When communicating with extern attr recog server", e);
+                connect();
+            }
+        }
     }
 
     /**

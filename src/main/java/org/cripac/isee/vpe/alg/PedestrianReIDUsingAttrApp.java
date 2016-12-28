@@ -137,7 +137,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
          */
         public static final Topic TRACKLET_ATTR_TOPIC =
                 new Topic("pedestrian-track-attr-for-reid-using-attr",
-                        DataTypes.TRACKLET, INFO);
+                        DataTypes.TRACKLET_ATTR, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
