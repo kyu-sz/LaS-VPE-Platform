@@ -38,7 +38,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void debug(@Nonnull Object msg) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
-            System.out.println("[DEBUG]localhost\t" + msg);
+            System.out.println("[DEBUG]\tlocalhost\t" + msg);
         }
     }
 
@@ -46,7 +46,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void debug(@Nonnull Object msg,
                       @Nonnull Throwable t) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
-            System.out.println("[DEBUG]localhost\t" + msg);
+            System.out.println("[DEBUG]\tlocalhost\t" + msg);
             t.printStackTrace();
         }
     }
@@ -54,7 +54,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void info(@Nonnull Object msg) {
         if (Level.INFO.isGreaterOrEqual(level)) {
-            System.out.println("[INFO]localhost\t" + msg);
+            System.out.println("[INFO]\tlocalhost\t" + msg);
         }
     }
 
@@ -62,7 +62,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void info(@Nonnull Object msg,
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
-            System.out.println("[INFO]localhost\t" + msg);
+            System.out.println("[INFO]\tlocalhost\t" + msg);
             t.printStackTrace();
         }
     }
@@ -70,7 +70,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void warn(@Nonnull Object msg) {
         if (Level.WARN.isGreaterOrEqual(level)) {
-            System.out.println("[WARN]localhost\t" + msg);
+            System.out.println("[WARNING]\tlocalhost\t" + msg);
         }
     }
 
@@ -78,7 +78,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void warn(@Nonnull Object msg,
                      @Nonnull Throwable t) {
         if (Level.WARN.isGreaterOrEqual(level)) {
-            System.out.println("[WARN]localhost\t" + msg);
+            System.out.println("[WARNING]\tlocalhost\t" + msg);
             t.printStackTrace();
         }
     }
@@ -86,7 +86,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void error(@Nonnull Object msg) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
-            System.err.println("[ERROR]localhost\t" + msg);
+            System.err.println("[ERROR]\tlocalhost\t" + msg);
         }
     }
 
@@ -94,7 +94,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void error(@Nonnull Object msg,
                       @Nonnull Throwable t) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
-            System.err.println("[ERROR]localhost\t" + msg);
+            System.err.println("[ERROR]\tlocalhost\t" + msg);
             t.printStackTrace();
         }
     }
@@ -102,7 +102,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void fatal(@Nonnull Object msg) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
-            System.err.println("[FATAL]localhost\t" + msg);
+            System.err.println("[FATAL]\tlocalhost\t" + msg);
         }
     }
 
@@ -110,7 +110,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void fatal(@Nonnull Object msg,
                       @Nonnull Throwable t) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
-            System.err.println("[FATAL]localhost\t" + msg);
+            System.err.println("[FATAL]\tlocalhost\t" + msg);
             t.printStackTrace();
         }
     }

@@ -17,7 +17,7 @@
 
 package org.cripac.isee.vpe.util.logging;
 
-import org.apache.log4j.Level;
+import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.Factory;
 
 import javax.annotation.Nonnull;
@@ -29,35 +29,19 @@ import javax.annotation.Nonnull;
  */
 public class SynthesizedLoggerFactory implements Factory<Logger> {
 
-    /**
-     * The address the logger may need to sendWithLog logs to.
-     */
-    private String addr;
-
-    /**
-     * The port the logger may need to sendWithLog logs to.
-     */
-    private int port;
-
-    private String appName;
-    private Level level;
+    private String username;
+    private SystemPropertyCenter propCenter;
 
     /**
      * Constructor of SynthesizedLoggerFactory with fixed log listener settings.
      *
-     * @param appName         Name of the application using the logger.
-     * @param level           Level of logging.
-     * @param logListenerAddr The address the logger may need to sendWithLog logs to.
-     * @param logListenerPort The port the logger may need to sendWithLog logs to.
+     * @param username    Name of the logger user.
+     * @param propCenter Properties of the system.
      */
-    public SynthesizedLoggerFactory(@Nonnull String appName,
-                                    @Nonnull Level level,
-                                    @Nonnull String logListenerAddr,
-                                    int logListenerPort) {
-        this.appName = appName;
-        this.level = level;
-        this.addr = logListenerAddr;
-        this.port = logListenerPort;
+    public SynthesizedLoggerFactory(@Nonnull String username,
+                                    @Nonnull SystemPropertyCenter propCenter) {
+        this.username = username;
+        this.propCenter = propCenter;
     }
 
     /*
@@ -67,7 +51,6 @@ public class SynthesizedLoggerFactory implements Factory<Logger> {
      */
     @Override
     public SynthesizedLogger produce() {
-        return new SynthesizedLogger(appName, level, addr, port);
+        return new SynthesizedLogger(username, propCenter);
     }
-
 }

@@ -20,7 +20,6 @@ package org.cripac.isee.vpe.common;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.log4j.Level;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
@@ -41,6 +40,7 @@ import java.io.Serializable;
 public abstract class SparkStreamingApp implements Serializable {
 
     private static final long serialVersionUID = 3098753124157119358L;
+
     /**
      * Common Spark Streaming context variable.
      */
@@ -62,11 +62,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * @param propCenter Properties of the whole system.
      */
     public void initialize(@Nonnull SystemPropertyCenter propCenter) {
-        SynthesizedLogger logger = new SynthesizedLogger(
-                getAppName(),
-                Level.DEBUG,
-                propCenter.reportListenerAddr,
-                propCenter.reportListenerPort);
+        SynthesizedLogger logger = new SynthesizedLogger(getAppName(), propCenter);
 
         String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
         logger.info("Using " + checkpointDir + " as checkpoint directory.");

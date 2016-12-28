@@ -34,7 +34,6 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
@@ -153,56 +152,22 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter)
                 throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            // Determine where the stream starts (default: largest)
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "largest");
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put("fetch.message.max.bytes",
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    StringDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    ByteArrayDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
-                    producerProp));
             dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jssc) {// Read track retrieving jobs in parallel from Kafka.
+        public void addToContext(JavaStreamingContext jssc) {
+            // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
             buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams, procTime)
@@ -287,10 +252,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private final int procTime;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
@@ -411,10 +373,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private final int procTime;
 
         public SavingStream(@Nonnull SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 

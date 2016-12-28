@@ -19,9 +19,6 @@ package org.cripac.isee.vpe.ctrl;
 
 import com.google.gson.Gson;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -67,17 +64,7 @@ public class MessageHandlingAppTest implements Serializable {
 
         TopicManager.checkTopics(propCenter);
 
-        Properties producerProp = new Properties();
-        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBootstrapServers);
-        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                propCenter.kafkaMaxRequestSize);
-        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class.getName());
-        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                ByteArraySerializer.class.getName());
-        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                "" + propCenter.kafkaMsgMaxBytes);
+        Properties producerProp = propCenter.generateKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
     }
@@ -88,7 +75,7 @@ public class MessageHandlingAppTest implements Serializable {
         param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "pedestrian-tracking-isee-basic-CAM01_0.conf");
         param.put(MessageHandlingApp.Parameter.VIDEO_URL,
-                "source_data/video/CAM01/2014_04_25/20140425184816-20140425190532.h264");
+                "source_data/video/CAM01/2013-12-20/20131220183101-20131220184349.h264");
         param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
                 new Gson().toJson(new LoginParam(InetAddress.getLocalHost(), 0,

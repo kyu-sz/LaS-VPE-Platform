@@ -22,6 +22,12 @@ import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.apache.spark.launcher.SparkLauncher;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
@@ -34,10 +40,8 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Properties;
 
 /**
  * The SystemPropertyCenter class is responsible of managing the properties of
@@ -118,14 +122,6 @@ public class SystemPropertyCenter implements Serializable {
      * Duration for buffering results.
      */
     public int bufDuration = 600000;
-    /**
-     * The address listening to reports.
-     */
-    public String reportListenerAddr = null;
-    /**
-     * The port of the address listening to reports.
-     */
-    public int reportListenerPort = -1;
     /**
      * Estimated time in milliseconds to be consumed in the process of each RDD.
      */
@@ -343,13 +339,6 @@ public class SystemPropertyCenter implements Serializable {
                     break;
             }
         }
-
-        if (commandLine.hasOption("report-listening-addr")) {
-            reportListenerAddr = commandLine.getOptionValue("report-listening-addr");
-        }
-        if (commandLine.hasOption("report-listening-port")) {
-            reportListenerPort = new Integer(commandLine.getOptionValue("report-listening-port"));
-        }
     }
 
     /**
@@ -384,12 +373,6 @@ public class SystemPropertyCenter implements Serializable {
                     "System is currently not supporting deploy mode: "
                             + sparkMaster);
         }
-
-        optList.add("--report-listening-addr");
-        optList.add(reportListenerAddr);
-
-        optList.add("--report-listening-port");
-        optList.add("" + reportListenerPort);
 
         return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);
     }
@@ -450,5 +433,42 @@ public class SystemPropertyCenter implements Serializable {
      */
     public static class NoAppSpecifiedException extends RuntimeException {
         private static final long serialVersionUID = -8356206863229009557L;
+    }
+
+    public Properties generateKafkaProducerProp(boolean isStringValue) {
+        Properties producerProp = new Properties();
+        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
+        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, kafkaMaxRequestSize);
+        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                isStringValue ? StringSerializer.class : ByteArraySerializer.class);
+        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, "" + kafkaMsgMaxBytes);
+        return producerProp;
+    }
+
+    public Properties generateKafkaConsumerProp(String group, boolean isStringValue) {
+        Properties consumerProp = new Properties();
+        consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
+        consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG, group);
+        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                isStringValue ? StringDeserializer.class : ByteArrayDeserializer.class);
+        return consumerProp;
+    }
+
+    public Map<String, String> generateKafkaParams(String group) {
+        Map<String, String> kafkaParams = new HashMap<>();
+        kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
+        kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, group);
+        kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "largest");
+        kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put("fetch.message.max.bytes", "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
+        return kafkaParams;
     }
 }

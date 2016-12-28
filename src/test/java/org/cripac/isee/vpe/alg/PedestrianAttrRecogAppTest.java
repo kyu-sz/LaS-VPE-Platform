@@ -17,15 +17,9 @@
 
 package org.cripac.isee.vpe.alg;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
@@ -103,31 +97,11 @@ public class PedestrianAttrRecogAppTest {
 
         TopicManager.checkTopics(propCenter);
 
-        Properties producerProp = new Properties();
-        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBootstrapServers);
-        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                propCenter.kafkaMaxRequestSize);
-        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class.getName());
-        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                ByteArraySerializer.class.getName());
-        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                "" + propCenter.kafkaMsgMaxBytes);
+        Properties producerProp = propCenter.generateKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
 
-        Properties consumerProp = new Properties();
-        consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBootstrapServers);
-        consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG,
-                "test");
-        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
-                true);
-        consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                StringDeserializer.class.getName());
-        consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                ByteArrayDeserializer.class.getName());
+        Properties consumerProp = propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), false);
         consumer = new KafkaConsumer<>(consumerProp);
         consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
     }

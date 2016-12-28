@@ -18,9 +18,6 @@
 package org.cripac.isee.vpe.data;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
@@ -82,17 +79,7 @@ public class DataManagingAppTest {
 
         TopicManager.checkTopics(propCenter);
 
-        Properties producerProp = new Properties();
-        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBootstrapServers);
-        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                propCenter.kafkaMaxRequestSize);
-        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class.getName());
-        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                ByteArraySerializer.class.getName());
-        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                "" + propCenter.kafkaMsgMaxBytes);
+        Properties producerProp = propCenter.generateKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
     }
