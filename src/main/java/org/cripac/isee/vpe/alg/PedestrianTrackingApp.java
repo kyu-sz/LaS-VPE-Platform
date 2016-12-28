@@ -300,7 +300,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     public static class VideoFragmentTrackingStream extends Stream {
 
         public static final Info INFO =
-                new Info("video-fragment-tracking", DataTypes.TRACKLET);
+                new Info("video-frag-tracking", DataTypes.TRACKLET);
 
         /**
          * Topic to input video URLs from Kafka.
@@ -347,7 +347,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             JavaPairDStream<String, TaskData> fragFromURLDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME), kafkaParams, procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams, procTime)
                             .mapToPair(kvPair -> {
                                 String taskID = kvPair._1();
 
@@ -376,10 +376,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             });
 
             JavaPairDStream<String, TaskData> fragFromBytesDStream =
-                    buildBytesDirectStream(jssc,
-                            Arrays.asList(VIDEO_URL_TOPIC.NAME),
-                            kafkaParams,
-                            procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME), kafkaParams, procTime)
                             .mapValues(bytes -> {
                                 TaskData taskData;
                                 try {
@@ -391,8 +388,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 }
                             });
 
-            JavaPairDStream<String, TaskData> fragUnionStream =
-                    fragFromURLDStream.union(fragFromBytesDStream);
+            JavaPairDStream<String, TaskData> fragUnionStream = fragFromURLDStream.union(fragFromBytesDStream);
 
             fragUnionStream.foreachRDD(rdd -> {
                 final Broadcast<Map<String, byte[]>> confPool =
@@ -406,8 +402,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                         // Get the task data.
                         TaskData taskData = task._2();
-                        TaskData.ExecutionPlan.Node curNode =
-                                taskData.curNode;
+                        TaskData.ExecutionPlan.Node curNode = taskData.curNode;
                         // Get the videoID of the video to process from the
                         // execution data of this node.
                         VideoFragment frag = (VideoFragment) taskData.predecessorRes;
