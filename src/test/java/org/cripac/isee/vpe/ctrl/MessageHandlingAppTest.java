@@ -158,21 +158,15 @@ public class MessageHandlingAppTest implements Serializable {
         Hashtable<String, Serializable> param = new Hashtable<>();
         param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "pedestrian-tracking-isee-basic-CAM01_0.conf");
-        param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
                 new Gson().toJson(new LoginParam(InetAddress.getLocalHost(), 0,
                         "Ken Yu", "I love Shenzhen!")));
+
         for (String url : cam01VideoURLs) {
             param.put(MessageHandlingApp.Parameter.VIDEO_URL, url);
 
             sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                     MessageHandlingApp.CommandType.TRACK_ONLY,
-                    serialize(param),
-                    producer,
-                    logger);
-
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
-                    MessageHandlingApp.CommandType.ATTRRECOG_ONLY,
                     serialize(param),
                     producer,
                     logger);
@@ -184,22 +178,30 @@ public class MessageHandlingAppTest implements Serializable {
                     logger);
 
             sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
-                    MessageHandlingApp.CommandType.REID_ONLY,
-                    serialize(param),
-                    producer,
-                    logger);
-
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
-                    MessageHandlingApp.CommandType.ATTRRECOG_REID,
-                    serialize(param),
-                    producer,
-                    logger);
-
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                     MessageHandlingApp.CommandType.TRACK_ATTRRECOG_REID,
                     serialize(param),
                     producer,
                     logger);
         }
+
+        param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
+
+        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+                MessageHandlingApp.CommandType.ATTRRECOG_ONLY,
+                serialize(param),
+                producer,
+                logger);
+
+        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+                MessageHandlingApp.CommandType.ATTRRECOG_REID,
+                serialize(param),
+                producer,
+                logger);
+
+        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+                MessageHandlingApp.CommandType.REID_ONLY,
+                serialize(param),
+                producer,
+                logger);
     }
 }

@@ -136,6 +136,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             } catch (IOException e) {
                 logger.error("When communicating with extern attr recog server", e);
                 connect();
+                logger.info("Connection recovered!");
             }
         }
     }
