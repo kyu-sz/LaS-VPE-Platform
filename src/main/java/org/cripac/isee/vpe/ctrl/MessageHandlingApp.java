@@ -156,7 +156,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
         private final int procTime;
 
         public MessageHandlingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 

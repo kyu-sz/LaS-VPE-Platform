@@ -161,7 +161,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private final int procTime;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
