@@ -104,7 +104,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             } catch (IOException e) {
                 logger.error("When connecting to extern attr recog server", e);
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(10000);
                 } catch (InterruptedException e1) {
                     e1.printStackTrace();
                 }
