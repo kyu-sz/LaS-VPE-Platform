@@ -17,12 +17,14 @@
 
 package org.cripac.isee.vpe.alg;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
+import org.cripac.isee.pedestrian.tracking.BasicTrackerTest;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.Topic;
@@ -34,6 +36,7 @@ import org.junit.Before;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
@@ -46,6 +49,7 @@ import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
+import org.cripac.isee.pedestrian.tracking.BasicTracker;
 /**
  * This is a JUnit test for the DataManagingApp.
  * Different from usual JUnit tests, this test does not initiate a DataManagingApp.
@@ -112,13 +116,26 @@ public class PedestrianAttrRecogAppTest {
         PedestrianAttrRecognizer recognizer =
                 new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
                         externAttrRecogServerPort, logger);
-        Tracklet tracklet = new FakePedestrianTracker().track(new byte[0])[0];
-        logger.info("Tracklet length: " + tracklet.locationSequence.length);
-        for (Tracklet.BoundingBox boundingBox : tracklet.locationSequence) {
-            logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
-                    + " " + boundingBox.width + " " + boundingBox.height);
+        //Tracklet tracklet = new FakePedestrianTracker().track(new byte[0])[0];
+        BasicTracker Pretrack = new BasicTracker(
+                IOUtils.toByteArray(new FileInputStream(
+                        "conf/"
+                                + PedestrianTrackingApp.APP_NAME
+                                + "/isee-basic/CAM01_0.conf")),
+                new ConsoleLogger(Level.DEBUG));
+        byte[] videoBytes =
+                IOUtils.toByteArray(new FileInputStream(
+                        "src/test/resources/20131220184349-20131220184937.h264"));
+        System.out.println("Start tracking...");
+        Tracklet[] tracklets = Pretrack.track(videoBytes);
+        for(int i=0; i<tracklets.length; ++i) {
+            logger.info("Tracklet length: " + tracklets[i].locationSequence.length);
+            for (Tracklet.BoundingBox boundingBox : tracklets[i].locationSequence) {
+                logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
+                        + " " + boundingBox.width + " " + boundingBox.height);
+            }
+            logger.info(recognizer.recognize(tracklets[i]));
         }
-        logger.info(recognizer.recognize(tracklet));
     }
 
     //    @Test
