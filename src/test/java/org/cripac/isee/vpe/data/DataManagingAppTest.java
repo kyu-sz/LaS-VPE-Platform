@@ -18,10 +18,9 @@
 package org.cripac.isee.vpe.data;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
+import org.cripac.isee.pedestrian.attr.Attributes;
+import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -33,7 +32,7 @@ import org.junit.Before;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.apache.commons.lang3.SerializationUtils.serialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -42,7 +41,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * The application should be run on YARN in advance.
  * This test only sends fake data messages to and receives results
  * from the already running application through Kafka.
- *
+ * <p>
  * Created by ken.yu on 16-10-31.
  */
 public class DataManagingAppTest {
@@ -80,43 +79,42 @@ public class DataManagingAppTest {
 
         TopicManager.checkTopics(propCenter);
 
-        Properties producerProp = new Properties();
-        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBootstrapServers);
-        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                propCenter.kafkaMaxRequestSize);
-        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class.getName());
-        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                ByteArraySerializer.class.getName());
-        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                "" + propCenter.kafkaMsgMaxBytes);
+        Properties producerProp = propCenter.generateKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
     }
 
-//    @Test
+    //    @Test
     public void testTrackletSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode =
-                plan.addNode(DataManagingApp.SavingStream.INFO);
-        TaskData data = new TaskData(savingNode, plan,
-                new FakePedestrianTracker().track(new byte[0]));
-        sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
-                UUID.randomUUID().toString(),
-                serialize(data),
-                producer,
-                logger);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
+
+        Tracklet[] tracklets = new FakePedestrianTracker().track(new byte[0]);
+        String taskID = UUID.randomUUID().toString();
+        for (int i = 0; i < tracklets.length; ++i) {
+            Tracklet tracklet = tracklets[i];
+            tracklet.id = new Tracklet.Identifier("fake", i);
+
+            TaskData data = new TaskData(savingNode, plan, tracklet);
+            sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
+                    taskID,
+                    serialize(data),
+                    producer,
+                    logger);
+        }
     }
 
     //    @Test
     public void testAttrSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode =
-                plan.addNode(DataManagingApp.SavingStream.INFO);
-        TaskData data = new TaskData(savingNode, plan,
-                new FakePedestrianAttrRecognizer().recognize(
-                        new FakePedestrianTracker().track(new byte[0])[0]));
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
+
+        Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
+                new FakePedestrianTracker().track(new byte[0])[0]);
+        attributes.trackletID = new Tracklet.Identifier("fake", 0);
+        assert attributes != null;
+
+        TaskData data = new TaskData(savingNode, plan, attributes);
         sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),

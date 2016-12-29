@@ -34,7 +34,6 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
@@ -47,10 +46,7 @@ import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataTypes;
-import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -65,10 +61,10 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.*;
 
-import static org.apache.commons.lang.SerializationUtils.deserialize;
-import static org.apache.commons.lang.SerializationUtils.serialize;
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
@@ -156,52 +152,22 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter)
                 throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            // Determine where the stream starts (default: largest)
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "largest");
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    StringDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    ByteArrayDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
-                    producerProp));
             dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jssc) {// Read track retrieving jobs in parallel from Kafka.
+        public void addToContext(JavaStreamingContext jssc) {
+            // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
             buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams, procTime)
@@ -256,7 +222,11 @@ public class DataManagingApp extends SparkStreamingApp {
                             }
                             // Send to all the successor nodes.
                             for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
+                                try {
+                                    taskData.changeCurNode(topic);
+                                } catch (RecordNotFoundException e) {
+                                    logger.warn("When changing node in TaskData", e);
+                                }
                                 sendWithLog(topic,
                                         job._1(),
                                         serialize(taskData),
@@ -282,10 +252,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private final int procTime;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
@@ -298,6 +265,10 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                     "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams.put("fetch.message.max.bytes",
                     "" + propCenter.kafkaMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                     StringDeserializer.class.getName());
@@ -332,12 +303,13 @@ public class DataManagingApp extends SparkStreamingApp {
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> {
                         rdd.foreach(job -> {
+                            Logger logger = loggerSingleton.getInst();
                             // Recover task data.
                             TaskData taskData;
                             try {
                                 taskData = (TaskData) deserialize(job._2());
                             } catch (Exception e) {
-                                loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                logger.error("During TaskData deserialization", e);
                                 return;
                             }
                             // Get parameters for the job.
@@ -350,10 +322,9 @@ public class DataManagingApp extends SparkStreamingApp {
                             info.tracklet = retrieveTracklet(
                                     dbConnSingleton.getInst().getTrackletSavingDir(videoURL),
                                     trackletID,
-                                    loggerSingleton.getInst());
+                                    logger);
                             // Retrieve the attributes from database.
-                            info.attr = dbConnSingleton.getInst()
-                                    .getPedestrianAttributes(trackletID.toString());
+                            info.attr = dbConnSingleton.getInst().getPedestrianAttributes(trackletID.toString());
                             taskData.predecessorRes = info;
 
                             // Get the IDs of successor nodes.
@@ -362,12 +333,16 @@ public class DataManagingApp extends SparkStreamingApp {
                             taskData.curNode.markExecuted();
                             // Send to all the successor nodes.
                             for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
+                                try {
+                                    taskData.changeCurNode(topic);
+                                } catch (RecordNotFoundException e) {
+                                    logger.warn("When changing node in TaskData", e);
+                                }
                                 sendWithLog(topic,
                                         job._1(),
                                         serialize(taskData),
                                         producerSingleton.getInst(),
-                                        loggerSingleton.getInst());
+                                        logger);
                             }
                         });
                     });
@@ -376,7 +351,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
     public static class SavingStream extends Stream {
 
-        public static final Info INFO = new Info("saving", DataTypes.NONE);
+        public static final Info INFO = new Info("data-saving", DataTypes.NONE);
         public static final Topic PED_TRACKLET_SAVING_TOPIC =
                 new Topic("pedestrian-tracklet-saving",
                         DataTypes.TRACKLET,
@@ -398,10 +373,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private final int procTime;
 
         public SavingStream(@Nonnull SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
@@ -414,6 +386,10 @@ public class DataManagingApp extends SparkStreamingApp {
             kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                     "largest");
             kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
+                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams.put("fetch.message.max.bytes",
                     "" + propCenter.kafkaMsgMaxBytes);
             kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
                     StringDeserializer.class.getName());
@@ -549,8 +525,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                 // Decrease one for directory counter.
                                 if (cnt - 1 == numTracklets) {
                                     loggerSingleton.getInst()
-                                            .info("Task " + taskID
-                                                    + "(" + tracklet.id.videoID + ") finished!");
+                                            .info("Starting to pack metadata for Task " + taskID
+                                                    + "(" + tracklet.id.videoID + ")!");
 
                                     HadoopArchives arch = new HadoopArchives(new Configuration());
                                     ArrayList<String> opt = new ArrayList<>();
@@ -561,9 +537,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                     opt.add(videoRoot);
                                     arch.run(Arrays.copyOf(opt.toArray(), opt.size(), String[].class));
 
-                                    loggerSingleton.getInst()
-                                            .info("Task " + taskID
-                                                    + "(" + tracklet.id.videoID + ") packed!");
+                                    loggerSingleton.getInst().info(
+                                            "Task " + taskID + "(" + tracklet.id.videoID + ") packed!");
 
                                     dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.toString(),
                                             videoRoot + "/" + taskID + ".har");
@@ -584,28 +559,23 @@ public class DataManagingApp extends SparkStreamingApp {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
             buildBytesDirectStream(jssc, Arrays.asList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams, procTime)
-                    .foreachRDD(rdd -> {
+                    .foreachRDD(rdd ->
                         rdd.foreach(res -> {
                             try {
                                 TaskData taskData;
                                 taskData = (TaskData) deserialize(res._2());
                                 Attributes attr = (Attributes) taskData.predecessorRes;
 
-                                loggerSingleton.getInst()
-                                        .debug("Received " + res._1() + ": " + attr);
+                                loggerSingleton.getInst().debug("Received " + res._1() + ": " + attr);
 
-                                dbConnSingleton.getInst().setPedestrianAttributes(
-                                        attr.trackletID.toString(),
-                                        attr);
+                                dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr);
 
-                                loggerSingleton.getInst()
-                                        .debug("Saved " + res._1() + ": " + attr);
+                                loggerSingleton.getInst().debug("Saved " + res._1() + ": " + attr);
                             } catch (Exception e) {
-                                loggerSingleton.getInst()
-                                        .error("When decompressing attributes", e);
+                                loggerSingleton.getInst().error("When decompressing attributes", e);
                             }
-                        });
-                    });
+                        })
+                    );
 
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.

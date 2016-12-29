@@ -17,48 +17,51 @@
 
 package org.cripac.isee.vpe.util.logging;
 
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
+import org.cripac.isee.vpe.common.DataTypes;
+import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 
 import javax.annotation.Nonnull;
-import java.io.IOException;
-import java.net.*;
+import java.net.InetAddress;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.util.Properties;
 
 /**
  * The SynthesizedLogger class synthesizes various logging methods, like log4j,
- * raw console, socket... It welcomes modification by developers with their own
+ * raw console, Kafka... It welcomes modification by developers with their own
  * demands.
  *
  * @author Ken Yu, CRIPAC, 2016
  */
 public class SynthesizedLogger extends Logger {
 
-    private String appName;
+    public static final Topic REPORT_TOPIC = new Topic("vpe_report", DataTypes.PLAIN_TEXT, null);
+
+    private String username;
     private org.apache.log4j.Logger log4jLogger;
-    private DatagramSocket sender;
-    private InetAddress listenerAddr;
     private String localName;
-    private int listenerPort;
+    private KafkaProducer producer;
 
     /**
      * Create a synthesized logger specifying address and port to sendWithLog report
      * to.
      *
-     * @param appName            Name of the application using the logger.
-     * @param level              Level of logging.
-     * @param reportListenerAddr Address of server listening to report.
-     * @param reportListenerAddr Port of server listening to report.
+     * @param username   Name of the logger user.
+     * @param propCenter Properties of the system.
      * @throws UnknownHostException
      * @throws SocketException
      */
-    public SynthesizedLogger(@Nonnull String appName,
-                             @Nonnull Level level,
-                             @Nonnull String reportListenerAddr,
-                             int reportListenerPort) {
-        super(level);
+    public SynthesizedLogger(@Nonnull String username,
+                             @Nonnull SystemPropertyCenter propCenter) {
+        super(propCenter.verbose ? Level.DEBUG : Level.INFO);
 
-        this.appName = appName;
+        this.username = username;
 
         PropertyConfigurator.configure("log4j.properties");
         log4jLogger = LogManager.getRootLogger();
@@ -71,48 +74,18 @@ public class SynthesizedLogger extends Logger {
             localName = "Unknown Host";
         }
 
-        try {
-            sender = new DatagramSocket();
-        } catch (SocketException e) {
-            e.printStackTrace();
-            sender = null;
-        }
-
-        try {
-            listenerAddr = InetAddress.getByName(reportListenerAddr);
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-            listenerAddr = null;
-            sender = null;
-        }
-
-        listenerPort = reportListenerPort;
+        Properties producerProp = propCenter.generateKafkaProducerProp(true);
+        producer = new KafkaProducer(producerProp);
     }
 
     private void send(@Nonnull String message) {
-        if (sender != null) {
-            byte[] sendBuf = message.getBytes();
-            DatagramPacket sendPacket =
-                    new DatagramPacket(sendBuf, sendBuf.length, listenerAddr, listenerPort);
-            try {
-                sender.send(sendPacket);
-            } catch (IOException e) {
-                System.err.println(
-                        "[ERROR]" + localName + "\t" + appName
-                                + ":\tError occurred when reporting to "
-                                + listenerAddr + ":" + listenerPort);
-                e.printStackTrace();
-                sender = null;
-            }
-        } else {
-            System.err.println("[ERROR]" + localName + "\t" + appName + ":\tSender dead!");
-        }
+        producer.send(new ProducerRecord(REPORT_TOPIC.NAME, this.username, message));
     }
 
     public void debug(@Nonnull Object message) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message);
-            String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[DEBUG]\t" + localName + "\t" + username + ":\t" + message;
             System.out.println(richMsg);
             send(richMsg);
         }
@@ -123,7 +96,7 @@ public class SynthesizedLogger extends Logger {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message, t);
 
-            String richMsg = "[DEBUG]" + localName + "\t" + appName + ":\t" + message + t;
+            String richMsg = "[DEBUG]\t" + localName + "\t" + username + ":\t" + message + ": " + t;
             System.out.println(richMsg);
             t.printStackTrace();
             send(richMsg);
@@ -140,7 +113,7 @@ public class SynthesizedLogger extends Logger {
     public void info(@Nonnull Object message) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message);
-            String richMsg = "[INFO]" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[INFO]\t" + localName + "\t" + username + ":\t" + message;
             System.out.println(richMsg);
             send(richMsg);
         }
@@ -150,7 +123,7 @@ public class SynthesizedLogger extends Logger {
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message, t);
-            String richMsg = "[INFO]" + localName + "\t" + appName + ":\t" + message + t;
+            String richMsg = "[INFO]\t" + localName + "\t" + username + ":\t" + message + ": " + t;
             System.out.println(richMsg);
             t.printStackTrace();
             send(richMsg);
@@ -166,7 +139,7 @@ public class SynthesizedLogger extends Logger {
     public void warn(@Nonnull Object message) {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message);
-            String richMsg = "[WARN]" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[WARNING]\t" + localName + "\t" + username + ":\t" + message;
             System.out.println(richMsg);
             send(richMsg);
         }
@@ -177,7 +150,7 @@ public class SynthesizedLogger extends Logger {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message, t);
 
-            String richMsg = "[WARN]" + localName + "\t" + appName + ":\t" + message + t;
+            String richMsg = "[WARNING]\t" + localName + "\t" + username + ":\t" + message + ": " + t;
             System.out.println(richMsg);
             t.printStackTrace();
             send(richMsg);
@@ -194,7 +167,7 @@ public class SynthesizedLogger extends Logger {
     public void error(@Nonnull Object message) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message);
-            String richMsg = "[ERROR]" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[ERROR]\t" + localName + "\t" + username + ":\t" + message;
             System.err.println(richMsg);
             send(richMsg);
         }
@@ -205,7 +178,7 @@ public class SynthesizedLogger extends Logger {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message, t);
 
-            String richMsg = "[ERROR]" + localName + "\t" + appName + ":\t" + message + "\t" + t;
+            String richMsg = "[ERROR]\t" + localName + "\t" + username + ":\t" + message + "\t" + t;
             System.err.println(richMsg);
             t.printStackTrace();
             send(richMsg);
@@ -222,7 +195,7 @@ public class SynthesizedLogger extends Logger {
     public void fatal(@Nonnull Object message) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message);
-            String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message;
+            String richMsg = "[FATAL]\t" + localName + "\t" + username + ":\t" + message;
             System.err.println(richMsg);
             send(richMsg);
         }
@@ -232,7 +205,7 @@ public class SynthesizedLogger extends Logger {
                       @Nonnull Throwable t) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message, t);
-            String richMsg = "[FATAL]" + localName + "\t" + appName + ":\t" + message + t;
+            String richMsg = "[FATAL]\t" + localName + "\t" + username + ":\t" + message + ": " + t;
             System.err.println(richMsg);
             t.printStackTrace();
             send(richMsg);

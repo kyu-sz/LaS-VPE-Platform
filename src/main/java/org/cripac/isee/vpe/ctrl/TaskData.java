@@ -38,7 +38,7 @@ import java.util.Map;
  */
 public class TaskData implements Serializable, Cloneable {
 
-    private static final long serialVersionUID = 6817584209784831375L;
+    public static final long serialVersionUID = 6817584209784831375L;
     /**
      * Current node to execute.
      */
@@ -66,6 +66,14 @@ public class TaskData implements Serializable, Cloneable {
             throws RecordNotFoundException {
         predecessorInfo = curNode.streamInfo;
         curNode = executionPlan.findNode(topic);
+    }
+
+    /**
+     * Create an empty task.
+     */
+    public TaskData() {
+        this.curNode = null;
+        this.executionPlan = null;
     }
 
     /**

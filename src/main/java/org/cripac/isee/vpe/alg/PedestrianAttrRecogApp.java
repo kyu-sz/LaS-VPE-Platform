@@ -17,14 +17,7 @@
 
 package org.cripac.isee.vpe.alg;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
@@ -41,12 +34,17 @@ import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import org.xml.sax.SAXException;
 
-import java.net.Inet4Address;
+import javax.annotation.Nonnull;
+import javax.xml.parsers.ParserConfigurationException;
+import java.net.InetAddress;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.*;
 
-import static org.apache.commons.lang.SerializationUtils.deserialize;
-import static org.apache.commons.lang.SerializationUtils.serialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -69,8 +67,31 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      * @param propCenter A class saving all the properties this application may need.
      * @throws Exception Any exception that might occur during execution.
      */
-    public PedestrianAttrRecogApp(SystemPropertyCenter propCenter) throws Exception {
+    public PedestrianAttrRecogApp(AppPropertyCenter propCenter) throws Exception {
         attrRecogStream = new RecogStream(propCenter);
+    }
+
+    public static class AppPropertyCenter extends SystemPropertyCenter {
+
+        private static final long serialVersionUID = -786439769732467646L;
+        public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
+        public int externAttrRecogServerPort = 0;
+
+        public AppPropertyCenter(@Nonnull String[] args)
+                throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
+            super(args);
+            // Digest the settings.
+            for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
+                switch ((String) entry.getKey()) {
+                    case "vpe.ped.attr.ext.ip":
+                        externAttrRecogServerAddr = InetAddress.getByName((String) entry.getValue());
+                        break;
+                    case "vpe.ped.attr.ext.port":
+                        externAttrRecogServerPort = new Integer((String) entry.getValue());
+                        break;
+                }
+            }
+        }
     }
 
     /**
@@ -79,8 +100,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public static void main(String[] args) throws Exception {
         // Load system properties.
-        SystemPropertyCenter propCenter;
-        propCenter = new SystemPropertyCenter(args);
+        AppPropertyCenter propCenter = new AppPropertyCenter(args);
 
         // Start the pedestrian tracking application.
         PedestrianAttrRecogApp app = new PedestrianAttrRecogApp(propCenter);
@@ -140,49 +160,22 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
         private final int procTime;
 
-        public RecogStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+        public RecogStream(AppPropertyCenter propCenter) throws Exception {
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
             // Common kafka settings.
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "largest");
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    StringDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    ByteArrayDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
             loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBootstrapServers);
 
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             attrRecogSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
-                    Inet4Address.getByName("172.18.33.90"), 8500
+                    propCenter.externAttrRecogServerAddr, propCenter.externAttrRecogServerPort,
+                    loggerSingleton.getInst()
             ));
         }
 
@@ -209,6 +202,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     TaskData taskData = taskWithTracklet._2();
                                     logger.debug("Received task " + taskID + "!");
 
+                                    if (taskData.predecessorRes == null) {
+                                        throw new DataTypeNotMatchedException("Predecessor result sent by "
+                                                + taskData.predecessorInfo
+                                                + " is null!");
+                                    }
                                     if (!(taskData.predecessorRes instanceof Tracklet)) {
                                         throw new DataTypeNotMatchedException("Predecessor result sent by "
                                                 + taskData.predecessorInfo
@@ -234,7 +232,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     taskData.curNode.markExecuted();
                                     // Send to all the successor nodes.
                                     for (Topic topic : succTopics) {
-                                        taskData.changeCurNode(topic);
+                                        try {
+                                            taskData.changeCurNode(topic);
+                                        } catch (RecordNotFoundException e) {
+                                            logger.warn("When changing node in TaskData", e);
+                                        }
                                         sendWithLog(topic,
                                                 taskID,
                                                 serialize(taskData),

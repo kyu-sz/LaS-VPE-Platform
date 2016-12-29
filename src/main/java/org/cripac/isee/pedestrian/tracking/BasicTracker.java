@@ -23,6 +23,8 @@ import org.cripac.isee.vpe.util.tracking.VideoDecoder;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * The BasicTracker class is a JNI class of a pedestrian tracking algorithm used
@@ -34,6 +36,7 @@ import javax.annotation.Nullable;
 public class BasicTracker extends Tracker {
 
     private static int instanceCnt = 0;
+    private Lock instCntLock = new ReentrantLock();
 
     static {
         System.out.println("Loading native libraries for BasicTracker from "
@@ -74,16 +77,23 @@ public class BasicTracker extends Tracker {
     public Tracklet[] track(@Nonnull byte[] videoBytes) {
         // Limit instances on a single node.
         while (true) {
-            synchronized (BasicTracker.class) {
-                if (instanceCnt < 5) {
-                    ++instanceCnt;
-                    try {
-                        logger.info("Tracker instance count: " + instanceCnt);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    break;
+            instCntLock.lock();
+            if (instanceCnt < 5) {
+                ++instanceCnt;
+                try {
+                    logger.info("Tracker instance count: " + instanceCnt);
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
+                break;
+            }
+            instCntLock.unlock();
+            logger.debug("Current tracker instance number is " + instanceCnt
+                    + ". Waiting for previous tasks to finish...");
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
 
@@ -123,14 +133,14 @@ public class BasicTracker extends Tracker {
         logger.debug("Got " + targets.length + " targets!");
         free(trackerPointer);
 
-        synchronized (BasicTracker.class) {
-            --instanceCnt;
-            try {
-                logger.info("Tracker instance count: " + instanceCnt);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        instCntLock.lock();
+        --instanceCnt;
+        try {
+            logger.info("Tracker instance count: " + instanceCnt);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+        instCntLock.unlock();
 
         return targets;
 //        return new FakePedestrianTracker().track(videoBytes);

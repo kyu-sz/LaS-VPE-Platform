@@ -17,6 +17,7 @@
 
 package org.cripac.isee.pedestrian.attr;
 
+import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 
@@ -412,5 +413,8 @@ public class Attributes implements Serializable {
     @SerializedName("occlusion_other")
     public float occlusionOther;
 
-
+    @Override
+    public String toString() {
+        return new Gson().toJson(this);
+    }
 }

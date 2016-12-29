@@ -44,6 +44,11 @@ public abstract class Logger {
     public abstract void info(@Nonnull Object message,
                               @Nonnull Throwable t);
 
+    public abstract void warn(@Nonnull Object message);
+
+    public abstract void warn(@Nonnull Object message,
+                              @Nonnull Throwable t);
+
     public abstract void error(@Nonnull Object message);
 
     public abstract void error(@Nonnull Object message,

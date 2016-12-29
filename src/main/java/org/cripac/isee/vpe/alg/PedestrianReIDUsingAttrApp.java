@@ -17,14 +17,7 @@
 
 package org.cripac.isee.vpe.alg;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.Optional;
@@ -48,8 +41,8 @@ import scala.Tuple2;
 
 import java.util.*;
 
-import static org.apache.commons.lang.SerializationUtils.deserialize;
-import static org.apache.commons.lang.SerializationUtils.serialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -144,7 +137,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
          */
         public static final Topic TRACKLET_ATTR_TOPIC =
                 new Topic("pedestrian-track-attr-for-reid-using-attr",
-                        DataTypes.TRACKLET, INFO);
+                        DataTypes.TRACKLET_ATTR, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
@@ -163,51 +156,19 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         private final int procTime;
 
         public ReIDStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
             bufDuration = propCenter.bufDuration;
 
             // Common kafka settings.
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            // Determine where the stream starts (default: largest)
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "largest");
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    StringDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    ByteArrayDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
-            producerSingleton = new Singleton<>(
-                    new KafkaProducerFactory<String, byte[]>(producerProp));
-            reidSingleton = new Singleton<>(
-                    () -> new FakePedestrianReIDerWithAttr());
+            reidSingleton = new Singleton<>(() -> new FakePedestrianReIDerWithAttr());
         }
 
         @Override
@@ -381,7 +342,11 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                 taskData.curNode.markExecuted();
                                 // Send to all the successor nodes.
                                 for (Topic topic : succTopics) {
-                                    taskData.changeCurNode(topic);
+                                    try {
+                                        taskData.changeCurNode(topic);
+                                    } catch (RecordNotFoundException e) {
+                                        logger.warn("When changing node in TaskData", e);
+                                    }
                                     sendWithLog(topic,
                                             taskID,
                                             serialize(taskData),

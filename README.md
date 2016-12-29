@@ -102,6 +102,8 @@ _ExecutionPlan_: A flow graph of _Node_.
 
 ## How to add a new module
 
+Before starting your work on developing this platform, choosing a suitable IDE will definitely improve your efficiency! Here we strongly recommend the Intellij IDEA, since our project contains a mixture of Java codes and Scala codes, while is organize with Maven. Intellij IDEA is a much better choice than Eclipse.
+
 A new module may be based on some algorithms whose codes are written in other languages, so you first need to wrap them into JAVA using JNI.
 
 See an application such as [PedestrianTrackingApp](src/main/java/org/cripac/isee/pedestrian/tracking/PedestrianTracker.java), etc. for example of how to write an application module. Write your own module then add it to this project. Also register its class name to the [AppManager](src/main/java/org/cripac/isee/vpe/ctrl/AppManager.java) by adding a line in the static block, similar to other lines.
