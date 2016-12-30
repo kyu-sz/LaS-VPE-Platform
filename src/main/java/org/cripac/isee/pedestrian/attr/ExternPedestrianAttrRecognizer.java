@@ -100,6 +100,8 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         while (true) {
             try {
                 socket = new Socket(solverAddress, port);
+                socket.setKeepAlive(true);
+                socket.setTcpNoDelay(true);
                 break;
             } catch (IOException e) {
                 logger.error("When connecting to extern attr recog server", e);
