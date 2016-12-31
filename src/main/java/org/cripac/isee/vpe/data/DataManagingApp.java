@@ -460,8 +460,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 outputPointer.get(bytes);
 
                 // Output the image patch to HDFS.
-                FSDataOutputStream imgOutputStream =
-                        hdfs.create(new Path(storeDir + "/" + i + ".jpg"));
+                FSDataOutputStream imgOutputStream = hdfs.create(new Path(storeDir + "/" + i + ".jpg"));
                 imgOutputStream.write(bytes);
                 imgOutputStream.close();
 
@@ -521,7 +520,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 loggerSingleton.getInst().info(
                                         "Task " + taskID + "(" + tracklet.id.videoID + ") packed!");
 
-                                dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.toString(),
+                                dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.videoID,
                                         videoRoot + "/" + taskID + ".har");
 
                                 // Delete the original folder recursively.
