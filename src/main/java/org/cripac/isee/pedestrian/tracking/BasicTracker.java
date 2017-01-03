@@ -62,9 +62,9 @@ public class BasicTracker extends Tracker {
                         @Nullable Logger logger) {
         this.conf = conf;
         if (logger == null) {
-            this.logger = logger;
-        } else {
             this.logger = new ConsoleLogger();
+        } else {
+            this.logger = logger;
         }
     }
 
@@ -132,6 +132,10 @@ public class BasicTracker extends Tracker {
         Tracklet[] targets = getTargets(trackerPointer);
         logger.debug("Got " + targets.length + " targets!");
         free(trackerPointer);
+
+        for (Tracklet tracklet : targets) {
+            tracklet.numTracklets = targets.length;
+        }
 
         instCntLock.lock();
         --instanceCnt;

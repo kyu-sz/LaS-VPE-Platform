@@ -36,6 +36,8 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * The class ExternPedestrianAttrRecognizer is a recognizer of pedestrian
@@ -100,11 +102,13 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         while (true) {
             try {
                 socket = new Socket(solverAddress, port);
+                socket.setKeepAlive(true);
+                socket.setTcpNoDelay(true);
                 break;
             } catch (IOException e) {
                 logger.error("When connecting to extern attr recog server", e);
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(10000);
                 } catch (InterruptedException e1) {
                     e1.printStackTrace();
                 }
@@ -130,9 +134,36 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                 message.getBytes(socket.getOutputStream());
                 logger.debug("Sent request for tracklet " + tracklet.id);
 
+                byte[] jsonLenBytes = new byte[4];
+
+                InputStream inputStream = new DataInputStream(socket.getInputStream());
+
                 // Receive data from socket.
                 logger.debug("Starting to receive messages.");
-                return new Gson().fromJson(new InputStreamReader(socket.getInputStream()), Attributes.class);
+
+                // 4 bytes - Length of JSON.
+                int bytesCnt = 0;
+                do {
+                    int bytesRead = inputStream.read(jsonLenBytes, bytesCnt, jsonLenBytes.length - bytesCnt);
+                    bytesCnt += bytesRead;
+                } while (bytesCnt < 4);
+                int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
+                // Create a buffer for JSON.
+                byte[] jsonBytes = new byte[jsonLen];
+                logger.debug("To receive " + jsonLen + " bytes.");
+
+                // jsonLen bytes - Bytes of UTF-8 JSON string representing the attributes.
+                bytesCnt = 0;
+                do {
+                    int bytesRead = inputStream.read(jsonBytes, bytesCnt, jsonBytes.length - bytesCnt);
+                    // Append the data into Json string.
+                    bytesCnt += bytesRead;
+                } while (bytesCnt < jsonLen);
+                String json = new String(jsonBytes, 0, jsonLen);
+                logger.debug("Received attr json (len=" + json.length() + "): " + json);
+
+                Attributes attr = new Gson().fromJson(json, Attributes.class);
+                return attr;
             } catch (IOException e) {
                 logger.error("When communicating with extern attr recog server", e);
                 connect();
