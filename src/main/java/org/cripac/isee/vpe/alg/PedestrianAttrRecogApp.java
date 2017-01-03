@@ -161,7 +161,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private final int procTime;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
@@ -217,6 +217,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
                                     Tracklet tracklet = (Tracklet) taskData.predecessorRes;
                                     logger.debug("To recognize attributes for task " + taskID + "!");
+                                    // Truncate and shrink the tracklet in case it is too large.
+                                    if (tracklet.locationSequence.length > 256) {
+                                        int increment = tracklet.locationSequence.length / 256;
+                                        int start = tracklet.locationSequence.length - 256 * increment;
+                                        tracklet = tracklet.truncateAndShrink(start, 256, increment);
+                                    }
                                     // Recognize attributes.
                                     Attributes attr = attrRecogSingleton.getInst().recognize(tracklet);
                                     logger.debug("Attributes retrieved for task " + taskID + "!");

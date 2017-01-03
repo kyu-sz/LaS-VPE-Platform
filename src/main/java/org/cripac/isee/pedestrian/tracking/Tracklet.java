@@ -139,6 +139,36 @@ public class Tracklet implements Serializable {
     }
 
     /**
+     * Truncate and shrink the tracklet into a new one.
+     *
+     * @param start     Index in the original sequence (counting from 0)
+     *                  of the first bounding box in the truncated sequence.
+     * @param length    Length of the truncated tracklet.
+     *                  Mark it as negative means truncate to the end of the original sequence.
+     * @param increment Increment of index when picking bounding boxes between start and end.
+     * @return The truncated and shrunk tracklet.
+     */
+    public Tracklet truncateAndShrink(int start, int length, int increment) {
+        if (length < 0) {
+            length = this.locationSequence.length;
+        }
+        if (start + length * increment > this.locationSequence.length) {
+            length = (this.locationSequence.length - start) / increment;
+        }
+        Tracklet tracklet = new Tracklet();
+        tracklet.numTracklets = this.numTracklets;
+        tracklet.id = this.id;
+        tracklet.startFrameIndex = this.startFrameIndex + start;
+
+        tracklet.locationSequence = new BoundingBox[length];
+        int offset = start;
+        for (int i = 0; i < length; ++i) {
+            tracklet.locationSequence[i] = this.locationSequence[offset++];
+        }
+        return tracklet;
+    }
+
+    /**
      * The BoundingBox class stores the location of an object in a single static
      * frame.
      *

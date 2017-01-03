@@ -209,7 +209,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
@@ -327,7 +327,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         public VideoFragmentTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME, propCenter)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             this.procTime = propCenter.procTime;
 
@@ -365,9 +365,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 // ID is represented by the URL of the video.
                                 frag.videoID = (String) taskData.predecessorRes;
                                 // Retrieve video fragment bytes.
-                                frag.bytes = IOUtils.toByteArray(hdfsSingleton
-                                        .getInst()
-                                        .open(new Path(frag.videoID)));
+                                frag.bytes = IOUtils.toByteArray(hdfsSingleton.getInst().open(new Path(frag.videoID)));
 
                                 loggerSingleton.getInst().debug("Received taskID=" + taskID + ", URL=" + frag.videoID);
 
@@ -409,8 +407,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         // Get tracking configuration for this execution.
                         String confFile = (String) curNode.getExecData();
                         if (confFile == null) {
-                            logger.error("Tracking configuration file" +
-                                    " is not specified for this node!");
+                            logger.error("Tracking configuration file is not specified for this node!");
                             return;
                         }
 
@@ -421,13 +418,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                         // Load tracking configuration to create a tracker.
                         if (!confPool.getValue().containsKey(confFile)) {
-                            throw new FileNotFoundException("Cannot find tracking config file "
-                                    + confFile);
+                            throw new FileNotFoundException("Cannot find tracking config file " + confFile);
                         }
                         byte[] confBytes = confPool.getValue().get(confFile);
                         if (confBytes == null) {
-                            logger.fatal("confPool contains key " + confFile
-                                    + " but value is null!");
+                            logger.fatal("confPool contains key " + confFile + " but value is null!");
                             return;
                         }
                         Tracker tracker = new BasicTracker(confBytes, logger);
