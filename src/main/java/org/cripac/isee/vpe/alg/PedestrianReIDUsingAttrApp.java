@@ -56,6 +56,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "pedestrian-reID-using-attr";
+    private int batchDuration = 1000;
 
     private Stream reidStream;
 
@@ -67,6 +68,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
      * @throws Exception
      */
     public PedestrianReIDUsingAttrApp(SystemPropertyCenter propCenter) throws Exception {
+        batchDuration = propCenter.batchDuration;
         reidStream = new ReIDStream(propCenter);
     }
 
@@ -98,7 +100,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(2));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(batchDuration));
 
         reidStream.addToContext(jsc);
 
@@ -233,22 +235,18 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Filter out instantly joined pairs.
             JavaPairDStream<String, Tuple2<TaskData, TaskData>> instantlyJoinedDStream =
                     unsurelyJoinedDStream
-                            .filter(item ->
-                                    new Boolean(item._2()._1().isPresent() && item._2()._2().isPresent()))
-                            .mapValues(optPair
-                                    -> new Tuple2<>(optPair._1().get(), optPair._2().get()));
+                            .filter(item -> new Boolean(item._2()._1().isPresent() && item._2()._2().isPresent()))
+                            .mapValues(optPair -> new Tuple2<>(optPair._1().get(), optPair._2().get()));
 
             // Filter out tracklets that cannot find attributes to match.
             JavaPairDStream<String, TaskData> unjoinedTrackDStream =
                     unsurelyJoinedDStream
-                            .filter(item ->
-                                    new Boolean(item._2()._1().isPresent() && !item._2()._2().isPresent()))
+                            .filter(item -> new Boolean(item._2()._1().isPresent() && !item._2()._2().isPresent()))
                             .mapValues(optPair -> optPair._1().get());
 
             // Filter out attributes that cannot find tracklets to match.
             JavaPairDStream<String, TaskData> unjoinedAttrStream = unsurelyJoinedDStream
-                    .filter(item ->
-                            new Boolean(!item._2()._1().isPresent() && item._2()._2().isPresent()))
+                    .filter(item -> new Boolean(!item._2()._1().isPresent() && item._2()._2().isPresent()))
                     .mapValues(optPair -> optPair._2().get());
 
             JavaPairDStream<String, Tuple2<Optional<TaskData>, TaskData>> unsurelyJoinedAttrDStream =
@@ -354,7 +352,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                             logger);
                                 }
                             } catch (Exception e) {
-                                loggerSingleton.getInst().error("During ReID.", e);
+                                loggerSingleton.getInst().error("During ReID", e);
                             }
                         });
                     });
