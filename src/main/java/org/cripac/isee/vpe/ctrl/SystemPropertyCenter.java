@@ -389,6 +389,8 @@ public class SystemPropertyCenter implements Serializable {
                 .setConf(SparkLauncher.EXECUTOR_MEMORY, executorMem)
                 .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
                 .setConf(SparkLauncher.EXECUTOR_CORES, "" + executorCores)
+                .setConf("spark.driver.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
+                .setConf("spark.executor.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
                 .addSparkArg("--driver-cores", "" + driverCores)
                 .addSparkArg("--num-executors", "" + numExecutors)
                 .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
