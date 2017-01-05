@@ -145,7 +145,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages from Kafka
          * Brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
 
         /**
          * Duration for buffering results.

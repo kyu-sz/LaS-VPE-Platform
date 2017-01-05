@@ -451,7 +451,7 @@ public class SystemPropertyCenter implements Serializable {
         producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                 isStringValue ? StringSerializer.class : ByteArraySerializer.class);
-        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, "" + kafkaMsgMaxBytes);
+        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, kafkaMsgMaxBytes);
         return producerProp;
     }
 
@@ -466,18 +466,19 @@ public class SystemPropertyCenter implements Serializable {
         return consumerProp;
     }
 
-    public Map<String, String> generateKafkaParams(String group) {
-        Map<String, String> kafkaParams = new HashMap<>();
+    public Map<String, Object> generateKafkaParams(String group) {
+        Map<String, Object> kafkaParams = new HashMap<>();
         kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, group);
-        kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "largest");
-        kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, "" + kafkaMsgMaxBytes);
-        kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, "" + kafkaMsgMaxBytes);
-        kafkaParams.put("fetch.message.max.bytes", "" + kafkaMsgMaxBytes);
-        kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
-        kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
-        kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, kafkaMsgMaxBytes);
+        kafkaParams.put("fetch.message.max.bytes", kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
+        kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG, kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         return kafkaParams;
     }
 }

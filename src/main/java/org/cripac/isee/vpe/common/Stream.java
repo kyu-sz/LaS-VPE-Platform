@@ -17,19 +17,21 @@
 
 package org.cripac.isee.vpe.common;
 
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.spark.TaskContext;
+import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.apache.spark.streaming.kafka010.*;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
+import scala.Tuple2;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -123,13 +125,34 @@ public abstract class Stream implements Serializable {
     protected JavaPairDStream<String, byte[]>
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
-                           @Nonnull Map<String, String> kafkaParams,
+                           @Nonnull Map<String, Object> kafkaParams,
                            int procTime) {
-        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-        return KafkaUtils.createDirectStream(jssc,
-                String.class, byte[].class,
-                StringDecoder.class, DefaultDecoder.class,
-                kafkaParams, new HashSet(topics))
-                .repartition(jssc.sparkContext().defaultParallelism());
+        // Build an input stream with Kafka010 API.
+        final JavaInputDStream<ConsumerRecord<String, byte[]>> stream =
+                KafkaUtils.createDirectStream(jssc,
+                        LocationStrategies.PreferConsistent(),
+                        ConsumerStrategies.<String, byte[]>Subscribe(topics, kafkaParams));
+
+        stream.foreachRDD(rdd -> {
+            // Obtain offsets.
+            final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+            loggerSingleton.getInst().debug("Received RDD with " + rdd.getNumPartitions() + " partitions.");
+
+            // Display offsets.
+            rdd.foreachPartition(consumerRecordIterator -> {
+                OffsetRange o = offsetRanges[TaskContext.get().partitionId()];
+                loggerSingleton.getInst().debug("Received Kafka records:"
+                        + " topic=" + o.topic()
+                        + ", partition=" + o.partition()
+                        + ", fromOffset=" + o.fromOffset()
+                        + ", untilOffset=" + o.untilOffset());
+            });
+
+            // Commit to Kafka cluster.
+            ((CanCommitOffsets) stream.inputDStream()).commitAsync(offsetRanges);
+        });
+
+        // Transform to usually used stream type.
+        return stream.mapToPair(rec -> new Tuple2<>(rec.key(), rec.value()));
     }
 }

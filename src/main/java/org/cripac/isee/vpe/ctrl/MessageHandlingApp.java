@@ -152,7 +152,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
         public static final Topic COMMAND_TOPIC = new Topic(
                 "command", DataTypes.COMMAND, MessageHandlingStream.INFO);
 
-        private Map<String, String> kafkaParams;
+        private Map<String, Object> kafkaParams;
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<HDFSReader> hdfsReaderSingleton;
         private final int procTime;

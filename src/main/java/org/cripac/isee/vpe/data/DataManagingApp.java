@@ -147,7 +147,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 DataTypes.TRACKLET);
         public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-rtrv-job", DataTypes.TRACKLET_ID, INFO);
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
@@ -248,7 +248,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 DataTypes.TRACKLET_ATTR);
         public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-attr-rtrv-job", DataTypes.TRACKLET_ID, INFO);
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
@@ -259,43 +259,11 @@ public class DataManagingApp extends SparkStreamingApp {
 
             this.procTime = propCenter.procTime;
 
-            // Common Kafka settings
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "largest");
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put("fetch.message.max.bytes",
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    StringDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    ByteArrayDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
 
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
-                    producerProp));
+            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
         }
 
@@ -365,7 +333,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 new Topic("pedestrian-idrank-saving",
                         DataTypes.IDRANK,
                         SavingStream.INFO);
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private Map<String, Object> kafkaParams = new HashMap<>();
         private String metadataDir;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
@@ -379,41 +347,11 @@ public class DataManagingApp extends SparkStreamingApp {
             this.procTime = propCenter.procTime;
 
             // Common Kafka settings
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "largest");
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put("fetch.message.max.bytes",
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    StringDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    ByteArrayDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
             metadataDir = propCenter.metadataDir;
 
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
