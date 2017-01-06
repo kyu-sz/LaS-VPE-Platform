@@ -33,8 +33,6 @@ import java.net.URISyntaxException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-import static org.cripac.isee.vpe.util.logging.SynthesizedLogger.REPORT_TOPIC;
-
 /**
  * The MainController class initializes the system environment (currently only
  * checks the required topics), and provides entrance to run any spark
