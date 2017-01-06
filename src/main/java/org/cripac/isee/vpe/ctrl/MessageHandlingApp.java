@@ -92,7 +92,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     protected JavaStreamingContext getStreamContext() {
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(batchDuration));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
 
         msgHandlingStream.addToContext(jsc);
 
