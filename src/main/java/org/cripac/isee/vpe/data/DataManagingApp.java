@@ -147,10 +147,10 @@ public class DataManagingApp extends SparkStreamingApp {
         public static final Info INFO = new Info("pedestrian-tracklet-rtrv", DataTypes.TRACKLET);
         public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-rtrv-job", DataTypes.TRACKLET_ID, INFO);
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private final Map<String, String> kafkaParams;
         // Create KafkaSink for Spark Streaming to output to Kafka.
-        private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<GraphDatabaseConnector> dbConnSingleton;
+        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+        private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter)
                 throws Exception {
@@ -241,10 +241,10 @@ public class DataManagingApp extends SparkStreamingApp {
         public static final Info INFO = new Info("pedestrian-tracklet-attr-rtrv", DataTypes.TRACKLET_ATTR);
         public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-attr-rtrv-job", DataTypes.TRACKLET_ID, INFO);
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private final Map<String, String> kafkaParams;
         // Create KafkaSink for Spark Streaming to output to Kafka.
-        private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<GraphDatabaseConnector> dbConnSingleton;
+        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+        private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
@@ -315,22 +315,23 @@ public class DataManagingApp extends SparkStreamingApp {
                 new Topic("pedestrian-attr-saving", DataTypes.ATTR, SavingStream.INFO);
         public static final Topic PED_IDRANK_SAVING_TOPIC =
                 new Topic("pedestrian-idrank-saving", DataTypes.IDRANK, SavingStream.INFO);
-        private Map<String, String> kafkaParams = new HashMap<>();
-        private String metadataDir;
+        private final Map<String, String> kafkaParams;
+        private final String metadataDir;
         // Create KafkaSink for Spark Streaming to output to Kafka.
-        private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<FileSystem> hdfsSingleton;
-        private Singleton<GraphDatabaseConnector> dbConnSingleton;
+        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+        private final Singleton<FileSystem> hdfsSingleton;
+        private final Singleton<GraphDatabaseConnector> dbConnSingleton;
         private int maxTrackletLength = 0;
 
         public SavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
+            metadataDir = propCenter.metadataDir;
+
             kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
             Properties producerProp = propCenter.generateKafkaProducerProp(false);
 
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
-                    producerProp));
+            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             hdfsSingleton = new Singleton<>(new HDFSFactory());
             dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
         }

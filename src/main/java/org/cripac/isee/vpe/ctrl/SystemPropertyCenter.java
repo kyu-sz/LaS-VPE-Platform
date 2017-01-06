@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -40,8 +41,11 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 
 /**
  * The SystemPropertyCenter class is responsible of managing the properties of
@@ -461,7 +465,7 @@ public class SystemPropertyCenter implements Serializable {
     }
 
     public Map<String, String> generateKafkaParams(String group) {
-        Map<String, String> kafkaParams = new HashMap<>();
+        Map<String, String> kafkaParams = new Object2ObjectOpenHashMap<>();
         kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, group);
         kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "largest");

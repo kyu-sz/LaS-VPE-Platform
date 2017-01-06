@@ -17,6 +17,8 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.cripac.isee.vpe.common.DataTypeNotMatchedException;
 import org.cripac.isee.vpe.common.RecordNotFoundException;
 import org.cripac.isee.vpe.common.Stream;
@@ -25,8 +27,6 @@ import org.cripac.isee.vpe.common.Topic;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -131,7 +131,7 @@ public class TaskData implements Serializable, Cloneable {
         /**
          * Map for finding nodes according to the class of its module.
          */
-        private Map<Stream.Info, Node> nodes = new HashMap<>();
+        private Map<Stream.Info, Node> nodes = new Object2ObjectOpenHashMap<>();
 
         /**
          * Find a node in the execution plan by topic.
@@ -293,9 +293,9 @@ public class TaskData implements Serializable, Cloneable {
              * Each node has its own successor nodes, each organized in a list.
              * The indexes of the set correspond to that of the nodes.
              */
-            private List<Topic> successorList = new ArrayList<>();
+            private List<Topic> successorList = new ObjectArrayList<>();
 
-            private Stream.Info streamInfo;
+            private final Stream.Info streamInfo;
 
             /**
              * Marker recording whether the stream in this execution plan
@@ -328,7 +328,7 @@ public class TaskData implements Serializable, Cloneable {
              * @return Successor nodes of this node.
              */
             public List<Topic> getSuccessors() {
-                return new ArrayList<>(successorList);
+                return successorList;
             }
 
             /**

@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.alg;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -51,7 +52,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
@@ -196,11 +200,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private final Map<String, String> kafkaParams;
 
-        private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<FileSystem> hdfsSingleton;
-        private Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
+        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+        private final Singleton<FileSystem> hdfsSingleton;
+        private final Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
 
         public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
@@ -211,7 +215,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
             hdfsSingleton = new Singleton<>(new HDFSFactory());
-            connectorPool = new HashedMap();
+            connectorPool = new Object2ObjectOpenHashMap();
         }
 
         @Override
@@ -280,10 +284,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private final Map<String, String> kafkaParams;
 
-        private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<FileSystem> hdfsSingleton;
+        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+        private final Singleton<FileSystem> hdfsSingleton;
 
         public VideoFragmentTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {

@@ -17,8 +17,9 @@
 
 package org.cripac.isee.vpe.util;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -89,7 +90,7 @@ public class Singleton<T> implements Serializable {
         if (instancePool == null) {
             synchronized (Singleton.class) {
                 if (instancePool == null) {
-                    instancePool = new HashMap<>();
+                    instancePool = new Object2ObjectOpenHashMap<>();
                 }
             }
         }

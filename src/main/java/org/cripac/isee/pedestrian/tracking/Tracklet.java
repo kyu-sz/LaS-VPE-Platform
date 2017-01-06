@@ -115,8 +115,7 @@ public class Tracklet implements Serializable {
          *                     the starting time of the video fragment.
          * @param serialNumber The serial number of the track in the video (1, 2, 3...).
          */
-        public Identifier(@Nonnull String videoID,
-                          int serialNumber) {
+        public Identifier(@Nonnull String videoID, int serialNumber) {
             this.videoID = videoID;
             this.serialNumber = serialNumber;
         }

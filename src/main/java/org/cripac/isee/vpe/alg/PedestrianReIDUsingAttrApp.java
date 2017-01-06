@@ -39,7 +39,10 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
@@ -145,7 +148,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages from Kafka
          * Brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private final Map<String, String> kafkaParams;
 
         /**
          * Duration for buffering results.

@@ -41,7 +41,10 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
@@ -160,12 +163,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
          * Kafka parameters for creating input streams pulling messages from Kafka
          * Brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private final Map<String, String> kafkaParams;
 
-        private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
+        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+        private final Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
         // Max length of the resulting tracklet. 0 means not limiting.
-        private int maxTrackletLength = 0;
+        private final int maxTrackletLength;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
