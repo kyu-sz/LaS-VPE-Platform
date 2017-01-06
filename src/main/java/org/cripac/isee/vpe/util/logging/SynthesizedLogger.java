@@ -41,16 +41,14 @@ import java.util.Properties;
  */
 public class SynthesizedLogger extends Logger {
 
-    public static final Topic REPORT_TOPIC = new Topic("vpe_report", DataTypes.PLAIN_TEXT, null);
-
     private String username;
     private org.apache.log4j.Logger log4jLogger;
     private String localName;
     private KafkaProducer producer;
 
     /**
-     * Create a synthesized logger specifying address and port to sendWithLog report
-     * to.
+     * Create a synthesized logger. Logs will be print to console, transferred to default Log4j logger and sent to
+     * Kafka on topic ${username}_report.
      *
      * @param username   Name of the logger user.
      * @param propCenter Properties of the system.
@@ -79,7 +77,7 @@ public class SynthesizedLogger extends Logger {
     }
 
     private void send(@Nonnull String message) {
-        producer.send(new ProducerRecord(REPORT_TOPIC.NAME, this.username, message));
+        producer.send(new ProducerRecord(username + "_report", this.username, message));
     }
 
     public void debug(@Nonnull Object message) {

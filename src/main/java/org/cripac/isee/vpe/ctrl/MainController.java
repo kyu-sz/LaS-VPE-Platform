@@ -30,13 +30,8 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
-
-import static org.cripac.isee.vpe.util.logging.SynthesizedLogger.REPORT_TOPIC;
 
 /**
  * The MainController class initializes the system environment (currently only
@@ -67,7 +62,11 @@ public class MainController {
                 Logger logger = new ConsoleLogger(Level.DEBUG);
                 KafkaConsumer consumer = new KafkaConsumer(
                         propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), true));
-                consumer.subscribe(Arrays.asList(REPORT_TOPIC.NAME));
+                ArrayList<String> topicList = new ArrayList<>();
+                for (String appName : propCenter.appsToStart) {
+                    topicList.add(appName + "_report");
+                }
+                consumer.subscribe(topicList);
                 while (true) {
                     ConsumerRecords<String, String> records = consumer.poll(0);
                     records.forEach(rec -> logger.info(rec.key() + ":\t" + rec.value()));
