@@ -191,8 +191,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             return null;
                         }
                     })
-                    .foreachRDD(rdd ->
-                            rdd.foreach(taskWithTracklet -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(taskWithTracklet -> {
                                 try {
                                     Logger logger = loggerSingleton.getInst();
 

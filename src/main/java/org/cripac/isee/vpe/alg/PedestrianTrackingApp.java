@@ -24,11 +24,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
@@ -222,8 +218,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             buildBytesDirectStream(jssc, Arrays.asList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
-                    .foreachRDD(rdd ->
-                        rdd.foreach(kvPair -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(kvPair -> {
                             // Recover data.
                             final String taskID = kvPair._1();
                             TaskData taskData;
@@ -361,7 +356,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 hdfsSingleton.getInst(),
                                 loggerSingleton.getInst());
 
-                rdd.foreach(task -> {
+                rdd.foreachAsync(task -> {
                     try {
                         Logger logger = loggerSingleton.getInst();
 

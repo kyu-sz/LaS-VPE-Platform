@@ -314,7 +314,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
         public void addToContext(JavaStreamingContext jssc) {// Handle the messages received from Kafka,
             buildBytesDirectStream(jssc, Arrays.asList(COMMAND_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd ->
-                            rdd.foreach(msg -> {
+                            rdd.foreachAsync(msg -> {
                                 try {
                                     UUID taskID = UUID.randomUUID();
 

@@ -171,7 +171,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            JavaPairDStream<String, TaskData> trackletDStream =
+            final JavaPairDStream<String, TaskData> trackletDStream =
                     // Read track bytes in parallel from Kafka.
                     buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams)
                             // Recover track from the bytes
@@ -191,7 +191,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                         taskData);
                             });
 
-            JavaPairDStream<String, TaskData> attrDStream =
+            final JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
                     buildBytesDirectStream(jssc, Arrays.asList(ATTR_TOPIC.NAME), kafkaParams)
                             // Recover attributes from the bytes
@@ -222,37 +222,37 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                             });
 
             // Join the track stream and attribute stream, tolerating failure.
-            JavaPairDStream<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> unsurelyJoinedDStream =
+            final JavaPairDStream<String, Tuple2<Optional<TaskData>, Optional<TaskData>>> unsurelyJoinedDStream =
                     trackletDStream.fullOuterJoin(attrDStream);
 
             // Filter out instantly joined pairs.
-            JavaPairDStream<String, Tuple2<TaskData, TaskData>> instantlyJoinedDStream =
+            final JavaPairDStream<String, Tuple2<TaskData, TaskData>> instantlyJoinedDStream =
                     unsurelyJoinedDStream
                             .filter(item -> new Boolean(item._2()._1().isPresent() && item._2()._2().isPresent()))
                             .mapValues(optPair -> new Tuple2<>(optPair._1().get(), optPair._2().get()));
 
             // Filter out tracklets that cannot find attributes to match.
-            JavaPairDStream<String, TaskData> unjoinedTrackDStream =
+            final JavaPairDStream<String, TaskData> unjoinedTrackDStream =
                     unsurelyJoinedDStream
                             .filter(item -> new Boolean(item._2()._1().isPresent() && !item._2()._2().isPresent()))
                             .mapValues(optPair -> optPair._1().get());
 
             // Filter out attributes that cannot find tracklets to match.
-            JavaPairDStream<String, TaskData> unjoinedAttrStream = unsurelyJoinedDStream
+            final JavaPairDStream<String, TaskData> unjoinedAttrStream = unsurelyJoinedDStream
                     .filter(item -> new Boolean(!item._2()._1().isPresent() && item._2()._2().isPresent()))
                     .mapValues(optPair -> optPair._2().get());
 
-            JavaPairDStream<String, Tuple2<Optional<TaskData>, TaskData>> unsurelyJoinedAttrDStream =
+            final JavaPairDStream<String, Tuple2<Optional<TaskData>, TaskData>> unsurelyJoinedAttrDStream =
                     unjoinedTrackDStream
                             .window(Durations.milliseconds(bufDuration))
                             .rightOuterJoin(unjoinedAttrStream);
 
-            JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrJoinedDStream =
+            final JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrJoinedDStream =
                     unsurelyJoinedAttrDStream
                             .filter(item -> new Boolean(item._2()._1().isPresent()))
                             .mapValues(item -> new Tuple2<>(item._1().get(), item._2()));
 
-            JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackJoinedDStream =
+            final JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackJoinedDStream =
                     unjoinedTrackDStream
                             .join(unsurelyJoinedAttrDStream
                                     .filter(item -> new Boolean(!item._2()._1().isPresent()))
@@ -261,7 +261,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             // Union the three track and attribute streams and assemble
             // their TaskData.
-            JavaPairDStream<String, TaskData> asmTrackletAttrDStream =
+            final JavaPairDStream<String, TaskData> asmTrackletAttrDStream =
                     instantlyJoinedDStream.union(lateTrackJoinedDStream)
                             .union(lateAttrJoinedDStream)
                             .mapToPair(pack -> {
@@ -287,7 +287,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Read track with attribute bytes in parallel from Kafka.
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
-            JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
+            final JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
                     buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams)
                             .mapValues(bytes -> {
                                 TaskData taskData;
@@ -302,53 +302,51 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             // Union the two track with attribute streams and perform ReID.
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)
-                    .foreachRDD(rdd -> {
-                        rdd.foreach(taskWithTrackletAttr -> {
-                            try {
-                                Logger logger = loggerSingleton.getInst();
-                                String taskID = taskWithTrackletAttr._1();
-                                TaskData taskData = taskWithTrackletAttr._2();
-                                if (taskData.predecessorRes == null) {
-                                    throw new DataTypeNotMatchedException("TaskData from " + taskData.predecessorInfo
-                                            + " contains no result data!");
-                                }
-                                if (!(taskData.predecessorRes instanceof PedestrianInfo)) {
-                                    throw new DataTypeNotMatchedException("Result sent by "
-                                            + taskData.predecessorInfo
-                                            + " is expected to be a PedestrianInfo,"
-                                            + " but received \""
-                                            + taskData.predecessorRes + "\"!");
-                                }
-                                PedestrianInfo trackletWithAttr =
-                                        (PedestrianInfo) taskData.predecessorRes;
-
-                                // Perform ReID.
-                                int[] idRank = reidSingleton.getInst().reid(trackletWithAttr);
-
-                                // Prepare new task data with the pedestrian IDRANK.
-                                taskData.predecessorRes = idRank;
-                                // Get the IDs of successor nodes.
-                                List<Topic> succTopics = taskData.curNode.getSuccessors();
-                                // Mark the current node as executed.
-                                taskData.curNode.markExecuted();
-                                // Send to all the successor nodes.
-                                for (Topic topic : succTopics) {
-                                    try {
-                                        taskData.changeCurNode(topic);
-                                    } catch (RecordNotFoundException e) {
-                                        logger.warn("When changing node in TaskData", e);
-                                    }
-                                    sendWithLog(topic,
-                                            taskID,
-                                            serialize(taskData),
-                                            producerSingleton.getInst(),
-                                            logger);
-                                }
-                            } catch (Exception e) {
-                                loggerSingleton.getInst().error("During ReID", e);
+                    .foreachRDD(rdd -> rdd.foreachAsync(taskWithTrackletAttr -> {
+                        try {
+                            Logger logger = loggerSingleton.getInst();
+                            String taskID = taskWithTrackletAttr._1();
+                            TaskData taskData = taskWithTrackletAttr._2();
+                            if (taskData.predecessorRes == null) {
+                                throw new DataTypeNotMatchedException("TaskData from " + taskData.predecessorInfo
+                                        + " contains no result data!");
                             }
-                        });
-                    });
+                            if (!(taskData.predecessorRes instanceof PedestrianInfo)) {
+                                throw new DataTypeNotMatchedException("Result sent by "
+                                        + taskData.predecessorInfo
+                                        + " is expected to be a PedestrianInfo,"
+                                        + " but received \""
+                                        + taskData.predecessorRes + "\"!");
+                            }
+                            PedestrianInfo trackletWithAttr =
+                                    (PedestrianInfo) taskData.predecessorRes;
+
+                            // Perform ReID.
+                            int[] idRank = reidSingleton.getInst().reid(trackletWithAttr);
+
+                            // Prepare new task data with the pedestrian IDRANK.
+                            taskData.predecessorRes = idRank;
+                            // Get the IDs of successor nodes.
+                            List<Topic> succTopics = taskData.curNode.getSuccessors();
+                            // Mark the current node as executed.
+                            taskData.curNode.markExecuted();
+                            // Send to all the successor nodes.
+                            for (Topic topic : succTopics) {
+                                try {
+                                    taskData.changeCurNode(topic);
+                                } catch (RecordNotFoundException e) {
+                                    logger.warn("When changing node in TaskData", e);
+                                }
+                                sendWithLog(topic,
+                                        taskID,
+                                        serialize(taskData),
+                                        producerSingleton.getInst(),
+                                        logger);
+                            }
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During ReID", e);
+                        }
+                    }));
         }
     }
 }

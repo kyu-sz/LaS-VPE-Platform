@@ -27,13 +27,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
@@ -170,7 +164,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // The directory storing the tracklets of the video is stored in the database.
             buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets.
-                    .foreachRDD(rdd -> rdd.foreach(job -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(job -> {
                                 Logger logger = loggerSingleton.getInst();
 
                                 // Recover task data.
@@ -263,7 +257,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // Read track with attributes retrieving jobs in parallel from Kafka.
             buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets with attributes.
-                    .foreachRDD(rdd -> rdd.foreach(job -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(job -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // Recover task data.
@@ -387,7 +381,7 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public void addToContext(@Nonnull JavaStreamingContext jssc) {// Save tracklets.
             buildBytesDirectStream(jssc, Arrays.asList(PED_TRACKLET_SAVING_TOPIC.NAME), kafkaParams)
-                    .foreachRDD(rdd -> rdd.foreach(kvPair -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(kvPair -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // RuntimeException: No native JavaCPP library
@@ -450,7 +444,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
             buildBytesDirectStream(jssc, Arrays.asList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams)
-                    .foreachRDD(rdd -> rdd.foreach(res -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(res -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             TaskData taskData = (TaskData) deserialize(res._2());
@@ -469,7 +463,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
             buildBytesDirectStream(jssc, Arrays.asList(PED_IDRANK_SAVING_TOPIC.NAME), kafkaParams)
-                    .foreachRDD(rdd -> rdd.foreach(res -> {
+                    .foreachRDD(rdd -> rdd.foreachAsync(res -> {
                         final Logger logger = loggerSingleton.getInst();
                         int[] idRank;
                         try {
