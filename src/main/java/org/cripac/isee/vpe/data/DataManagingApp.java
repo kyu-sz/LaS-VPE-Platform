@@ -151,13 +151,10 @@ public class DataManagingApp extends SparkStreamingApp {
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
-        private final int procTime;
 
         public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter)
                 throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
-
-            this.procTime = propCenter.procTime;
 
             // Common Kafka settings
             kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
@@ -173,7 +170,7 @@ public class DataManagingApp extends SparkStreamingApp {
             // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
-            buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets.
                     .foreachRDD(rdd -> {
                         rdd.foreach(job -> {
@@ -252,12 +249,9 @@ public class DataManagingApp extends SparkStreamingApp {
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
-        private final int procTime;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
-
-            this.procTime = propCenter.procTime;
 
             // Common Kafka settings
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
@@ -302,7 +296,7 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
-            buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> rdd.foreach(job -> {
                         Logger logger = loggerSingleton.getInst();
@@ -371,12 +365,9 @@ public class DataManagingApp extends SparkStreamingApp {
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
-        private final int procTime;
 
         public SavingStream(@Nonnull SystemPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
-
-            this.procTime = propCenter.procTime;
 
             // Common Kafka settings
             kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
@@ -475,7 +466,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(@Nonnull JavaStreamingContext jssc) {// Save tracklets.
-            buildBytesDirectStream(jssc, Arrays.asList(PED_TRACKLET_SAVING_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(PED_TRACKLET_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreach(kvPair -> {
                         try {
                             // RuntimeException: No native JavaCPP library
@@ -540,7 +531,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
-            buildBytesDirectStream(jssc, Arrays.asList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreach(res -> {
                         try {
                             TaskData taskData;
@@ -559,7 +550,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
-            buildBytesDirectStream(jssc, Arrays.asList(PED_IDRANK_SAVING_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(PED_IDRANK_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreach(res -> {
                         int[] idRank;
                         try {
