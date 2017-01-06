@@ -263,21 +263,18 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
     public static class VideoFragmentTrackingStream extends Stream {
 
-        public static final Info INFO =
-                new Info("video-frag-tracking", DataTypes.TRACKLET);
+        public static final Info INFO = new Info("video-frag-tracking", DataTypes.TRACKLET);
 
         /**
          * Topic to input video URLs from Kafka.
          */
         public static final Topic VIDEO_URL_TOPIC =
-                new Topic("video-url-for-pedestrian-tracking",
-                        DataTypes.URL, INFO);
+                new Topic("video-url-for-pedestrian-tracking", DataTypes.URL, INFO);
         /**
          * Topic to input video bytes from Kafka.
          */
         public static final Topic VIDEO_FRAG_BYTES_TOPIC =
-                new Topic("video-fragment-bytes-for-pedestrian-tracking",
-                        DataTypes.RAW_VIDEO_FRAG_BYTES, INFO);
+                new Topic("video-fragment-bytes-for-pedestrian-tracking", DataTypes.RAW_VIDEO_FRAG_BYTES, INFO);
 
         /**
          * Kafka parameters for creating input streams pulling messages

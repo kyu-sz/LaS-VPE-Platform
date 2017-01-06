@@ -445,6 +445,7 @@ public class SystemPropertyCenter implements Serializable {
         producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                 isStringValue ? StringSerializer.class : ByteArraySerializer.class);
         producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, "" + kafkaMsgMaxBytes);
+        producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
         return producerProp;
     }
 

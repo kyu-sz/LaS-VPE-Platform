@@ -129,8 +129,7 @@ public abstract class Stream implements Serializable {
                            @Nonnull Map<String, String> kafkaParams) {
         kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
 
-        final JavaPairDStream<String, byte[]> stream
-                = KafkaUtils.createDirectStream(jssc,
+        final JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(jssc,
                 String.class, byte[].class,
                 StringDecoder.class, DefaultDecoder.class,
                 kafkaParams, new HashSet<>(topics))

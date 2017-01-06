@@ -29,7 +29,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.bytedeco.javacpp.BytePointer;
@@ -100,8 +99,6 @@ public class DataManagingApp extends SparkStreamingApp {
     public static class AppPropertyCenter extends SystemPropertyCenter {
 
         private static final long serialVersionUID = -786439769732467646L;
-        // Max length of a tracklet to save. 0 means not limiting.
-        public int maxTrackletLength = 0;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
@@ -109,9 +106,6 @@ public class DataManagingApp extends SparkStreamingApp {
             // Digest the settings.
             for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
                 switch ((String) entry.getKey()) {
-                    case "vpe.ped.tracking.max.length":
-                        maxTrackletLength = new Integer((String) entry.getValue());
-                        break;
                 }
             }
         }
@@ -131,24 +125,18 @@ public class DataManagingApp extends SparkStreamingApp {
     @Override
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
-        JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
+        JavaStreamingContext jssc = new JavaStreamingContext(new SparkConf(), Durations.milliseconds(batchDuration));
 
         // Setup streams for data feeding.
-        pedTrackletRtrvStream.addToContext(jsc);
-        pedTrackletAttrRtrvStream.addToContext(jsc);
+        pedTrackletRtrvStream.addToContext(jssc);
+        pedTrackletAttrRtrvStream.addToContext(jssc);
 
         // Setup streams for meta data saving.
-        savingStream.addToContext(jsc);
+        savingStream.addToContext(jssc);
 
-        return jsc;
+        return jssc;
     }
 
-    /*
-         * (non-Javadoc)
-         *
-         * @see SparkStreamingApp#getStreamInfo()
-         */
     @Override
     public String getAppName() {
         return APP_NAME;
@@ -184,65 +172,64 @@ public class DataManagingApp extends SparkStreamingApp {
             // The directory storing the tracklets of the video is stored in the database.
             buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets.
-                    .foreachRDD(rdd -> rdd.foreachAsync(job -> {
-                                Logger logger = loggerSingleton.getInst();
+                    .foreachRDD(rdd -> rdd.foreachAsync(kvPair -> {
+                        final Logger logger = loggerSingleton.getInst();
 
-                                // Recover task data.
-                                TaskData taskData;
                                 try {
-                                    taskData = (TaskData) deserialize(job._2());
-                                } catch (Exception e) {
-                                    logger.error("During TaskData deserialization", e);
-                                    return;
-                                }
-                                if (taskData.predecessorRes == null) {
-                                    logger.fatal("TaskData from " + taskData.predecessorInfo
-                                            + " contains no result data!");
-                                    return;
-                                }
-                                if (!(taskData.predecessorRes instanceof Tracklet.Identifier)) {
-                                    logger.fatal("TaskData from " + taskData.predecessorInfo
-                                            + " contains no result data!");
-                                    logger.fatal("Result sent by "
-                                            + taskData.predecessorInfo
-                                            + " is expected to be a tracklet identifier,"
-                                            + " but received \""
-                                            + taskData.predecessorRes + "\"!");
-                                    return;
-                                }
-                                Tracklet.Identifier trackletID =
-                                        (Tracklet.Identifier) taskData.predecessorRes;
-                                // Retrieve the track from HDFS.
-                                Tracklet tracklet = retrieveTracklet(
-                                        dbConnSingleton.getInst().getTrackletSavingDir(
-                                                trackletID.videoID),
-                                        trackletID,
-                                        loggerSingleton.getInst());
-                                // Store the track to a task data (reused).
-                                taskData.predecessorRes = tracklet;
-
-                                // Get the IDs of successor nodes.
-                                List<Topic> succTopics = taskData.curNode.getSuccessors();
-                                // Mark the current node as executed.
-                                taskData.curNode.markExecuted();
-
-                                if (succTopics.size() == 0) {
-                                    loggerSingleton.getInst().debug(
-                                            "No succeeding topics found for"
-                                                    + " pedestrian tracklet retrieving stream!");
-                                }
-                                // Send to all the successor nodes.
-                                for (Topic topic : succTopics) {
-                                    try {
-                                        taskData.changeCurNode(topic);
-                                    } catch (RecordNotFoundException e) {
-                                        logger.warn("When changing node in TaskData", e);
+                                    // Recover task data.
+                                    TaskData taskData = (TaskData) deserialize(kvPair._2());
+                                    if (taskData.predecessorRes == null) {
+                                        logger.fatal("TaskData from " + taskData.predecessorInfo
+                                                + " contains no result data!");
+                                        return;
                                     }
-                                    sendWithLog(topic,
-                                            job._1(),
-                                            serialize(taskData),
-                                            producerSingleton.getInst(),
+                                    if (!(taskData.predecessorRes instanceof Tracklet.Identifier)) {
+                                        logger.fatal("TaskData from " + taskData.predecessorInfo
+                                                + " contains no result data!");
+                                        logger.fatal("Result sent by "
+                                                + taskData.predecessorInfo
+                                                + " is expected to be a tracklet identifier,"
+                                                + " but received \""
+                                                + taskData.predecessorRes + "\"!");
+                                        return;
+                                    }
+                                    final Tracklet.Identifier trackletID =
+                                            (Tracklet.Identifier) taskData.predecessorRes;
+
+                                    // Retrieve the track from HDFS.
+                                    final Tracklet tracklet = retrieveTracklet(
+                                            dbConnSingleton.getInst().getTrackletSavingDir(trackletID.videoID),
+                                            trackletID,
                                             loggerSingleton.getInst());
+                                    // Store the track to a task data (reused).
+                                    taskData.predecessorRes = tracklet;
+
+                                    // Get the IDs of successor nodes.
+                                    final List<Topic> succTopics = taskData.curNode.getSuccessors();
+                                    // Mark the current node as executed.
+                                    taskData.curNode.markExecuted();
+
+                                    if (succTopics.size() == 0) {
+                                        loggerSingleton.getInst().debug(
+                                                "No succeeding topics found for"
+                                                        + " pedestrian tracklet retrieving stream!");
+                                    }
+
+                                    // Send to all the successor nodes.
+                                    final KafkaProducer producer = producerSingleton.getInst();
+                                    final String taskID = kvPair._1();
+                                    for (Topic topic : succTopics) {
+                                        try {
+                                            taskData.changeCurNode(topic);
+                                        } catch (RecordNotFoundException e) {
+                                            logger.warn("When changing node in TaskData", e);
+                                        }
+
+                                        sendWithLog(topic, taskID, serialize(taskData), producer, logger);
+                                    }
+                                } catch (Exception e) {
+                                    logger.error("During retrieving tracklets", e);
+                                    return;
                                 }
                             })
                     );
@@ -279,13 +266,12 @@ public class DataManagingApp extends SparkStreamingApp {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // Recover task data.
-                            TaskData taskData = (TaskData) deserialize(job._2());
+                            final TaskData taskData = (TaskData) deserialize(job._2());
                             // Get parameters for the job.
-                            Tracklet.Identifier trackletID =
-                                    (Tracklet.Identifier) taskData.predecessorRes;
-                            String videoURL = trackletID.videoID;
+                            final Tracklet.Identifier trackletID = (Tracklet.Identifier) taskData.predecessorRes;
+                            final String videoURL = trackletID.videoID;
 
-                            PedestrianInfo info = new PedestrianInfo();
+                            final PedestrianInfo info = new PedestrianInfo();
                             // Retrieve the track from HDFS.
                             info.tracklet = retrieveTracklet(
                                     dbConnSingleton.getInst().getTrackletSavingDir(videoURL),
@@ -296,7 +282,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             taskData.predecessorRes = info;
 
                             // Get the IDs of successor nodes.
-                            List<Topic> succTopics = taskData.curNode.getSuccessors();
+                            final List<Topic> succTopics = taskData.curNode.getSuccessors();
                             // Mark the current node as executed.
                             taskData.curNode.markExecuted();
                             // Send to all the successor nodes.
@@ -358,14 +344,14 @@ public class DataManagingApp extends SparkStreamingApp {
          */
         private void storeTracklet(@Nonnull String storeDir,
                                    @Nonnull Tracklet tracklet) throws Exception {
-            FileSystem hdfs = hdfsSingleton.getInst();
+            final FileSystem hdfs = hdfsSingleton.getInst();
 
             // Write verbal informations with Json.
-            FSDataOutputStream outputStream = hdfs.create(new Path(storeDir + "/info.txt"));
+            final FSDataOutputStream outputStream = hdfs.create(new Path(storeDir + "/info.txt"));
 
             // Customize the serialization of bounding box in order to ignore patch data.
-            GsonBuilder gsonBuilder = new GsonBuilder();
-            JsonSerializer<Tracklet.BoundingBox> bboxSerializer = (box, typeOfBox, context) -> {
+            final GsonBuilder gsonBuilder = new GsonBuilder();
+            final JsonSerializer<Tracklet.BoundingBox> bboxSerializer = (box, typeOfBox, context) -> {
                 JsonObject result = new JsonObject();
                 result.add("x", new JsonPrimitive(box.x));
                 result.add("y", new JsonPrimitive(box.y));
@@ -374,27 +360,30 @@ public class DataManagingApp extends SparkStreamingApp {
                 return result;
             };
             gsonBuilder.registerTypeAdapter(Tracklet.BoundingBox.class, bboxSerializer);
+
+            // Write serialized basic information of the tracklet to HDFS.
             outputStream.writeBytes(gsonBuilder.create().toJson(tracklet));
             outputStream.close();
 
             // Write frames.
             for (int i = 0; i < tracklet.locationSequence.length; ++i) {
-                Tracklet.BoundingBox bbox = tracklet.locationSequence[i];
+                final Tracklet.BoundingBox bbox = tracklet.locationSequence[i];
 
                 // Use JavaCV to encode the image patch
                 // into JPEG, stored in the memory.
-                BytePointer inputPointer = new BytePointer(bbox.patchData);
-                Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
-                BytePointer outputPointer = new BytePointer();
+                final BytePointer inputPointer = new BytePointer(bbox.patchData);
+                final Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
+                final BytePointer outputPointer = new BytePointer();
                 imencode(".jpg", image, outputPointer);
-                byte[] bytes = new byte[(int) outputPointer.limit()];
+                final byte[] bytes = new byte[(int) outputPointer.limit()];
                 outputPointer.get(bytes);
 
                 // Output the image patch to HDFS.
-                FSDataOutputStream imgOutputStream = hdfs.create(new Path(storeDir + "/" + i + ".jpg"));
+                final FSDataOutputStream imgOutputStream = hdfs.create(new Path(storeDir + "/" + i + ".jpg"));
                 imgOutputStream.write(bytes);
                 imgOutputStream.close();
 
+                // Free resources.
                 image.release();
                 inputPointer.deallocate();
                 outputPointer.deallocate();
@@ -412,34 +401,37 @@ public class DataManagingApp extends SparkStreamingApp {
                             Loader.load(opencv_core.class);
                             Loader.load(opencv_imgproc.class);
 
-                            FileSystem hdfs = hdfsSingleton.getInst();
+                            final FileSystem hdfs = hdfsSingleton.getInst();
 
-                            String taskID = kvPair._1();
-                            TaskData taskData;
-                            taskData = (TaskData) deserialize(kvPair._2());
-                            Tracklet tracklet = (Tracklet) taskData.predecessorRes;
-                            int numTracklets = tracklet.numTracklets;
-                            String videoRoot = metadataDir + "/" + tracklet.id.videoID;
-                            String taskRoot = videoRoot + "/" + taskID;
-                            hdfs.mkdirs(new Path(taskRoot));
+                            final String taskID = kvPair._1();
+                            final TaskData taskData = (TaskData) deserialize(kvPair._2());
+                            final Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                            final int numTracklets = tracklet.numTracklets;
 
-                            logger.info("Task " + taskID + " got track: " + tracklet.id + "!");
+                            final int batchSize =
+                                    maxTrackletLength > 0 ? maxTrackletLength : tracklet.locationSequence.length;
+                            final int numBatches = (tracklet.locationSequence.length + batchSize - 1) / batchSize;
+                            logger.info("Task " + taskID + " got track: " + tracklet.id
+                                    + ". Will divide into " + numBatches + " batches.");
 
-                            String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                            final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                            final String taskRoot = videoRoot + "/" + taskID;
+                            final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                             hdfs.mkdirs(new Path(storeDir));
 
                             storeTracklet(storeDir, tracklet);
 
                             // If all the tracklets from a task are saved,
                             // it's time to pack them into a HAR!
-                            ContentSummary contentSummary = hdfs.getContentSummary(new Path(taskRoot));
-                            long cnt = contentSummary.getDirectoryCount();
+                            final ContentSummary contentSummary = hdfs.getContentSummary(new Path(taskRoot));
+                            final long dirCnt = contentSummary.getDirectoryCount();
                             // Decrease one for directory counter.
-                            if (cnt - 1 == numTracklets) {
+                            if (dirCnt - 1 == numTracklets) {
                                 logger.info("Starting to pack metadata for Task " + taskID
-                                        + "(" + tracklet.id.videoID + ")!");
+                                        + "(" + tracklet.id.videoID + ")! The directory consumes "
+                                        + contentSummary.getSpaceConsumed() + " bytes.");
 
-                                HadoopArchives arch = new HadoopArchives(new Configuration());
+                                final HadoopArchives arch = new HadoopArchives(new Configuration());
                                 final ArrayList<String> harPackingOptions = new ArrayList<>();
                                 harPackingOptions.add("-archiveName");
                                 harPackingOptions.add(taskID + ".har");
@@ -458,7 +450,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 hdfs.delete(new Path(taskRoot), true);
                             } else {
                                 logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") need "
-                                        + (numTracklets - cnt + 1) + "/" + numTracklets + " more tracklets!");
+                                        + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
                             }
                         } catch (Exception e) {
                             logger.error("During storing tracklets.", e);
@@ -471,8 +463,8 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreachAsync(res -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
-                            TaskData taskData = (TaskData) deserialize(res._2());
-                            Attributes attr = (Attributes) taskData.predecessorRes;
+                            final TaskData taskData = (TaskData) deserialize(res._2());
+                            final Attributes attr = (Attributes) taskData.predecessorRes;
 
                             logger.debug("Received " + res._1() + ": " + attr);
 
@@ -489,10 +481,9 @@ public class DataManagingApp extends SparkStreamingApp {
             buildBytesDirectStream(jssc, Arrays.asList(PED_IDRANK_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreachAsync(res -> {
                         final Logger logger = loggerSingleton.getInst();
-                        int[] idRank;
                         try {
-                            TaskData taskData = (TaskData) deserialize(res._2());
-                            idRank = (int[]) taskData.predecessorRes;
+                            final TaskData taskData = (TaskData) deserialize(res._2());
+                            final int[] idRank = (int[]) taskData.predecessorRes;
                             String rankStr = "";
                             for (int id : idRank) {
                                 rankStr = rankStr + id + " ";
