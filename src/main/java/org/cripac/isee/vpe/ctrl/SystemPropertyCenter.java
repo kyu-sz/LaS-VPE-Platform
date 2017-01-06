@@ -123,6 +123,10 @@ public class SystemPropertyCenter implements Serializable {
      */
     public int bufDuration = 600000;
     /**
+     * Duration of spark batches.
+     */
+    public int batchDuration = 2000;
+    /**
      * Estimated time in milliseconds to be consumed in the process of each RDD.
      */
     public int procTime = 10000;
@@ -331,6 +335,9 @@ public class SystemPropertyCenter implements Serializable {
                 case "vpe.buf.duration":
                     bufDuration = new Integer((String) entry.getValue());
                     break;
+                case "vpe.batch.duration":
+                    batchDuration = new Integer((String) entry.getValue());
+                    break;
                 case "vpe.process.time":
                     procTime = new Integer((String) entry.getValue());
                     break;
@@ -389,6 +396,8 @@ public class SystemPropertyCenter implements Serializable {
                 .setConf(SparkLauncher.EXECUTOR_MEMORY, executorMem)
                 .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
                 .setConf(SparkLauncher.EXECUTOR_CORES, "" + executorCores)
+                .setConf("spark.driver.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
+                .setConf("spark.executor.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
                 .addSparkArg("--driver-cores", "" + driverCores)
                 .addSparkArg("--num-executors", "" + numExecutors)
                 .addSparkArg("--total-executor-cores", "" + totalExecutorCores)

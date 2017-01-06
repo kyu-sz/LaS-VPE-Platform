@@ -59,6 +59,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public static final String APP_NAME = "pedestrian-attr-recog";
     private Stream attrRecogStream;
+    private int batchDuration = 1000;
 
     /**
      * Constructor of the application, configuring properties read from a
@@ -68,6 +69,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public PedestrianAttrRecogApp(AppPropertyCenter propCenter) throws Exception {
+        this.batchDuration = propCenter.batchDuration;
         attrRecogStream = new RecogStream(propCenter);
     }
 
@@ -121,7 +123,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(2));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(batchDuration));
 
         attrRecogStream.addToContext(jsc);
 
