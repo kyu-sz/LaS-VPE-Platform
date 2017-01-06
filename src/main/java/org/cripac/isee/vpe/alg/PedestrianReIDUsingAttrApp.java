@@ -330,18 +330,17 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                             List<Topic> succTopics = taskData.curNode.getSuccessors();
                             // Mark the current node as executed.
                             taskData.curNode.markExecuted();
+
                             // Send to all the successor nodes.
+                            final KafkaProducer producer = producerSingleton.getInst();
                             for (Topic topic : succTopics) {
                                 try {
                                     taskData.changeCurNode(topic);
                                 } catch (RecordNotFoundException e) {
                                     logger.warn("When changing node in TaskData", e);
                                 }
-                                sendWithLog(topic,
-                                        taskID,
-                                        serialize(taskData),
-                                        producerSingleton.getInst(),
-                                        logger);
+
+                                sendWithLog(topic, taskID, serialize(taskData), producer, logger);
                             }
                         } catch (Exception e) {
                             loggerSingleton.getInst().error("During ReID", e);

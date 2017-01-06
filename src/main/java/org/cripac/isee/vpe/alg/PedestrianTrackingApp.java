@@ -93,8 +93,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      */
     public static void main(String[] args) throws Exception {
         // Load system properties.
-        SystemPropertyCenter propCenter;
-        propCenter = new SystemPropertyCenter(args);
+        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
         // Start the pedestrian tracking application.
         SparkStreamingApp app = new PedestrianTrackingApp(propCenter);
@@ -219,45 +218,45 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         public void addToContext(JavaStreamingContext jssc) {
             buildBytesDirectStream(jssc, Arrays.asList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreachAsync(kvPair -> {
-                            // Recover data.
-                            final String taskID = kvPair._1();
-                            TaskData taskData;
-                            try {
-                                taskData = (TaskData) deserialize(kvPair._2());
-                            } catch (Exception e) {
-                                loggerSingleton.getInst().error("During TaskData deserialization", e);
-                                return;
-                            }
+                                // Recover data.
+                                final String taskID = kvPair._1();
+                                TaskData taskData;
+                                try {
+                                    taskData = (TaskData) deserialize(kvPair._2());
+                                } catch (Exception e) {
+                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    return;
+                                }
 
-                            // Get camera WEBCAM_LOGIN_PARAM.
-                            if (taskData.predecessorRes == null) {
-                                loggerSingleton.getInst().error(
-                                        "No camera WEBCAM_LOGIN_PARAM specified for real-time tracking stream!");
-                                return;
-                            }
-                            if (!(taskData.predecessorRes instanceof String)) {
-                                loggerSingleton.getInst().error(
-                                        "Real-time tracking stream expects camera WEBCAM_LOGIN_PARAM but received "
-                                                + taskData.predecessorRes.getClass().getName() + "!");
-                                return;
-                            }
-                            LoginParam loginParam = (LoginParam) taskData.predecessorRes;
+                                // Get camera WEBCAM_LOGIN_PARAM.
+                                if (taskData.predecessorRes == null) {
+                                    loggerSingleton.getInst().error(
+                                            "No camera WEBCAM_LOGIN_PARAM specified for real-time tracking stream!");
+                                    return;
+                                }
+                                if (!(taskData.predecessorRes instanceof String)) {
+                                    loggerSingleton.getInst().error(
+                                            "Real-time tracking stream expects camera WEBCAM_LOGIN_PARAM but received "
+                                                    + taskData.predecessorRes.getClass().getName() + "!");
+                                    return;
+                                }
+                                LoginParam loginParam = (LoginParam) taskData.predecessorRes;
 
-                            WebCameraConnector cameraConnector;
-                            if (connectorPool.containsKey(loginParam.serverID)) {
-                                cameraConnector = connectorPool.get(loginParam.serverID).getInst();
-                            } else {
-                                Singleton<WebCameraConnector> cameraConnectorSingleton =
-                                        new Singleton(new FakeWebCameraConnector
-                                                .FakeWebCameraConnectorFactory(loginParam));
-                                connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
-                                cameraConnector = cameraConnectorSingleton.getInst();
-                            }
+                                WebCameraConnector cameraConnector;
+                                if (connectorPool.containsKey(loginParam.serverID)) {
+                                    cameraConnector = connectorPool.get(loginParam.serverID).getInst();
+                                } else {
+                                    Singleton<WebCameraConnector> cameraConnectorSingleton =
+                                            new Singleton(new FakeWebCameraConnector
+                                                    .FakeWebCameraConnectorFactory(loginParam));
+                                    connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
+                                    cameraConnector = cameraConnectorSingleton.getInst();
+                                }
 
-                            // Connect to camera.
-                            InputStream rtVideoStream = cameraConnector.getStream();
-                            // TODO(Ken Yu): Perform tracking on the real-time video stream.
-                        })
+                                // Connect to camera.
+                                InputStream rtVideoStream = cameraConnector.getStream();
+                                // TODO(Ken Yu): Perform tracking on the real-time video stream.
+                            })
                     );
         }
     }
@@ -308,34 +307,36 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            JavaPairDStream<String, TaskData> fragFromURLDStream =
+            final JavaPairDStream<String, TaskData> fragFromURLDStream =
                     buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams)
                             .mapToPair(kvPair -> {
-                                String taskID = kvPair._1();
-
-                                // Get the task data.
-                                TaskData taskData;
                                 try {
-                                    taskData = (TaskData) deserialize(kvPair._2());
+                                    String taskID = kvPair._1();
+
+                                    // Get the task data.
+                                    TaskData taskData = (TaskData) deserialize(kvPair._2());
+
+                                    VideoFragment frag = new VideoFragment();
+                                    // Get the videoID of the video to process from
+                                    // the execution data of this node. Here, the
+                                    // ID is represented by the URL of the video.
+                                    frag.videoID = (String) taskData.predecessorRes;
+                                    // Retrieve video fragment bytes.
+                                    frag.bytes =
+                                            IOUtils.toByteArray(hdfsSingleton.getInst().open(new Path(frag.videoID)));
+
+                                    loggerSingleton.getInst().debug("Received taskID=" + taskID
+                                            + ", URL=" + frag.videoID);
+
+                                    taskData.predecessorRes = frag;
+                                    return new Tuple2<>(taskID, taskData);
                                 } catch (Exception e) {
                                     loggerSingleton.getInst().error("During TaskData deserialization", e);
                                     return null;
                                 }
-                                VideoFragment frag = new VideoFragment();
-                                // Get the videoID of the video to process from
-                                // the execution data of this node. Here, the
-                                // ID is represented by the URL of the video.
-                                frag.videoID = (String) taskData.predecessorRes;
-                                // Retrieve video fragment bytes.
-                                frag.bytes = IOUtils.toByteArray(hdfsSingleton.getInst().open(new Path(frag.videoID)));
-
-                                loggerSingleton.getInst().debug("Received taskID=" + taskID + ", URL=" + frag.videoID);
-
-                                taskData.predecessorRes = frag;
-                                return new Tuple2<>(taskID, taskData);
                             });
 
-            JavaPairDStream<String, TaskData> fragFromBytesDStream =
+            final JavaPairDStream<String, TaskData> fragFromBytesDStream =
                     buildBytesDirectStream(jssc, Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME), kafkaParams)
                             .mapValues(bytes -> {
                                 TaskData taskData;
@@ -348,7 +349,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 }
                             });
 
-            JavaPairDStream<String, TaskData> fragUnionStream = fragFromURLDStream.union(fragFromBytesDStream);
+            final JavaPairDStream<String, TaskData> fragUnionStream = fragFromURLDStream.union(fragFromBytesDStream);
 
             fragUnionStream.foreachRDD(rdd -> {
                 final Broadcast<Map<String, byte[]>> confPool =
@@ -356,18 +357,19 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 hdfsSingleton.getInst(),
                                 loggerSingleton.getInst());
 
-                rdd.foreachAsync(task -> {
+                rdd.foreachAsync(kvPair -> {
                     try {
-                        Logger logger = loggerSingleton.getInst();
+                        final Logger logger = loggerSingleton.getInst();
 
                         // Get the task data.
-                        TaskData taskData = task._2();
+                        final String taskID = kvPair._1();
+                        final TaskData taskData = kvPair._2();
                         TaskData.ExecutionPlan.Node curNode = taskData.curNode;
                         // Get the videoID of the video to process from the
                         // execution data of this node.
-                        VideoFragment frag = (VideoFragment) taskData.predecessorRes;
+                        final VideoFragment frag = (VideoFragment) taskData.predecessorRes;
                         // Get tracking configuration for this execution.
-                        String confFile = (String) curNode.getExecData();
+                        final String confFile = (String) curNode.getExecData();
                         if (confFile == null) {
                             logger.error("Tracking configuration file is not specified for this node!");
                             return;
@@ -382,12 +384,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         if (!confPool.getValue().containsKey(confFile)) {
                             throw new FileNotFoundException("Cannot find tracking config file " + confFile);
                         }
-                        byte[] confBytes = confPool.getValue().get(confFile);
+                        final byte[] confBytes = confPool.getValue().get(confFile);
                         if (confBytes == null) {
                             logger.fatal("confPool contains key " + confFile + " but value is null!");
                             return;
                         }
-                        Tracker tracker = new BasicTracker(confBytes, logger);
+                        final Tracker tracker = new BasicTracker(confBytes, logger);
                         //Tracker tracker = new FakePedestrianTracker();
 
                         // Conduct tracking on video read from HDFS.
@@ -396,8 +398,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         logger.debug("Finished tracking on " + frag.videoID);
 
                         // Send tracklets.
+                        final KafkaProducer producer = producerSingleton.getInst();
                         for (int i = 0; i < tracklets.length; ++i) {
                             Tracklet tracklet = tracklets[i];
+
                             // Complete identifier of each tracklet.
                             tracklet.id = new Tracklet.Identifier(frag.videoID, i);
                             // Stored the track in the task data, which can be cyclic utilized.
@@ -410,14 +414,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     logger.warn("When changing node in TaskData", e);
                                 }
 
-                                byte[] serialized = serialize(taskData);
-                                logger.debug("To sendWithLog message with size: "
-                                        + serialized.length);
-                                sendWithLog(topic,
-                                        task._1(),
-                                        serialized,
-                                        producerSingleton.getInst(),
-                                        logger);
+                                final byte[] serialized = serialize(taskData);
+                                logger.debug("To sendWithLog message with size: " + serialized.length);
+                                sendWithLog(topic, taskID, serialized, producer, logger);
                             }
                         }
                     } catch (Exception e) {

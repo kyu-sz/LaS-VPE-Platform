@@ -50,9 +50,13 @@ import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.*;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
@@ -85,7 +89,7 @@ public class DataManagingApp extends SparkStreamingApp {
     private Stream pedTrackletAttrRtrvStream;
     private Stream savingStream;
 
-    public DataManagingApp(SystemPropertyCenter propCenter) throws Exception {
+    public DataManagingApp(AppPropertyCenter propCenter) throws Exception {
         this.batchDuration = propCenter.batchDuration;
 
         pedTrackletRtrvStream = new PedestrainTrackletRetrievingStream(propCenter);
@@ -93,16 +97,32 @@ public class DataManagingApp extends SparkStreamingApp {
         savingStream = new SavingStream(propCenter);
     }
 
-    public static void main(String[] args) throws Exception {
-        SystemPropertyCenter propCenter;
-        if (args.length > 0) {
-            propCenter = new SystemPropertyCenter(args);
-        } else {
-            propCenter = new SystemPropertyCenter();
-        }
+    public static class AppPropertyCenter extends SystemPropertyCenter {
 
-        SparkStreamingApp app = new DataManagingApp(propCenter);
+        private static final long serialVersionUID = -786439769732467646L;
+        // Max length of a tracklet to save. 0 means not limiting.
+        public int maxTrackletLength = 0;
+
+        public AppPropertyCenter(@Nonnull String[] args)
+                throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
+            super(args);
+            // Digest the settings.
+            for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
+                switch ((String) entry.getKey()) {
+                    case "vpe.ped.tracking.max.length":
+                        maxTrackletLength = new Integer((String) entry.getValue());
+                        break;
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        final AppPropertyCenter propCenter = new AppPropertyCenter(args);
+
         TopicManager.checkTopics(propCenter);
+
+        final SparkStreamingApp app = new DataManagingApp(propCenter);
         app.initialize(propCenter);
         app.start();
         app.awaitTermination();
@@ -231,9 +251,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
     public static class PedestrainTrackletAttrRetrievingStream extends Stream {
 
-        public static final Info INFO = new Info(
-                "pedestrian-tracklet-attr-rtrv",
-                DataTypes.TRACKLET_ATTR);
+        public static final Info INFO = new Info("pedestrian-tracklet-attr-rtrv", DataTypes.TRACKLET_ATTR);
         public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-attr-rtrv-job", DataTypes.TRACKLET_ID, INFO);
         private Map<String, String> kafkaParams = new HashMap<>();
@@ -283,7 +301,11 @@ public class DataManagingApp extends SparkStreamingApp {
                             taskData.curNode.markExecuted();
                             // Send to all the successor nodes.
                             for (Topic topic : succTopics) {
-                                taskData.changeCurNode(topic);
+                                try {
+                                    taskData.changeCurNode(topic);
+                                } catch (RecordNotFoundException e) {
+                                    logger.warn("When changing node in TaskData", e);
+                                }
                                 sendWithLog(topic,
                                         job._1(),
                                         serialize(taskData),
@@ -313,8 +335,9 @@ public class DataManagingApp extends SparkStreamingApp {
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
         private Singleton<GraphDatabaseConnector> dbConnSingleton;
+        private int maxTrackletLength = 0;
 
-        public SavingStream(@Nonnull SystemPropertyCenter propCenter) throws Exception {
+        public SavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
@@ -417,13 +440,14 @@ public class DataManagingApp extends SparkStreamingApp {
                                         + "(" + tracklet.id.videoID + ")!");
 
                                 HadoopArchives arch = new HadoopArchives(new Configuration());
-                                ArrayList<String> opt = new ArrayList<>();
-                                opt.add("-archiveName");
-                                opt.add(taskID + ".har");
-                                opt.add("-p");
-                                opt.add(taskRoot);
-                                opt.add(videoRoot);
-                                arch.run(Arrays.copyOf(opt.toArray(), opt.size(), String[].class));
+                                final ArrayList<String> harPackingOptions = new ArrayList<>();
+                                harPackingOptions.add("-archiveName");
+                                harPackingOptions.add(taskID + ".har");
+                                harPackingOptions.add("-p");
+                                harPackingOptions.add(taskRoot);
+                                harPackingOptions.add(videoRoot);
+                                arch.run(Arrays.copyOf(harPackingOptions.toArray(),
+                                        harPackingOptions.size(), String[].class));
 
                                 logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") packed!");
 

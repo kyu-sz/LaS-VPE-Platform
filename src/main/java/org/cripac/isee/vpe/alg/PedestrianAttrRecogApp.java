@@ -78,6 +78,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private static final long serialVersionUID = -786439769732467646L;
         public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         public int externAttrRecogServerPort = 0;
+        // Max length of a tracklet to recignize attr from. 0 means not limiting.
+        public int maxTrackletLength = 0;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
@@ -90,6 +92,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         break;
                     case "vpe.ped.attr.ext.port":
                         externAttrRecogServerPort = new Integer((String) entry.getValue());
+                        break;
+                    case "vpe.ped.tracking.max.length":
+                        maxTrackletLength = new Integer((String) entry.getValue());
                         break;
                 }
             }
@@ -159,11 +164,14 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
+        // Max length of the resulting tracklet. 0 means not limiting.
+        private int maxTrackletLength = 0;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-            // Common kafka settings.
+            this.maxTrackletLength = propCenter.maxTrackletLength;
+
             kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
             Properties producerProp = propCenter.generateKafkaProducerProp(false);
@@ -215,10 +223,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     Tracklet tracklet = (Tracklet) taskData.predecessorRes;
                                     logger.debug("To recognize attributes for task " + taskID + "!");
                                     // Truncate and shrink the tracklet in case it is too large.
-                                    if (tracklet.locationSequence.length > 256) {
-                                        int increment = tracklet.locationSequence.length / 256;
-                                        int start = tracklet.locationSequence.length - 256 * increment;
-                                        tracklet = tracklet.truncateAndShrink(start, 256, increment);
+                                    if (maxTrackletLength > 0
+                                            && tracklet.locationSequence.length > maxTrackletLength) {
+                                        final int increment = tracklet.locationSequence.length / maxTrackletLength;
+                                        final int start =
+                                                tracklet.locationSequence.length - maxTrackletLength * increment;
+                                        tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
                                     }
                                     // Recognize attributes.
                                     Attributes attr = attrRecogSingleton.getInst().recognize(tracklet);
@@ -233,18 +243,17 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     List<Topic> succTopics = taskData.curNode.getSuccessors();
                                     // Mark the current node as executed.
                                     taskData.curNode.markExecuted();
+
                                     // Send to all the successor nodes.
+                                    final KafkaProducer producer = producerSingleton.getInst();
                                     for (Topic topic : succTopics) {
                                         try {
                                             taskData.changeCurNode(topic);
                                         } catch (RecordNotFoundException e) {
                                             logger.warn("When changing node in TaskData", e);
                                         }
-                                        sendWithLog(topic,
-                                                taskID,
-                                                serialize(taskData),
-                                                producerSingleton.getInst(),
-                                                logger);
+
+                                        sendWithLog(topic, taskID, serialize(taskData), producer, logger);
                                     }
                                 } catch (Exception e) {
                                     loggerSingleton.getInst().error("During processing attributes.", e);

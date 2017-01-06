@@ -37,6 +37,7 @@ import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletRetrievingStre
 import org.cripac.isee.vpe.data.HDFSReader;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
+import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import java.io.Serializable;
@@ -316,17 +317,20 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     .foreachRDD(rdd ->
                             rdd.foreachAsync(msg -> {
                                 try {
+                                    final KafkaProducer producer = producerSingleton.getInst();
+                                    final Logger logger = loggerSingleton.getInst();
+
                                     UUID taskID = UUID.randomUUID();
 
                                     // Get a next command message.
                                     String cmd = msg._1();
-                                    loggerSingleton.getInst().debug("Received command: " + cmd);
+                                    logger.debug("Received command: " + cmd);
 
                                     Hashtable<String, Serializable> param;
                                     {
                                         Object tmp = deserialize(msg._2());
                                         if (!(tmp instanceof Hashtable)) {
-                                            loggerSingleton.getInst().error("Expecting Hashtable but received " + tmp);
+                                            logger.error("Expecting Hashtable but received " + tmp);
                                             return;
                                         }
                                         param = (Hashtable<String, Serializable>) tmp;
@@ -345,12 +349,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                             TaskData taskData = new TaskData(
                                                     plan.findNode(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
                                                     plan, new Gson().fromJson((String) tmp, LoginParam.class));
-                                            sendWithLog(
-                                                    RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
-                                                    taskID.toString(),
-                                                    serialize(taskData),
-                                                    producerSingleton.getInst(),
-                                                    loggerSingleton.getInst());
+                                            sendWithLog(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
+                                                    taskID, serialize(taskData), producer, logger);
                                             break;
                                         }
                                         case CommandType.TRACK_ONLY:
@@ -388,10 +388,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                 plan,
                                                                 tmp);
                                                         sendWithLog(VideoFragmentTrackingStream.VIDEO_URL_TOPIC,
-                                                                taskID.toString(),
-                                                                serialize(taskData),
-                                                                producerSingleton.getInst(),
-                                                                loggerSingleton.getInst());
+                                                                taskID, serialize(taskData), producer, logger);
                                                         break;
                                                     }
                                                     // These commands need only sending tracklet IDs to the
@@ -412,10 +409,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                 plan,
                                                                 id);
                                                         sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
-                                                                taskID.toString(),
-                                                                serialize(taskData),
-                                                                producerSingleton.getInst(),
-                                                                loggerSingleton.getInst());
+                                                                taskID, serialize(taskData), producer, logger);
                                                         break;
                                                     }
                                                     // This command needs only sending tracklet IDs to the
@@ -436,10 +430,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                 id);
                                                         sendWithLog(
                                                                 PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
-                                                                taskID.toString(),
-                                                                serialize(taskData),
-                                                                producerSingleton.getInst(),
-                                                                loggerSingleton.getInst());
+                                                                taskID, serialize(taskData), producer, logger);
                                                         break;
                                                     }
                                                 }
