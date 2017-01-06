@@ -128,14 +128,21 @@ public class PedestrianAttrRecogAppTest {
                         "src/test/resources/20131220184349-20131220184937.h264"));
         System.out.println("Start tracking...");
         Tracklet[] tracklets = Pretrack.track(videoBytes);
-        for(int i=0; i<tracklets.length; ++i) {
-            logger.info("Tracklet length: " + tracklets[i].locationSequence.length);
-            for (Tracklet.BoundingBox boundingBox : tracklets[i].locationSequence) {
-                logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
-                        + " " + boundingBox.width + " " + boundingBox.height);
+        long startTime=System.nanoTime();
+        for(int j=0; j<10; ++j)
+        {
+            for (int i = 0; i < tracklets.length; ++i) {
+                logger.info("Tracklet length: " + tracklets[i].locationSequence.length);
+                for (Tracklet.BoundingBox boundingBox : tracklets[i].locationSequence) {
+                    logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
+                            + " " + boundingBox.width + " " + boundingBox.height);
+                }
+                logger.info(recognizer.recognize(tracklets[i]));
             }
-            logger.info(recognizer.recognize(tracklets[i]));
         }
+        long endTime=System.nanoTime();
+        System.out.print("Extern Test use time:  ");
+        System.out.println(endTime-startTime);
     }
 
     //    @Test
@@ -145,36 +152,52 @@ public class PedestrianAttrRecogAppTest {
         TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
         plan.letNodeOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
 
-        // Send request (fake tracklet).
-        TaskData trackletData = new TaskData(recogNode, plan,
-                new FakePedestrianTracker().track(new byte[0])[0]);
-        assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
-        sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
-                UUID.randomUUID().toString(),
-                serialize(trackletData),
-                producer,
-                logger);
+        // Send request.
+        BasicTracker Pretrack = new BasicTracker(
+                IOUtils.toByteArray(new FileInputStream(
+                        "conf/"
+                                + PedestrianTrackingApp.APP_NAME
+                                + "/isee-basic/CAM01_0.conf")),
+                new ConsoleLogger(Level.DEBUG));
+        byte[] videoBytes =
+                IOUtils.toByteArray(new FileInputStream(
+                        "src/test/resources/20131220184349-20131220184937.h264"));
+        Tracklet[] tracklets = Pretrack.track(videoBytes);
+        long startTime=System.nanoTime();
+        for(int i=0; i<tracklets.length; ++i) {
+           TaskData trackletData = new TaskData(recogNode, plan,
+                   tracklets[i]);
+           assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
+           sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
+                   UUID.randomUUID().toString(),
+                   serialize(trackletData),
+                   producer,
+                   logger);
 
-        logger.info("Waiting for response...");
-        // Receive result (attributes).
-        ConsumerRecords<String, byte[]> records;
-        while (true) {
-            records = consumer.poll(0);
-            if (records.isEmpty()) {
-                continue;
-            }
+           logger.info("Waiting for response...");
+           // Receive result (attributes).
+           ConsumerRecords<String, byte[]> records;
+           while (true) {
+               records = consumer.poll(0);
+               if (records.isEmpty()) {
+                   continue;
+               }
 
-            logger.info("Response received!");
-            records.forEach(rec -> {
-                TaskData taskData;
-                try {
-                    taskData = (TaskData) deserialize(rec.value());
-                } catch (Exception e) {
-                    logger.error("During TaskData deserialization", e);
-                    return;
-                }
-                logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
-            });
+               logger.info("Response received!");
+               records.forEach(rec -> {
+                   TaskData taskData;
+                   try {
+                       taskData = (TaskData) deserialize(rec.value());
+                   } catch (Exception e) {
+                       logger.error("During TaskData deserialization", e);
+                       return;
+                   }
+                   logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
+               });
+           }
         }
+        long endTime=System.nanoTime();
+        System.out.print("Extern Test use time:  ");
+        System.out.println(endTime-startTime);
     }
 }
