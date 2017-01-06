@@ -129,7 +129,7 @@ public class PedestrianAttrRecogAppTest {
         System.out.println("Start tracking...");
         Tracklet[] tracklets = Pretrack.track(videoBytes);
         long startTime=System.nanoTime();
-        for(int j=0; j<10; ++j)
+        for(int j=0; j<100; ++j)
         {
             for (int i = 0; i < tracklets.length; ++i) {
                 logger.info("Tracklet length: " + tracklets[i].locationSequence.length);
