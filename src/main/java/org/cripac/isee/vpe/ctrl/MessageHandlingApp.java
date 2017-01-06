@@ -58,6 +58,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "message-handling";
+    private int batchDuration = 1000;
     private Stream msgHandlingStream;
 
     /**
@@ -68,6 +69,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public MessageHandlingApp(SystemPropertyCenter propCenter) throws Exception {
+        this.batchDuration = propCenter.batchDuration;
         msgHandlingStream = new MessageHandlingStream(propCenter);
     }
 
@@ -90,7 +92,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     protected JavaStreamingContext getStreamContext() {
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(1));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(batchDuration));
 
         msgHandlingStream.addToContext(jsc);
 

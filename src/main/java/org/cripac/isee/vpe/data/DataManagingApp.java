@@ -85,12 +85,15 @@ public class DataManagingApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "data-managing";
+    private int batchDuration = 1000;
 
     private Stream pedTrackletRtrvStream;
     private Stream pedTrackletAttrRtrvStream;
     private Stream savingStream;
 
     public DataManagingApp(SystemPropertyCenter propCenter) throws Exception {
+        this.batchDuration = propCenter.batchDuration;
+
         pedTrackletRtrvStream = new PedestrainTrackletRetrievingStream(propCenter);
         pedTrackletAttrRtrvStream = new PedestrainTrackletAttrRetrievingStream(propCenter);
         savingStream = new SavingStream(propCenter);
@@ -115,7 +118,7 @@ public class DataManagingApp extends SparkStreamingApp {
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(2));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(batchDuration));
 
         // Setup streams for data feeding.
         pedTrackletRtrvStream.addToContext(jsc);

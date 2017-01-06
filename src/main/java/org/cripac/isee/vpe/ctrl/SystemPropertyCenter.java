@@ -123,6 +123,10 @@ public class SystemPropertyCenter implements Serializable {
      */
     public int bufDuration = 600000;
     /**
+     * Duration of spark batches.
+     */
+    public int batchDuration = 2000;
+    /**
      * Estimated time in milliseconds to be consumed in the process of each RDD.
      */
     public int procTime = 10000;
@@ -330,6 +334,9 @@ public class SystemPropertyCenter implements Serializable {
                     break;
                 case "vpe.buf.duration":
                     bufDuration = new Integer((String) entry.getValue());
+                    break;
+                case "vpe.batch.duration":
+                    batchDuration = new Integer((String) entry.getValue());
                     break;
                 case "vpe.process.time":
                     procTime = new Integer((String) entry.getValue());

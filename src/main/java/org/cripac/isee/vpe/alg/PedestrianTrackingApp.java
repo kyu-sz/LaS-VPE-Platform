@@ -73,6 +73,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "pedestrian-tracking";
+    private int batchDuration = 1000;
 
     private Stream fragmentTrackingStream;
     private Stream rtTrackingStream;
@@ -85,6 +86,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public PedestrianTrackingApp(SystemPropertyCenter propCenter) throws Exception {
+        batchDuration = propCenter.batchDuration;
         fragmentTrackingStream = new VideoFragmentTrackingStream(propCenter);
         rtTrackingStream = new RTVideoStreamTrackingStream(propCenter);
     }
@@ -116,7 +118,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
         JavaStreamingContext jsc =
-                new JavaStreamingContext(new SparkConf(true), Durations.seconds(2));
+                new JavaStreamingContext(new SparkConf(true), Durations.seconds(batchDuration));
 
         fragmentTrackingStream.addToContext(jsc);
         rtTrackingStream.addToContext(jsc);
