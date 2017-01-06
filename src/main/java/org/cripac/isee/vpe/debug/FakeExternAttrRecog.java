@@ -19,7 +19,7 @@ public class FakeExternAttrRecog {
 
     public void Initial(String sovlverAddress,int port){
         try{
-            test = new ExternPedestrianAttrRecognizer(Inet4Address.getByName(sovlverAddress),port);
+            //test = new ExternPedestrianAttrRecognizer(Inet4Address.getByName(sovlverAddress),port);
         }
         catch (Exception e) {
             System.out.println("Initialization Failed.");
