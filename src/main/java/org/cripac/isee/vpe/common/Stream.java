@@ -139,6 +139,7 @@ public abstract class Stream implements Serializable {
                     return rdd;
                 })
                 .repartition(jssc.sparkContext().defaultParallelism());
+        stream.cache();
         stream.foreachRDD(rdd -> {
             for (OffsetRange o : offsetRanges.get()) {
                 loggerSingleton.getInst().debug("Received Kafka message: {topic=" + o.topic()
