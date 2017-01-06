@@ -100,7 +100,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(batchDuration));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
 
         reidStream.addToContext(jsc);
 
@@ -155,12 +155,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<PedestrianReIDer> reidSingleton;
 
-        private final int procTime;
-
         public ReIDStream(SystemPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
-
-            this.procTime = propCenter.procTime;
 
             bufDuration = propCenter.bufDuration;
 
@@ -177,10 +173,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         public void addToContext(JavaStreamingContext jssc) {
             JavaPairDStream<String, TaskData> trackletDStream =
                     // Read track bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc,
-                            Arrays.asList(TRACKLET_TOPIC.NAME),
-                            kafkaParams,
-                            procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
                             .mapToPair(kvPair -> {
@@ -200,7 +193,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Arrays.asList(ATTR_TOPIC.NAME), kafkaParams, procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(ATTR_TOPIC.NAME), kafkaParams)
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
@@ -295,7 +288,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
             JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams, procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams)
                             .mapValues(bytes -> {
                                 TaskData taskData;
                                 try {

@@ -20,9 +20,13 @@ package org.cripac.isee.vpe.common;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.HasOffsetRanges;
 import org.apache.spark.streaming.kafka.KafkaUtils;
+import org.apache.spark.streaming.kafka.OffsetRange;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
 
@@ -31,6 +35,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
@@ -89,7 +94,7 @@ public abstract class Stream implements Serializable {
         }
     }
 
-    protected Singleton<Logger> loggerSingleton;
+    protected final Singleton<Logger> loggerSingleton;
 
     /**
      * Require inputting a logger singleton for this class and all its subclasses.
@@ -107,6 +112,8 @@ public abstract class Stream implements Serializable {
      */
     public abstract void addToContext(JavaStreamingContext jssc);
 
+    protected final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<>();
+
     /**
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
@@ -114,22 +121,33 @@ public abstract class Stream implements Serializable {
      * @param jssc        The streaming context of the applications.
      * @param kafkaParams Parameters for reading from Kafka.
      * @param topics      Topics from which the direct stream reads.
-     * @param procTime    Estimated time in milliseconds to be consumed in the
-     *                    following process of each RDD from the input stream.
-     *                    After this time, it is viewed that output has
-     *                    finished, and offsets will be committed to Kafka.
      * @return A Kafka non-receiver input stream.
      */
     protected JavaPairDStream<String, byte[]>
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
-                           @Nonnull Map<String, String> kafkaParams,
-                           int procTime) {
+                           @Nonnull Map<String, String> kafkaParams) {
         kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-        return KafkaUtils.createDirectStream(jssc,
+
+        final JavaPairDStream<String, byte[]> stream
+                = KafkaUtils.createDirectStream(jssc,
                 String.class, byte[].class,
                 StringDecoder.class, DefaultDecoder.class,
-                kafkaParams, new HashSet(topics))
+                kafkaParams, new HashSet<>(topics))
+                .transformToPair((Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>) rdd -> {
+                    OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+                    offsetRanges.set(offsets);
+                    return rdd;
+                })
                 .repartition(jssc.sparkContext().defaultParallelism());
+        stream.foreachRDD(rdd -> {
+            for (OffsetRange o : offsetRanges.get()) {
+                loggerSingleton.getInst().debug("Received Kafka message: {topic=" + o.topic()
+                        + ", partition=" + o.partition()
+                        + ", fromOffset=" + o.fromOffset()
+                        + ", untilOffset=" + o.untilOffset() + "}");
+            }
+        });
+        return stream;
     }
 }

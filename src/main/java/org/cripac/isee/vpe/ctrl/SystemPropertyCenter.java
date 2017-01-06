@@ -127,10 +127,6 @@ public class SystemPropertyCenter implements Serializable {
      */
     public int batchDuration = 2000;
     /**
-     * Estimated time in milliseconds to be consumed in the process of each RDD.
-     */
-    public int procTime = 10000;
-    /**
      * Whether to print verbose running information.
      */
     public boolean verbose = false;
@@ -337,9 +333,6 @@ public class SystemPropertyCenter implements Serializable {
                     break;
                 case "vpe.batch.duration":
                     batchDuration = new Integer((String) entry.getValue());
-                    break;
-                case "vpe.process.time":
-                    procTime = new Integer((String) entry.getValue());
                     break;
                 case "kafka.max.request.size":
                     kafkaMaxRequestSize = new Integer((String) entry.getValue());

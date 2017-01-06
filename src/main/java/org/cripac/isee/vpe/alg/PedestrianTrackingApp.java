@@ -118,7 +118,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
         JavaStreamingContext jsc =
-                new JavaStreamingContext(new SparkConf(true), Durations.seconds(batchDuration));
+                new JavaStreamingContext(new SparkConf(true), Durations.milliseconds(batchDuration));
 
         fragmentTrackingStream.addToContext(jsc);
         rtTrackingStream.addToContext(jsc);
@@ -197,8 +197,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 new Topic("cam-address-for-pedestrian-tracking",
                         DataTypes.WEBCAM_LOGIN_PARAM, INFO);
 
-        private final int procTime;
-
         /**
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
@@ -213,37 +211,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-            this.procTime = propCenter.procTime;
-
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-//            kafkaParams.put("zookeeper.connect", propCenter.zkConn);
-            // Determine where the stream starts (default: largest)
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "largest");
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put("fetch.message.max.bytes",
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
             hdfsSingleton = new Singleton<>(new HDFSFactory());
@@ -252,7 +221,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            buildBytesDirectStream(jssc, Arrays.asList(LOGIN_PARAM_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Arrays.asList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd ->
                         rdd.foreach(kvPair -> {
                             // Recover data.
@@ -277,8 +246,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                                 + taskData.predecessorRes.getClass().getName() + "!");
                                 return;
                             }
-                            LoginParam loginParam =
-                                    (LoginParam) taskData.predecessorRes;
+                            LoginParam loginParam = (LoginParam) taskData.predecessorRes;
 
                             WebCameraConnector cameraConnector;
                             if (connectorPool.containsKey(loginParam.serverID)) {
@@ -325,13 +293,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<FileSystem> hdfsSingleton;
-        private final int procTime;
 
         public VideoFragmentTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
-
-            this.procTime = propCenter.procTime;
 
             kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
@@ -349,7 +314,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             JavaPairDStream<String, TaskData> fragFromURLDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams, procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams)
                             .mapToPair(kvPair -> {
                                 String taskID = kvPair._1();
 
@@ -376,7 +341,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             });
 
             JavaPairDStream<String, TaskData> fragFromBytesDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME), kafkaParams, procTime)
+                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME), kafkaParams)
                             .mapValues(bytes -> {
                                 TaskData taskData;
                                 try {
