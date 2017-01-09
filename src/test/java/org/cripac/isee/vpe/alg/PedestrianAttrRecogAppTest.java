@@ -112,7 +112,7 @@ public class PedestrianAttrRecogAppTest {
         PedestrianAttrRecognizer recognizer =
                 new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
                         externAttrRecogServerPort, logger);
-        Tracklet tracklet = new FakePedestrianTracker().track(new byte[0])[0];
+        Tracklet tracklet = new FakePedestrianTracker().track(null)[0];
         logger.info("Tracklet length: " + tracklet.locationSequence.length);
         for (Tracklet.BoundingBox boundingBox : tracklet.locationSequence) {
             logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
@@ -130,7 +130,7 @@ public class PedestrianAttrRecogAppTest {
 
         // Send request (fake tracklet).
         TaskData trackletData = new TaskData(recogNode, plan,
-                new FakePedestrianTracker().track(new byte[0])[0]);
+                new FakePedestrianTracker().track(null)[0]);
         assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
         sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
                 UUID.randomUUID().toString(),

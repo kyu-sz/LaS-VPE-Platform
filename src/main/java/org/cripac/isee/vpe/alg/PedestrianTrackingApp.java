@@ -30,7 +30,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.pedestrian.tracking.Tracker;
@@ -46,7 +45,6 @@ import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
-import scala.Tuple2;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -87,7 +85,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      */
     public PedestrianTrackingApp(SystemPropertyCenter propCenter) throws Exception {
         batchDuration = propCenter.batchDuration;
-        fragmentTrackingStream = new VideoFragmentTrackingStream(propCenter);
+        fragmentTrackingStream = new HDFSVideoTrackingStream(propCenter);
         rtTrackingStream = new RTVideoStreamTrackingStream(propCenter);
     }
 
@@ -265,21 +263,15 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
     }
 
-    public static class VideoFragmentTrackingStream extends Stream {
+    public static class HDFSVideoTrackingStream extends Stream {
 
-        public static final Info INFO = new Info("video-frag-tracking", DataTypes.TRACKLET);
+        public static final Info INFO = new Info("hdfs-video-tracking", DataTypes.TRACKLET);
 
         /**
          * Topic to input video URLs from Kafka.
          */
         public static final Topic VIDEO_URL_TOPIC =
-                new Topic("video-url-for-pedestrian-tracking", DataTypes.URL, INFO);
-        /**
-         * Topic to input video bytes from Kafka.
-         */
-        public static final Topic VIDEO_FRAG_BYTES_TOPIC =
-                new Topic("video-fragment-bytes-for-pedestrian-tracking", DataTypes.RAW_VIDEO_FRAG_BYTES, INFO);
-
+                new Topic("hdfs-video-url-for-pedestrian-tracking", DataTypes.URL, INFO);
         /**
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
@@ -289,7 +281,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<FileSystem> hdfsSingleton;
 
-        public VideoFragmentTrackingStream(SystemPropertyCenter propCenter) throws
+        public HDFSVideoTrackingStream(SystemPropertyCenter propCenter) throws
                 Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
@@ -308,67 +300,23 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            final JavaPairDStream<String, TaskData> fragFromURLDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams)
-                            .mapToPair(kvPair -> {
-                                try {
-                                    String taskID = kvPair._1();
-
-                                    // Get the task data.
-                                    TaskData taskData = (TaskData) deserialize(kvPair._2());
-
-                                    VideoFragment frag = new VideoFragment();
-                                    // Get the videoID of the video to process from
-                                    // the execution data of this node. Here, the
-                                    // ID is represented by the URL of the video.
-                                    frag.videoID = (String) taskData.predecessorRes;
-                                    // Retrieve video fragment bytes.
-                                    frag.bytes =
-                                            IOUtils.toByteArray(hdfsSingleton.getInst().open(new Path(frag.videoID)));
-
-                                    loggerSingleton.getInst().debug("Received taskID=" + taskID
-                                            + ", URL=" + frag.videoID);
-
-                                    taskData.predecessorRes = frag;
-                                    return new Tuple2<>(taskID, taskData);
-                                } catch (Exception e) {
-                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
-                                    return null;
-                                }
-                            });
-
-            final JavaPairDStream<String, TaskData> fragFromBytesDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(VIDEO_FRAG_BYTES_TOPIC.NAME), kafkaParams)
-                            .mapValues(bytes -> {
-                                TaskData taskData;
-                                try {
-                                    taskData = (TaskData) deserialize(bytes);
-                                    return taskData;
-                                } catch (Exception e) {
-                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
-                                    return null;
-                                }
-                            });
-
-            final JavaPairDStream<String, TaskData> fragUnionStream = fragFromURLDStream.union(fragFromBytesDStream);
-
-            fragUnionStream.foreachRDD(rdd -> {
+            buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams).foreachRDD(rdd -> {
                 final Broadcast<Map<String, byte[]>> confPool =
                         ConfigPool.getInst(new JavaSparkContext(rdd.context()),
                                 hdfsSingleton.getInst(),
                                 loggerSingleton.getInst());
 
                 rdd.foreachAsync(kvPair -> {
+                    final Logger logger = loggerSingleton.getInst();
                     try {
-                        final Logger logger = loggerSingleton.getInst();
-
-                        // Get the task data.
                         final String taskID = kvPair._1();
-                        final TaskData taskData = kvPair._2();
-                        TaskData.ExecutionPlan.Node curNode = taskData.curNode;
-                        // Get the videoID of the video to process from the
-                        // execution data of this node.
-                        final VideoFragment frag = (VideoFragment) taskData.predecessorRes;
+                        final TaskData taskData = (TaskData) deserialize(kvPair._2());
+
+                        final String videoURL = (String) taskData.predecessorRes;
+                        final InputStream videoStream = hdfsSingleton.getInst().open(new Path(videoURL));
+                        logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
+
+                        final TaskData.ExecutionPlan.Node curNode = taskData.curNode;
                         // Get tracking configuration for this execution.
                         final String confFile = (String) curNode.getExecData();
                         if (confFile == null) {
@@ -377,13 +325,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         }
 
                         // Get the IDs of successor nodes.
-                        List<Topic> succTopics = curNode.getSuccessors();
+                        final List<Topic> succTopics = curNode.getSuccessors();
                         // Mark the current node as executed in advance.
                         taskData.curNode.markExecuted();
 
                         // Load tracking configuration to create a tracker.
                         if (!confPool.getValue().containsKey(confFile)) {
-                            throw new FileNotFoundException("Cannot find tracking config file " + confFile);
+                            throw new FileNotFoundException("Couldn't find tracking config file " + confFile);
                         }
                         final byte[] confBytes = confPool.getValue().get(confFile);
                         if (confBytes == null) {
@@ -394,9 +342,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         //Tracker tracker = new FakePedestrianTracker();
 
                         // Conduct tracking on video read from HDFS.
-                        logger.debug("Performing tracking on " + frag.videoID);
-                        Tracklet[] tracklets = tracker.track(frag.bytes);
-                        logger.debug("Finished tracking on " + frag.videoID);
+                        logger.debug("Performing tracking on " + videoURL);
+                        final Tracklet[] tracklets = tracker.track(videoStream);
+                        logger.debug("Finished tracking on " + videoURL);
 
                         // Send tracklets.
                         final KafkaProducer producer = producerSingleton.getInst();
@@ -404,7 +352,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             Tracklet tracklet = tracklets[i];
 
                             // Complete identifier of each tracklet.
-                            tracklet.id = new Tracklet.Identifier(frag.videoID, i);
+                            tracklet.id = new Tracklet.Identifier(videoURL, i);
                             // Stored the track in the task data, which can be cyclic utilized.
                             taskData.predecessorRes = tracklet;
                             // Send to all the successor nodes.
@@ -421,7 +369,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             }
                         }
                     } catch (Exception e) {
-                        loggerSingleton.getInst().error("During tracking.", e);
+                        logger.error("During tracking.", e);
                     }
                 });
             });

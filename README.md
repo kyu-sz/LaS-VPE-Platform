@@ -66,10 +66,7 @@ mvn package
 If your maven resolves dependencies at a low speed, try
 ```mvn -Dmaven.artifact.threads=100 package``` or add
 ```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.
-You may also try a Maven mirror. For users in China, the Aliyun mirror is recommended:
-```Shell
-
-```
+You may also try a Maven mirror. For users in China, the Aliyun mirror is recommended.
 
 Configure the environment and running properties in the files in [conf](conf).
 
@@ -129,7 +126,7 @@ In Firefox, it is recommended to use the AutoProxy plugin for enabling proxy.
 Beside obvious configurations, you need to first access *about:config*, then
 set *network.proxy.socks_remote_dns* as *true*.
 
-## Basic conceptions in the project
+## Basic concepts in this project
 
 _Application_: Same as that in YARN.
 
@@ -165,9 +162,8 @@ for support of the module.
 ## How to add a new native algorithm
 
 You may want to run algorithms written in other languages like C/C++ on this
-platform. There are already examples of them: see
-[Video-Decoder](Video-Decoder) and
-[ISEE-Basic=Pedestrian-Tracker](ISEE-Basic=Pedestrian-Tracker). 
+platform. Here is an example:
+ [ISEE-Basic=Pedestrian-Tracker](ISEE-Basic=Pedestrian-Tracker). 
 
 First of all, you should wrap your algorithm with JNI. It is recommended to
 implement this in another GitHub repository, and import it as a submodule.

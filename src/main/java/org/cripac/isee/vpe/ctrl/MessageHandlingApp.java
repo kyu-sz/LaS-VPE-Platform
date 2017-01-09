@@ -27,8 +27,9 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp.HDFSVideoTrackingStream;
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp.RTVideoStreamTrackingStream;
-import org.cripac.isee.vpe.alg.PedestrianTrackingApp.VideoFragmentTrackingStream;
 import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.data.DataManagingApp;
@@ -184,7 +185,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.TRACK_ONLY: {
                     // Perform tracking only.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            VideoFragmentTrackingStream.INFO,
+                            PedestrianTrackingApp.HDFSVideoTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     // The letNodeOutputTo method will automatically add the DataManagingApp node.
                     plan.letNodeOutputTo(trackingNode,
@@ -216,7 +217,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.TRACK_ATTRRECOG: {
                     // Do tracking, then output to attr recog module.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            VideoFragmentTrackingStream.INFO,
+                            PedestrianTrackingApp.HDFSVideoTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -262,7 +263,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 }
                 case CommandType.TRACK_ATTRRECOG_REID: {
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            VideoFragmentTrackingStream.INFO,
+                            HDFSVideoTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -384,10 +385,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                         }
                                                         TaskData taskData = new TaskData(
                                                                 plan.findNode(
-                                                                        VideoFragmentTrackingStream.VIDEO_URL_TOPIC),
+                                                                        HDFSVideoTrackingStream.VIDEO_URL_TOPIC),
                                                                 plan,
                                                                 tmp);
-                                                        sendWithLog(VideoFragmentTrackingStream.VIDEO_URL_TOPIC,
+                                                        sendWithLog(HDFSVideoTrackingStream.VIDEO_URL_TOPIC,
                                                                 taskID, serialize(taskData), producer, logger);
                                                         break;
                                                     }

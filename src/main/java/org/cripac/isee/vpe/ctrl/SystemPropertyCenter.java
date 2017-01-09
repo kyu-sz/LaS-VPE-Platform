@@ -229,7 +229,7 @@ public class SystemPropertyCenter implements Serializable {
             propInputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
-            logger.error("Cannot find system-wise default property file at specified path: \""
+            logger.error("Couldn't find system-wise default property file at specified path: \""
                     + sysPropFilePath + "\"!\n");
             logger.error("Try use '-h' for more information.");
             System.exit(0);
@@ -257,7 +257,7 @@ public class SystemPropertyCenter implements Serializable {
                 propInputStream.close();
             } catch (IOException e) {
                 e.printStackTrace();
-                logger.error("Cannot find application-specific property file at specified path: \""
+                logger.error("Couldn't find application-specific property file at specified path: \""
                         + appPropFilePath + "\"!\n");
                 logger.error("Try use '-h' for more information.");
                 System.exit(0);

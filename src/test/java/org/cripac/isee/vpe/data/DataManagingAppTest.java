@@ -89,7 +89,7 @@ public class DataManagingAppTest {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
 
-        Tracklet[] tracklets = new FakePedestrianTracker().track(new byte[0]);
+        Tracklet[] tracklets = new FakePedestrianTracker().track(null);
         String taskID = UUID.randomUUID().toString();
         for (int i = 0; i < tracklets.length; ++i) {
             Tracklet tracklet = tracklets[i];
@@ -110,7 +110,7 @@ public class DataManagingAppTest {
         TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
 
         Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
-                new FakePedestrianTracker().track(new byte[0])[0]);
+                new FakePedestrianTracker().track(null)[0]);
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
         assert attributes != null;
 

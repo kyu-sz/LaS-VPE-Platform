@@ -22,6 +22,7 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
 
 import javax.annotation.Nonnull;
+import java.io.InputStream;
 import java.util.Random;
 
 public class FakePedestrianTracker extends Tracker {
@@ -64,14 +65,8 @@ public class FakePedestrianTracker extends Tracker {
         return tracklets;
     }
 
-    /**
-     * Read a video from a URL, and perform pedestrian tracking on it.
-     *
-     * @param videoBytes Bytes of the video to conduct tracking on.
-     * @return A set of tracklets of pedestrians.
-     */
     @Override
-    public Tracklet[] track(@Nonnull byte[] videoBytes) {
+    public Tracklet[] track(@Nonnull InputStream videoStream) {
         return generateRandomTrackSet();
     }
 }
