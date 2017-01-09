@@ -1,15 +1,3 @@
-package org.cripac.isee.vpe.util;
-
-import org.bytedeco.javacpp.opencv_core;
-import org.bytedeco.javacv.Frame;
-import org.bytedeco.javacv.FrameGrabber;
-import org.bytedeco.javacv.OpenCVFrameConverter;
-import org.junit.Test;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-
-import static org.bytedeco.javacpp.opencv_highgui.*;
 /***********************************************************************
  * This file is part of LaS-VPE Platform.
  *
@@ -27,6 +15,20 @@ import static org.bytedeco.javacpp.opencv_highgui.*;
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
+package org.cripac.isee.vpe.util;
+
+import org.bytedeco.javacpp.opencv_core;
+import org.bytedeco.javacv.Frame;
+import org.bytedeco.javacv.FrameGrabber;
+import org.bytedeco.javacv.OpenCVFrameConverter;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+
+import static org.bytedeco.javacpp.avutil.AV_LOG_QUIET;
+import static org.bytedeco.javacpp.avutil.av_log_set_level;
+import static org.bytedeco.javacpp.opencv_highgui.*;
+
 /**
  * Created by ken.yu on 17-1-9.
  */
@@ -34,12 +36,13 @@ public class FFmpegFrameGrabberNewTest {
 
     private final static String videoPath = "src/test/resources/20131220184349-20131220184937.h264";
 
-    @Test
+    //    @Test
     public void grabImage() throws IOException, FrameGrabber.Exception {
 
         System.out.println("Reading video...");
 
         FFmpegFrameGrabberNew decoder = new FFmpegFrameGrabberNew(new FileInputStream(videoPath));
+        av_log_set_level(AV_LOG_QUIET);
         decoder.start();
         opencv_core.Mat cvFrame;
         int frameCnt = 0;
@@ -50,6 +53,9 @@ public class FFmpegFrameGrabberNewTest {
                 break;
             }
             ++frameCnt;
+            if (frameCnt % 1000 == 0) {
+                System.out.println("Decoded " + frameCnt + " frames!");
+            }
             if (display) {
                 cvFrame = new OpenCVFrameConverter.ToMat().convert(frame);
                 imshow("VideoDecoder", cvFrame);

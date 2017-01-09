@@ -348,11 +348,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                         // Send tracklets.
                         final KafkaProducer producer = producerSingleton.getInst();
-                        for (int i = 0; i < tracklets.length; ++i) {
-                            Tracklet tracklet = tracklets[i];
-
+                        for (Tracklet tracklet : tracklets) {
                             // Complete identifier of each tracklet.
-                            tracklet.id = new Tracklet.Identifier(videoURL, i);
+                            tracklet.id.videoID = videoURL;
                             // Stored the track in the task data, which can be cyclic utilized.
                             taskData.predecessorRes = tracklet;
                             // Send to all the successor nodes.
