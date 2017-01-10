@@ -320,7 +320,6 @@ public class DataManagingApp extends SparkStreamingApp {
         private final String metadataDir;
         private final Singleton<FileSystem> hdfsSingleton;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
-        private int maxTrackletLength = 0;
 
         public SavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
@@ -405,12 +404,6 @@ public class DataManagingApp extends SparkStreamingApp {
                             final TaskData taskData = deserialize(kvPair._2());
                             final Tracklet tracklet = (Tracklet) taskData.predecessorRes;
                             final int numTracklets = tracklet.numTracklets;
-
-                            final int batchSize =
-                                    maxTrackletLength > 0 ? maxTrackletLength : tracklet.locationSequence.length;
-                            final int numBatches = (tracklet.locationSequence.length + batchSize - 1) / batchSize;
-                            logger.info("Task " + taskID + " got track: " + tracklet.id
-                                    + ". Will divide into " + numBatches + " batches.");
 
                             final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
                             final String taskRoot = videoRoot + "/" + taskID;

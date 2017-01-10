@@ -25,6 +25,7 @@
 package org.cripac.isee.pedestrian.attr;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -123,7 +124,9 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      * Tracklet)
      */
     @Override
-    public Attributes recognize(@Nonnull Tracklet tracklet) {
+    public
+    @Nonnull
+    Attributes recognize(@Nonnull Tracklet tracklet) {
         // Create a new message consisting the comparation task.
         RequestMessage message = new RequestMessage(tracklet);
 
@@ -163,9 +166,11 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
                 return new Gson().fromJson(json, Attributes.class);
             } catch (IOException e) {
-                logger.error("When communicating with extern attr recog server", e);
+                logger.error("On communicating with extern attr recog server", e);
                 connect();
                 logger.info("Connection recovered!");
+            } catch (JsonSyntaxException e) {
+                logger.error("On analyzing Json", e);
             }
         }
     }

@@ -105,14 +105,4 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
         return new Attributes();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see GraphDatabaseConnector#
-     * getLinkedPedestrians(java.lang.String)
-     */
-    @Override
-    public Link[] getLinkedPedestrians(@Nonnull String id) throws NoSuchElementException {
-        return new Link[0];
-    }
 }

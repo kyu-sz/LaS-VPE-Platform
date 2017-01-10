@@ -49,9 +49,7 @@ public class KafkaHelper {
                 key,
                 data));
         RecordMetadata recMeta = future.get();
-        logger.debug("Sent to Kafka"
-                + " <" + recMeta.topic() + "-"
-                + recMeta.partition() + "-" + recMeta.offset() + ">\t"
-                + key);
+        logger.debug("Sent to Kafka <" + recMeta.topic() + "-"
+                + recMeta.partition() + "-" + recMeta.offset() + ">\t" + key);
     }
 }
