@@ -304,7 +304,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             // Union the two track with attribute streams and perform ReID.
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)
-                    .foreachRDD(rdd -> rdd.foreachAsync(taskWithTrackletAttr -> {
+                    .foreachRDD(rdd -> rdd.foreach(taskWithTrackletAttr -> {
                         try {
                             Logger logger = loggerSingleton.getInst();
                             String taskID = taskWithTrackletAttr._1();

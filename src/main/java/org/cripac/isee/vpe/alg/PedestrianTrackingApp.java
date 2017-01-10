@@ -215,7 +215,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             buildBytesDirectStream(jssc, Collections.singletonList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
-                    .foreachRDD(rdd -> rdd.foreachAsync(kvPair -> {
+                    .foreachRDD(rdd -> rdd.foreach(kvPair -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // Recover data.
@@ -298,7 +298,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                         hdfsSingleton.getInst(),
                                         loggerSingleton.getInst());
 
-                        rdd.foreachAsync(kvPair -> {
+                        rdd.foreach(kvPair -> {
                             final Logger logger = loggerSingleton.getInst();
                             try {
                                 final String taskID = kvPair._1();

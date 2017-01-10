@@ -316,8 +316,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Handle the messages received from Kafka,
             buildBytesDirectStream(jssc, Collections.singletonList(COMMAND_TOPIC.NAME), kafkaParams)
-                    .foreachRDD(rdd ->
-                            rdd.foreachAsync(msg -> {
+                    .foreachRDD(rdd -> rdd.foreach(msg -> {
                                 try {
                                     final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                     final Logger logger = loggerSingleton.getInst();
