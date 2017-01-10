@@ -381,7 +381,7 @@ public class SystemPropertyCenter implements Serializable {
         return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);
     }
 
-    public SparkLauncher GetLauncher(String appName) throws IOException {
+    SparkLauncher GetLauncher(String appName) throws IOException {
         SparkLauncher launcher = new SparkLauncher()
                 .setAppResource(jarPath)
                 .setMainClass(AppManager.getMainClassName(appName))
@@ -449,7 +449,8 @@ public class SystemPropertyCenter implements Serializable {
         producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                 isStringValue ? StringSerializer.class : ByteArraySerializer.class);
         producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, "" + kafkaMsgMaxBytes);
-        producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+        //TODO: Fix compression bugs and enable compression.
+        //producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
         return producerProp;
     }
 
