@@ -39,7 +39,7 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -143,6 +143,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         public static final Topic TRACKLET_ATTR_TOPIC =
                 new Topic("pedestrian-track-attr-for-reid-using-attr",
                         DataTypes.TRACKLET_ATTR, INFO);
+        private static final long serialVersionUID = 3988152284961510251L;
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
@@ -169,59 +170,57 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             Properties producerProp = propCenter.generateKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
-            reidSingleton = new Singleton<>(() -> new FakePedestrianReIDerWithAttr());
+            reidSingleton = new Singleton<>(FakePedestrianReIDerWithAttr::new);
         }
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             final JavaPairDStream<String, TaskData> trackletDStream =
                     // Read track bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaParams)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
                             .mapToPair(kvPair -> {
-                                TaskData taskData;
+                                final Logger logger = loggerSingleton.getInst();
                                 try {
-                                    taskData = (TaskData) deserialize(kvPair._2());
-                                } catch (Exception e) {
-                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    TaskData taskData = deserialize(kvPair._2());
+                                    logger.info("Received track: " + ((Tracklet) taskData.predecessorRes).id);
+                                    return new Tuple2<>(
+                                            kvPair._1() + ":" + ((Tracklet) taskData.predecessorRes).id,
+                                            taskData);
+                                } catch (Throwable t) {
+                                    logger.error("On recovering TaskData with tracklet", t);
                                     return null;
                                 }
-                                loggerSingleton.getInst().info(
-                                        "Received track: " + ((Tracklet) taskData.predecessorRes).id);
-                                return new Tuple2<>(
-                                        kvPair._1() + ":" + ((Tracklet) taskData.predecessorRes).id,
-                                        taskData);
                             });
 
             final JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Arrays.asList(ATTR_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc, Collections.singletonList(ATTR_TOPIC.NAME), kafkaParams)
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
                             .mapToPair(kvPair -> {
-                                TaskData taskData;
+                                final Logger logger = loggerSingleton.getInst();
                                 try {
-                                    taskData = (TaskData) deserialize(kvPair._2());
-                                } catch (Exception e) {
-                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
+                                    TaskData taskData = deserialize(kvPair._2());
+                                    if (!(taskData.predecessorRes instanceof Attributes)) {
+                                        throw new DataTypeNotMatchedException(
+                                                "Predecessor result is expected to be attributes,"
+                                                        + " but received \""
+                                                        + taskData.predecessorRes
+                                                        + "\"!");
+                                    }
+
+                                    loggerSingleton.getInst().info(
+                                            "Received " + kvPair._1() + ": " + taskData);
+                                    return new Tuple2<>(kvPair._1() + ":"
+                                            + ((Attributes) taskData.predecessorRes).trackletID,
+                                            taskData);
+                                } catch (Throwable t) {
+                                    logger.error("On recovering TaskData with tracklet", t);
                                     return null;
                                 }
-
-                                if (!(taskData.predecessorRes instanceof Attributes)) {
-                                    throw new DataTypeNotMatchedException(
-                                            "Predecessor result is expected to be attributes,"
-                                                    + " but received \""
-                                                    + taskData.predecessorRes
-                                                    + "\"!");
-                                }
-
-                                loggerSingleton.getInst().info(
-                                        "Received " + kvPair._1() + ": " + taskData);
-                                return new Tuple2<>(kvPair._1() + ":"
-                                        + ((Attributes) taskData.predecessorRes).trackletID,
-                                        taskData);
                             });
 
             // Join the track stream and attribute stream, tolerating failure.
@@ -231,18 +230,18 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Filter out instantly joined pairs.
             final JavaPairDStream<String, Tuple2<TaskData, TaskData>> instantlyJoinedDStream =
                     unsurelyJoinedDStream
-                            .filter(item -> new Boolean(item._2()._1().isPresent() && item._2()._2().isPresent()))
+                            .filter(item -> (Boolean) (item._2()._1().isPresent() && item._2()._2().isPresent()))
                             .mapValues(optPair -> new Tuple2<>(optPair._1().get(), optPair._2().get()));
 
             // Filter out tracklets that cannot find attributes to match.
             final JavaPairDStream<String, TaskData> unjoinedTrackDStream =
                     unsurelyJoinedDStream
-                            .filter(item -> new Boolean(item._2()._1().isPresent() && !item._2()._2().isPresent()))
+                            .filter(item -> (Boolean) (item._2()._1().isPresent() && !item._2()._2().isPresent()))
                             .mapValues(optPair -> optPair._1().get());
 
             // Filter out attributes that cannot find tracklets to match.
             final JavaPairDStream<String, TaskData> unjoinedAttrStream = unsurelyJoinedDStream
-                    .filter(item -> new Boolean(!item._2()._1().isPresent() && item._2()._2().isPresent()))
+                    .filter(item -> (Boolean) (!item._2()._1().isPresent() && item._2()._2().isPresent()))
                     .mapValues(optPair -> optPair._2().get());
 
             final JavaPairDStream<String, Tuple2<Optional<TaskData>, TaskData>> unsurelyJoinedAttrDStream =
@@ -252,14 +251,14 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             final JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateAttrJoinedDStream =
                     unsurelyJoinedAttrDStream
-                            .filter(item -> new Boolean(item._2()._1().isPresent()))
+                            .filter(item -> (Boolean) (item._2()._1().isPresent()))
                             .mapValues(item -> new Tuple2<>(item._1().get(), item._2()));
 
             final JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackJoinedDStream =
                     unjoinedTrackDStream
                             .join(unsurelyJoinedAttrDStream
-                                    .filter(item -> new Boolean(!item._2()._1().isPresent()))
-                                    .mapValues(item -> item._2())
+                                    .filter(item -> (Boolean) (!item._2()._1().isPresent()))
+                                    .mapValues(Tuple2::_2)
                                     .window(Durations.milliseconds(bufDuration)));
 
             // Union the three track and attribute streams and assemble
@@ -291,11 +290,11 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
             final JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
-                    buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams)
                             .mapValues(bytes -> {
                                 TaskData taskData;
                                 try {
-                                    taskData = (TaskData) deserialize(bytes);
+                                    taskData = deserialize(bytes);
                                     return taskData;
                                 } catch (Exception e) {
                                     loggerSingleton.getInst().error("During TaskData deserialization", e);
@@ -325,17 +324,15 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                     (PedestrianInfo) taskData.predecessorRes;
 
                             // Perform ReID.
-                            int[] idRank = reidSingleton.getInst().reid(trackletWithAttr);
-
                             // Prepare new task data with the pedestrian IDRANK.
-                            taskData.predecessorRes = idRank;
+                            taskData.predecessorRes = reidSingleton.getInst().reid(trackletWithAttr);
                             // Get the IDs of successor nodes.
                             List<Topic> succTopics = taskData.curNode.getSuccessors();
                             // Mark the current node as executed.
                             taskData.curNode.markExecuted();
 
                             // Send to all the successor nodes.
-                            final KafkaProducer producer = producerSingleton.getInst();
+                            final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                             for (Topic topic : succTopics) {
                                 try {
                                     taskData.changeCurNode(topic);
@@ -343,7 +340,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                     logger.warn("When changing node in TaskData", e);
                                 }
 
-                                sendWithLog(topic, taskID, serialize(taskData), producer, logger);
+                                final byte[] serialized = serialize(taskData);
+                                sendWithLog(topic, taskID, serialized, producer, logger);
                             }
                         } catch (Exception e) {
                             loggerSingleton.getInst().error("During ReID", e);

@@ -18,7 +18,6 @@
 package org.cripac.isee.vpe.ctrl;
 
 import kafka.admin.AdminUtils;
-import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.cripac.isee.vpe.common.Topic;
@@ -41,6 +40,8 @@ public class TopicManager {
     }
 
     public static class DuplicateTopicNameError extends Error {
+        private static final long serialVersionUID = -6834749198607827612L;
+
         public DuplicateTopicNameError(@Nonnull String s) {
             super(s);
         }

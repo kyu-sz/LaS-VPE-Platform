@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.ctrl;
 
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
+import org.cripac.isee.vpe.util.tracking.FileDescriptor;
 import org.junit.Test;
 
 import java.io.BufferedReader;
@@ -35,7 +36,7 @@ public class ConfManagerTest {
         List<String> confFiles = ConfManager
                 .getCfgFileList(PedestrianTrackingApp.APP_NAME, "isee-basic")
                 .stream()
-                .map(fileDescriptor -> fileDescriptor.getConcatName())
+                .map(FileDescriptor::getConcatName)
                 .collect(Collectors.toList());
         for (String file : confFiles) {
             System.out.println("Name: " + file);

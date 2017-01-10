@@ -18,7 +18,6 @@
 package org.cripac.isee.vpe.alg;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -49,11 +48,7 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
@@ -155,7 +150,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                                              Logger logger) throws IOException {
             if (inst == null) {
                 logger.debug("Creating instance of ConfigPool...");
-                Map<String, byte[]> pool = new HashedMap();
+                Map<String, byte[]> pool = new HashMap<>();
                 FileSystem stagingDir = FileSystem.get(new Configuration());
                 RemoteIterator<LocatedFileStatus> files =
                         stagingDir.listFiles(new Path(System.getenv("SPARK_YARN_STAGING_DIR")), false);
@@ -193,6 +188,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         public static final Topic LOGIN_PARAM_TOPIC =
                 new Topic("cam-address-for-pedestrian-tracking",
                         DataTypes.WEBCAM_LOGIN_PARAM, INFO);
+        private static final long serialVersionUID = -278417583644937040L;
 
         /**
          * Kafka parameters for creating input streams pulling messages
@@ -213,51 +209,50 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
             hdfsSingleton = new Singleton<>(new HDFSFactory());
-            connectorPool = new Object2ObjectOpenHashMap();
+            connectorPool = new Object2ObjectOpenHashMap<>();
         }
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            buildBytesDirectStream(jssc, Arrays.asList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc, Collections.singletonList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreachAsync(kvPair -> {
-                                // Recover data.
-                                final String taskID = kvPair._1();
-                                TaskData taskData;
-                                try {
-                                    taskData = (TaskData) deserialize(kvPair._2());
-                                } catch (Exception e) {
-                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
-                                    return;
-                                }
+                        final Logger logger = loggerSingleton.getInst();
+                        try {
+                            // Recover data.
+                            final String taskID = kvPair._1();
+                            TaskData taskData = deserialize(kvPair._2());
 
-                                // Get camera WEBCAM_LOGIN_PARAM.
-                                if (taskData.predecessorRes == null) {
-                                    loggerSingleton.getInst().error(
-                                            "No camera WEBCAM_LOGIN_PARAM specified for real-time tracking stream!");
-                                    return;
-                                }
-                                if (!(taskData.predecessorRes instanceof String)) {
-                                    loggerSingleton.getInst().error(
-                                            "Real-time tracking stream expects camera WEBCAM_LOGIN_PARAM but received "
-                                                    + taskData.predecessorRes.getClass().getName() + "!");
-                                    return;
-                                }
-                                LoginParam loginParam = (LoginParam) taskData.predecessorRes;
+                            // Get camera WEBCAM_LOGIN_PARAM.
+                            if (taskData.predecessorRes == null) {
+                                logger.error(
+                                        "No camera WEBCAM_LOGIN_PARAM specified for real-time tracking stream!");
+                                return;
+                            }
+                            if (!(taskData.predecessorRes instanceof String)) {
+                                logger.error(
+                                        "Real-time tracking stream expects camera WEBCAM_LOGIN_PARAM but received "
+                                                + taskData.predecessorRes.getClass().getName() + "!");
+                                return;
+                            }
+                            LoginParam loginParam = (LoginParam) taskData.predecessorRes;
 
-                                WebCameraConnector cameraConnector;
-                                if (connectorPool.containsKey(loginParam.serverID)) {
-                                    cameraConnector = connectorPool.get(loginParam.serverID).getInst();
-                                } else {
-                                    Singleton<WebCameraConnector> cameraConnectorSingleton =
-                                            new Singleton(new FakeWebCameraConnector
-                                                    .FakeWebCameraConnectorFactory(loginParam));
-                                    connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
-                                    cameraConnector = cameraConnectorSingleton.getInst();
-                                }
+                            WebCameraConnector cameraConnector;
+                            if (connectorPool.containsKey(loginParam.serverID)) {
+                                cameraConnector = connectorPool.get(loginParam.serverID).getInst();
+                            } else {
+                                Singleton<WebCameraConnector> cameraConnectorSingleton =
+                                        new Singleton<>(new FakeWebCameraConnector
+                                                .FakeWebCameraConnectorFactory(loginParam));
+                                connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
+                                cameraConnector = cameraConnectorSingleton.getInst();
+                            }
 
-                                // Connect to camera.
-                                InputStream rtVideoStream = cameraConnector.getStream();
-                                // TODO(Ken Yu): Perform tracking on the real-time video stream.
+                            // Connect to camera.
+                            InputStream rtVideoStream = cameraConnector.getStream();
+                            // TODO(Ken Yu): Perform tracking on the real-time video stream.
+                        } catch (Throwable t) {
+                            logger.error("On processing real-time video stream", t);
+                        }
                             })
                     );
         }
@@ -272,6 +267,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          */
         public static final Topic VIDEO_URL_TOPIC =
                 new Topic("hdfs-video-url-for-pedestrian-tracking", DataTypes.URL, INFO);
+        private static final long serialVersionUID = -6738652169567844016L;
         /**
          * Kafka parameters for creating input streams pulling messages
          * from Kafka brokers.
@@ -293,84 +289,80 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
             hdfsSingleton = new Singleton<>(new HDFSFactory());
         }
 
-        public static class VideoFragment implements Serializable {
-            public String videoID;
-            public byte[] bytes;
-        }
-
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            buildBytesDirectStream(jssc, Arrays.asList(VIDEO_URL_TOPIC.NAME), kafkaParams).foreachRDD(rdd -> {
-                final Broadcast<Map<String, byte[]>> confPool =
-                        ConfigPool.getInst(new JavaSparkContext(rdd.context()),
-                                hdfsSingleton.getInst(),
-                                loggerSingleton.getInst());
+            buildBytesDirectStream(jssc, Collections.singletonList(VIDEO_URL_TOPIC.NAME), kafkaParams)
+                    .foreachRDD(rdd -> {
+                        final Broadcast<Map<String, byte[]>> confPool =
+                                ConfigPool.getInst(new JavaSparkContext(rdd.context()),
+                                        hdfsSingleton.getInst(),
+                                        loggerSingleton.getInst());
 
-                rdd.foreachAsync(kvPair -> {
-                    final Logger logger = loggerSingleton.getInst();
-                    try {
-                        final String taskID = kvPair._1();
-                        final TaskData taskData = (TaskData) deserialize(kvPair._2());
+                        rdd.foreachAsync(kvPair -> {
+                            final Logger logger = loggerSingleton.getInst();
+                            try {
+                                final String taskID = kvPair._1();
+                                final TaskData taskData = deserialize(kvPair._2());
 
-                        final String videoURL = (String) taskData.predecessorRes;
-                        final InputStream videoStream = hdfsSingleton.getInst().open(new Path(videoURL));
-                        logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
+                                final String videoURL = (String) taskData.predecessorRes;
+                                final InputStream videoStream = hdfsSingleton.getInst().open(new Path(videoURL));
+                                logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
 
-                        final TaskData.ExecutionPlan.Node curNode = taskData.curNode;
-                        // Get tracking configuration for this execution.
-                        final String confFile = (String) curNode.getExecData();
-                        if (confFile == null) {
-                            logger.error("Tracking configuration file is not specified for this node!");
-                            return;
-                        }
-
-                        // Get the IDs of successor nodes.
-                        final List<Topic> succTopics = curNode.getSuccessors();
-                        // Mark the current node as executed in advance.
-                        taskData.curNode.markExecuted();
-
-                        // Load tracking configuration to create a tracker.
-                        if (!confPool.getValue().containsKey(confFile)) {
-                            throw new FileNotFoundException("Couldn't find tracking config file " + confFile);
-                        }
-                        final byte[] confBytes = confPool.getValue().get(confFile);
-                        if (confBytes == null) {
-                            logger.fatal("confPool contains key " + confFile + " but value is null!");
-                            return;
-                        }
-                        final Tracker tracker = new BasicTracker(confBytes, logger);
-                        //Tracker tracker = new FakePedestrianTracker();
-
-                        // Conduct tracking on video read from HDFS.
-                        logger.debug("Performing tracking on " + videoURL);
-                        final Tracklet[] tracklets = tracker.track(videoStream);
-                        logger.debug("Finished tracking on " + videoURL);
-
-                        // Send tracklets.
-                        final KafkaProducer producer = producerSingleton.getInst();
-                        for (Tracklet tracklet : tracklets) {
-                            // Complete identifier of each tracklet.
-                            tracklet.id.videoID = videoURL;
-                            // Stored the track in the task data, which can be cyclic utilized.
-                            taskData.predecessorRes = tracklet;
-                            // Send to all the successor nodes.
-                            for (Topic topic : succTopics) {
-                                try {
-                                    taskData.changeCurNode(topic);
-                                } catch (RecordNotFoundException e) {
-                                    logger.warn("When changing node in TaskData", e);
+                                final TaskData.ExecutionPlan.Node curNode = taskData.curNode;
+                                // Get tracking configuration for this execution.
+                                final String confFile = (String) curNode.getExecData();
+                                if (confFile == null) {
+                                    logger.error("Tracking configuration file is not specified for this node!");
+                                    return;
                                 }
 
-                                final byte[] serialized = serialize(taskData);
-                                logger.debug("To sendWithLog message with size: " + serialized.length);
-                                sendWithLog(topic, taskID, serialized, producer, logger);
+                                // Get the IDs of successor nodes.
+                                final List<Topic> succTopics = curNode.getSuccessors();
+                                // Mark the current node as executed in advance.
+                                taskData.curNode.markExecuted();
+
+                                // Load tracking configuration to create a tracker.
+                                if (!confPool.getValue().containsKey(confFile)) {
+                                    throw new FileNotFoundException("Couldn't find tracking config file " + confFile);
+                                }
+                                final byte[] confBytes = confPool.getValue().get(confFile);
+                                if (confBytes == null) {
+                                    logger.fatal("confPool contains key " + confFile + " but value is null!");
+                                    return;
+                                }
+                                final Tracker tracker = new BasicTracker(confBytes, logger);
+                                //Tracker tracker = new FakePedestrianTracker();
+
+                                // Conduct tracking on video read from HDFS.
+                                logger.debug("Performing tracking on " + videoURL);
+                                final Tracklet[] tracklets = tracker.track(videoStream);
+                                logger.debug("Finished tracking on " + videoURL);
+
+                                // Send tracklets.
+                                final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+                                for (Tracklet tracklet : tracklets) {
+                                    // Complete identifier of each tracklet.
+                                    tracklet.id.videoID = videoURL;
+                                    // Stored the track in the task data, which can be cyclic utilized.
+                                    taskData.predecessorRes = tracklet;
+                                    // Send to all the successor nodes.
+                                    for (Topic topic : succTopics) {
+                                        try {
+                                            taskData.changeCurNode(topic);
+                                        } catch (RecordNotFoundException e) {
+                                            logger.warn("When changing node in TaskData", e);
+                                        }
+
+                                        final byte[] serialized = serialize(taskData);
+                                        logger.debug("To sendWithLog message with size: " + serialized.length);
+                                        sendWithLog(topic, taskID, serialized, producer, logger);
+                                    }
+                                }
+                            } catch (Throwable e) {
+                                logger.error("During tracking.", e);
                             }
-                        }
-                    } catch (Exception e) {
-                        logger.error("During tracking.", e);
-                    }
-                });
-            });
+                        });
+                    });
         }
     }
 }

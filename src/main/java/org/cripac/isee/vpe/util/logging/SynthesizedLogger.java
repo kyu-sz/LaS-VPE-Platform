@@ -22,13 +22,10 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
-import org.cripac.isee.vpe.common.DataTypes;
-import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 
 import javax.annotation.Nonnull;
 import java.net.InetAddress;
-import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Properties;
 
@@ -44,7 +41,7 @@ public class SynthesizedLogger extends Logger {
     private String username;
     private org.apache.log4j.Logger log4jLogger;
     private String localName;
-    private KafkaProducer producer;
+    private KafkaProducer<String, String> producer;
 
     /**
      * Create a synthesized logger. Logs will be print to console, transferred to default Log4j logger and sent to
@@ -52,8 +49,6 @@ public class SynthesizedLogger extends Logger {
      *
      * @param username   Name of the logger user.
      * @param propCenter Properties of the system.
-     * @throws UnknownHostException
-     * @throws SocketException
      */
     public SynthesizedLogger(@Nonnull String username,
                              @Nonnull SystemPropertyCenter propCenter) {
@@ -73,11 +68,11 @@ public class SynthesizedLogger extends Logger {
         }
 
         Properties producerProp = propCenter.generateKafkaProducerProp(true);
-        producer = new KafkaProducer(producerProp);
+        producer = new KafkaProducer<>(producerProp);
     }
 
     private void send(@Nonnull String message) {
-        producer.send(new ProducerRecord(username + "_report", this.username, message));
+        producer.send(new ProducerRecord<>(username + "_report", this.username, message));
     }
 
     public void debug(@Nonnull Object message) {

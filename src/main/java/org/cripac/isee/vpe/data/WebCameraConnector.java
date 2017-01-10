@@ -21,7 +21,6 @@ import org.cripac.isee.vpe.common.LoginParam;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Serializable;
 import java.net.InetAddress;
 
 /**
@@ -30,9 +29,7 @@ import java.net.InetAddress;
  * <p>
  * Created by ken.yu on 16-12-2.
  */
-public abstract class WebCameraConnector implements Serializable {
-
-    private static final long serialVersionUID = -7032169432448187588L;
+public abstract class WebCameraConnector {
 
     protected LoginParam loginParam;
 

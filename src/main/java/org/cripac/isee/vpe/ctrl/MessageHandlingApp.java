@@ -153,6 +153,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
          */
         public static final Topic COMMAND_TOPIC = new Topic(
                 "command", DataTypes.COMMAND, MessageHandlingStream.INFO);
+        private static final long serialVersionUID = -8438559854398738231L;
 
         private Map<String, String> kafkaParams;
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
@@ -166,7 +167,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
             Properties producerProp = propCenter.generateKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
 
-            hdfsReaderSingleton = new Singleton<>(() -> new HDFSReader());
+            hdfsReaderSingleton = new Singleton<>(HDFSReader::new);
         }
 
         /**
@@ -314,28 +315,20 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Handle the messages received from Kafka,
-            buildBytesDirectStream(jssc, Arrays.asList(COMMAND_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc, Collections.singletonList(COMMAND_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd ->
                             rdd.foreachAsync(msg -> {
                                 try {
-                                    final KafkaProducer producer = producerSingleton.getInst();
+                                    final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                     final Logger logger = loggerSingleton.getInst();
 
-                                    UUID taskID = UUID.randomUUID();
+                                    String taskID = UUID.randomUUID().toString();
 
                                     // Get a next command message.
                                     String cmd = msg._1();
                                     logger.debug("Received command: " + cmd);
 
-                                    Hashtable<String, Serializable> param;
-                                    {
-                                        Object tmp = deserialize(msg._2());
-                                        if (!(tmp instanceof Hashtable)) {
-                                            logger.error("Expecting Hashtable but received " + tmp);
-                                            return;
-                                        }
-                                        param = (Hashtable<String, Serializable>) tmp;
-                                    }
+                                    final Hashtable<String, Serializable> param = deserialize(msg._2());
 
                                     switch (cmd) {
                                         case CommandType.RT_TRACK_ONLY:

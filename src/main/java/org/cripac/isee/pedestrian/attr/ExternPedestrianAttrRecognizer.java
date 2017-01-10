@@ -37,7 +37,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 
 /**
  * The class ExternPedestrianAttrRecognizer is a recognizer of pedestrian
@@ -88,7 +87,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         } else {
             this.logger = logger;
         }
-        logger.debug("Using extern recognition server at " + solverAddress.getHostAddress() + ":" + port);
+        this.logger.debug("Using extern recognition server at " + solverAddress.getHostAddress() + ":" + port);
         connect(solverAddress, port);
     }
 
@@ -162,8 +161,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                 String json = new String(jsonBytes, 0, jsonLen);
                 logger.debug("Received attr json (len=" + json.length() + "): " + json);
 
-                Attributes attr = new Gson().fromJson(json, Attributes.class);
-                return attr;
+                return new Gson().fromJson(json, Attributes.class);
             } catch (IOException e) {
                 logger.error("When communicating with extern attr recog server", e);
                 connect();
@@ -200,7 +198,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
          * @param outputStream The output stream to write to.
          * @throws IOException
          */
-        public void getBytes(@Nonnull OutputStream outputStream) throws IOException {
+        void getBytes(@Nonnull OutputStream outputStream) throws IOException {
             BufferedOutputStream bufferedStream = new BufferedOutputStream(outputStream);
 
             // 4 bytes - Tracklet length (number of bounding boxes).

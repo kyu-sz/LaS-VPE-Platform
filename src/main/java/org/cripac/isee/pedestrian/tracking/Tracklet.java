@@ -17,6 +17,7 @@
 
 package org.cripac.isee.pedestrian.tracking;
 
+import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 
 import javax.annotation.Nonnull;
@@ -68,15 +69,7 @@ public class Tracklet implements Serializable {
      */
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("@Tracklet\n");
-        sb.append("Video URL: " + id.videoID + "\n");
-        sb.append("Serial number: " + id.serialNumber + "/" + numTracklets + "\n");
-        sb.append("Range: " + startFrameIndex + " -> " + (startFrameIndex + locationSequence.length) + "\n");
-        for (int i = 0; i < locationSequence.length; ++i) {
-            sb.append("At frame " + (startFrameIndex + i) + ": " + locationSequence[i] + "\n");
-        }
-        return sb.toString();
+        return new Gson().toJson(this);
     }
 
     /**

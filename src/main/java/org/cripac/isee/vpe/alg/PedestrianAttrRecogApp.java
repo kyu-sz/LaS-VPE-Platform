@@ -41,7 +41,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -79,10 +79,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
     public static class AppPropertyCenter extends SystemPropertyCenter {
 
         private static final long serialVersionUID = -786439769732467646L;
-        public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
-        public int externAttrRecogServerPort = 0;
+        InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
+        int externAttrRecogServerPort = 0;
         // Max length of a tracklet to recignize attr from. 0 means not limiting.
-        public int maxTrackletLength = 0;
+        int maxTrackletLength = 0;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
@@ -158,6 +158,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         public static final Topic TRACKLET_TOPIC =
                 new Topic("pedestrian-tracklet-for-attr-recog",
                         DataTypes.TRACKLET, INFO);
+        private static final long serialVersionUID = -4672941060404428484L;
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
@@ -191,11 +192,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaParams)
                     .mapValues(taskDataBytes -> {
                         TaskData taskData;
                         try {
-                            taskData = (TaskData) deserialize(taskDataBytes);
+                            taskData = deserialize(taskDataBytes);
                             return taskData;
                         } catch (Exception e) {
                             loggerSingleton.getInst().error("During TaskData deserialization", e);
@@ -248,7 +249,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     taskData.curNode.markExecuted();
 
                                     // Send to all the successor nodes.
-                                    final KafkaProducer producer = producerSingleton.getInst();
+                                    final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                     for (Topic topic : succTopics) {
                                         try {
                                             taskData.changeCurNode(topic);
@@ -256,7 +257,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                             logger.warn("When changing node in TaskData", e);
                                         }
 
-                                        sendWithLog(topic, taskID, serialize(taskData), producer, logger);
+                                        final byte[] serialized = serialize(taskData);
+                                        sendWithLog(topic, taskID, serialized, producer, logger);
                                     }
                                 } catch (Exception e) {
                                     loggerSingleton.getInst().error("During processing attributes.", e);

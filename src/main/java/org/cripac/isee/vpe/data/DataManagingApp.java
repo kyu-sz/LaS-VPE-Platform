@@ -82,6 +82,7 @@ public class DataManagingApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "data-managing";
+    private static final long serialVersionUID = 7338424132131492017L;
     private int batchDuration = 1000;
 
     private Stream pedTrackletRtrvStream;
@@ -147,6 +148,7 @@ public class DataManagingApp extends SparkStreamingApp {
         public static final Info INFO = new Info("pedestrian-tracklet-rtrv", DataTypes.TRACKLET);
         public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-rtrv-job", DataTypes.TRACKLET_ID, INFO);
+        private static final long serialVersionUID = -3588633503578388408L;
         private final Map<String, String> kafkaParams;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
@@ -162,7 +164,7 @@ public class DataManagingApp extends SparkStreamingApp {
             Properties producerProp = propCenter.generateKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
-            dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
+            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
 
         @Override
@@ -170,14 +172,14 @@ public class DataManagingApp extends SparkStreamingApp {
             // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
-            buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc, Collections.singletonList(RTRV_JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets.
                     .foreachRDD(rdd -> rdd.foreachAsync(kvPair -> {
                         final Logger logger = loggerSingleton.getInst();
 
                                 try {
                                     // Recover task data.
-                                    TaskData taskData = (TaskData) deserialize(kvPair._2());
+                                    TaskData taskData = deserialize(kvPair._2());
                                     if (taskData.predecessorRes == null) {
                                         logger.fatal("TaskData from " + taskData.predecessorInfo
                                                 + " contains no result data!");
@@ -197,12 +199,11 @@ public class DataManagingApp extends SparkStreamingApp {
                                             (Tracklet.Identifier) taskData.predecessorRes;
 
                                     // Retrieve the track from HDFS.
-                                    final Tracklet tracklet = retrieveTracklet(
+                                    // Store the track to a task data (reused).
+                                    taskData.predecessorRes = retrieveTracklet(
                                             dbConnSingleton.getInst().getTrackletSavingDir(trackletID.videoID),
                                             trackletID,
                                             loggerSingleton.getInst());
-                                    // Store the track to a task data (reused).
-                                    taskData.predecessorRes = tracklet;
 
                                     // Get the IDs of successor nodes.
                                     final List<Topic> succTopics = taskData.curNode.getSuccessors();
@@ -216,7 +217,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                     }
 
                                     // Send to all the successor nodes.
-                                    final KafkaProducer producer = producerSingleton.getInst();
+                                    final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                     final String taskID = kvPair._1();
                                     for (Topic topic : succTopics) {
                                         try {
@@ -229,7 +230,6 @@ public class DataManagingApp extends SparkStreamingApp {
                                     }
                                 } catch (Exception e) {
                                     logger.error("During retrieving tracklets", e);
-                                    return;
                                 }
                             })
                     );
@@ -241,6 +241,7 @@ public class DataManagingApp extends SparkStreamingApp {
         public static final Info INFO = new Info("pedestrian-tracklet-attr-rtrv", DataTypes.TRACKLET_ATTR);
         public static final Topic RTRV_JOB_TOPIC =
                 new Topic("pedestrian-tracklet-attr-rtrv-job", DataTypes.TRACKLET_ID, INFO);
+        private static final long serialVersionUID = -8876416114616771091L;
         private final Map<String, String> kafkaParams;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
@@ -254,19 +255,19 @@ public class DataManagingApp extends SparkStreamingApp {
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
-            dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
+            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
-            buildBytesDirectStream(jssc, Arrays.asList(RTRV_JOB_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc, Collections.singletonList(RTRV_JOB_TOPIC.NAME), kafkaParams)
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> rdd.foreachAsync(job -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // Recover task data.
-                            final TaskData taskData = (TaskData) deserialize(job._2());
+                            final TaskData taskData = deserialize(job._2());
                             // Get parameters for the job.
                             final Tracklet.Identifier trackletID = (Tracklet.Identifier) taskData.predecessorRes;
                             final String videoURL = trackletID.videoID;
@@ -300,7 +301,6 @@ public class DataManagingApp extends SparkStreamingApp {
                             }
                         } catch (Exception e) {
                             logger.error("During retrieving tracklet and attributes", e);
-                            return;
                         }
                     }));
         }
@@ -315,10 +315,9 @@ public class DataManagingApp extends SparkStreamingApp {
                 new Topic("pedestrian-attr-saving", DataTypes.ATTR, SavingStream.INFO);
         public static final Topic PED_IDRANK_SAVING_TOPIC =
                 new Topic("pedestrian-idrank-saving", DataTypes.IDRANK, SavingStream.INFO);
+        private static final long serialVersionUID = 2820895755662980265L;
         private final Map<String, String> kafkaParams;
         private final String metadataDir;
-        // Create KafkaSink for Spark Streaming to output to Kafka.
-        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<FileSystem> hdfsSingleton;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
         private int maxTrackletLength = 0;
@@ -329,11 +328,9 @@ public class DataManagingApp extends SparkStreamingApp {
             metadataDir = propCenter.metadataDir;
 
             kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
-            Properties producerProp = propCenter.generateKafkaProducerProp(false);
 
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             hdfsSingleton = new Singleton<>(new HDFSFactory());
-            dbConnSingleton = new Singleton<>(() -> new FakeDatabaseConnector());
+            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
 
         /**
@@ -393,7 +390,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(@Nonnull JavaStreamingContext jssc) {// Save tracklets.
-            buildBytesDirectStream(jssc, Arrays.asList(PED_TRACKLET_SAVING_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc, Collections.singletonList(PED_TRACKLET_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreachAsync(kvPair -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
@@ -405,7 +402,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             final FileSystem hdfs = hdfsSingleton.getInst();
 
                             final String taskID = kvPair._1();
-                            final TaskData taskData = (TaskData) deserialize(kvPair._2());
+                            final TaskData taskData = deserialize(kvPair._2());
                             final Tracklet tracklet = (Tracklet) taskData.predecessorRes;
                             final int numTracklets = tracklet.numTracklets;
 
@@ -460,11 +457,11 @@ public class DataManagingApp extends SparkStreamingApp {
 
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
-            buildBytesDirectStream(jssc, Arrays.asList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc, Collections.singletonList(PED_ATTR_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreachAsync(res -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
-                            final TaskData taskData = (TaskData) deserialize(res._2());
+                            final TaskData taskData = deserialize(res._2());
                             final Attributes attr = (Attributes) taskData.predecessorRes;
 
                             logger.debug("Received " + res._1() + ": " + attr);
@@ -479,11 +476,11 @@ public class DataManagingApp extends SparkStreamingApp {
 
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
-            buildBytesDirectStream(jssc, Arrays.asList(PED_IDRANK_SAVING_TOPIC.NAME), kafkaParams)
+            buildBytesDirectStream(jssc, Collections.singletonList(PED_IDRANK_SAVING_TOPIC.NAME), kafkaParams)
                     .foreachRDD(rdd -> rdd.foreachAsync(res -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
-                            final TaskData taskData = (TaskData) deserialize(res._2());
+                            final TaskData taskData = deserialize(res._2());
                             final int[] idRank = (int[]) taskData.predecessorRes;
                             String rankStr = "";
                             for (int id : idRank) {

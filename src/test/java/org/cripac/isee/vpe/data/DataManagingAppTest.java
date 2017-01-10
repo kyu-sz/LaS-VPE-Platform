@@ -112,7 +112,6 @@ public class DataManagingAppTest {
         Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
                 new FakePedestrianTracker().track(null)[0]);
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
-        assert attributes != null;
 
         TaskData data = new TaskData(savingNode, plan, attributes);
         sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,

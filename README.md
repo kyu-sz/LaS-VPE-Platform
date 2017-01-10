@@ -163,7 +163,7 @@ for support of the module.
 
 You may want to run algorithms written in other languages like C/C++ on this
 platform. Here is an example:
- [ISEE-Basic=Pedestrian-Tracker](ISEE-Basic=Pedestrian-Tracker). 
+ [ISEE-Basic-Pedestrian-Tracker](src/native/ISEE-Basic-Pedestrian-Tracker). 
 
 First of all, you should wrap your algorithm with JNI. It is recommended to
 implement this in another GitHub repository, and import it as a submodule.

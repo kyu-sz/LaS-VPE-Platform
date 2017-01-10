@@ -102,8 +102,7 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      */
     @Override
     public Attributes getPedestrianAttributes(@Nonnull String id) throws NoSuchElementException {
-        Attributes attr = new Attributes();
-        return attr;
+        return new Attributes();
     }
 
     /*

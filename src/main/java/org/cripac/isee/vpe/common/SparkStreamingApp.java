@@ -71,7 +71,9 @@ public abstract class SparkStreamingApp implements Serializable {
             try {
                 if (propCenter.sparkMaster.contains("local")) {
                     File dir = new File(checkpointDir);
+                    //noinspection ResultOfMethodCallIgnored
                     dir.delete();
+                    //noinspection ResultOfMethodCallIgnored
                     dir.mkdirs();
                 } else {
                     FileSystem fs = FileSystem.get(new Configuration());
@@ -103,11 +105,13 @@ public abstract class SparkStreamingApp implements Serializable {
 
     /**
      * Await termination of the application.
-     *
-     * @throws InterruptedException
      */
-    public void awaitTermination() throws InterruptedException {
-        streamingContext.awaitTermination();
+    public void awaitTermination() {
+        try {
+            streamingContext.awaitTermination();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

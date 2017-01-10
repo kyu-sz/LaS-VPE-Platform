@@ -151,7 +151,7 @@ public class PedestrianAttrRecogAppTest {
             records.forEach(rec -> {
                 TaskData taskData;
                 try {
-                    taskData = (TaskData) deserialize(rec.value());
+                    taskData = deserialize(rec.value());
                 } catch (Exception e) {
                     logger.error("During TaskData deserialization", e);
                     return;

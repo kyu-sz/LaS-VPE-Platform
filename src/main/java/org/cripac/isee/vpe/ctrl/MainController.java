@@ -63,7 +63,7 @@ public class MainController {
             // Create a thread to listen to reports.
             Thread listener = new Thread(() -> {
                 Logger logger = new ConsoleLogger(Level.DEBUG);
-                KafkaConsumer consumer = new KafkaConsumer(
+                KafkaConsumer<String, String> consumer = new KafkaConsumer<>(
                         propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), true));
                 ArrayList<String> topicList = new ArrayList<>();
                 for (String appName : propCenter.appsToStart) {
@@ -78,10 +78,10 @@ public class MainController {
             listener.start();
 
             final class ProcessWithName {
-                public Process process;
-                public String name;
+                private Process process;
+                private String name;
 
-                public ProcessWithName(Process process, String name) {
+                private ProcessWithName(Process process, String name) {
                     this.process = process;
                     this.name = name;
                 }

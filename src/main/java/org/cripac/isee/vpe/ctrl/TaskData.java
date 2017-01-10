@@ -38,7 +38,7 @@ import java.util.Map;
  */
 public class TaskData implements Serializable, Cloneable {
 
-    public static final long serialVersionUID = 6817584209784831375L;
+    private static final long serialVersionUID = 6817584209784831375L;
     /**
      * Current node to execute.
      */
@@ -101,7 +101,6 @@ public class TaskData implements Serializable, Cloneable {
                     @Nonnull Serializable predecessorRes) {
         this.curNode = curNode;
         this.executionPlan = executionPlan;
-        assert predecessorRes != null;
         this.predecessorRes = predecessorRes;
     }
 

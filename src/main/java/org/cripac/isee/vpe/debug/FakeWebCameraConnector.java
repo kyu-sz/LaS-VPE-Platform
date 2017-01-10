@@ -19,7 +19,10 @@ import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.util.Factory;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.net.InetAddress;
 import java.util.Random;
 
@@ -29,7 +32,8 @@ import java.util.Random;
 public class FakeWebCameraConnector extends WebCameraConnector {
 
     public static class FakeWebCameraConnectorFactory implements Factory<WebCameraConnector> {
-        protected LoginParam loginParam;
+        private static final long serialVersionUID = -7730008417691845921L;
+        LoginParam loginParam;
 
         public FakeWebCameraConnectorFactory(InetAddress ip, int port, String username, String password) {
             this.loginParam = new LoginParam(ip, port, username, password);
@@ -58,10 +62,10 @@ public class FakeWebCameraConnector extends WebCameraConnector {
         TERMINATED
     }
 
-    PipedOutputStream outputStream;
-    Thread fakeDataGeneratingThread = null;
-    Random random = new Random();
-    ThreadState fakeDataGeneratingThreadState = ThreadState.UNINITIALIZED;
+    private PipedOutputStream outputStream;
+    private Thread fakeDataGeneratingThread = null;
+    private Random random = new Random();
+    private ThreadState fakeDataGeneratingThreadState = ThreadState.UNINITIALIZED;
 
     /**
      * Create a fake web camera connector.
