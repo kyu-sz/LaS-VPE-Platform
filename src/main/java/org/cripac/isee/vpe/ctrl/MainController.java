@@ -17,17 +17,23 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.log4j.Level;
 import org.apache.spark.launcher.SparkLauncher;
 import org.apache.zookeeper.KeeperException.UnimplementedException;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.File;
 import java.io.IOException;
-import java.net.*;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,8 +44,6 @@ import java.util.concurrent.TimeUnit;
  * @author Ken Yu, CRIPAC, 2016
  */
 public class MainController {
-
-    public static boolean listening = true;
 
     public static void main(String[] args)
             throws NoAppSpecifiedException,
@@ -56,90 +60,36 @@ public class MainController {
         if (propCenter.sparkMaster.toLowerCase().contains("yarn")) {
             System.setProperty("SPARK_YARN_MODE", "true");
 
-            // If report listener is not specified by user, the terminal
-            // starting this application is also responsible for listening
-            // to runtime report.
-            if (propCenter.reportListenerAddr == null) {
-                // Create a UDP server for receiving reports.
-                DatagramSocket server = new DatagramSocket(0);
-                server.setSoTimeout(1000);
-
-                // Create a thread to listen to reports.
-                Thread listener = new Thread(() -> {
-                    byte[] recvBuf = new byte[10000];
-                    DatagramPacket recvPacket = new DatagramPacket(recvBuf, recvBuf.length);
-                    while (listening) {
-                        try {
-                            server.receive(recvPacket);
-                            String recvStr =
-                                    new String(recvPacket.getData(), 0, recvPacket.getLength());
-                            System.out.println(recvStr);
-                        } catch (SocketTimeoutException e) {
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                            break;
-                        }
-                    }
-                    System.out.println("[INFO]Stop listening!");
-                    server.close();
-                });
-                listener.start();
-
-                // Update the address and port of the report listener in the
-                // property center.
-                propCenter.reportListenerAddr = InetAddress.getLocalHost().getHostName();
-                propCenter.reportListenerPort = server.getLocalPort();
-            }
-
-            String[] arguments = propCenter.getArgs();
-
-            if (propCenter.verbose) {
-                System.out.print("[INFO]Submitting with args:");
-                for (String arg : arguments) {
-                    System.out.print(" " + arg);
+            // Create a thread to listen to reports.
+            Thread listener = new Thread(() -> {
+                Logger logger = new ConsoleLogger(Level.DEBUG);
+                KafkaConsumer<String, String> consumer = new KafkaConsumer<>(
+                        propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), true));
+                ArrayList<String> topicList = new ArrayList<>();
+                for (String appName : propCenter.appsToStart) {
+                    topicList.add(appName + "_report");
                 }
-                System.out.println("");
-            }
+                consumer.subscribe(topicList);
+                while (true) {
+                    ConsumerRecords<String, String> records = consumer.poll(0);
+                    records.forEach(rec -> logger.info(rec.value()));
+                }
+            });
+            listener.start();
 
             final class ProcessWithName {
-                public Process process;
-                public String name;
+                private Process process;
+                private String name;
 
-                public ProcessWithName(Process process, String name) {
+                private ProcessWithName(Process process, String name) {
                     this.process = process;
                     this.name = name;
                 }
             }
 
             List<ProcessWithName> processesWithNames = new LinkedList<>();
-            boolean useDefaultAppProperties = (propCenter.appPropFilePath == null);
             for (String appName : propCenter.appsToStart) {
-                if (useDefaultAppProperties) {
-                    propCenter.appPropFilePath = ConfManager.CONF_DIR + "/" + appName + "/app.properties";
-                }
-
-                SparkLauncher launcher = new SparkLauncher()
-                        .setAppResource(propCenter.jarPath)
-                        .setMainClass(AppManager.getMainClassName(appName))
-                        .setMaster(propCenter.sparkMaster)
-                        .setAppName(appName)
-                        .setPropertiesFile(propCenter.sparkConfFilePath)
-                        .setVerbose(propCenter.verbose)
-                        .addFile(propCenter.log4jPropFilePath)
-                        .addFile(propCenter.sysPropFilePath)
-                        .addFile(ConfManager.getConcatCfgFilePathList(","))
-                        .setConf(SparkLauncher.DRIVER_MEMORY, propCenter.driverMem)
-                        .setConf(SparkLauncher.EXECUTOR_MEMORY, propCenter.executorMem)
-                        .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
-                        .setConf(SparkLauncher.EXECUTOR_CORES, "" + propCenter.executorCores)
-                        .addSparkArg("--driver-cores", "" + propCenter.driverCores)
-                        .addSparkArg("--num-executors", "" + propCenter.numExecutors)
-                        .addSparkArg("--total-executor-cores", "" + propCenter.totalExecutorCores)
-                        .addSparkArg("--queue", propCenter.hadoopQueue)
-                        .addAppArgs(propCenter.getArgs());
-                if (new File(propCenter.appPropFilePath).exists()) {
-                    launcher.addFile(propCenter.appPropFilePath);
-                }
+                SparkLauncher launcher = propCenter.GetLauncher(appName);
 
                 Process launcherProcess = launcher.launch();
                 processesWithNames.add(new ProcessWithName(launcherProcess, appName));
@@ -161,10 +111,8 @@ public class MainController {
                         boolean exited = processWithName.process.waitFor(
                                 100, TimeUnit.MILLISECONDS);
                         if (exited) {
-                            System.out.println(
-                                    "[INFO]Process " + processWithName.name
-                                            + "finished! Exit code: "
-                                            + processWithName.process.exitValue());
+                            System.out.println("[INFO]Process " + processWithName.name + "finished! Exit code: "
+                                    + processWithName.process.exitValue());
                             processesWithNames.remove(processWithName);
                             break;
                         }
@@ -173,10 +121,10 @@ public class MainController {
                     }
                 }
             }
-            listening = false;
         } else {
             // TODO Complete code for running locally.
             throw new UnimplementedException();
         }
+        System.exit(0);
     }
 }

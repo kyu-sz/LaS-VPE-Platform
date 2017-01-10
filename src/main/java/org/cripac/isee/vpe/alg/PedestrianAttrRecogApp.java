@@ -17,14 +17,7 @@
 
 package org.cripac.isee.vpe.alg;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
@@ -38,16 +31,24 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import org.xml.sax.SAXException;
 
-import java.net.Inet4Address;
-import java.util.*;
+import javax.annotation.Nonnull;
+import javax.xml.parsers.ParserConfigurationException;
+import java.net.InetAddress;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
-import static org.apache.commons.lang.SerializationUtils.deserialize;
-import static org.apache.commons.lang.SerializationUtils.serialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The PedestrianAttrRecogApp class is a Spark Streaming application which
@@ -61,6 +62,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public static final String APP_NAME = "pedestrian-attr-recog";
     private Stream attrRecogStream;
+    private int batchDuration = 1000;
 
     /**
      * Constructor of the application, configuring properties read from a
@@ -69,8 +71,37 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      * @param propCenter A class saving all the properties this application may need.
      * @throws Exception Any exception that might occur during execution.
      */
-    public PedestrianAttrRecogApp(SystemPropertyCenter propCenter) throws Exception {
+    public PedestrianAttrRecogApp(AppPropertyCenter propCenter) throws Exception {
+        this.batchDuration = propCenter.batchDuration;
         attrRecogStream = new RecogStream(propCenter);
+    }
+
+    public static class AppPropertyCenter extends SystemPropertyCenter {
+
+        private static final long serialVersionUID = -786439769732467646L;
+        InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
+        int externAttrRecogServerPort = 0;
+        // Max length of a tracklet to recignize attr from. 0 means not limiting.
+        int maxTrackletLength = 0;
+
+        public AppPropertyCenter(@Nonnull String[] args)
+                throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
+            super(args);
+            // Digest the settings.
+            for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
+                switch ((String) entry.getKey()) {
+                    case "vpe.ped.attr.ext.ip":
+                        externAttrRecogServerAddr = InetAddress.getByName((String) entry.getValue());
+                        break;
+                    case "vpe.ped.attr.ext.port":
+                        externAttrRecogServerPort = new Integer((String) entry.getValue());
+                        break;
+                    case "vpe.ped.tracking.max.length":
+                        maxTrackletLength = new Integer((String) entry.getValue());
+                        break;
+                }
+            }
+        }
     }
 
     /**
@@ -79,8 +110,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public static void main(String[] args) throws Exception {
         // Load system properties.
-        SystemPropertyCenter propCenter;
-        propCenter = new SystemPropertyCenter(args);
+        AppPropertyCenter propCenter = new AppPropertyCenter(args);
 
         // Start the pedestrian tracking application.
         PedestrianAttrRecogApp app = new PedestrianAttrRecogApp(propCenter);
@@ -101,7 +131,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(2));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
 
         attrRecogStream.addToContext(jsc);
 
@@ -128,80 +158,52 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         public static final Topic TRACKLET_TOPIC =
                 new Topic("pedestrian-tracklet-for-attr-recog",
                         DataTypes.TRACKLET, INFO);
+        private static final long serialVersionUID = -4672941060404428484L;
 
         /**
          * Kafka parameters for creating input streams pulling messages from Kafka
          * Brokers.
          */
-        private Map<String, String> kafkaParams = new HashMap<>();
+        private final Map<String, String> kafkaParams;
 
-        private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
+        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+        private final Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
+        // Max length of the resulting tracklet. 0 means not limiting.
+        private final int maxTrackletLength;
 
-        private final int procTime;
+        public RecogStream(AppPropertyCenter propCenter) throws Exception {
+            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-        public RecogStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            this.maxTrackletLength = propCenter.maxTrackletLength;
 
-            this.procTime = propCenter.procTime;
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
-            // Common kafka settings.
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "largest");
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    StringDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    ByteArrayDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
             loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBootstrapServers);
 
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             attrRecogSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
-                    Inet4Address.getByName("172.18.33.90"), 8500
+                    propCenter.externAttrRecogServerAddr, propCenter.externAttrRecogServerPort,
+                    loggerSingleton.getInst()
             ));
         }
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            buildBytesDirectStream(jssc, Arrays.asList(TRACKLET_TOPIC.NAME), kafkaParams, procTime)
+            buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaParams)
                     .mapValues(taskDataBytes -> {
                         TaskData taskData;
                         try {
-                            taskData = (TaskData) deserialize(taskDataBytes);
+                            taskData = deserialize(taskDataBytes);
                             return taskData;
                         } catch (Exception e) {
                             loggerSingleton.getInst().error("During TaskData deserialization", e);
                             return null;
                         }
                     })
-                    .foreachRDD(rdd ->
-                            rdd.foreach(taskWithTracklet -> {
+                    .foreachRDD(rdd -> rdd.foreach(taskWithTracklet -> {
                                 try {
                                     Logger logger = loggerSingleton.getInst();
 
@@ -209,6 +211,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     TaskData taskData = taskWithTracklet._2();
                                     logger.debug("Received task " + taskID + "!");
 
+                                    if (taskData.predecessorRes == null) {
+                                        throw new DataTypeNotMatchedException("Predecessor result sent by "
+                                                + taskData.predecessorInfo
+                                                + " is null!");
+                                    }
                                     if (!(taskData.predecessorRes instanceof Tracklet)) {
                                         throw new DataTypeNotMatchedException("Predecessor result sent by "
                                                 + taskData.predecessorInfo
@@ -219,6 +226,14 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
                                     Tracklet tracklet = (Tracklet) taskData.predecessorRes;
                                     logger.debug("To recognize attributes for task " + taskID + "!");
+                                    // Truncate and shrink the tracklet in case it is too large.
+                                    if (maxTrackletLength > 0
+                                            && tracklet.locationSequence.length > maxTrackletLength) {
+                                        final int increment = tracklet.locationSequence.length / maxTrackletLength;
+                                        final int start =
+                                                tracklet.locationSequence.length - maxTrackletLength * increment;
+                                        tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
+                                    }
                                     // Recognize attributes.
                                     Attributes attr = attrRecogSingleton.getInst().recognize(tracklet);
                                     logger.debug("Attributes retrieved for task " + taskID + "!");
@@ -232,14 +247,18 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     List<Topic> succTopics = taskData.curNode.getSuccessors();
                                     // Mark the current node as executed.
                                     taskData.curNode.markExecuted();
+
                                     // Send to all the successor nodes.
+                                    final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                     for (Topic topic : succTopics) {
-                                        taskData.changeCurNode(topic);
-                                        KafkaHelper.sendWithLog(topic,
-                                                taskID,
-                                                serialize(taskData),
-                                                producerSingleton.getInst(),
-                                                logger);
+                                        try {
+                                            taskData.changeCurNode(topic);
+                                        } catch (RecordNotFoundException e) {
+                                            logger.warn("When changing node in TaskData", e);
+                                        }
+
+                                        final byte[] serialized = serialize(taskData);
+                                        sendWithLog(topic, taskID, serialized, producer, logger);
                                     }
                                 } catch (Exception e) {
                                     loggerSingleton.getInst().error("During processing attributes.", e);

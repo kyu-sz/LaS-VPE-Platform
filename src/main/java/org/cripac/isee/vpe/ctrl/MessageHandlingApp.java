@@ -19,14 +19,7 @@ package org.cripac.isee.vpe.ctrl;
 
 import com.google.gson.Gson;
 import org.apache.hadoop.fs.Path;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
@@ -34,8 +27,9 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
+import org.cripac.isee.vpe.alg.PedestrianTrackingApp.HDFSVideoTrackingStream;
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp.RTVideoStreamTrackingStream;
-import org.cripac.isee.vpe.alg.PedestrianTrackingApp.VideoFragmentTrackingStream;
 import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.data.DataManagingApp;
@@ -43,15 +37,16 @@ import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletAttrRetrieving
 import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletRetrievingStream;
 import org.cripac.isee.vpe.data.HDFSReader;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
+import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import java.io.Serializable;
 import java.util.*;
 
-import static org.apache.commons.lang.SerializationUtils.deserialize;
-import static org.apache.commons.lang.SerializationUtils.serialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The MessageHandlingApp class is a Spark Streaming application responsible for
@@ -65,6 +60,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "message-handling";
+    private int batchDuration = 1000;
     private Stream msgHandlingStream;
 
     /**
@@ -75,6 +71,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public MessageHandlingApp(SystemPropertyCenter propCenter) throws Exception {
+        this.batchDuration = propCenter.batchDuration;
         msgHandlingStream = new MessageHandlingStream(propCenter);
     }
 
@@ -97,7 +94,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     protected JavaStreamingContext getStreamContext() {
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.seconds(1));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
 
         msgHandlingStream.addToContext(jsc);
 
@@ -156,54 +153,21 @@ public class MessageHandlingApp extends SparkStreamingApp {
          */
         public static final Topic COMMAND_TOPIC = new Topic(
                 "command", DataTypes.COMMAND, MessageHandlingStream.INFO);
+        private static final long serialVersionUID = -8438559854398738231L;
 
         private Map<String, String> kafkaParams;
         private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private Singleton<HDFSReader> hdfsReaderSingleton;
-        private final int procTime;
 
         public MessageHandlingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(INFO.NAME,
-                    propCenter.verbose ? Level.DEBUG : Level.INFO,
-                    propCenter.reportListenerAddr,
-                    propCenter.reportListenerPort)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-            this.procTime = propCenter.procTime;
+            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
 
-            kafkaParams = new HashMap<>();
-            loggerSingleton.getInst().debug("bootstrap.servers="
-                    + propCenter.kafkaBootstrapServers);
-            kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG,
-                    INFO.NAME);
-            kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                    "largest");
-            kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                    StringDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    ByteArrayDeserializer.class.getName());
-            kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-            kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-
-            Properties producerProp = new Properties();
-            producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                    propCenter.kafkaBootstrapServers);
-            producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                    propCenter.kafkaMaxRequestSize);
-            producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                    StringSerializer.class.getName());
-            producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                    ByteArraySerializer.class.getName());
-            producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                    "" + propCenter.kafkaMsgMaxBytes);
-
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
-            hdfsReaderSingleton = new Singleton<>(() -> new HDFSReader());
+
+            hdfsReaderSingleton = new Singleton<>(HDFSReader::new);
         }
 
         /**
@@ -222,7 +186,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.TRACK_ONLY: {
                     // Perform tracking only.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            VideoFragmentTrackingStream.INFO,
+                            PedestrianTrackingApp.HDFSVideoTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     // The letNodeOutputTo method will automatically add the DataManagingApp node.
                     plan.letNodeOutputTo(trackingNode,
@@ -254,7 +218,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 case CommandType.TRACK_ATTRRECOG: {
                     // Do tracking, then output to attr recog module.
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            VideoFragmentTrackingStream.INFO,
+                            PedestrianTrackingApp.HDFSVideoTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -300,7 +264,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 }
                 case CommandType.TRACK_ATTRRECOG_REID: {
                     ExecutionPlan.Node trackingNode = plan.addNode(
-                            VideoFragmentTrackingStream.INFO,
+                            HDFSVideoTrackingStream.INFO,
                             param.get(Parameter.TRACKING_CONF_FILE));
                     ExecutionPlan.Node attrRecogNode = plan.addNode(
                             PedestrianAttrRecogApp.RecogStream.INFO);
@@ -351,25 +315,19 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Handle the messages received from Kafka,
-            buildBytesDirectStream(jssc, Arrays.asList(COMMAND_TOPIC.NAME), kafkaParams, procTime)
-                    .foreachRDD(rdd ->
-                            rdd.foreach(msg -> {
+            buildBytesDirectStream(jssc, Collections.singletonList(COMMAND_TOPIC.NAME), kafkaParams)
+                    .foreachRDD(rdd -> rdd.foreach(msg -> {
                                 try {
-                                    UUID taskID = UUID.randomUUID();
+                                    final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+                                    final Logger logger = loggerSingleton.getInst();
+
+                                    String taskID = UUID.randomUUID().toString();
 
                                     // Get a next command message.
                                     String cmd = msg._1();
-                                    loggerSingleton.getInst().debug("Received command: " + cmd);
+                                    logger.debug("Received command: " + cmd);
 
-                                    Hashtable<String, Serializable> param;
-                                    {
-                                        Object tmp = deserialize(msg._2());
-                                        if (!(tmp instanceof Hashtable)) {
-                                            loggerSingleton.getInst().error("Expecting Hashtable but received " + tmp);
-                                            return;
-                                        }
-                                        param = (Hashtable<String, Serializable>) tmp;
-                                    }
+                                    final Hashtable<String, Serializable> param = deserialize(msg._2());
 
                                     switch (cmd) {
                                         case CommandType.RT_TRACK_ONLY:
@@ -384,12 +342,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                             TaskData taskData = new TaskData(
                                                     plan.findNode(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
                                                     plan, new Gson().fromJson((String) tmp, LoginParam.class));
-                                            KafkaHelper.sendWithLog(
-                                                    RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
-                                                    taskID.toString(),
-                                                    serialize(taskData),
-                                                    producerSingleton.getInst(),
-                                                    loggerSingleton.getInst());
+                                            sendWithLog(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
+                                                    taskID, serialize(taskData), producer, logger);
                                             break;
                                         }
                                         case CommandType.TRACK_ONLY:
@@ -423,14 +377,11 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                         }
                                                         TaskData taskData = new TaskData(
                                                                 plan.findNode(
-                                                                        VideoFragmentTrackingStream.VIDEO_URL_TOPIC),
+                                                                        HDFSVideoTrackingStream.VIDEO_URL_TOPIC),
                                                                 plan,
                                                                 tmp);
-                                                        KafkaHelper.sendWithLog(VideoFragmentTrackingStream.VIDEO_URL_TOPIC,
-                                                                taskID.toString(),
-                                                                serialize(taskData),
-                                                                producerSingleton.getInst(),
-                                                                loggerSingleton.getInst());
+                                                        sendWithLog(HDFSVideoTrackingStream.VIDEO_URL_TOPIC,
+                                                                taskID, serialize(taskData), producer, logger);
                                                         break;
                                                     }
                                                     // These commands need only sending tracklet IDs to the
@@ -450,11 +401,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                         .RTRV_JOB_TOPIC),
                                                                 plan,
                                                                 id);
-                                                        KafkaHelper.sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
-                                                                taskID.toString(),
-                                                                serialize(taskData),
-                                                                producerSingleton.getInst(),
-                                                                loggerSingleton.getInst());
+                                                        sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
+                                                                taskID, serialize(taskData), producer, logger);
                                                         break;
                                                     }
                                                     // This command needs only sending tracklet IDs to the
@@ -473,12 +421,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                         .RTRV_JOB_TOPIC),
                                                                 plan,
                                                                 id);
-                                                        KafkaHelper.sendWithLog(
+                                                        sendWithLog(
                                                                 PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
-                                                                taskID.toString(),
-                                                                serialize(taskData),
-                                                                producerSingleton.getInst(),
-                                                                loggerSingleton.getInst());
+                                                                taskID, serialize(taskData), producer, logger);
                                                         break;
                                                     }
                                                 }

@@ -43,7 +43,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
-import static org.bytedeco.javacpp.opencv_core.log;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imdecode;
 
 /**
@@ -121,7 +120,7 @@ public class HadoopHelper {
             } catch (Exception e1) {
                 e1.printStackTrace();
             }
-            return new FakePedestrianTracker().track(new byte[0])[0];
+            return new FakePedestrianTracker().track(null)[0];
         }
     }
 }

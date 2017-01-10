@@ -17,35 +17,34 @@
 
 package org.cripac.isee.vpe.alg;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
+import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
+import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
+import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.Topic;
-import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.apache.commons.lang.SerializationUtils.deserialize;
-import static org.apache.commons.lang.SerializationUtils.serialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * This is a JUnit test for the DataManagingApp.
@@ -64,6 +63,8 @@ public class PedestrianAttrRecogAppTest {
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
+    public InetAddress externAttrRecogServerAddr;
+    public int externAttrRecogServerPort = 0;
 
     public static void main(String[] args) {
         PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
@@ -74,7 +75,8 @@ public class PedestrianAttrRecogAppTest {
             return;
         }
         try {
-            test.testAttrRecog();
+            test.testExternAttrReognizer();
+            test.testAttrRecogApp();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -85,51 +87,52 @@ public class PedestrianAttrRecogAppTest {
         init(new String[0]);
     }
 
-    public void init(String[] args) throws SAXException, ParserConfigurationException, URISyntaxException {
-        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
+    public void init(String[] args)
+            throws SAXException, ParserConfigurationException, URISyntaxException, UnknownHostException {
+        PedestrianAttrRecogApp.AppPropertyCenter propCenter =
+                new PedestrianAttrRecogApp.AppPropertyCenter(args);
+
+        externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
+        externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
 
         TopicManager.checkTopics(propCenter);
 
-        Properties producerProp = new Properties();
-        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBootstrapServers);
-        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG,
-                propCenter.kafkaMaxRequestSize);
-        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class.getName());
-        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                ByteArraySerializer.class.getName());
-        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
-                "" + propCenter.kafkaMsgMaxBytes);
+        Properties producerProp = propCenter.generateKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
 
-        Properties consumerProp = new Properties();
-        consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                propCenter.kafkaBootstrapServers);
-        consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG,
-                "test");
-        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
-                true);
-        consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                StringDeserializer.class.getName());
-        consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                ByteArrayDeserializer.class.getName());
+        Properties consumerProp = propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), false);
         consumer = new KafkaConsumer<>(consumerProp);
         consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
     }
 
     //    @Test
-    public void testAttrRecog() throws Exception {
+    public void testExternAttrReognizer() throws IOException {
+        logger.info("Testing extern attr recognizer.");
+        PedestrianAttrRecognizer recognizer =
+                new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
+                        externAttrRecogServerPort, logger);
+        Tracklet tracklet = new FakePedestrianTracker().track(null)[0];
+        logger.info("Tracklet length: " + tracklet.locationSequence.length);
+        for (Tracklet.BoundingBox boundingBox : tracklet.locationSequence) {
+            logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
+                    + " " + boundingBox.width + " " + boundingBox.height);
+        }
+        logger.info(recognizer.recognize(tracklet));
+    }
+
+    //    @Test
+    public void testAttrRecogApp() throws Exception {
+        logger.info("Testing attr recogn app.");
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node recogNode =
-                plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
+        TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
         plan.letNodeOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
 
         // Send request (fake tracklet).
         TaskData trackletData = new TaskData(recogNode, plan,
-                new FakePedestrianTracker().track(new byte[0]));
-        KafkaHelper.sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
+                new FakePedestrianTracker().track(null)[0]);
+        assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
+        sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(trackletData),
                 producer,
@@ -148,7 +151,7 @@ public class PedestrianAttrRecogAppTest {
             records.forEach(rec -> {
                 TaskData taskData;
                 try {
-                    taskData = (TaskData) deserialize(rec.value());
+                    taskData = deserialize(rec.value());
                 } catch (Exception e) {
                     logger.error("During TaskData deserialization", e);
                     return;

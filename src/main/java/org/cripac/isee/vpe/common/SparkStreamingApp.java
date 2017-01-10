@@ -20,7 +20,6 @@ package org.cripac.isee.vpe.common;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.log4j.Level;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
@@ -41,6 +40,7 @@ import java.io.Serializable;
 public abstract class SparkStreamingApp implements Serializable {
 
     private static final long serialVersionUID = 3098753124157119358L;
+
     /**
      * Common Spark Streaming context variable.
      */
@@ -62,11 +62,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * @param propCenter Properties of the whole system.
      */
     public void initialize(@Nonnull SystemPropertyCenter propCenter) {
-        SynthesizedLogger logger = new SynthesizedLogger(
-                getAppName(),
-                Level.DEBUG,
-                propCenter.reportListenerAddr,
-                propCenter.reportListenerPort);
+        SynthesizedLogger logger = new SynthesizedLogger(getAppName(), propCenter);
 
         String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
         logger.info("Using " + checkpointDir + " as checkpoint directory.");
@@ -75,7 +71,9 @@ public abstract class SparkStreamingApp implements Serializable {
             try {
                 if (propCenter.sparkMaster.contains("local")) {
                     File dir = new File(checkpointDir);
+                    //noinspection ResultOfMethodCallIgnored
                     dir.delete();
+                    //noinspection ResultOfMethodCallIgnored
                     dir.mkdirs();
                 } else {
                     FileSystem fs = FileSystem.get(new Configuration());
@@ -107,11 +105,13 @@ public abstract class SparkStreamingApp implements Serializable {
 
     /**
      * Await termination of the application.
-     *
-     * @throws InterruptedException
      */
-    public void awaitTermination() throws InterruptedException {
-        streamingContext.awaitTermination();
+    public void awaitTermination() {
+        try {
+            streamingContext.awaitTermination();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

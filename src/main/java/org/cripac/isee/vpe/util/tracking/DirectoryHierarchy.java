@@ -88,7 +88,9 @@ public class DirectoryHierarchy {
                               @Nullable DirectoryHierarchy parent) {
         this.name = name;
         this.parent = parent;
-        parent.subHierarchy.put(name, this);
+        if (parent != null) {
+            parent.subHierarchy.put(name, this);
+        }
     }
 
     /**

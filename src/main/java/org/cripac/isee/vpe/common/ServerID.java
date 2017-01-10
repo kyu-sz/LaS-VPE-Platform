@@ -1,4 +1,4 @@
-package org.cripac.isee.vpe.common;/***********************************************************************
+/***********************************************************************
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -14,6 +14,7 @@ package org.cripac.isee.vpe.common;/********************************************
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
+package org.cripac.isee.vpe.common;
 
 import java.io.Serializable;
 import java.net.InetAddress;

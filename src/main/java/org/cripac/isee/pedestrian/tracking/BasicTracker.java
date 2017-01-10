@@ -17,12 +17,22 @@
 
 package org.cripac.isee.pedestrian.tracking;
 
+import org.bytedeco.javacpp.opencv_core;
+import org.bytedeco.javacv.Frame;
+import org.bytedeco.javacv.FrameGrabber;
+import org.bytedeco.javacv.OpenCVFrameConverter;
+import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.tracking.VideoDecoder;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.InputStream;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static org.bytedeco.javacpp.avutil.AV_LOG_QUIET;
+import static org.bytedeco.javacpp.avutil.av_log_set_level;
 
 /**
  * The BasicTracker class is a JNI class of a pedestrian tracking algorithm used
@@ -34,6 +44,7 @@ import javax.annotation.Nullable;
 public class BasicTracker extends Tracker {
 
     private static int instanceCnt = 0;
+    private Lock instCntLock = new ReentrantLock();
 
     static {
         System.out.println("Loading native libraries for BasicTracker from "
@@ -59,9 +70,9 @@ public class BasicTracker extends Tracker {
                         @Nullable Logger logger) {
         this.conf = conf;
         if (logger == null) {
-            this.logger = logger;
-        } else {
             this.logger = new ConsoleLogger();
+        } else {
+            this.logger = logger;
         }
     }
 
@@ -71,43 +82,59 @@ public class BasicTracker extends Tracker {
      * @see Tracker#track(java.lang.String)
      */
     @Override
-    public Tracklet[] track(@Nonnull byte[] videoBytes) {
+    public Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception {
         // Limit instances on a single node.
         while (true) {
-            synchronized (BasicTracker.class) {
-                if (instanceCnt < 5) {
-                    ++instanceCnt;
-                    try {
-                        logger.info("Tracker instance count: " + instanceCnt);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    break;
+            instCntLock.lock();
+            if (instanceCnt < 5) {
+                ++instanceCnt;
+                try {
+                    logger.info("Tracker instance count: " + instanceCnt);
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
+                break;
+            }
+            instCntLock.unlock();
+            logger.debug("Current tracker instance number is " + instanceCnt
+                    + ". Waiting for previous tasks to finish...");
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
 
-        VideoDecoder videoDecoder = new VideoDecoder(videoBytes);
+        FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(videoStream);
+        av_log_set_level(AV_LOG_QUIET);
+        frameGrabber.start();
         logger.debug("Initialized video decoder!");
-        VideoDecoder.VideoInfo videoInfo = videoDecoder.getVideoInfo();
-        logger.debug("To perform tracking on video with width=" + videoInfo.width + " height=" + videoInfo.height + "!");
 
         if (conf == null) {
             logger.fatal("Configuration file is NULL!");
             return null;
         }
-        long trackerPointer = initialize(videoInfo.width, videoInfo.height, videoInfo.channels, conf);
+        long trackerPointer = initialize(frameGrabber.getImageWidth(), frameGrabber.getImageHeight(), 3, conf);
         logger.debug("Initialized tracker!");
 
         int cnt = 0;
         // Every time a frame is retrieved during decoding, it is immediately fed into the tracker,
         // so as to save runtime memory.
         while (true) {
-            byte[] frame = videoDecoder.nextFrame();
+            Frame frame;
+            try {
+                frame = frameGrabber.grabImage();
+            } catch (FrameGrabber.Exception e) {
+                logger.error("On grabImage: " + e);
+                break;
+            }
             if (frame == null) {
                 break;
             }
-            int ret = feedFrame(trackerPointer, frame);
+            final byte[] buf = new byte[frame.imageHeight * frame.imageWidth * frame.imageChannels];
+            final opencv_core.Mat cvFrame = new OpenCVFrameConverter.ToMat().convert(frame);
+            cvFrame.data().get(buf);
+            int ret = feedFrame(trackerPointer, buf);
             if (ret != 0) {
                 break;
             }
@@ -123,14 +150,19 @@ public class BasicTracker extends Tracker {
         logger.debug("Got " + targets.length + " targets!");
         free(trackerPointer);
 
-        synchronized (BasicTracker.class) {
-            --instanceCnt;
-            try {
-                logger.info("Tracker instance count: " + instanceCnt);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        for (int i = 0; i < targets.length; ++i) {
+            targets[i].numTracklets = targets.length;
+            targets[i].id.serialNumber = i;
         }
+
+        instCntLock.lock();
+        --instanceCnt;
+        try {
+            logger.info("Tracker instance count: " + instanceCnt);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        instCntLock.unlock();
 
         return targets;
 //        return new FakePedestrianTracker().track(videoBytes);

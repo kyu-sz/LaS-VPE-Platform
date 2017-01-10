@@ -17,6 +17,7 @@
 
 package org.cripac.isee.pedestrian.tracking;
 
+import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 
 import javax.annotation.Nonnull;
@@ -68,15 +69,7 @@ public class Tracklet implements Serializable {
      */
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("@Tracklet\n");
-        sb.append("Video URL: " + id.videoID + "\n");
-        sb.append("Serial number: " + id.serialNumber + "/" + numTracklets + "\n");
-        sb.append("Range: " + startFrameIndex + " -> " + (startFrameIndex + locationSequence.length) + "\n");
-        for (int i = 0; i < locationSequence.length; ++i) {
-            sb.append("At frame " + (startFrameIndex + i) + ": " + locationSequence[i] + "\n");
-        }
-        return sb.toString();
+        return new Gson().toJson(this);
     }
 
     /**
@@ -115,8 +108,7 @@ public class Tracklet implements Serializable {
          *                     the starting time of the video fragment.
          * @param serialNumber The serial number of the track in the video (1, 2, 3...).
          */
-        public Identifier(@Nonnull String videoID,
-                          int serialNumber) {
+        public Identifier(@Nonnull String videoID, int serialNumber) {
             this.videoID = videoID;
             this.serialNumber = serialNumber;
         }
@@ -136,6 +128,36 @@ public class Tracklet implements Serializable {
         public String toString() {
             return videoID + "_tarid" + serialNumber;
         }
+    }
+
+    /**
+     * Truncate and shrink the tracklet into a new one.
+     *
+     * @param start     Index in the original sequence (counting from 0)
+     *                  of the first bounding box in the truncated sequence.
+     * @param length    Length of the truncated tracklet.
+     *                  Mark it as negative means truncate to the end of the original sequence.
+     * @param increment Increment of index when picking bounding boxes between start and end.
+     * @return The truncated and shrunk tracklet.
+     */
+    public Tracklet truncateAndShrink(int start, int length, int increment) {
+        if (length < 0) {
+            length = this.locationSequence.length;
+        }
+        if (start + length * increment > this.locationSequence.length) {
+            length = (this.locationSequence.length - start) / increment;
+        }
+        Tracklet tracklet = new Tracklet();
+        tracklet.numTracklets = this.numTracklets;
+        tracklet.id = this.id;
+        tracklet.startFrameIndex = this.startFrameIndex + start;
+
+        tracklet.locationSequence = new BoundingBox[length];
+        int offset = start;
+        for (int i = 0; i < length; ++i) {
+            tracklet.locationSequence[i] = this.locationSequence[offset++];
+        }
+        return tracklet;
     }
 
     /**

@@ -19,6 +19,8 @@
  * Created by ken.yu on 16-10-5.
  * <p>
  * Created by ken.yu on 16-10-5.
+ * <p>
+ * Created by ken.yu on 16-10-5.
  */
 
 /**
@@ -42,18 +44,19 @@ import javax.annotation.Nullable;
  */
 public class BasicTrackerFactory implements Factory<BasicTracker> {
 
+    private static final long serialVersionUID = -3126490020471068124L;
     private byte[] conf;
     private Singleton<Logger> loggerSingleton;
 
     public BasicTrackerFactory(@Nonnull byte[] conf,
                                @Nullable Singleton<Logger> loggerSingleton) {
         this.conf = conf;
-        if (loggerSingleton == null) {
+        if (loggerSingleton != null) {
             this.loggerSingleton = loggerSingleton;
         } else {
             try {
-                this.loggerSingleton = new Singleton<>(() -> new ConsoleLogger());
-            } catch (Exception e) {
+                this.loggerSingleton = new Singleton<>(ConsoleLogger::new);
+            } catch (Throwable e) {
                 e.printStackTrace();
             }
         }

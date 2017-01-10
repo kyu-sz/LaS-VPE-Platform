@@ -102,6 +102,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.0.0</version>
                 <executions>
                     <execution>
                         <id>jar-with-dependencies</id>
@@ -137,8 +138,13 @@
     <dependencies>
         <dependency>
             <groupId>org.bytedeco</groupId>
-            <artifactId>javacv</artifactId>
-            <version>1.2</version>
+            <artifactId>javacv-platform</artifactId>
+            <version>1.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bytedeco.javacpp-presets</groupId>
+            <artifactId>caffe-platform</artifactId>
+            <version>master-1.3</version>
         </dependency>
         <dependency>
             <groupId>org.apache.hadoop</groupId>
@@ -187,6 +193,11 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
             <version>0.10.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
+            <version>7.0.13</version>
         </dependency>
     </dependencies>
 

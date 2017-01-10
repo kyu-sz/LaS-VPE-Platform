@@ -17,12 +17,20 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
+import org.apache.spark.launcher.SparkLauncher;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
@@ -30,14 +38,12 @@ import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
@@ -49,10 +55,11 @@ import java.util.Properties;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class SystemPropertyCenter {
+public class SystemPropertyCenter implements Serializable {
 
+    private static final long serialVersionUID = -6642856932636724919L;
     // Logger for parsing.
-    private Logger logger = new ConsoleLogger(Level.INFO);
+    private transient Logger logger = new ConsoleLogger(Level.INFO);
 
     // Zookeeper properties
     public String zkConn = "localhost:2181";
@@ -63,13 +70,17 @@ public class SystemPropertyCenter {
     public int kafkaNumPartitions = 1;
     public int kafkaReplFactor = 1;
     public int kafkaMsgMaxBytes = 100000000;
-    public int kafkaMaxRequestSize = 100000000;
+    public int kafkaSendMaxSize = 100000000;
+    public int kafkaRequestTimeoutMs = 60000;
+    public int kafkaFetchTimeoutMs = 60000;
     // Spark properties
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "metadata";
     public String sparkMaster = "local[*]";
     public String sparkDeployMode = "client";
     public String[] appsToStart = null;
+    // Caffe properties
+    public int caffeGPU = -1;
     /**
      * Memory per executor (e.g. 1000M, 2G) (Default: 1G)
      */
@@ -120,21 +131,18 @@ public class SystemPropertyCenter {
      */
     public int bufDuration = 600000;
     /**
-     * The address listening to reports.
+     * Duration of spark batches.
      */
-    public String reportListenerAddr = null;
-    /**
-     * The port of the address listening to reports.
-     */
-    public int reportListenerPort = -1;
-    /**
-     * Estimated time in milliseconds to be consumed in the process of each RDD.
-     */
-    public int procTime = 10000;
+    public int batchDuration = 2000;
     /**
      * Whether to print verbose running information.
      */
     public boolean verbose = false;
+
+    /**
+     * Subclasses can continue to analyze this property storage.
+     */
+    protected Properties sysProps = new Properties();
 
     /**
      * Construction function supporting allocating a SystemPropertyCenter then
@@ -208,7 +216,6 @@ public class SystemPropertyCenter {
         }
 
         // Load properties from file.
-        Properties sysProps = new Properties();
         BufferedInputStream propInputStream;
         try {
             if (sysPropFilePath.contains("hdfs:/")) {
@@ -226,7 +233,7 @@ public class SystemPropertyCenter {
             propInputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
-            logger.error("Cannot find system-wise default property file at specified path: \""
+            logger.error("Couldn't find system-wise default property file at specified path: \""
                     + sysPropFilePath + "\"!\n");
             logger.error("Try use '-h' for more information.");
             System.exit(0);
@@ -254,7 +261,7 @@ public class SystemPropertyCenter {
                 propInputStream.close();
             } catch (IOException e) {
                 e.printStackTrace();
-                logger.error("Cannot find application-specific property file at specified path: \""
+                logger.error("Couldn't find application-specific property file at specified path: \""
                         + appPropFilePath + "\"!\n");
                 logger.error("Try use '-h' for more information.");
                 System.exit(0);
@@ -281,7 +288,7 @@ public class SystemPropertyCenter {
                 case "kafka.replication.factor":
                     kafkaReplFactor = new Integer((String) entry.getValue());
                     break;
-                case "kafka.message.max.bytes":
+                case "kafka.fetch.max.size":
                     kafkaMsgMaxBytes = new Integer((String) entry.getValue());
                     break;
                 case "spark.checkpoint.dir":
@@ -332,20 +339,22 @@ public class SystemPropertyCenter {
                 case "vpe.buf.duration":
                     bufDuration = new Integer((String) entry.getValue());
                     break;
-                case "vpe.process.time":
-                    procTime = new Integer((String) entry.getValue());
+                case "vpe.batch.duration":
+                    batchDuration = new Integer((String) entry.getValue());
                     break;
-                case "kafka.max.request.size":
-                    kafkaMaxRequestSize = new Integer((String) entry.getValue());
+                case "kafka.send.max.size":
+                    kafkaSendMaxSize = new Integer((String) entry.getValue());
+                    break;
+                case "kafka.request.timeout.ms":
+                    kafkaRequestTimeoutMs = new Integer((String) entry.getValue());
+                    break;
+                case "kafka.fetch.timeout.ms":
+                    kafkaFetchTimeoutMs = new Integer((String) entry.getValue());
+                    break;
+                case "caffe.gpu":
+                    caffeGPU = new Integer((String) entry.getValue());
                     break;
             }
-        }
-
-        if (commandLine.hasOption("report-listening-addr")) {
-            reportListenerAddr = commandLine.getOptionValue("report-listening-addr");
-        }
-        if (commandLine.hasOption("report-listening-port")) {
-            reportListenerPort = new Integer(commandLine.getOptionValue("report-listening-port"));
         }
     }
 
@@ -356,7 +365,7 @@ public class SystemPropertyCenter {
      * @return An array of string with format required by SparkSubmit client.
      * @throws NoAppSpecifiedException When no application is specified to run.
      */
-    public String[] getArgs() throws NoAppSpecifiedException {
+    private String[] getArgs() throws NoAppSpecifiedException {
         ArrayList<String> optList = new ArrayList<>();
 
         if (verbose) {
@@ -369,15 +378,7 @@ public class SystemPropertyCenter {
         }
 
         optList.add("--system-property-file");
-        if (sparkMaster.toLowerCase().contains("yarn")) {
-            optList.add("system.properties");
-        } else if (sparkMaster.toLowerCase().contains("local")) {
-            optList.add(sysPropFilePath);
-        } else {
-            throw new NotImplementedException(
-                    "System is currently not supporting deploy mode: "
-                            + sparkMaster);
-        }
+        optList.add(new File(sysPropFilePath).getName());
 
         optList.add("--log4j-property-file");
         if (sparkMaster.toLowerCase().contains("yarn")) {
@@ -390,13 +391,58 @@ public class SystemPropertyCenter {
                             + sparkMaster);
         }
 
-        optList.add("--report-listening-addr");
-        optList.add(reportListenerAddr);
-
-        optList.add("--report-listening-port");
-        optList.add("" + reportListenerPort);
-
         return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);
+    }
+
+    SparkLauncher GetLauncher(String appName) throws IOException {
+        SparkLauncher launcher = new SparkLauncher()
+                .setAppResource(jarPath)
+                .setMainClass(AppManager.getMainClassName(appName))
+                .setMaster(sparkMaster)
+                .setAppName(appName)
+                .setVerbose(verbose)
+                .addFile(ConfManager.getConcatCfgFilePathList(","))
+                .setConf(SparkLauncher.DRIVER_MEMORY, driverMem)
+                .setConf(SparkLauncher.EXECUTOR_MEMORY, executorMem)
+                .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
+                .setConf(SparkLauncher.EXECUTOR_CORES, "" + executorCores)
+                .setConf("spark.driver.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
+                .setConf("spark.executor.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
+                .addSparkArg("--driver-cores", "" + driverCores)
+                .addSparkArg("--num-executors", "" + numExecutors)
+                .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
+                .addSparkArg("--queue", hadoopQueue)
+                .addAppArgs(getArgs());
+        if (sparkConfFilePath != null) {
+            if (new File(sparkConfFilePath).exists()) {
+                launcher = launcher.setPropertiesFile(sparkConfFilePath);
+            } else {
+                logger.warn("Spark configuration file " + sparkConfFilePath + " does not exist!");
+            }
+        }
+        if (log4jPropFilePath != null) {
+            if (new File(log4jPropFilePath).exists()) {
+                launcher = launcher.addFile(log4jPropFilePath);
+            } else {
+                logger.warn("Loj4j configuration file " + log4jPropFilePath + " does not exist!");
+            }
+        }
+        if (sysPropFilePath != null) {
+            if (new File(sysPropFilePath).exists()) {
+                launcher = launcher.addFile(sysPropFilePath);
+            } else {
+                logger.warn("System configuration file " + sysPropFilePath + " does not exist!");
+            }
+            launcher = launcher.addFile(sysPropFilePath);
+        }
+        if (appPropFilePath != null) {
+            if (new File(appPropFilePath).exists()) {
+                launcher = launcher.addFile(appPropFilePath);
+            } else {
+                logger.warn("App configuration file " + appPropFilePath + " does not exist!");
+            }
+        }
+        return launcher;
     }
 
     /**
@@ -406,5 +452,47 @@ public class SystemPropertyCenter {
      */
     public static class NoAppSpecifiedException extends RuntimeException {
         private static final long serialVersionUID = -8356206863229009557L;
+    }
+
+    public Properties generateKafkaProducerProp(boolean isStringValue) {
+        Properties producerProp = new Properties();
+        producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
+        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, kafkaSendMaxSize);
+        producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                isStringValue ? StringSerializer.class : ByteArraySerializer.class);
+        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, kafkaSendMaxSize);
+        producerProp.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaRequestTimeoutMs);
+        //TODO: Fix compression bugs and enable compression.
+        //producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+        return producerProp;
+    }
+
+    public Properties generateKafkaConsumerProp(String group, boolean isStringValue) {
+        Properties consumerProp = new Properties();
+        consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
+        consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG, group);
+        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                isStringValue ? StringDeserializer.class : ByteArrayDeserializer.class);
+        consumerProp.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaFetchTimeoutMs);
+        return consumerProp;
+    }
+
+    public Map<String, String> generateKafkaParams(String group) {
+        Map<String, String> kafkaParams = new Object2ObjectOpenHashMap<>();
+        kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
+        kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, group);
+        kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "largest");
+        kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put("fetch.message.max.bytes", "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, "" + kafkaFetchTimeoutMs);
+        return kafkaParams;
     }
 }
