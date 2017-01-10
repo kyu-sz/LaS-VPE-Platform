@@ -15,15 +15,19 @@ package org.cripac.isee.pedestrian.attr;/***************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
+import com.sun.xml.internal.messaging.saaj.util.ByteInputStream;
 import org.apache.commons.lang.NotImplementedException;
-import org.bytedeco.javacpp.caffe;
+import org.bytedeco.javacpp.*;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
+import java.io.DataInputStream;
 import java.io.IOException;
 
 import static org.bytedeco.javacpp.caffe.TEST;
+import static org.bytedeco.javacpp.opencv_core.CV_32SC3;
+import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 
 /**
  * Created by ken.yu on 17-1-10.
@@ -57,12 +61,37 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
      */
     @Override
     public Attributes recognize(@Nonnull Tracklet tracklet) throws IOException {
-        Tracklet.BoundingBox bbox = tracklet.locationSequence[tracklet.locationSequence.length >> 1];
-        caffe.FloatBlobVector bottomVec = new caffe.FloatBlobVector();
-        // TODO: Fill the data in the bbox into the bottomVec.
+        // Process image.
+        final Tracklet.BoundingBox bbox = tracklet.locationSequence[tracklet.locationSequence.length >> 1];
+        opencv_core.Mat image = new opencv_core.Mat(bbox.height, bbox.width, CV_8UC3);
+        image.data(new BytePointer(bbox.patchData));
+        image.convertTo(image, CV_32SC3);
+        opencv_imgproc.resize(image, image, new opencv_core.Size(224, 224));
 
-        caffe.FloatBlobVector result = net.Forward(bottomVec);
+        // Get pixel data.
+        final int numPixels = image.rows() * image.cols() * image.channels();
+        final byte[] pixelFloatBytes = new byte[Float.BYTES * numPixels];
+        image.data().get(pixelFloatBytes);
+        final DataInputStream pixelFloatStream = new DataInputStream(new ByteInputStream(pixelFloatBytes, pixelFloatBytes.length));
+        final float[] pixelFloats = new float[numPixels];
+        for (int i = 0; i < numPixels; ++i) {
+            pixelFloats[i] = pixelFloatStream.readFloat();
+        }
+        // TODO: Verify correctness of the prepared pixel floats.
+
+        // Prepare input blob.
+        final caffe.FloatBlobVector bottomVec = new caffe.FloatBlobVector();
+        final caffe.FloatBlob dataBlob = new caffe.FloatBlob(1, 3, 224, 224);
+        dataBlob.set_cpu_data(pixelFloats);
+        bottomVec.put(dataBlob);
+
+        // Forward the input blob and get result.
+        final caffe.FloatBlobVector result = net.Forward(bottomVec);
+        final FloatPointer p = result.get(0).cpu_data();
+
         // TODO: Transform result to Attributes.
+        Attributes attributes = new Attributes();
+        attributes.genderFemale = p.get(0);
         throw new NotImplementedException("The DeepMAR is under development!");
     }
 }
