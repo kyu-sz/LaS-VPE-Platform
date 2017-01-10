@@ -70,7 +70,9 @@ public class SystemPropertyCenter implements Serializable {
     public int kafkaNumPartitions = 1;
     public int kafkaReplFactor = 1;
     public int kafkaMsgMaxBytes = 100000000;
-    public int kafkaMaxRequestSize = 100000000;
+    public int kafkaSendMaxSize = 100000000;
+    public int kafkaRequestTimeoutMs = 60000;
+    public int kafkaFetchTimeoutMs = 60000;
     // Spark properties
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "metadata";
@@ -284,7 +286,7 @@ public class SystemPropertyCenter implements Serializable {
                 case "kafka.replication.factor":
                     kafkaReplFactor = new Integer((String) entry.getValue());
                     break;
-                case "kafka.message.max.bytes":
+                case "kafka.fetch.max.size":
                     kafkaMsgMaxBytes = new Integer((String) entry.getValue());
                     break;
                 case "spark.checkpoint.dir":
@@ -338,9 +340,16 @@ public class SystemPropertyCenter implements Serializable {
                 case "vpe.batch.duration":
                     batchDuration = new Integer((String) entry.getValue());
                     break;
-                case "kafka.max.request.size":
-                    kafkaMaxRequestSize = new Integer((String) entry.getValue());
+                case "kafka.send.max.size":
+                    kafkaSendMaxSize = new Integer((String) entry.getValue());
                     break;
+                case "kafka.request.timeout.ms":
+                    kafkaRequestTimeoutMs = new Integer((String) entry.getValue());
+                    break;
+                case "kafka.fetch.timeout.ms":
+                    kafkaFetchTimeoutMs = new Integer((String) entry.getValue());
+                    break;
+
             }
         }
     }
@@ -444,11 +453,12 @@ public class SystemPropertyCenter implements Serializable {
     public Properties generateKafkaProducerProp(boolean isStringValue) {
         Properties producerProp = new Properties();
         producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
-        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, kafkaMaxRequestSize);
+        producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, kafkaSendMaxSize);
         producerProp.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         producerProp.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                 isStringValue ? StringSerializer.class : ByteArraySerializer.class);
-        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, "" + kafkaMsgMaxBytes);
+        producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, kafkaSendMaxSize);
+        producerProp.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaRequestTimeoutMs);
         //TODO: Fix compression bugs and enable compression.
         //producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
         return producerProp;
@@ -462,6 +472,7 @@ public class SystemPropertyCenter implements Serializable {
         consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 isStringValue ? StringDeserializer.class : ByteArrayDeserializer.class);
+        consumerProp.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaFetchTimeoutMs);
         return consumerProp;
     }
 
@@ -477,6 +488,7 @@ public class SystemPropertyCenter implements Serializable {
         kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
         kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
         kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
+        kafkaParams.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, "" + kafkaFetchTimeoutMs);
         return kafkaParams;
     }
 }
