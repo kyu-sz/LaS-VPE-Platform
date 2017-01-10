@@ -79,6 +79,8 @@ public class SystemPropertyCenter implements Serializable {
     public String sparkMaster = "local[*]";
     public String sparkDeployMode = "client";
     public String[] appsToStart = null;
+    // Caffe properties
+    public int caffeGPU = -1;
     /**
      * Memory per executor (e.g. 1000M, 2G) (Default: 1G)
      */
@@ -349,7 +351,9 @@ public class SystemPropertyCenter implements Serializable {
                 case "kafka.fetch.timeout.ms":
                     kafkaFetchTimeoutMs = new Integer((String) entry.getValue());
                     break;
-
+                case "caffe.gpu":
+                    caffeGPU = new Integer((String) entry.getValue());
+                    break;
             }
         }
     }
