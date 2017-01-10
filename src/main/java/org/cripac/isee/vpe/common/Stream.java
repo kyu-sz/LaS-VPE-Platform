@@ -141,11 +141,19 @@ public abstract class Stream implements Serializable {
                 .repartition(jssc.sparkContext().defaultParallelism());
         stream.cache();
         stream.foreachRDD(rdd -> {
+            final Logger logger = loggerSingleton.getInst();
+            boolean hasNewMessages = false;
             for (OffsetRange o : offsetRanges.get()) {
-                loggerSingleton.getInst().debug("Received Kafka message: {topic=" + o.topic()
-                        + ", partition=" + o.partition()
-                        + ", fromOffset=" + o.fromOffset()
-                        + ", untilOffset=" + o.untilOffset() + "}");
+                if (o.untilOffset() > o.fromOffset()) {
+                    hasNewMessages = true;
+                    logger.debug("Received {topic=" + o.topic()
+                            + ", partition=" + o.partition()
+                            + ", fromOffset=" + o.fromOffset()
+                            + ", untilOffset=" + o.untilOffset() + "}");
+                }
+            }
+            if (!hasNewMessages) {
+                logger.debug("No new messages!");
             }
         });
         return stream;
