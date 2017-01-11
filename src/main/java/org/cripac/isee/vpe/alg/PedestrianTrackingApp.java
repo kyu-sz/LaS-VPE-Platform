@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.alg;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -26,10 +27,13 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.pedestrian.tracking.Tracker;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
@@ -41,6 +45,7 @@ import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.debug.FakeWebCameraConnector;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -214,33 +219,21 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            buildBytesDirectStream(jssc, Collections.singletonList(LOGIN_PARAM_TOPIC.NAME), kafkaParams)
+            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(LOGIN_PARAM_TOPIC.NAME), kafkaCluster)
                     .foreachRDD(rdd -> rdd.foreach(kvPair -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // Recover data.
                             final String taskID = kvPair._1();
-                            TaskData taskData = deserialize(kvPair._2());
+                            final TaskData taskData = deserialize(kvPair._2());
+                            final LoginParam loginParam = (LoginParam) taskData.predecessorRes;
 
-                            // Get camera WEBCAM_LOGIN_PARAM.
-                            if (taskData.predecessorRes == null) {
-                                logger.error(
-                                        "No camera WEBCAM_LOGIN_PARAM specified for real-time tracking stream!");
-                                return;
-                            }
-                            if (!(taskData.predecessorRes instanceof String)) {
-                                logger.error(
-                                        "Real-time tracking stream expects camera WEBCAM_LOGIN_PARAM but received "
-                                                + taskData.predecessorRes.getClass().getName() + "!");
-                                return;
-                            }
-                            LoginParam loginParam = (LoginParam) taskData.predecessorRes;
-
-                            WebCameraConnector cameraConnector;
+                            final WebCameraConnector cameraConnector;
                             if (connectorPool.containsKey(loginParam.serverID)) {
                                 cameraConnector = connectorPool.get(loginParam.serverID).getInst();
                             } else {
-                                Singleton<WebCameraConnector> cameraConnectorSingleton =
+                                final Singleton<WebCameraConnector> cameraConnectorSingleton =
                                         new Singleton<>(new FakeWebCameraConnector
                                                 .FakeWebCameraConnectorFactory(loginParam));
                                 connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
@@ -248,8 +241,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             }
 
                             // Connect to camera.
-                            InputStream rtVideoStream = cameraConnector.getStream();
+                            final InputStream rtVideoStream = cameraConnector.getStream();
                             // TODO(Ken Yu): Perform tracking on the real-time video stream.
+                            throw new NotImplementedException("Real-time video stream is under development");
                         } catch (Throwable t) {
                             logger.error("On processing real-time video stream", t);
                         }
@@ -291,8 +285,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            buildBytesDirectStream(jssc, Collections.singletonList(VIDEO_URL_TOPIC.NAME), kafkaParams)
-                    .foreachRDD(rdd -> {
+            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(VIDEO_URL_TOPIC.NAME), kafkaCluster)
+                    .transformToPair((Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>) rdd -> {
                         final Broadcast<Map<String, byte[]>> confPool =
                                 ConfigPool.getInst(new JavaSparkContext(rdd.context()),
                                         hdfsSingleton.getInst(),
@@ -362,7 +357,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 logger.error("During tracking.", e);
                             }
                         });
-                    });
+
+                        return rdd;
+                    })
+                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
         }
     }
 }

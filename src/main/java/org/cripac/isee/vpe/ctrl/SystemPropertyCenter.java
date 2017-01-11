@@ -493,6 +493,7 @@ public class SystemPropertyCenter implements Serializable {
         kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
         kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG, "" + kafkaMsgMaxBytes);
         kafkaParams.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, "" + kafkaFetchTimeoutMs);
+        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         return kafkaParams;
     }
 }

@@ -17,23 +17,27 @@
 
 package org.cripac.isee.vpe.common;
 
+import kafka.common.TopicAndPartition;
+import kafka.message.MessageAndMetadata;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.HasOffsetRanges;
+import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.apache.spark.streaming.kafka.OffsetRange;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.Logger;
+import scala.Tuple2;
+import scala.collection.JavaConversions;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -114,48 +118,65 @@ public abstract class Stream implements Serializable {
 
     protected final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<>();
 
+    private static class StringByteArrayRecord implements Serializable {
+        String key;
+        byte[] value;
+
+        StringByteArrayRecord(String key, byte[] value) {
+            this.key = key;
+            this.value = value;
+        }
+    }
+
     /**
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
      * @param jssc        The streaming context of the applications.
-     * @param kafkaParams Parameters for reading from Kafka.
      * @param topics      Topics from which the direct stream reads.
+     * @param kafkaCluster Kafka cluster created from kafkaParams (please use KafkaHelper::createKafkaCluster).
      * @return A Kafka non-receiver input stream.
      */
     protected JavaPairDStream<String, byte[]>
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
-                           @Nonnull Map<String, String> kafkaParams) {
-        kafkaParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+                           @Nonnull KafkaCluster kafkaCluster) {
+        // Retrieve and correct offsets from Kafka cluster.
+        final Map<TopicAndPartition, Long> consumerOffsetsLong = KafkaHelper.getFromOffsets(kafkaCluster, topics);
 
-        final JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(jssc,
+        // Create a direct stream from the retrieved offsets.
+        final JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
+                jssc,
                 String.class, byte[].class,
                 StringDecoder.class, DefaultDecoder.class,
-                kafkaParams, new HashSet<>(topics))
-                .transformToPair((Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>) rdd -> {
-                    OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-                    offsetRanges.set(offsets);
+                StringByteArrayRecord.class,
+                JavaConversions.mapAsJavaMap(kafkaCluster.kafkaParams()),
+                consumerOffsetsLong,
+                (Function<MessageAndMetadata<String, byte[]>, StringByteArrayRecord>) messageAndMetadata ->
+                        new StringByteArrayRecord(messageAndMetadata.key(), messageAndMetadata.message()))
+                // Repartition the records.
+                .repartition(jssc.sparkContext().defaultParallelism())
+                // Store offsets.
+                .transform((Function<JavaRDD<StringByteArrayRecord>, JavaRDD<StringByteArrayRecord>>) rdd -> {
+                    final Logger logger = loggerSingleton.getInst();
+                    boolean hasNewMessages = false;
+                    for (OffsetRange o : offsetRanges.get()) {
+                        if (o.untilOffset() > o.fromOffset()) {
+                            hasNewMessages = true;
+                            logger.debug("Received {topic=" + o.topic()
+                                    + ", partition=" + o.partition()
+                                    + ", fromOffset=" + o.fromOffset()
+                                    + ", untilOffset=" + o.untilOffset() + "}");
+                        }
+                    }
+                    if (!hasNewMessages) {
+                        logger.debug("No new messages!");
+                    }
                     return rdd;
                 })
-                .repartition(jssc.sparkContext().defaultParallelism());
-        stream.cache();
-        stream.foreachRDD(rdd -> {
-            final Logger logger = loggerSingleton.getInst();
-            boolean hasNewMessages = false;
-            for (OffsetRange o : offsetRanges.get()) {
-                if (o.untilOffset() > o.fromOffset()) {
-                    hasNewMessages = true;
-                    logger.debug("Received {topic=" + o.topic()
-                            + ", partition=" + o.partition()
-                            + ", fromOffset=" + o.fromOffset()
-                            + ", untilOffset=" + o.untilOffset() + "}");
-                }
-            }
-            if (!hasNewMessages) {
-                logger.debug("No new messages!");
-            }
-        });
+                // Transform to usual record type.
+                .mapToPair((PairFunction<StringByteArrayRecord, String, byte[]>) consumerRecord ->
+                        new Tuple2<>(consumerRecord.key, consumerRecord.value));
         return stream;
     }
 }

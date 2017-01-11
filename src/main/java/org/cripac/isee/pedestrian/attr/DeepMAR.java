@@ -30,14 +30,33 @@ import static org.bytedeco.javacpp.opencv_core.CV_32SC3;
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 
 /**
+ * The class DeepMAR uses the algorithm proposed in
+ * Li, D., Chen, X., Huang, K.:
+ * Multi-attribute learning for pedestrian attribute recognition in surveillance scenarios. In: Proc. ACPR (2015)
+ * to conduct pedestrian attribute recognizing.
+ * <p>
  * Created by ken.yu on 17-1-10.
  */
 public final class DeepMAR extends PedestrianAttrRecognizer {
-
+    /**
+     * Caffe model protocol of DeepMAR.
+     */
     private final static String model = "DeepMAR.prototxt";
+    /**
+     * Caffe model weights of DeepMAR network.
+     */
     private final static String weights = "DeepMAR.caffemodel";
+    /**
+     * Instance of DeepMAR.
+     */
     private caffe.FloatNet net = null;
 
+    /**
+     * Create an instance of DeepMAR.
+     *
+     * @param gpu    The GPU to use.
+     * @param logger An external logger.
+     */
     public DeepMAR(int gpu, Logger logger) {
         if (gpu >= 0) {
             logger.info("Use GPU with device ID " + gpu);

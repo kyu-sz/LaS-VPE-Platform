@@ -24,6 +24,7 @@ import org.apache.spark.api.java.Optional;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
@@ -34,6 +35,7 @@ import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -175,9 +177,10 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
+            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
             final JavaPairDStream<String, TaskData> trackletDStream =
                     // Read track bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaCluster)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
                             .mapToPair(kvPair -> {
@@ -196,7 +199,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             final JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Collections.singletonList(ATTR_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc, Collections.singletonList(ATTR_TOPIC.NAME), kafkaCluster)
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
@@ -290,7 +293,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
             final JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
-                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_ATTR_TOPIC.NAME), kafkaParams)
+                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_ATTR_TOPIC.NAME), kafkaCluster)
                             .mapValues(bytes -> {
                                 TaskData taskData;
                                 try {
@@ -304,7 +307,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             // Union the two track with attribute streams and perform ReID.
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)
-                    .foreachRDD(rdd -> rdd.foreach(taskWithTrackletAttr -> {
+                    .mapToPair(taskWithTrackletAttr -> {
                         try {
                             Logger logger = loggerSingleton.getInst();
                             String taskID = taskWithTrackletAttr._1();
@@ -346,7 +349,10 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                         } catch (Exception e) {
                             loggerSingleton.getInst().error("During ReID", e);
                         }
-                    }));
+                        return taskWithTrackletAttr;
+                    })
+                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+            ;
         }
     }
 }

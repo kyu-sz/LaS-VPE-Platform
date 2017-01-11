@@ -22,6 +22,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
@@ -31,6 +32,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -192,7 +194,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaParams)
+            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaCluster)
                     .mapValues(taskDataBytes -> {
                         TaskData taskData;
                         try {
@@ -203,7 +206,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             return null;
                         }
                     })
-                    .foreachRDD(rdd -> rdd.foreach(taskWithTracklet -> {
+                    .mapToPair(taskWithTracklet -> {
                                 try {
                                     Logger logger = loggerSingleton.getInst();
 
@@ -263,8 +266,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                 } catch (Exception e) {
                                     loggerSingleton.getInst().error("During processing attributes.", e);
                                 }
-                            })
-                    );
+                                return taskWithTracklet;
+                            }
+                    )
+                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
         }
     }
 }
