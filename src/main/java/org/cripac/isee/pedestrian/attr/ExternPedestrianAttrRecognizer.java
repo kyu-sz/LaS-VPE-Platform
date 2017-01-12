@@ -171,6 +171,8 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                 logger.info("Connection recovered!");
             } catch (JsonSyntaxException e) {
                 logger.error("On analyzing Json", e);
+                connect();
+                logger.info("Connection recovered!");
             }
         }
     }

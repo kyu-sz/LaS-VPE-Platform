@@ -19,3 +19,7 @@ checkpoint/
 # IDEA files #
 *.iml
 .idea
+.gitignore
+
+# Caffe model files #
+DeepMAR.caffemodel
