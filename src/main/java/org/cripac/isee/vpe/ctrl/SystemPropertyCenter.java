@@ -181,7 +181,7 @@ public class SystemPropertyCenter implements Serializable {
         }
 
         if (commandLine.hasOption('h')) {
-            HelpFormatter formatter = new HelpFormatter();
+            final HelpFormatter formatter = new HelpFormatter();
             formatter.printHelp("LaS-VPE Platform", options);
             System.exit(0);
             return;
@@ -219,13 +219,14 @@ public class SystemPropertyCenter implements Serializable {
             if (sysPropFilePath.contains("hdfs:/")) {
                 logger.debug("Loading system-wise default properties using HDFS platform from "
                         + sysPropFilePath + "...");
-                FileSystem hdfs = FileSystem.get(new URI(sysPropFilePath), HadoopHelper.getDefaultConf());
-                FSDataInputStream hdfsInputStream = hdfs.open(new Path(sysPropFilePath));
+                final FileSystem hdfs = FileSystem.get(new URI(sysPropFilePath), HadoopHelper.getDefaultConf());
+                final FSDataInputStream hdfsInputStream = hdfs.open(new Path(sysPropFilePath));
                 propInputStream = new BufferedInputStream(hdfsInputStream);
             } else {
+                final File propFile = new File(sysPropFilePath);
                 logger.debug("Loading system-wise default properties locally from "
-                        + sysPropFilePath + "...");
-                propInputStream = new BufferedInputStream(new FileInputStream(sysPropFilePath));
+                        + propFile.getAbsolutePath() + "...");
+                propInputStream = new BufferedInputStream(new FileInputStream(propFile));
             }
             sysProps.load(propInputStream);
             propInputStream.close();
@@ -244,16 +245,17 @@ public class SystemPropertyCenter implements Serializable {
                     logger.debug("Loading application-specific properties"
                             + " using HDFS platform from "
                             + appPropFilePath + "...");
-                    FileSystem hdfs = FileSystem.get(
+                    final FileSystem hdfs = FileSystem.get(
                             new URI(appPropFilePath),
                             HadoopHelper.getDefaultConf());
-                    FSDataInputStream hdfsInputStream =
+                    final FSDataInputStream hdfsInputStream =
                             hdfs.open(new Path(appPropFilePath));
                     propInputStream = new BufferedInputStream(hdfsInputStream);
                 } else {
+                    final File propFile = new File(appPropFilePath);
                     logger.debug("Loading application-specific properties locally from "
-                            + appPropFilePath + "...");
-                    propInputStream = new BufferedInputStream(new FileInputStream(appPropFilePath));
+                            + propFile.getAbsolutePath() + "...");
+                    propInputStream = new BufferedInputStream(new FileInputStream(propFile));
                 }
                 sysProps.load(propInputStream);
                 propInputStream.close();
