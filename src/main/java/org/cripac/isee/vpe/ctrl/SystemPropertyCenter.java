@@ -106,6 +106,15 @@ public class SystemPropertyCenter implements Serializable {
      */
     public int driverCores = 1;
     /**
+     * A YARN node label expression that restricts the set of nodes AM will be scheduled on.
+     * Only versions of YARN greater than or equal to 2.6 support node label expressions,
+     * so when running against earlier versions, this property will be ignored.
+     * <p>
+     * To enable label-based scheduling,
+     * see https://hadoop.apache.org/docs/stable/hadoop-yarn/hadoop-yarn-site/NodeLabel.html
+     */
+    public String yarnAmNodeLabelExpression = "";
+    /**
      * The hadoop queue to use for allocation requests (Default: 'default')
      */
     public String hadoopQueue = "default";
@@ -120,7 +129,6 @@ public class SystemPropertyCenter implements Serializable {
     public String sparkConfFilePath = ConfManager.CONF_DIR + "/spark-defaults.conf";
     public String log4jPropFilePath = ConfManager.CONF_DIR + "/log4j.properties";
     public String hdfsDefaultName = "localhost:9000";
-    public String yarnResourceManagerHostname = "localhost";
     public String jarPath = "bin/vpe-platform.jar";
     /**
      * Number of parallel streams pulling messages from Kafka Brokers.
@@ -219,6 +227,7 @@ public class SystemPropertyCenter implements Serializable {
         BufferedInputStream propInputStream;
         try {
             if (sysPropFilePath.contains("hdfs:/")) {
+                // TODO: Check if can load property file from HDFS.
                 logger.debug("Loading system-wise default properties using HDFS platform from "
                         + sysPropFilePath + "...");
                 FileSystem hdfs = FileSystem.get(new URI(sysPropFilePath), HadoopHelper.getDefaultConf());
@@ -243,6 +252,7 @@ public class SystemPropertyCenter implements Serializable {
         if (appPropFilePath != null) {
             try {
                 if (appPropFilePath.contains("hdfs:/")) {
+                    // TODO: Check if can load property file from HDFS.
                     logger.debug("Loading application-specific properties"
                             + " using HDFS platform from "
                             + appPropFilePath + "...");
@@ -306,8 +316,8 @@ public class SystemPropertyCenter implements Serializable {
                 case "vpe.platform.jar":
                     jarPath = (String) entry.getValue();
                     break;
-                case "yarn.resource.manager.hostname":
-                    yarnResourceManagerHostname = (String) entry.getValue();
+                case "spark.yarn.am.nodeLabelExpression":
+                    yarnAmNodeLabelExpression = (String) entry.getValue();
                     break;
                 case "hdfs.default.NAME":
                     hdfsDefaultName = (String) entry.getValue();
@@ -408,6 +418,7 @@ public class SystemPropertyCenter implements Serializable {
                 .setConf(SparkLauncher.EXECUTOR_CORES, "" + executorCores)
                 .setConf("spark.driver.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
                 .setConf("spark.executor.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
+                .setConf("spark.yarn.am.nodeLabelExpression", yarnAmNodeLabelExpression)
                 .addSparkArg("--driver-cores", "" + driverCores)
                 .addSparkArg("--num-executors", "" + numExecutors)
                 .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
