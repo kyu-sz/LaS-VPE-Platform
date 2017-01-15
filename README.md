@@ -38,13 +38,13 @@ LaS-VPE Platform is released under the GPL License.
 2. Deploy Kafka(>=0.10.1.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2)
 properly on your cluster.
 
-* Configure the "max.request.size" to a large number, e.g. 157286400 before
- starting the Kafka cluster, so as to enable large message transferring through
- Kafka. This should be configured in "server.properties".
+    * Configure the "max.request.size" to a large number, e.g. 157286400 before
+      starting the Kafka cluster, so as to enable large message transferring through
+      Kafka. This should be configured in "server.properties".
 
-* To enable multi-appications running concurrently, see
-[Job-Scheduling](https://spark.apache.org/docs/1.2.0/job-scheduling.html)
-and configure your environment.
+    * To enable multi-appications running concurrently, see
+      [Job-Scheduling](https://spark.apache.org/docs/1.2.0/job-scheduling.html)
+      and configure your environment.
 
 3. If you choose to run algorithms based on Caffe locally, no matter the
  algorithms use CPU-only or GPUs, you must have Cuda 8.0 installed on every
@@ -54,26 +54,26 @@ and configure your environment.
 
 1. Clone the project to your cluster:
 
-```Shell
-# Make sure to clone with --recursive
-git clone --recursive https://github.com/kyu-sz/LaS-VPE-Platform
-```
+    ```Shell
+    # Make sure to clone with --recursive
+    git clone --recursive https://github.com/kyu-sz/LaS-VPE-Platform
+    ```
 
 2. Build and pack the system into a JAR:
 
-```Shell
-./sbin/build-native-libs.sh
-mvn package
-```
+    ```Shell
+    ./sbin/build-native-libs.sh
+    mvn package
+    ```
 
-* If your maven resolves dependencies at a low speed, try
-```mvn -Dmaven.artifact.threads=100 package``` or add
-```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.
-* You may also try a Maven mirror. For users in China, the Aliyun mirror is recommended.
+    * If your maven resolves dependencies at a low speed, try
+    ```mvn -Dmaven.artifact.threads=100 package``` or add
+    ```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.
+    * You may also try a Maven mirror. For users in China, the Aliyun mirror is recommended.
 
 3. Retrieve additional model files such as _DeepMAR.caffemodel_ from algorithm providers.
 Put them in appropriate locations. For example, the _DeepMAR.caffemodel_ should be put in
-_${PROJECT_DIR}/models/DeepMAR/_.
+_${PROJECT_DIR}/models/DeepMAR/_. See [models](models).
 
 3. Configure the environment and running properties in the files in [conf](conf).
  Specially, modify the [cluster-env.sh](conf/cluster-env.sh) in [conf](conf)
@@ -81,27 +81,27 @@ to adapt to your cluster address.
 
 4. Upload the whole project to your cluster:
 
-```Shell
-./sbin/upload.sh
-```
-
-* Then switch to the terminal of your cluster, change to the platform folder and
-deliver native libraries to worker nodes using [install.sh](sbin/install.sh) in
-[sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_
-environment variable.
-
-```Shell
-./sbin/install.sh
-```
+    ```Shell
+    ./sbin/upload.sh
+    ```
+    
+    * Then switch to the terminal of your cluster, change to the platform folder and
+      deliver native libraries to worker nodes using [install.sh](sbin/install.sh) in
+      [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_
+      environment variable.
+    
+    ```Shell
+    ./sbin/install.sh
+    ```
 
 5. Finally, you can start the applications by invoking the scripts in the home
 directory by command like "./sbin/run-*.sh".
 
-* It is recommended to last start the
-[run-command-generating-app.sh](sbin/run-command-generating-app.sh), which is
-the debugging tool to simulate commands to the message handling application.
+    * It is recommended to last start the
+      [run-command-generating-app.sh](sbin/run-command-generating-app.sh), which is
+      the debugging tool to simulate commands to the message handling application.
 
-Welcome to read Ken Yu's Chinese
+Welcome to Ken Yu's Chinese
 [blog](http://blog.csdn.net/kyu_115s/article/details/51887223) on experiences
 gained during the development.
 
@@ -147,7 +147,7 @@ input into the stream.
 
 ## How to add a new module
 
-* Before starting your work on developing this platform, choosing a suitable IDE
+Before starting your work on developing this platform, choosing a suitable IDE
 will definitely improve your efficiency! Here we strongly recommend the
 Intellij IDEA, since our project contains a mixture of Java codes and Scala
 codes, while is organized with Maven. Intellij IDEA is a much better choice than
@@ -184,11 +184,11 @@ it in a suitable package.
 3. Build your algorithm project, and copy the resulting shared JNI
 library and those it depends on into the [library folder](lib/linux) directory.
   
-* To enable auto building and cleaning together with Maven, it is recommended to
-use CMake to build your project. Then edit the
-[native library building script](sbin/build-native-libs.sh) and
-[native library cleaning script](sbin/clean-native-libs.sh), following the
-examples in them.
+    * To enable auto building and cleaning together with Maven, it is recommended to
+      use CMake to build your project. Then edit the
+      [native library building script](sbin/build-native-libs.sh) and
+      [native library cleaning script](sbin/clean-native-libs.sh), following the
+      examples in them.
  
 4. If the new algorithm requires extra configuration files, register them to the
 [CongigFileManager](src/main/java/org/cripac/isee/vpe/ctrl/ConfigFileManager.java).
@@ -197,18 +197,18 @@ examples in them.
 
 1. Pack the new or modified project into a new JAR.
 
-* If you have updated the version number, remember to check the
-[system property file](conf/system.properties), where there is an option named
-"vpe.platform.jar" specifying the name of the JAR file to upload, and it should
-be the same as that of your newly built JAR file.
+    * If you have updated the version number, remember to check the
+      [system property file](conf/system.properties), where there is an option named
+      "vpe.platform.jar" specifying the name of the JAR file to upload, and it should
+      be the same as that of your newly built JAR file.
 
 2. Upload the JAR to your cluster with your customized
 [uploading script](sbin/upload.sh).
 
 3. Kill the particular old application and run the new one.
 
-* If you have checkpoint enabled, you should also clean the old checkpoint directory
- or use a new one.
-
-* You need not restart other modules! Now your module runs together with the original
-modules.
+    * If you have checkpoint enabled, you should also clean the old checkpoint directory
+      or use a new one.
+    
+    * You need not restart other modules! Now your module runs together with the original
+      modules.
