@@ -57,11 +57,11 @@
                 <executions>
                     <execution>
                         <id>default-compile</id>
-                        <phase>none</phase>
+                        <phase>compile</phase>
                     </execution>
                     <execution>
                         <id>default-testCompile</id>
-                        <phase>none</phase>
+                        <phase>test-compile</phase>
                     </execution>
                 </executions>
             </plugin>

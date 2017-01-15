@@ -28,7 +28,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.bytedeco.javacpp.caffe.TEST;
 import static org.bytedeco.javacpp.opencv_core.*;
 
@@ -68,13 +70,36 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
 
     private final int INPUT_WIDTH = 227;
     private final int INPUT_HEIGHT = 227;
-    private final Logger logger;
+    private Logger logger;
+
+    private void setupCaffe(int gpu) {
+        if (gpu >= 0) {
+            this.logger.info("Use GPU with device ID " + gpu);
+            caffe.Caffe.SetDevice(gpu);
+            caffe.Caffe.set_mode(caffe.Caffe.GPU);
+        } else {
+            this.logger.info("Use CPU.");
+            caffe.Caffe.set_mode(caffe.Caffe.CPU);
+        }
+    }
+
+    private void initialize(
+            @Nonnull String protocolPath,
+            @Nonnull String weightsPath) {
+        logger.info("Loading DeepMAR protocol from " + new File(protocolPath).getAbsolutePath());
+        net = new caffe.FloatNet(protocolPath, TEST);
+        logger.info("Loading DeepMAR weights from " + new File(weightsPath).getAbsolutePath());
+        net.CopyTrainedLayersFrom(weightsPath);
+        this.logger.debug("DeepMAR initialized!");
+    }
 
     /**
-     * Create an instance of DeepMAR.
+     * Create an instance of DeepMAR. The protocol and weights are directly loaded from local files.
      *
-     * @param gpu    The GPU to use.
-     * @param logger An external logger.
+     * @param gpu          The GPU to use.
+     * @param protocolPath Path of the DeepMAR protocol file.
+     * @param weightsPath  Path of the binary weights model of DeepMAR.
+     * @param logger       An external logger.
      */
     public DeepMAR(int gpu,
                    @Nonnull String protocolPath,
@@ -86,20 +111,36 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
             this.logger = logger;
         }
 
-        if (gpu >= 0) {
-            this.logger.info("Use GPU with device ID " + gpu);
-            caffe.Caffe.SetDevice(gpu);
-            caffe.Caffe.set_mode(caffe.Caffe.GPU);
+        setupCaffe(gpu);
+        initialize(protocolPath, weightsPath);
+    }
+
+    /**
+     * Create an instance of DeepMAR. The protocol and weights are retrieved from the JAR.
+     *
+     * @param gpu
+     * @param logger
+     * @throws IOException
+     */
+    public DeepMAR(int gpu, @Nullable Logger logger) throws IOException {
+        if (logger == null) {
+            this.logger = new ConsoleLogger();
         } else {
-            this.logger.info("Use CPU.");
-            caffe.Caffe.set_mode(caffe.Caffe.CPU);
+            this.logger = logger;
         }
 
-        logger.info("Loading DeepMAR protocol from " + new File(protocolPath).getAbsolutePath());
-        net = new caffe.FloatNet(protocolPath, TEST);
-        logger.info("Loading DeepMAR weights from " + new File(weightsPath).getAbsolutePath());
-        net.CopyTrainedLayersFrom(weightsPath);
-        this.logger.debug("DeepMAR initialized!");
+        // Retrieve model files from JAR and store to temporary files.
+        File tempProtocolFile = File.createTempFile("DeepMAR", ".prototxt");
+        File tempWeightsFile = File.createTempFile("DeepMAR", ".caffemodel");
+        Files.copy(getClass().getResourceAsStream("/models/DeepMAR/DeepMAR.prototxt"),
+                tempProtocolFile.toPath(),
+                REPLACE_EXISTING);
+        Files.copy(getClass().getResourceAsStream("/models/DeepMAR/DeepMAR.caffemodel"),
+                tempWeightsFile.toPath(),
+                REPLACE_EXISTING);
+
+        setupCaffe(gpu);
+        initialize(tempProtocolFile.getAbsolutePath(), tempWeightsFile.getAbsolutePath());
     }
 
     /**

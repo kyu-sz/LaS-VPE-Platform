@@ -1,16 +1,3 @@
-package org.cripac.isee.pedestrian.attr;
-
-import com.google.gson.Gson;
-import org.apache.log4j.Level;
-import org.bytedeco.javacpp.opencv_core;
-import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.util.logging.ConsoleLogger;
-import org.cripac.isee.vpe.util.logging.Logger;
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
-import static org.junit.Assert.assertEquals;
 /***********************************************************************
  * This file is part of LaS-VPE Platform.
  *
@@ -27,6 +14,18 @@ import static org.junit.Assert.assertEquals;
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
+package org.cripac.isee.pedestrian.attr;
+
+import com.google.gson.Gson;
+import org.apache.log4j.Level;
+import org.bytedeco.javacpp.opencv_core;
+import org.cripac.isee.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.logging.Logger;
+import org.junit.Before;
+
+import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Created by ken.yu on 17-1-11.
@@ -49,7 +48,7 @@ public class DeepMARTest {
                 Attributes.class);
     }
 
-    static Tracklet img2Tracklet(opencv_core.Mat img) {
+    public static Tracklet img2Tracklet(opencv_core.Mat img) {
         final Tracklet.BoundingBox boundingBox = new Tracklet.BoundingBox();
         boundingBox.height = img.rows();
         boundingBox.width = img.cols();
@@ -64,7 +63,7 @@ public class DeepMARTest {
         return tracklet;
     }
 
-    @Test
+    //    @Test
     public void recognize() throws Exception {
         final int NUM_ROUNDS = 100;
         long timeSum = 0;

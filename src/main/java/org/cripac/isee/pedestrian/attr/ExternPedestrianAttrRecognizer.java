@@ -150,7 +150,9 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                     bytesCnt += bytesRead;
                 } while (bytesCnt < 4);
                 final int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
-                assert jsonLen > 0;
+                if (jsonLen <= 0) {
+                    throw new IOException("Received invalid Json length (<= 0).");
+                }
                 // Create a buffer for JSON.
                 final byte[] jsonBytes = new byte[jsonLen];
                 logger.debug("To receive " + jsonLen + " bytes.");

@@ -14,5 +14,11 @@
 		<fileSet>
 			<directory>${project.build.outputDirectory}</directory>
 		</fileSet>
+		<fileSet>
+			<directory>${basedir}/models</directory>
+		</fileSet>
+		<fileSet>
+			<directory>${basedir}/conf</directory>
+		</fileSet>
 	</fileSets>
 </assembly>

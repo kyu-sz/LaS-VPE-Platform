@@ -21,6 +21,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
+import org.cripac.isee.pedestrian.attr.Attributes;
+import org.cripac.isee.pedestrian.attr.DeepMAR;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
@@ -42,6 +44,8 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.UUID;
 
+import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
+import static org.cripac.isee.pedestrian.attr.DeepMARTest.img2Tracklet;
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
@@ -65,6 +69,7 @@ public class PedestrianAttrRecogAppTest {
     private ConsoleLogger logger;
     public InetAddress externAttrRecogServerAddr;
     public int externAttrRecogServerPort = 0;
+    private static boolean toTestApp = true;
 
     public static void main(String[] args) {
         PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
@@ -75,8 +80,11 @@ public class PedestrianAttrRecogAppTest {
             return;
         }
         try {
+            test.testDeepMAR();
             test.testExternAttrReognizer();
-            test.testAttrRecogApp();
+            if (toTestApp) {
+                test.testAttrRecogApp();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -87,23 +95,29 @@ public class PedestrianAttrRecogAppTest {
         init(new String[0]);
     }
 
-    public void init(String[] args)
-            throws SAXException, ParserConfigurationException, URISyntaxException, UnknownHostException {
+    public void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
+        logger = new ConsoleLogger(Level.DEBUG);
+
         PedestrianAttrRecogApp.AppPropertyCenter propCenter =
                 new PedestrianAttrRecogApp.AppPropertyCenter(args);
 
         externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
         externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
 
-        TopicManager.checkTopics(propCenter);
+        try {
+            TopicManager.checkTopics(propCenter);
 
-        Properties producerProp = propCenter.generateKafkaProducerProp(false);
-        producer = new KafkaProducer<>(producerProp);
-        logger = new ConsoleLogger(Level.DEBUG);
+            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            producer = new KafkaProducer<>(producerProp);
 
-        Properties consumerProp = propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), false);
-        consumer = new KafkaConsumer<>(consumerProp);
-        consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
+            Properties consumerProp = propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), false);
+            consumer = new KafkaConsumer<>(consumerProp);
+            consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
+        } catch (Exception e) {
+            logger.error("When checking topics", e);
+            logger.info("App test is disabled.");
+            toTestApp = false;
+        }
     }
 
     //    @Test
@@ -119,6 +133,15 @@ public class PedestrianAttrRecogAppTest {
                     + " " + boundingBox.width + " " + boundingBox.height);
         }
         logger.info(recognizer.recognize(tracklet));
+    }
+
+    public void testDeepMAR() throws IOException {
+        PedestrianAttrRecognizer recognizer = new DeepMAR(-1, logger);
+
+        final String testImage = "src/test/resources/" +
+                "CAM01_2014-02-15_20140215161032-20140215162620_tarid0_frame218_line1.png";
+        Attributes attributes = recognizer.recognize(img2Tracklet(imread(testImage)));
+        logger.info(attributes);
     }
 
     //    @Test
