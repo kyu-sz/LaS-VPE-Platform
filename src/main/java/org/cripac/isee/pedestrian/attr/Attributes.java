@@ -22,6 +22,7 @@ import com.google.gson.annotations.SerializedName;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 
 /**
  * The Attribute class stores all the pre-defined attributes of a pedestrian at
@@ -416,5 +417,26 @@ public class Attributes implements Serializable {
     @Override
     public String toString() {
         return new Gson().toJson(this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof Attributes) {
+            for (Field field : Attributes.class.getFields()) {
+                if (field.getType() == float.class) {
+                    try {
+                        if (Math.abs((float) field.get(this) - (float) field.get(o)) >= 0.00001) {
+                            return false;
+                        }
+                    } catch (IllegalAccessException e) {
+                        e.printStackTrace();
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } else {
+            return super.equals(o);
+        }
     }
 }

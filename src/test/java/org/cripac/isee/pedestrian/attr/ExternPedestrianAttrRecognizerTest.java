@@ -43,17 +43,14 @@ public class ExternPedestrianAttrRecognizerTest {
     public void recognize() throws Exception {
         final String testImage = "src/test/resources/" +
                 "CAM01_2014-02-15_20140215161032-20140215162620_tarid0_frame218_line1.png";
-        final String testImage1 = "/home/ken.yu/Pictures/sample.jpg";
         Attributes attributes;
         attributes = recognizer.recognize(img2Tracklet(imread(testImage)));
         logger.info(attributes);
-        attributes = recognizer.recognize(img2Tracklet(imread(testImage).t().asMat()));
-        logger.info(attributes);
         attributes = recognizer.recognize(img2Tracklet(imread(testImage)));
         logger.info(attributes);
         attributes = recognizer.recognize(img2Tracklet(imread(testImage)));
         logger.info(attributes);
-        attributes = recognizer.recognize(img2Tracklet(imread(testImage1)));
+        attributes = recognizer.recognize(img2Tracklet(imread(testImage)));
         logger.info(attributes);
     }
 }
