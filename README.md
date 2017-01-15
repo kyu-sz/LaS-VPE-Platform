@@ -72,7 +72,8 @@ mvn package
 * You may also try a Maven mirror. For users in China, the Aliyun mirror is recommended.
 
 3. Retrieve additional model files such as _DeepMAR.caffemodel_ from algorithm providers.
-Put them in appropriate locations.
+Put them in appropriate locations. For example, the _DeepMAR.caffemodel_ should be put in
+_${PROJECT_DIR}/models/DeepMAR/_.
 
 3. Configure the environment and running properties in the files in [conf](conf).
  Specially, modify the [cluster-env.sh](conf/cluster-env.sh) in [conf](conf)

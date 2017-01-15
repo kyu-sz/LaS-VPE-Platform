@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.alg;
 
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -24,6 +25,7 @@ import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.cripac.isee.pedestrian.attr.Attributes;
+import org.cripac.isee.pedestrian.attr.DeepMAR;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
@@ -59,6 +61,11 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * @author Ken Yu, CRIPAC, 2016
  */
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
+    private enum Algorithm {
+        EXT,
+        DeepMAR
+    }
+
     /**
      * The NAME of this application.
      */
@@ -85,6 +92,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         int externAttrRecogServerPort = 0;
         // Max length of a tracklet to recignize attr from. 0 means not limiting.
         int maxTrackletLength = 0;
+        Algorithm algorithm = Algorithm.EXT;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
@@ -100,6 +108,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         break;
                     case "vpe.ped.tracking.max.length":
                         maxTrackletLength = new Integer((String) entry.getValue());
+                        break;
+                    case "vpe.ped.attr.alg":
+                        algorithm = Algorithm.valueOf((String) entry.getValue());
                         break;
                 }
             }
@@ -169,7 +180,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private final Map<String, String> kafkaParams;
 
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private final Singleton<PedestrianAttrRecognizer> attrRecogSingleton;
+        private final Singleton<PedestrianAttrRecognizer> recognizerSingleton;
         // Max length of the resulting tracklet. 0 means not limiting.
         private final int maxTrackletLength;
 
@@ -185,10 +196,25 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
             loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBootstrapServers);
 
-            attrRecogSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
-                    propCenter.externAttrRecogServerAddr, propCenter.externAttrRecogServerPort,
-                    loggerSingleton.getInst()
-            ));
+            switch (propCenter.algorithm) {
+                case EXT:
+                    recognizerSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
+                            propCenter.externAttrRecogServerAddr,
+                            propCenter.externAttrRecogServerPort,
+                            loggerSingleton.getInst()
+                    ));
+                    break;
+                case DeepMAR:
+                    recognizerSingleton = new Singleton<>(() -> new DeepMAR(
+                            -1,
+                            "",
+                            "",
+                            loggerSingleton.getInst()));
+                    break;
+                default:
+                    throw new NotImplementedException("Recognizer singleton construction for "
+                            + propCenter.algorithm + " not realized.");
+            }
         }
 
         @Override
@@ -238,7 +264,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                         tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
                                     }
                                     // Recognize attributes.
-                                    Attributes attr = attrRecogSingleton.getInst().recognize(tracklet);
+                                    Attributes attr = recognizerSingleton.getInst().recognize(tracklet);
                                     logger.debug("Attributes retrieved for task " + taskID + "!");
                                     attr.trackletID = tracklet.id;
 

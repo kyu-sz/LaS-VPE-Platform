@@ -397,8 +397,7 @@ public class SystemPropertyCenter implements Serializable {
             optList.add(log4jPropFilePath);
         } else {
             throw new NotImplementedException(
-                    "System is currently not supporting deploy mode: "
-                            + sparkMaster);
+                    "System is currently not supporting deploy mode: " + sparkMaster);
         }
 
         return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);

@@ -66,7 +66,6 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
      */
     private caffe.FloatNet net = null;
 
-    private final int NUM_ATTR = 125;
     private final int INPUT_WIDTH = 227;
     private final int INPUT_HEIGHT = 227;
     private final Logger logger;
@@ -174,12 +173,12 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
         jsonBuilder.append('{');
         for (String attr : ATTR_LIST) {
             jsonBuilder.append('\"').append(attr).append('\"').append('=').append(outputArray[iter++]);
-            if (iter < NUM_ATTR) {
+            if (iter < ATTR_LIST.length) {
                 jsonBuilder.append(',');
             }
         }
         jsonBuilder.append('}');
-        assert iter == NUM_ATTR;
+        assert iter == ATTR_LIST.length;
 
         return new Gson().fromJson(jsonBuilder.toString(), Attributes.class);
     }
@@ -187,7 +186,8 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
     private final static String[] ATTR_LIST;
 
     static {
-        ATTR_LIST = new String[]{"action_pulling",
+        ATTR_LIST = new String[]{
+                "action_pulling",
                 "lower_green",
                 "gender_female",
                 "upper_cotton",

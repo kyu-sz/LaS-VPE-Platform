@@ -128,7 +128,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
     @Nonnull
     Attributes recognize(@Nonnull Tracklet tracklet) {
         // Create a new message consisting the comparation task.
-        RequestMessage message = new RequestMessage(tracklet);
+        final RequestMessage message = new RequestMessage(tracklet);
 
         // Write the bytes of the message to the socket.
         while (true) {
@@ -136,7 +136,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                 message.getBytes(socket.getOutputStream());
                 logger.debug("Sent request for tracklet " + tracklet.id);
 
-                byte[] jsonLenBytes = new byte[4];
+                final byte[] jsonLenBytes = new byte[4];
 
                 InputStream inputStream = new DataInputStream(socket.getInputStream());
 
@@ -149,9 +149,10 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                     int bytesRead = inputStream.read(jsonLenBytes, bytesCnt, jsonLenBytes.length - bytesCnt);
                     bytesCnt += bytesRead;
                 } while (bytesCnt < 4);
-                int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
+                final int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
+                assert jsonLen > 0;
                 // Create a buffer for JSON.
-                byte[] jsonBytes = new byte[jsonLen];
+                final byte[] jsonBytes = new byte[jsonLen];
                 logger.debug("To receive " + jsonLen + " bytes.");
 
                 // jsonLen bytes - Bytes of UTF-8 JSON string representing the attributes.
@@ -161,7 +162,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                     // Append the data into Json string.
                     bytesCnt += bytesRead;
                 } while (bytesCnt < jsonLen);
-                String json = new String(jsonBytes, 0, jsonLen);
+                final String json = new String(jsonBytes, 0, jsonLen);
                 logger.debug("Received attr json (len=" + json.length() + "): " + json);
 
                 return new Gson().fromJson(json, Attributes.class);
