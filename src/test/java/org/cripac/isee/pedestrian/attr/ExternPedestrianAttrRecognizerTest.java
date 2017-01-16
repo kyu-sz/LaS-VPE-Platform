@@ -7,6 +7,7 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.junit.Before;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -65,7 +66,7 @@ public class ExternPedestrianAttrRecognizerTest {
         return tracklet;
     }
 
-    //    @Test
+    @Test
     public void recognize() throws Exception {
         final int NUM_ROUNDS = 100;
         long timeSum = 0;
