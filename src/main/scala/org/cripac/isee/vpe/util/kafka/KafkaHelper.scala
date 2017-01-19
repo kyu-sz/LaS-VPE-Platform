@@ -56,7 +56,7 @@ object KafkaHelper {
   /**
     * Create a KakfaCluster with given Kafka parameters.
     *
-    * @param kafkaParams Parameters of the Kafka cluster.
+    * @param kafkaParams Configuration parameters of the Kafka cluster.
     * @return A KafkaCluster instance.
     */
   def createKafkaCluster(@Nonnull kafkaParams: util.Map[String, String]): KafkaCluster = {
@@ -74,11 +74,11 @@ object KafkaHelper {
     // Create a map from each topic and partition to its until offset.
     val topicAndPartitionOffsetMap = collection.mutable.Map[TopicAndPartition, Long]()
     for (o <- offsetRanges) {
-      val topicAndPartition = TopicAndPartition(o.topic, o.partition)
+      val topicAndPartition = TopicAndPartition(o topic, o partition)
       topicAndPartitionOffsetMap += topicAndPartition -> o.untilOffset
     }
     // Submit offsets.
-    kafkaCluster setConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, topicAndPartitionOffsetMap.toMap)
+    kafkaCluster setConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, topicAndPartitionOffsetMap toMap)
   }
 
   /**
@@ -97,9 +97,13 @@ object KafkaHelper {
       case Right(v) => v
     }
 
-    // Retrieve earliest offsets for correcting wrong offsets.
+    // Retrieve offset metadata of the Kafka cluster.
     val earliestOffsets = kafkaCluster.getEarliestLeaderOffsets(partitions) match {
-      case Left(_) => throw new NetworkException("Cannot retrieve earliest offsets from Kafka cluster!")
+      case Left(err) => throw new NetworkException("Cannot retrieve earliest offsets from Kafka cluster: " + err)
+      case Right(offsets) => offsets
+    }
+    val latestOffsets = kafkaCluster.getLatestLeaderOffsets(partitions) match {
+      case Left(err) => throw new NetworkException("Cannot retrieve latest offsets from Kafka cluster: " + err)
       case Right(offsets) => offsets
     }
 
@@ -107,18 +111,30 @@ object KafkaHelper {
     val fromOffsets = new util.HashMap[TopicAndPartition, java.lang.Long]
     // Retrieve consumer offsets.
     kafkaCluster getConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, partitions) match {
-      // No offset (new group).
-      case Left(_) => throw new NetworkException("Cannot retrieve consumer offsets from Kafka cluster!")
+      // No offset (new group). Auto configure the offsets.
+      case Left(err) => {
+        val autoResetConfig = kafkaCluster.kafkaParams(AUTO_OFFSET_RESET_CONFIG)
+        val offsets = autoResetConfig match {
+          case "largest" | "latest" => latestOffsets
+          case "smallest" | "earliest" => earliestOffsets
+        }
+        offsets foreach (offset => fromOffsets.put(offset._1, offset._2.offset))
+      }
       // Store the offsets after checking the values.
       // If an offset is smaller than 0, change it to 0.
       case Right(consumerOffsets) =>
         consumerOffsets foreach (consumerOffset => {
           val topicAndPartition = consumerOffset._1
           val earliestOffset = earliestOffsets(topicAndPartition).offset
-          fromOffsets put(consumerOffset._1, if (consumerOffset._2 < earliestOffset) earliestOffset else consumerOffset._2)
+          fromOffsets put(topicAndPartition,
+            if (consumerOffset._2 < earliestOffset) {
+              println("Offset for " + topicAndPartition + " is out of date. Update to " + earliestOffset)
+              earliestOffset
+            } else consumerOffset._2)
         })
     }
 
+    // Return the fromOffsets
     fromOffsets
   }
 }
