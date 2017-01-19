@@ -132,8 +132,8 @@ public abstract class Stream implements Serializable {
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
-     * @param jssc        The streaming context of the applications.
-     * @param topics      Topics from which the direct stream reads.
+     * @param jssc         The streaming context of the applications.
+     * @param topics       Topics from which the direct stream reads.
      * @param kafkaCluster Kafka cluster created from kafkaParams
      *                     (please use {@link KafkaHelper#createKafkaCluster(Map)}).
      * @return A Kafka non-receiver input stream.
@@ -143,7 +143,7 @@ public abstract class Stream implements Serializable {
                            @Nonnull Collection<String> topics,
                            @Nonnull KafkaCluster kafkaCluster) {
         // Retrieve and correct offsets from Kafka cluster.
-        final Map<TopicAndPartition, Long> consumerOffsetsLong = KafkaHelper.getFromOffsets(kafkaCluster, topics);
+        final Map<TopicAndPartition, Long> fromOffsets = KafkaHelper.getFromOffsets(kafkaCluster, topics);
 
         // Create a direct stream from the retrieved offsets.
         final JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
@@ -152,7 +152,7 @@ public abstract class Stream implements Serializable {
                 StringDecoder.class, DefaultDecoder.class,
                 StringByteArrayRecord.class,
                 JavaConversions.mapAsJavaMap(kafkaCluster.kafkaParams()),
-                consumerOffsetsLong,
+                fromOffsets,
                 (Function<MessageAndMetadata<String, byte[]>, StringByteArrayRecord>) messageAndMetadata ->
                         new StringByteArrayRecord(messageAndMetadata.key(), messageAndMetadata.message()))
                 // Repartition the records.
@@ -161,6 +161,7 @@ public abstract class Stream implements Serializable {
                 .transform((Function<JavaRDD<StringByteArrayRecord>, JavaRDD<StringByteArrayRecord>>) rdd -> {
                     final Logger logger = loggerSingleton.getInst();
                     boolean hasNewMessages = false;
+                    // Find offsets which indicate new messages have been received.
                     for (OffsetRange o : offsetRanges.get()) {
                         if (o.untilOffset() > o.fromOffset()) {
                             hasNewMessages = true;

@@ -90,26 +90,35 @@ object KafkaHelper {
     */
   def getFromOffsets(@Nonnull kafkaCluster: KafkaCluster,
                      @Nonnull topics: util.Collection[String]
-                    ): util.HashMap[TopicAndPartition, java.lang.Long] = {
-    // Transform topics stored in Java to Scala set.
-    val scalaTopics = new util.HashSet[String](topics) toSet
+                    ): util.Map[TopicAndPartition, java.lang.Long] = {
     // Retrieve partition information of the topics from the Kafka cluster.
-    val partitionOrErr = kafkaCluster getPartitions scalaTopics
-    if (partitionOrErr.isLeft) throw new NetworkException("Cannot retrieve partitions from Kafka cluster!")
-    val topicAndPartitionSet = partitionOrErr.right.get
-    // Create a map to store offsets for the topics and partitions
-    val consumerOffsets = new util.HashMap[TopicAndPartition, java.lang.Long]
-    // Retrieve offsets.
-    val offsetsOrErr = kafkaCluster getConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, topicAndPartitionSet)
-    if (offsetsOrErr isLeft)
-    // No offset (new group).
-      topicAndPartitionSet foreach (consumerOffsets put(_, 0L))
-    else {
-      val offsets = offsetsOrErr.right.get
+    val partitions = kafkaCluster getPartitions (topics toSet) match {
+      case Left(err) => throw new NetworkException("Cannot retrieve partitions from Kafka cluster: " + err)
+      case Right(v) => v
+    }
+
+    // Retrieve earliest offsets for correcting wrong offsets.
+    val earliestOffsets = kafkaCluster.getEarliestLeaderOffsets(partitions) match {
+      case Left(_) => throw new NetworkException("Cannot retrieve earliest offsets from Kafka cluster!")
+      case Right(offsets) => offsets
+    }
+
+    // Create a map to store corrected fromOffsets
+    val fromOffsets = new util.HashMap[TopicAndPartition, java.lang.Long]
+    // Retrieve consumer offsets.
+    kafkaCluster getConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, partitions) match {
+      // No offset (new group).
+      case Left(_) => throw new NetworkException("Cannot retrieve consumer offsets from Kafka cluster!")
       // Store the offsets after checking the values.
       // If an offset is smaller than 0, change it to 0.
-      offsets foreach (offset => consumerOffsets put(offset._1, if (offset._2 < 0L) 0L else offset._2))
+      case Right(consumerOffsets) =>
+        consumerOffsets foreach (consumerOffset => {
+          val topicAndPartition = consumerOffset._1
+          val earliestOffset = earliestOffsets(topicAndPartition).offset
+          fromOffsets put(consumerOffset._1, if (consumerOffset._2 < earliestOffset) earliestOffset else consumerOffset._2)
+        })
     }
-    consumerOffsets
+
+    fromOffsets
   }
 }
