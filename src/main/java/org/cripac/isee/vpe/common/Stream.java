@@ -26,6 +26,7 @@ import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.apache.spark.streaming.kafka.HasOffsetRanges;
 import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.apache.spark.streaming.kafka.OffsetRange;
@@ -141,12 +142,13 @@ public abstract class Stream implements Serializable {
     protected JavaPairDStream<String, byte[]>
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
-                           @Nonnull KafkaCluster kafkaCluster) {
+                           @Nonnull KafkaCluster kafkaCluster,
+                           boolean toRepartition) {
         // Retrieve and correct offsets from Kafka cluster.
         final Map<TopicAndPartition, Long> fromOffsets = KafkaHelper.getFromOffsets(kafkaCluster, topics);
 
         // Create a direct stream from the retrieved offsets.
-        final JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
+        JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
                 jssc,
                 String.class, byte[].class,
                 StringDecoder.class, DefaultDecoder.class,
@@ -155,14 +157,16 @@ public abstract class Stream implements Serializable {
                 fromOffsets,
                 (Function<MessageAndMetadata<String, byte[]>, StringByteArrayRecord>) messageAndMetadata ->
                         new StringByteArrayRecord(messageAndMetadata.key(), messageAndMetadata.message()))
-                // Repartition the records.
-                .repartition(jssc.sparkContext().defaultParallelism())
-                // Store offsets.
+                // Manipulate offsets.
                 .transform((Function<JavaRDD<StringByteArrayRecord>, JavaRDD<StringByteArrayRecord>>) rdd -> {
+                    // Store offsets.
+                    final OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
+                    offsetRanges.set(offsets);
+
+                    // Find offsets which indicate new messages have been received.
                     final Logger logger = loggerSingleton.getInst();
                     boolean hasNewMessages = false;
-                    // Find offsets which indicate new messages have been received.
-                    for (OffsetRange o : offsetRanges.get()) {
+                    for (OffsetRange o : offsets) {
                         if (o.untilOffset() > o.fromOffset()) {
                             hasNewMessages = true;
                             logger.debug("Received {topic=" + o.topic()
@@ -179,6 +183,29 @@ public abstract class Stream implements Serializable {
                 // Transform to usual record type.
                 .mapToPair((PairFunction<StringByteArrayRecord, String, byte[]>) consumerRecord ->
                         new Tuple2<>(consumerRecord.key, consumerRecord.value));
+
+        if (toRepartition) {
+            // Repartition the records.
+            stream = stream.repartition(jssc.sparkContext().defaultParallelism());
+        }
+
         return stream;
+    }
+
+    /**
+     * Utility function for all applications to receive messages with byte
+     * array values from Kafka with direct stream.
+     *
+     * @param jssc         The streaming context of the applications.
+     * @param topics       Topics from which the direct stream reads.
+     * @param kafkaCluster Kafka cluster created from getKafkaParams
+     *                     (please use {@link KafkaHelper#createKafkaCluster(Map)}).
+     * @return A Kafka non-receiver input stream.
+     */
+    protected JavaPairDStream<String, byte[]>
+    buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
+                           @Nonnull Collection<String> topics,
+                           @Nonnull KafkaCluster kafkaCluster) {
+        return buildBytesDirectStream(jssc, topics, kafkaCluster, true);
     }
 }
