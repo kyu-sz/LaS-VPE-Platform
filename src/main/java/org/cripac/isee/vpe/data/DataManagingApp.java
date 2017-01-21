@@ -167,9 +167,9 @@ public class DataManagingApp extends SparkStreamingApp {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             // Common Kafka settings
-            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
+            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
 
-            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
@@ -263,8 +263,8 @@ public class DataManagingApp extends SparkStreamingApp {
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
-            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
+            Properties producerProp = propCenter.getKafkaProducerProp(false);
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
                     producerProp));
@@ -340,7 +340,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
             metadataDir = propCenter.metadataDir;
 
-            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
+            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
 
             hdfsSingleton = new Singleton<>(new HDFSFactory());
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
@@ -481,7 +481,7 @@ public class DataManagingApp extends SparkStreamingApp {
         AttrSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
+            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
 
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
@@ -526,7 +526,7 @@ public class DataManagingApp extends SparkStreamingApp {
         public IDRankSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
+            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
 
         }
 

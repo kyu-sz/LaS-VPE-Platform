@@ -40,7 +40,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -107,12 +107,12 @@ public class PedestrianAttrRecogAppTest {
         try {
             TopicManager.checkTopics(propCenter);
 
-            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            Properties producerProp = propCenter.getKafkaProducerProp(false);
             producer = new KafkaProducer<>(producerProp);
 
-            Properties consumerProp = propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), false);
+            Properties consumerProp = propCenter.getKafkaConsumerProp(UUID.randomUUID().toString(), false);
             consumer = new KafkaConsumer<>(consumerProp);
-            consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
+            consumer.subscribe(Collections.singletonList(TEST_PED_ATTR_RECV_TOPIC.NAME));
         } catch (Exception e) {
             logger.error("When checking topics", e);
             logger.info("App test is disabled.");

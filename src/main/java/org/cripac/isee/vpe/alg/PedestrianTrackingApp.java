@@ -209,8 +209,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
-            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
+            Properties producerProp = propCenter.getKafkaProducerProp(false);
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
             hdfsSingleton = new Singleton<>(new HDFSFactory());
@@ -275,9 +275,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
-            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
+            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
 
-            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
 
             hdfsSingleton = new Singleton<>(new HDFSFactory());

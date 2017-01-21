@@ -64,7 +64,7 @@ public class MainController {
             Thread listener = new Thread(() -> {
                 Logger logger = new ConsoleLogger(Level.DEBUG);
                 KafkaConsumer<String, String> consumer = new KafkaConsumer<>(
-                        propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), true));
+                        propCenter.getKafkaConsumerProp(UUID.randomUUID().toString(), true));
                 ArrayList<String> topicList = new ArrayList<>();
                 for (String appName : propCenter.appsToStart) {
                     topicList.add(appName + "_report");
@@ -89,7 +89,7 @@ public class MainController {
 
             List<ProcessWithName> processesWithNames = new LinkedList<>();
             for (String appName : propCenter.appsToStart) {
-                SparkLauncher launcher = propCenter.GetLauncher(appName);
+                SparkLauncher launcher = propCenter.GetSparkLauncher(appName);
 
                 Process launcherProcess = launcher.launch();
                 processesWithNames.add(new ProcessWithName(launcherProcess, appName));

@@ -67,11 +67,15 @@ public class SerializationHelper {
      * @return An object from which the byte array is serialized.
      * @throws ClassNotFoundException On failure finding target class.
      */
-    public static <T> T deserialize(@Nonnull byte[] byteArray) throws IOException, ClassNotFoundException {
+    public
+    @Nonnull
+    static <T> T deserialize(@Nonnull byte[] byteArray) throws IOException, ClassNotFoundException {
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
         ObjectInput objectInput = null;
         try {
             objectInput = new ObjectInputStream(byteArrayInputStream);
+            Object obj = objectInput.readObject();
+            //noinspection unchecked
             return (T) objectInput.readObject();
         } finally {
             try {

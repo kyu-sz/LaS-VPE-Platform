@@ -64,7 +64,7 @@ public class MessageHandlingAppTest implements Serializable {
 
         TopicManager.checkTopics(propCenter);
 
-        Properties producerProp = propCenter.generateKafkaProducerProp(false);
+        Properties producerProp = propCenter.getKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
     }

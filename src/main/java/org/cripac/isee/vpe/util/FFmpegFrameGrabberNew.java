@@ -74,6 +74,7 @@ import static org.bytedeco.javacpp.swscale.*;
  *
  * @author Samuel Audet
  */
+@SuppressWarnings("deprecation")
 public class FFmpegFrameGrabberNew extends FrameGrabber {
     public static String[] getDeviceDescriptions() throws Exception {
         tryLoad();
@@ -113,11 +114,7 @@ public class FFmpegFrameGrabberNew extends FrameGrabber {
                 Loader.load(org.bytedeco.javacpp.avdevice.class);
                 avdevice_register_all();
             } catch (Throwable t) {
-                if (t instanceof Exception) {
-                    throw loadingException = (Exception) t;
-                } else {
-                    throw loadingException = new Exception("Failed to load " + FFmpegFrameGrabberNew.class, t);
-                }
+                throw loadingException = new Exception("Failed to load " + FFmpegFrameGrabberNew.class, t);
             }
         }
     }
@@ -125,7 +122,7 @@ public class FFmpegFrameGrabberNew extends FrameGrabber {
     static {
         try {
             tryLoad();
-        } catch (Exception ex) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -147,7 +144,7 @@ public class FFmpegFrameGrabberNew extends FrameGrabber {
         }
     }
 
-    void releaseUnsafe() throws Exception {
+    private void releaseUnsafe() throws Exception {
         if (pkt != null && pkt2 != null) {
             if (pkt2.size() > 0) {
                 av_free_packet(pkt);
@@ -157,8 +154,8 @@ public class FFmpegFrameGrabberNew extends FrameGrabber {
 
         // Free the RGB image
         if (image_ptr != null) {
-            for (int i = 0; i < image_ptr.length; i++) {
-                av_free(image_ptr[i]);
+            for (BytePointer anImage_ptr : image_ptr) {
+                av_free(anImage_ptr);
             }
             image_ptr = null;
         }
@@ -261,7 +258,7 @@ public class FFmpegFrameGrabberNew extends FrameGrabber {
         }
     }
 
-    static ReadCallback readCallback;
+    private static ReadCallback readCallback;
 
     private InputStream inputStream;
     private AVIOContext avio;
@@ -482,7 +479,7 @@ public class FFmpegFrameGrabberNew extends FrameGrabber {
         }
     }
 
-    void startUnsafe() throws Exception {
+    private void startUnsafe() throws Exception {
         int ret;
         img_convert_ctx = null;
         oc = new AVFormatContext(null);

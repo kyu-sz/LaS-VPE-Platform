@@ -83,9 +83,8 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
         }
     }
 
-    private void initialize(
-            @Nonnull String protocolPath,
-            @Nonnull String weightsPath) {
+    private void initialize(@Nonnull String protocolPath,
+                            @Nonnull String weightsPath) {
         logger.info("Loading DeepMAR protocol from " + new File(protocolPath).getAbsolutePath());
         net = new caffe.FloatNet(protocolPath, TEST);
         logger.info("Loading DeepMAR weights from " + new File(weightsPath).getAbsolutePath());
@@ -122,7 +121,8 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
      * @param logger
      * @throws IOException
      */
-    public DeepMAR(int gpu, @Nullable Logger logger) throws IOException {
+    public DeepMAR(int gpu,
+                   @Nullable Logger logger) throws IOException {
         if (logger == null) {
             this.logger = new ConsoleLogger();
         } else {

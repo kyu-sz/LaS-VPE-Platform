@@ -14,7 +14,9 @@ import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
 import scala.collection.JavaConversions._
 
 /**
-  * Because some bugs of scala, the
+  * The class KafkaHelper provides static basic methods for manipulating Kafka affairs.
+  * It is written in Scala because we cannot create KafkaCluster in some versions of Java and Scala.
+  * This class is also an example of how to insert Scala codes in the Java project.
   *
   * @author Ken Yu
   */
@@ -113,12 +115,12 @@ object KafkaHelper {
     kafkaCluster getConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, partitions) match {
       // No offset (new group). Auto configure the offsets.
       case Left(err) => {
-        val autoResetConfig = kafkaCluster.kafkaParams(AUTO_OFFSET_RESET_CONFIG)
+        val autoResetConfig = kafkaCluster kafkaParams AUTO_OFFSET_RESET_CONFIG
         val offsets = autoResetConfig match {
           case "largest" | "latest" => latestOffsets
           case "smallest" | "earliest" => earliestOffsets
         }
-        offsets foreach (offset => fromOffsets.put(offset._1, offset._2.offset))
+        offsets foreach (offset => fromOffsets put(offset._1, offset._2.offset))
       }
       // Store the offsets after checking the values.
       // If an offset is smaller than 0, change it to 0.

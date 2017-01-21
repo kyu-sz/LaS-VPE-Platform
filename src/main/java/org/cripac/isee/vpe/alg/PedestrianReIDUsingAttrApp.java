@@ -167,9 +167,9 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             bufDuration = propCenter.bufDuration;
 
             // Common kafka settings.
-            kafkaParams = propCenter.generateKafkaParams(INFO.NAME);
+            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
 
-            Properties producerProp = propCenter.generateKafkaProducerProp(false);
+            Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
             reidSingleton = new Singleton<>(FakePedestrianReIDerWithAttr::new);

@@ -81,6 +81,7 @@ public class BasicTracker extends Tracker {
      *
      * @see Tracker#track(java.lang.String)
      */
+    @Nonnull
     @Override
     public Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception {
         // Limit instances on a single node.
@@ -110,10 +111,6 @@ public class BasicTracker extends Tracker {
         frameGrabber.start();
         logger.debug("Initialized video decoder!");
 
-        if (conf == null) {
-            logger.fatal("Configuration file is NULL!");
-            return null;
-        }
         long trackerPointer = initialize(frameGrabber.getImageWidth(), frameGrabber.getImageHeight(), 3, conf);
         logger.debug("Initialized tracker!");
 

@@ -35,7 +35,7 @@ public class Singleton<T> implements Serializable {
     /**
      * Lazy-evaluated instance pool of all the classes.
      */
-    private static volatile Map<String, Object> instancePool = null;
+    private static volatile Map<char[], Object> instancePool = null;
 
     /**
      * Factory for creating a new instance if there is not instance in the pool
@@ -46,7 +46,7 @@ public class Singleton<T> implements Serializable {
     /**
      * Name of class T.
      */
-    private final String typeParameterClass;
+    private final char[] typeParameterClass;
 
     /**
      * Create a singleton manager of specified class T, and update the instance
@@ -71,7 +71,7 @@ public class Singleton<T> implements Serializable {
      */
     public Singleton(Factory<T> objFactory, boolean toUpdateInstance) throws Exception {
         this.objFactory = objFactory;
-        this.typeParameterClass = objFactory.produce().getClass().getName();
+        this.typeParameterClass = objFactory.produce().getClass().getName().toCharArray();
 
         if (toUpdateInstance) {
             checkPool();
@@ -113,6 +113,7 @@ public class Singleton<T> implements Serializable {
             }
         }
 
+        //noinspection unchecked
         return (T) instancePool.get(typeParameterClass);
     }
 }

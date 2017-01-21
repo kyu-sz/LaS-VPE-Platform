@@ -65,6 +65,7 @@ public class FakePedestrianTracker extends Tracker {
         return tracklets;
     }
 
+    @Nonnull
     @Override
     public Tracklet[] track(@Nonnull InputStream videoStream) {
         return generateRandomTrackSet();

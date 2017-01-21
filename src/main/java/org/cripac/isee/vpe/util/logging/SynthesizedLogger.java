@@ -67,7 +67,7 @@ public class SynthesizedLogger extends Logger {
             localName = "Unknown Host";
         }
 
-        Properties producerProp = propCenter.generateKafkaProducerProp(true);
+        Properties producerProp = propCenter.getKafkaProducerProp(true);
         producer = new KafkaProducer<>(producerProp);
     }
 

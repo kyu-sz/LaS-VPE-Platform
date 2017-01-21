@@ -134,7 +134,7 @@ public abstract class Stream implements Serializable {
      *
      * @param jssc         The streaming context of the applications.
      * @param topics       Topics from which the direct stream reads.
-     * @param kafkaCluster Kafka cluster created from kafkaParams
+     * @param kafkaCluster Kafka cluster created from getKafkaParams
      *                     (please use {@link KafkaHelper#createKafkaCluster(Map)}).
      * @return A Kafka non-receiver input stream.
      */

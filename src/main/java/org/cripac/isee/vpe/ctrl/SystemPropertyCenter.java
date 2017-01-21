@@ -62,49 +62,48 @@ public class SystemPropertyCenter implements Serializable {
     private transient Logger logger = new ConsoleLogger(Level.INFO);
 
     // Zookeeper properties
-    public String zkConn = "localhost:2181";
-    public int sessionTimeoutMs = 10 * 10000;
-    public int connectionTimeoutMs = 8 * 1000;
+    String zkConn = "localhost:2181";
+    int sessionTimeoutMs = 10 * 10000;
     // Kafka properties
     public String kafkaBootstrapServers = "localhost:9092";
-    public int kafkaNumPartitions = 1;
-    public int kafkaReplFactor = 1;
-    public int kafkaMsgMaxBytes = 100000000;
-    public int kafkaSendMaxSize = 100000000;
-    public int kafkaRequestTimeoutMs = 60000;
-    public int kafkaFetchTimeoutMs = 60000;
+    int kafkaNumPartitions = 1;
+    int kafkaReplFactor = 1;
+    private int kafkaMsgMaxBytes = 100000000;
+    private int kafkaSendMaxSize = 100000000;
+    private int kafkaRequestTimeoutMs = 60000;
+    private int kafkaFetchTimeoutMs = 60000;
     // Spark properties
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "metadata";
     public String sparkMaster = "local[*]";
-    public String sparkDeployMode = "client";
-    public String[] appsToStart = null;
+    private String sparkDeployMode = "client";
+    String[] appsToStart = null;
     // Caffe properties
-    public int caffeGPU = -1;
+    private int caffeGPU = -1;
     /**
      * Memory per executor (e.g. 1000M, 2G) (Default: 1G)
      */
-    public String executorMem = "1G";
+    private String executorMem = "1G";
     /**
      * Number of executors to run (Default: 2)
      */
-    public int numExecutors = 2;
+    private int numExecutors = 2;
     /**
      * Number of cores per executor (Default: 1)
      */
-    public int executorCores = 1;
+    private int executorCores = 1;
     /**
      * Total cores for all executors (Spark standalone and Mesos only).
      */
-    public int totalExecutorCores = 1;
+    private int totalExecutorCores = 1;
     /**
      * Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)
      */
-    public String driverMem = "1G";
+    private String driverMem = "1G";
     /**
      * Number of cores used by the driver (Default: 1)
      */
-    public int driverCores = 1;
+    private int driverCores = 1;
     /**
      * A YARN node label expression that restricts the set of nodes AM will be scheduled on.
      * Only versions of YARN greater than or equal to 2.6 support node label expressions,
@@ -113,27 +112,23 @@ public class SystemPropertyCenter implements Serializable {
      * To enable label-based scheduling,
      * see https://hadoop.apache.org/docs/stable/hadoop-yarn/hadoop-yarn-site/NodeLabel.html
      */
-    public String yarnAmNodeLabelExpression = "";
+    private String yarnAmNodeLabelExpression = "";
     /**
      * The hadoop queue to use for allocation requests (Default: 'default')
      */
-    public String hadoopQueue = "default";
-    public String sysPropFilePath = "conf/system.properties";
+    private String hadoopQueue = "default";
+    private String sysPropFilePath = "conf/system.properties";
     /**
      * Application-specific property file. Properties loaded from it
      * will override those loaded from the system property file.
      * Leaving it as null will let the system automatically find
      * that in default places according to the application specified.
      */
-    public String appPropFilePath = null;
-    public String sparkConfFilePath = ConfManager.CONF_DIR + "/spark-defaults.conf";
-    public String log4jPropFilePath = ConfManager.CONF_DIR + "/log4j.properties";
-    public String hdfsDefaultName = "localhost:9000";
-    public String jarPath = "bin/vpe-platform.jar";
-    /**
-     * Number of parallel streams pulling messages from Kafka Brokers.
-     */
-    public int numRecvStreams = 5;
+    private String appPropFilePath = null;
+    private String sparkConfFilePath = ConfManager.CONF_DIR + "/spark-defaults.conf";
+    private String log4jPropFilePath = ConfManager.CONF_DIR + "/log4j.properties";
+    private String hdfsDefaultName = "localhost:9000";
+    private String jarPath = "bin/vpe-platform.jar";
     /**
      * Duration for buffering results.
      */
@@ -167,18 +162,12 @@ public class SystemPropertyCenter implements Serializable {
         options.addOption("h", "help", false, "Print this help message.");
         options.addOption("v", "verbose", false, "Display debug information.");
         options.addOption("a", "application", true, "Application specified to run.");
-        options.addOption(null, "spark-property-file", true,
-                "File path of the spark property file.");
-        options.addOption(null, "system-property-file", true,
-                "File path of the system property file.");
-        options.addOption(null, "app-property-file", true,
-                "File path of the application-specific system property file.");
-        options.addOption(null, "log4j-property-file", true,
-                "File path of the log4j property file.");
-        options.addOption(null, "report-listening-addr", true,
-                "Address of runtime report listener.");
-        options.addOption(null, "report-listening-port", true,
-                "Port of runtime report listener.");
+        options.addOption(null, "spark-property-file", true, "Path of the spark property file.");
+        options.addOption(null, "system-property-file", true, "Path of the system property file.");
+        options.addOption(null, "app-property-file", true, "Path of the application-specific system property file.");
+        options.addOption(null, "log4j-property-file", true, "Path of the log4j property file.");
+        options.addOption(null, "report-listening-addr", true, "Address of runtime report listener.");
+        options.addOption(null, "report-listening-port", true, "Port of runtime report listener.");
         CommandLine commandLine;
 
         try {
@@ -257,11 +246,8 @@ public class SystemPropertyCenter implements Serializable {
                     logger.debug("Loading application-specific properties"
                             + " using HDFS platform from "
                             + appPropFilePath + "...");
-                    final FileSystem hdfs = FileSystem.get(
-                            new URI(appPropFilePath),
-                            HadoopHelper.getDefaultConf());
-                    final FSDataInputStream hdfsInputStream =
-                            hdfs.open(new Path(appPropFilePath));
+                    final FileSystem hdfs = FileSystem.get(new URI(appPropFilePath), HadoopHelper.getDefaultConf());
+                    final FSDataInputStream hdfsInputStream = hdfs.open(new Path(appPropFilePath));
                     propInputStream = new BufferedInputStream(hdfsInputStream);
                 } else {
                     final File propFile = new File(appPropFilePath);
@@ -346,7 +332,6 @@ public class SystemPropertyCenter implements Serializable {
                     hadoopQueue = (String) entry.getValue();
                     break;
                 case "vpe.recv.parallel":
-                    numRecvStreams = new Integer((String) entry.getValue());
                     break;
                 case "vpe.buf.duration":
                     bufDuration = new Integer((String) entry.getValue());
@@ -405,7 +390,7 @@ public class SystemPropertyCenter implements Serializable {
         return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);
     }
 
-    SparkLauncher GetLauncher(String appName) throws IOException {
+    SparkLauncher GetSparkLauncher(String appName) throws IOException {
         SparkLauncher launcher = new SparkLauncher()
                 .setAppResource(jarPath)
                 .setMainClass(AppManager.getMainClassName(appName))
@@ -466,7 +451,7 @@ public class SystemPropertyCenter implements Serializable {
         private static final long serialVersionUID = -8356206863229009557L;
     }
 
-    public Properties generateKafkaProducerProp(boolean isStringValue) {
+    public Properties getKafkaProducerProp(boolean isStringValue) {
         Properties producerProp = new Properties();
         producerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         producerProp.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, kafkaSendMaxSize);
@@ -480,7 +465,7 @@ public class SystemPropertyCenter implements Serializable {
         return producerProp;
     }
 
-    public Properties generateKafkaConsumerProp(String group, boolean isStringValue) {
+    public Properties getKafkaConsumerProp(String group, boolean isStringValue) {
         Properties consumerProp = new Properties();
         consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG, group);
@@ -492,7 +477,7 @@ public class SystemPropertyCenter implements Serializable {
         return consumerProp;
     }
 
-    public Map<String, String> generateKafkaParams(String group) {
+    public Map<String, String> getKafkaParams(String group) {
         Map<String, String> kafkaParams = new Object2ObjectOpenHashMap<>();
         kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, group);
