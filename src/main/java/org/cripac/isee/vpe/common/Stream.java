@@ -133,10 +133,11 @@ public abstract class Stream implements Serializable {
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
-     * @param jssc         The streaming context of the applications.
-     * @param topics       Topics from which the direct stream reads.
-     * @param kafkaCluster Kafka cluster created from getKafkaParams
-     *                     (please use {@link KafkaHelper#createKafkaCluster(Map)}).
+     * @param jssc          The streaming context of the applications.
+     * @param topics        Topics from which the direct stream reads.
+     * @param kafkaCluster  Kafka cluster created from getKafkaParams
+     *                      (please use {@link KafkaHelper#createKafkaCluster(Map)}).
+     * @param toRepartition Whether to repartition the RDDs.
      * @return A Kafka non-receiver input stream.
      */
     protected JavaPairDStream<String, byte[]>
@@ -194,7 +195,7 @@ public abstract class Stream implements Serializable {
 
     /**
      * Utility function for all applications to receive messages with byte
-     * array values from Kafka with direct stream.
+     * array values from Kafka with direct stream. RDDs are repartitioned by default.
      *
      * @param jssc         The streaming context of the applications.
      * @param topics       Topics from which the direct stream reads.
