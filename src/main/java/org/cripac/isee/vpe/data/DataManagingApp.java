@@ -51,6 +51,9 @@ import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import org.spark_project.guava.collect.ContiguousSet;
+import org.spark_project.guava.collect.DiscreteDomain;
+import org.spark_project.guava.collect.Range;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
@@ -180,16 +183,16 @@ public class DataManagingApp extends SparkStreamingApp {
             // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(RTRV_JOB_TOPIC.NAME), kafkaCluster)
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(RTRV_JOB_TOPIC.NAME), kc)
                     // Retrieve and deliver tracklets.
-                    .transformToPair(rdd -> {
-                                rdd.foreach(kvPair -> {
+                    .foreachRDD(rdd -> {
+                        rdd.foreach(kv -> {
                                     final Logger logger = loggerSingleton.getInst();
 
                                     try {
                                         // Recover task data.
-                                        TaskData taskData = deserialize(kvPair._2());
+                                        TaskData taskData = deserialize(kv._2());
                                         if (taskData.predecessorRes == null) {
                                             logger.fatal("TaskData from " + taskData.predecessorInfo
                                                     + " contains no result data!");
@@ -222,7 +225,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                         // Send to all the successor nodes.
                                         final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-                                        final String taskID = kvPair._1();
+                                        final String taskID = kv._1();
                                         for (Topic topic : succTopics) {
                                             try {
                                                 taskData.changeCurNode(topic);
@@ -236,10 +239,10 @@ public class DataManagingApp extends SparkStreamingApp {
                                         logger.error("During retrieving tracklets", e);
                                     }
                                 });
-                                return rdd;
+
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
                             }
-                    )
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                    );
         }
     }
 
@@ -266,10 +269,10 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(RTRV_JOB_TOPIC.NAME), kafkaCluster)
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(RTRV_JOB_TOPIC.NAME), kc)
                     // Retrieve and deliver tracklets with attributes.
-                    .transformToPair(rdd -> {
+                    .foreachRDD(rdd -> {
                                 rdd.foreach(job -> {
                                     final Logger logger = loggerSingleton.getInst();
                                     try {
@@ -311,10 +314,10 @@ public class DataManagingApp extends SparkStreamingApp {
                                         logger.error("During retrieving tracklet and attributes", e);
                                     }
                                 });
-                                return rdd;
+
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
                             }
-                    )
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                    );
         }
     }
 
@@ -369,97 +372,103 @@ public class DataManagingApp extends SparkStreamingApp {
             outputStream.writeBytes(gsonBuilder.create().toJson(tracklet));
             outputStream.close();
 
-            // Write frames.
-            for (int i = 0; i < tracklet.locationSequence.length; ++i) {
-                final Tracklet.BoundingBox bbox = tracklet.locationSequence[i];
+            // Write frames concurrently.
+            ContiguousSet.create(Range.closedOpen(0, tracklet.locationSequence.length), DiscreteDomain.integers())
+                    .parallelStream()
+                    .forEach(idx -> {
+                        final Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
 
-                // Use JavaCV to encode the image patch
-                // into JPEG, stored in the memory.
-                final BytePointer inputPointer = new BytePointer(bbox.patchData);
-                final Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
-                final BytePointer outputPointer = new BytePointer();
-                imencode(".jpg", image, outputPointer);
-                final byte[] bytes = new byte[(int) outputPointer.limit()];
-                outputPointer.get(bytes);
+                        // Use JavaCV to encode the image patch
+                        // into JPEG, stored in the memory.
+                        final BytePointer inputPointer = new BytePointer(bbox.patchData);
+                        final Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
+                        final BytePointer outputPointer = new BytePointer();
+                        imencode(".jpg", image, outputPointer);
+                        final byte[] bytes = new byte[(int) outputPointer.limit()];
+                        outputPointer.get(bytes);
 
-                // Output the image patch to HDFS.
-                final FSDataOutputStream imgOutputStream = hdfs.create(new Path(storeDir + "/" + i + ".jpg"));
-                imgOutputStream.write(bytes);
-                imgOutputStream.close();
+                        // Output the image patch to HDFS.
+                        final FSDataOutputStream imgOutputStream;
+                        try {
+                            imgOutputStream = hdfs.create(new Path(storeDir + "/" + idx + ".jpg"));
+                            imgOutputStream.write(bytes);
+                            imgOutputStream.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
 
-                // Free resources.
-                image.release();
-                inputPointer.deallocate();
-                outputPointer.deallocate();
-            }
+                        // Free resources.
+                        image.release();
+                        inputPointer.deallocate();
+                        outputPointer.deallocate();
+                    });
         }
 
         @Override
         public void addToContext(@Nonnull JavaStreamingContext jssc) {// Save tracklets.
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(
-                    jssc,
-                    Collections.singletonList(PED_TRACKLET_SAVING_TOPIC.NAME),
-                    kafkaCluster)
-                    .mapToPair(kvPair -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            // RuntimeException: No native JavaCPP library
-                            // in memory. (Has Loader.load() been called?)
-                            Loader.load(opencv_core.class);
-                            Loader.load(opencv_imgproc.class);
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(PED_TRACKLET_SAVING_TOPIC.NAME), kc)
+                    .foreachRDD(rdd -> {
+                        rdd.foreach(kv -> {
+                            final Logger logger = loggerSingleton.getInst();
+                            try {
+                                // RuntimeException: No native JavaCPP library
+                                // in memory. (Has Loader.load() been called?)
+                                Loader.load(opencv_core.class);
+                                Loader.load(opencv_imgproc.class);
 
-                            final FileSystem hdfs = hdfsSingleton.getInst();
+                                final FileSystem hdfs = hdfsSingleton.getInst();
 
-                            final String taskID = kvPair._1();
-                            final TaskData taskData = deserialize(kvPair._2());
-                            final Tracklet tracklet = (Tracklet) taskData.predecessorRes;
-                            final int numTracklets = tracklet.numTracklets;
+                                final String taskID = kv._1();
+                                final TaskData taskData = deserialize(kv._2());
+                                final Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                                final int numTracklets = tracklet.numTracklets;
 
-                            final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
-                            final String taskRoot = videoRoot + "/" + taskID;
-                            final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
-                            hdfs.mkdirs(new Path(storeDir));
+                                final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                                final String taskRoot = videoRoot + "/" + taskID;
+                                final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                hdfs.mkdirs(new Path(storeDir));
 
-                            storeTracklet(storeDir, tracklet);
+                                storeTracklet(storeDir, tracklet);
 
-                            // If all the tracklets from a task are saved,
-                            // it's time to pack them into a HAR!
-                            final ContentSummary contentSummary = hdfs.getContentSummary(new Path(taskRoot));
-                            final long dirCnt = contentSummary.getDirectoryCount();
-                            // Decrease one for directory counter.
-                            if (dirCnt - 1 == numTracklets) {
-                                logger.info("Starting to pack metadata for Task " + taskID
-                                        + "(" + tracklet.id.videoID + ")! The directory consumes "
-                                        + contentSummary.getSpaceConsumed() + " bytes.");
+                                // If all the tracklets from a task are saved,
+                                // it's time to pack them into a HAR!
+                                final ContentSummary contentSummary = hdfs.getContentSummary(new Path(taskRoot));
+                                final long dirCnt = contentSummary.getDirectoryCount();
+                                // Decrease one for directory counter.
+                                if (dirCnt - 1 == numTracklets) {
+                                    logger.info("Starting to pack metadata for Task " + taskID
+                                            + "(" + tracklet.id.videoID + ")! The directory consumes "
+                                            + contentSummary.getSpaceConsumed() + " bytes.");
 
-                                final HadoopArchives arch = new HadoopArchives(new Configuration());
-                                final ArrayList<String> harPackingOptions = new ArrayList<>();
-                                harPackingOptions.add("-archiveName");
-                                harPackingOptions.add(taskID + ".har");
-                                harPackingOptions.add("-p");
-                                harPackingOptions.add(taskRoot);
-                                harPackingOptions.add(videoRoot);
-                                arch.run(Arrays.copyOf(harPackingOptions.toArray(),
-                                        harPackingOptions.size(), String[].class));
+                                    final HadoopArchives arch = new HadoopArchives(new Configuration());
+                                    final ArrayList<String> harPackingOptions = new ArrayList<>();
+                                    harPackingOptions.add("-archiveName");
+                                    harPackingOptions.add(taskID + ".har");
+                                    harPackingOptions.add("-p");
+                                    harPackingOptions.add(taskRoot);
+                                    harPackingOptions.add(videoRoot);
+                                    arch.run(Arrays.copyOf(harPackingOptions.toArray(),
+                                            harPackingOptions.size(), String[].class));
 
-                                logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") packed!");
+                                    logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") packed!");
 
-                                dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.videoID,
-                                        videoRoot + "/" + taskID + ".har");
+                                    dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.videoID,
+                                            videoRoot + "/" + taskID + ".har");
 
-                                // Delete the original folder recursively.
-                                hdfs.delete(new Path(taskRoot), true);
-                            } else {
-                                logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") need "
-                                        + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
+                                    // Delete the original folder recursively.
+                                    hdfs.delete(new Path(taskRoot), true);
+                                } else {
+                                    logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") need "
+                                            + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
+                                }
+                            } catch (Exception e) {
+                                logger.error("During storing tracklets.", e);
                             }
-                        } catch (Exception e) {
-                            logger.error("During storing tracklets.", e);
-                        }
-                        return kvPair;
-                    })
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                        });
+
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
+                    });
         }
     }
 
@@ -481,27 +490,28 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(@Nonnull JavaStreamingContext jssc) {
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
-            buildBytesDirectStream(jssc, Collections.singletonList(PED_ATTR_SAVING_TOPIC.NAME), kafkaCluster)
-                    .mapToPair(res -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            final TaskData taskData = deserialize(res._2());
-                            final Attributes attr = (Attributes) taskData.predecessorRes;
+            buildBytesDirectStream(jssc, Collections.singletonList(PED_ATTR_SAVING_TOPIC.NAME), kc)
+                    .foreachRDD(rdd -> {
+                        rdd.foreach(res -> {
+                            final Logger logger = loggerSingleton.getInst();
+                            try {
+                                final TaskData taskData = deserialize(res._2());
+                                final Attributes attr = (Attributes) taskData.predecessorRes;
 
-                            logger.debug("Received " + res._1() + ": " + attr);
+                                logger.debug("Received " + res._1() + ": " + attr);
 
-                            dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr);
+                                dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr);
 
-                            logger.debug("Saved " + res._1() + ": " + attr);
-                        } catch (Exception e) {
-                            logger.error("When decompressing attributes", e);
-                        }
-                        return res;
-                    })
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                                logger.debug("Saved " + res._1() + ": " + attr);
+                            } catch (Exception e) {
+                                logger.error("When decompressing attributes", e);
+                            }
+                        });
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
+                    });
         }
     }
 
@@ -518,35 +528,35 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public IDRankSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
-
             kafkaParams = propCenter.getKafkaParams(INFO.NAME);
-
         }
 
         @Override
         public void addToContext(@Nonnull JavaStreamingContext jssc) {
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
-            buildBytesDirectStream(jssc, Collections.singletonList(PED_IDRANK_SAVING_TOPIC.NAME), kafkaCluster)
-                    .mapToPair(kvPair -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            final TaskData taskData = deserialize(kvPair._2());
-                            final int[] idRank = (int[]) taskData.predecessorRes;
-                            String rankStr = "";
-                            for (int id : idRank) {
-                                rankStr = rankStr + id + " ";
+            buildBytesDirectStream(jssc, Collections.singletonList(PED_IDRANK_SAVING_TOPIC.NAME), kc)
+                    .foreachRDD(rdd -> {
+                        rdd.foreach(kv -> {
+                            final Logger logger = loggerSingleton.getInst();
+                            try {
+                                final TaskData taskData = deserialize(kv._2());
+                                final int[] idRank = (int[]) taskData.predecessorRes;
+                                String rankStr = "";
+                                for (int id : idRank) {
+                                    rankStr = rankStr + id + " ";
+                                }
+                                logger.info("Metadata saver received: " + kv._1()
+                                        + ": Pedestrian IDRANK rank: " + rankStr);
+                                //TODO(Ken Yu): Save IDs to database.
+                            } catch (Exception e) {
+                                logger.error("When decompressing IDRANK", e);
                             }
-                            logger.info("Metadata saver received: " + kvPair._1()
-                                    + ": Pedestrian IDRANK rank: " + rankStr);
-                            //TODO(Ken Yu): Save IDs to database.
-                        } catch (Exception e) {
-                            logger.error("When decompressing IDRANK", e);
-                        }
-                        return kvPair;
-                    })
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                        });
+
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
+                    });
         }
     }
 }

@@ -30,6 +30,9 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.spark_project.guava.collect.ContiguousSet;
+import org.spark_project.guava.collect.DiscreteDomain;
+import org.spark_project.guava.collect.Range;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
@@ -99,18 +102,25 @@ public class HadoopHelper {
                             new Path(storeDir + "/" + id.serialNumber + "/info.txt"))),
                     Tracklet.class);
 
-            // Read frames.
-            for (int i = 0; i < tracklet.locationSequence.length; ++i) {
-                Tracklet.BoundingBox bbox = tracklet.locationSequence[i];
-                FSDataInputStream imgInputStream = harFileSystem
-                        .open(new Path(storeDir + "/" + id.toString() + "/" + i + ".jpg"));
-                byte[] rawBytes = IOUtils.toByteArray(imgInputStream);
-                imgInputStream.close();
-                opencv_core.Mat img = imdecode(new opencv_core.Mat(rawBytes), CV_8UC3);
-                bbox.patchData = new byte[img.rows() * img.cols() * img.channels()];
-                img.data().get(bbox.patchData);
-                img.release();
-            }
+            // Read frames concurrently..
+            ContiguousSet.create(Range.closedOpen(0, tracklet.locationSequence.length), DiscreteDomain.integers())
+                    .parallelStream()
+                    .forEach(idx -> {
+                        Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
+                        FSDataInputStream imgInputStream = null;
+                        try {
+                            imgInputStream = harFileSystem
+                                    .open(new Path(storeDir + "/" + id.toString() + "/" + idx + ".jpg"));
+                            byte[] rawBytes = IOUtils.toByteArray(imgInputStream);
+                            imgInputStream.close();
+                            opencv_core.Mat img = imdecode(new opencv_core.Mat(rawBytes), CV_8UC3);
+                            bbox.patchData = new byte[img.rows() * img.cols() * img.channels()];
+                            img.data().get(bbox.patchData);
+                            img.release();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
             harFileSystem.close();
             return tracklet;
         } catch (Exception e) {

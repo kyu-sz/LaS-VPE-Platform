@@ -161,7 +161,7 @@ public class TaskData implements Serializable, Cloneable {
                         + " cannot be found in execution plan!"
                         + " Available streams are: ");
                 for (Stream.Info _info : nodes.keySet()) {
-                    builder.append(_info + " ");
+                    builder.append(_info).append(" ");
                 }
                 throw new RecordNotFoundException(builder.toString());
             }

@@ -216,8 +216,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaCluster)
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kc)
                     .mapValues(taskDataBytes -> {
                         TaskData taskData;
                         try {
@@ -228,70 +228,71 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             return null;
                         }
                     })
-                    .mapToPair(taskWithTracklet -> {
-                                try {
-                                    Logger logger = loggerSingleton.getInst();
+                    .foreachRDD(rdd -> {
+                        rdd.foreach(kv -> {
+                            try {
+                                Logger logger = loggerSingleton.getInst();
 
-                                    String taskID = taskWithTracklet._1();
-                                    TaskData taskData = taskWithTracklet._2();
-                                    logger.debug("Received task " + taskID + "!");
+                                String taskID = kv._1();
+                                TaskData taskData = kv._2();
+                                logger.debug("Received task " + taskID + "!");
 
-                                    if (taskData.predecessorRes == null) {
-                                        throw new DataTypeNotMatchedException("Predecessor result sent by "
-                                                + taskData.predecessorInfo
-                                                + " is null!");
-                                    }
-                                    if (!(taskData.predecessorRes instanceof Tracklet)) {
-                                        throw new DataTypeNotMatchedException("Predecessor result sent by "
-                                                + taskData.predecessorInfo
-                                                + " is expected to be a Tracklet,"
-                                                + " but received \""
-                                                + taskData.predecessorRes + "\"!");
-                                    }
-
-                                    Tracklet tracklet = (Tracklet) taskData.predecessorRes;
-                                    logger.debug("To recognize attributes for task " + taskID + "!");
-                                    // Truncate and shrink the tracklet in case it is too large.
-                                    if (maxTrackletLength > 0
-                                            && tracklet.locationSequence.length > maxTrackletLength) {
-                                        final int increment = tracklet.locationSequence.length / maxTrackletLength;
-                                        final int start =
-                                                tracklet.locationSequence.length - maxTrackletLength * increment;
-                                        tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
-                                    }
-                                    // Recognize attributes.
-                                    Attributes attr = recognizerSingleton.getInst().recognize(tracklet);
-                                    logger.debug("Attributes retrieved for task " + taskID + "!");
-                                    attr.trackletID = tracklet.id;
-
-                                    // Prepare new task data.
-                                    // Stored the track in the task data, which can be
-                                    // cyclic utilized.
-                                    taskData.predecessorRes = attr;
-                                    // Get the IDs of successor nodes.
-                                    List<Topic> succTopics = taskData.curNode.getSuccessors();
-                                    // Mark the current node as executed.
-                                    taskData.curNode.markExecuted();
-
-                                    // Send to all the successor nodes.
-                                    final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-                                    for (Topic topic : succTopics) {
-                                        try {
-                                            taskData.changeCurNode(topic);
-                                        } catch (RecordNotFoundException e) {
-                                            logger.warn("When changing node in TaskData", e);
-                                        }
-
-                                        final byte[] serialized = serialize(taskData);
-                                        sendWithLog(topic, taskID, serialized, producer, logger);
-                                    }
-                                } catch (Exception e) {
-                                    loggerSingleton.getInst().error("During processing attributes.", e);
+                                if (taskData.predecessorRes == null) {
+                                    throw new DataTypeNotMatchedException("Predecessor result sent by "
+                                            + taskData.predecessorInfo
+                                            + " is null!");
                                 }
-                                return taskWithTracklet;
+                                if (!(taskData.predecessorRes instanceof Tracklet)) {
+                                    throw new DataTypeNotMatchedException("Predecessor result sent by "
+                                            + taskData.predecessorInfo
+                                            + " is expected to be a Tracklet,"
+                                            + " but received \""
+                                            + taskData.predecessorRes + "\"!");
+                                }
+
+                                Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                                logger.debug("To recognize attributes for task " + taskID + "!");
+                                // Truncate and shrink the tracklet in case it is too large.
+                                if (maxTrackletLength > 0
+                                        && tracklet.locationSequence.length > maxTrackletLength) {
+                                    final int increment = tracklet.locationSequence.length / maxTrackletLength;
+                                    final int start =
+                                            tracklet.locationSequence.length - maxTrackletLength * increment;
+                                    tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
+                                }
+                                // Recognize attributes.
+                                Attributes attr = recognizerSingleton.getInst().recognize(tracklet);
+                                logger.debug("Attributes retrieved for task " + taskID + "!");
+                                attr.trackletID = tracklet.id;
+
+                                // Prepare new task data.
+                                // Stored the track in the task data, which can be
+                                // cyclic utilized.
+                                taskData.predecessorRes = attr;
+                                // Get the IDs of successor nodes.
+                                List<Topic> succTopics = taskData.curNode.getSuccessors();
+                                // Mark the current node as executed.
+                                taskData.curNode.markExecuted();
+
+                                // Send to all the successor nodes.
+                                final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+                                for (Topic topic : succTopics) {
+                                    try {
+                                        taskData.changeCurNode(topic);
+                                    } catch (RecordNotFoundException e) {
+                                        logger.warn("When changing node in TaskData", e);
+                                    }
+
+                                    final byte[] serialized = serialize(taskData);
+                                    sendWithLog(topic, taskID, serialized, producer, logger);
+                                }
+                            } catch (Exception e) {
+                                loggerSingleton.getInst().error("During processing attributes.", e);
                             }
-                    )
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                        });
+
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
+                    });
         }
     }
 }

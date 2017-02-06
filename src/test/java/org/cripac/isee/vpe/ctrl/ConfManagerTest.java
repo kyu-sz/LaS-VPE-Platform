@@ -35,7 +35,7 @@ public class ConfManagerTest {
     public void getConfigFileList() throws Exception {
         List<String> confFiles = ConfManager
                 .getCfgFileList(PedestrianTrackingApp.APP_NAME, "isee-basic")
-                .stream()
+                .parallelStream()
                 .map(FileDescriptor::getConcatName)
                 .collect(Collectors.toList());
         for (String file : confFiles) {

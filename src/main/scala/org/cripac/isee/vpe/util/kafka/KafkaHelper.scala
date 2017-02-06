@@ -73,13 +73,13 @@ object KafkaHelper {
   def submitOffset(@Nonnull kafkaCluster: KafkaCluster,
                    @Nonnull offsetRanges: Array[OffsetRange]): Unit = {
     // Create a map from each topic and partition to its until offset.
-    val topicAndPartitionOffsetMap = collection.mutable.Map[TopicAndPartition, Long]()
+    val tpOffsetMap = collection.mutable.Map[TopicAndPartition, Long]()
     for (o <- offsetRanges) {
-      val topicAndPartition = TopicAndPartition(o topic, o partition)
-      topicAndPartitionOffsetMap += topicAndPartition -> o.untilOffset
+      val tp = TopicAndPartition(o topic, o partition)
+      tpOffsetMap += tp -> o.untilOffset
     }
     // Submit offsets.
-    kafkaCluster setConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, topicAndPartitionOffsetMap toMap)
+    kafkaCluster setConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, tpOffsetMap toMap)
   }
 
   /**

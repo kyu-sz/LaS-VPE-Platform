@@ -27,9 +27,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.Function;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -220,14 +218,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(LOGIN_PARAM_TOPIC.NAME), kafkaCluster)
-                    .foreachRDD(rdd -> rdd.foreach(kvPair -> {
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(LOGIN_PARAM_TOPIC.NAME), kc)
+                    .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // Recover data.
-                            final String taskID = kvPair._1();
-                            final TaskData taskData = deserialize(kvPair._2());
+                            final String taskID = kv._1();
+                            final TaskData taskData = deserialize(kv._2());
                             final LoginParam loginParam = (LoginParam) taskData.predecessorRes;
 
                             final WebCameraConnector cameraConnector;
@@ -285,19 +283,19 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(VIDEO_URL_TOPIC.NAME), kafkaCluster)
-                    .transformToPair((Function<JavaPairRDD<String, byte[]>, JavaPairRDD<String, byte[]>>) rdd -> {
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(VIDEO_URL_TOPIC.NAME), kc)
+                    .foreachRDD(rdd -> {
                         final Broadcast<Map<String, byte[]>> confPool =
                                 ConfigPool.getInst(new JavaSparkContext(rdd.context()),
                                         hdfsSingleton.getInst(),
                                         loggerSingleton.getInst());
 
-                        rdd.foreach(kvPair -> {
+                        rdd.foreach(kv -> {
                             final Logger logger = loggerSingleton.getInst();
                             try {
-                                final String taskID = kvPair._1();
-                                final TaskData taskData = deserialize(kvPair._2());
+                                final String taskID = kv._1();
+                                final TaskData taskData = deserialize(kv._2());
 
                                 final String videoURL = (String) taskData.predecessorRes;
                                 final InputStream videoStream = hdfsSingleton.getInst().open(new Path(videoURL));
@@ -358,9 +356,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             }
                         });
 
-                        return rdd;
-                    })
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
+                    });
         }
     }
 }

@@ -177,19 +177,19 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
             final JavaPairDStream<String, TaskData> trackletDStream =
                     // Read track bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kafkaCluster)
+                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kc)
                             // Recover track from the bytes
                             // and extract the IDRANK of the track.
-                            .mapToPair(kvPair -> {
+                            .mapToPair(kv -> {
                                 final Logger logger = loggerSingleton.getInst();
                                 try {
-                                    TaskData taskData = deserialize(kvPair._2());
+                                    TaskData taskData = deserialize(kv._2());
                                     logger.info("Received track: " + ((Tracklet) taskData.predecessorRes).id);
                                     return new Tuple2<>(
-                                            kvPair._1() + ":" + ((Tracklet) taskData.predecessorRes).id,
+                                            kv._1() + ":" + ((Tracklet) taskData.predecessorRes).id,
                                             taskData);
                                 } catch (Throwable t) {
                                     logger.error("On recovering TaskData with tracklet", t);
@@ -199,14 +199,14 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             final JavaPairDStream<String, TaskData> attrDStream =
                     // Read attribute bytes in parallel from Kafka.
-                    buildBytesDirectStream(jssc, Collections.singletonList(ATTR_TOPIC.NAME), kafkaCluster)
+                    buildBytesDirectStream(jssc, Collections.singletonList(ATTR_TOPIC.NAME), kc)
                             // Recover attributes from the bytes
                             // and extract the IDRANK of the track
                             // the attributes belong to.
-                            .mapToPair(kvPair -> {
+                            .mapToPair(kv -> {
                                 final Logger logger = loggerSingleton.getInst();
                                 try {
-                                    TaskData taskData = deserialize(kvPair._2());
+                                    TaskData taskData = deserialize(kv._2());
                                     if (!(taskData.predecessorRes instanceof Attributes)) {
                                         throw new DataTypeNotMatchedException(
                                                 "Predecessor result is expected to be attributes,"
@@ -216,8 +216,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                     }
 
                                     loggerSingleton.getInst().info(
-                                            "Received " + kvPair._1() + ": " + taskData);
-                                    return new Tuple2<>(kvPair._1() + ":"
+                                            "Received " + kv._1() + ": " + taskData);
+                                    return new Tuple2<>(kv._1() + ":"
                                             + ((Attributes) taskData.predecessorRes).trackletID,
                                             taskData);
                                 } catch (Throwable t) {
@@ -293,7 +293,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
             final JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
-                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_ATTR_TOPIC.NAME), kafkaCluster)
+                    buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_ATTR_TOPIC.NAME), kc)
                             .mapValues(bytes -> {
                                 TaskData taskData;
                                 try {
@@ -307,51 +307,52 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             // Union the two track with attribute streams and perform ReID.
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)
-                    .mapToPair(taskWithTrackletAttr -> {
-                        try {
-                            Logger logger = loggerSingleton.getInst();
-                            String taskID = taskWithTrackletAttr._1();
-                            TaskData taskData = taskWithTrackletAttr._2();
-                            if (taskData.predecessorRes == null) {
-                                throw new DataTypeNotMatchedException("TaskData from " + taskData.predecessorInfo
-                                        + " contains no result data!");
-                            }
-                            if (!(taskData.predecessorRes instanceof PedestrianInfo)) {
-                                throw new DataTypeNotMatchedException("Result sent by "
-                                        + taskData.predecessorInfo
-                                        + " is expected to be a PedestrianInfo,"
-                                        + " but received \""
-                                        + taskData.predecessorRes + "\"!");
-                            }
-                            PedestrianInfo trackletWithAttr =
-                                    (PedestrianInfo) taskData.predecessorRes;
-
-                            // Perform ReID.
-                            // Prepare new task data with the pedestrian IDRANK.
-                            taskData.predecessorRes = reidSingleton.getInst().reid(trackletWithAttr);
-                            // Get the IDs of successor nodes.
-                            List<Topic> succTopics = taskData.curNode.getSuccessors();
-                            // Mark the current node as executed.
-                            taskData.curNode.markExecuted();
-
-                            // Send to all the successor nodes.
-                            final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-                            for (Topic topic : succTopics) {
-                                try {
-                                    taskData.changeCurNode(topic);
-                                } catch (RecordNotFoundException e) {
-                                    logger.warn("When changing node in TaskData", e);
+                    .foreachRDD(rdd -> {
+                        rdd.foreach(kv -> {
+                            try {
+                                Logger logger = loggerSingleton.getInst();
+                                String taskID = kv._1();
+                                TaskData taskData = kv._2();
+                                if (taskData.predecessorRes == null) {
+                                    throw new DataTypeNotMatchedException("TaskData from " + taskData.predecessorInfo
+                                            + " contains no result data!");
                                 }
+                                if (!(taskData.predecessorRes instanceof PedestrianInfo)) {
+                                    throw new DataTypeNotMatchedException("Result sent by "
+                                            + taskData.predecessorInfo
+                                            + " is expected to be a PedestrianInfo,"
+                                            + " but received \""
+                                            + taskData.predecessorRes + "\"!");
+                                }
+                                PedestrianInfo trackletWithAttr = (PedestrianInfo) taskData.predecessorRes;
 
-                                final byte[] serialized = serialize(taskData);
-                                sendWithLog(topic, taskID, serialized, producer, logger);
+                                // Perform ReID.
+                                // Prepare new task data with the pedestrian IDRANK.
+                                taskData.predecessorRes = reidSingleton.getInst().reid(trackletWithAttr);
+                                // Get the IDs of successor nodes.
+                                List<Topic> succTopics = taskData.curNode.getSuccessors();
+                                // Mark the current node as executed.
+                                taskData.curNode.markExecuted();
+
+                                // Send to all the successor nodes.
+                                final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+                                for (Topic topic : succTopics) {
+                                    try {
+                                        taskData.changeCurNode(topic);
+                                    } catch (RecordNotFoundException e) {
+                                        logger.warn("When changing node in TaskData", e);
+                                    }
+
+                                    final byte[] serialized = serialize(taskData);
+                                    sendWithLog(topic, taskID, serialized, producer, logger);
+                                }
+                            } catch (Exception e) {
+                                loggerSingleton.getInst().error("During ReID", e);
                             }
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During ReID", e);
-                        }
-                        return taskWithTrackletAttr;
-                    })
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                        });
+
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
+                    });
             ;
         }
     }

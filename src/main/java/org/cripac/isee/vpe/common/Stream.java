@@ -18,12 +18,8 @@
 package org.cripac.isee.vpe.common;
 
 import kafka.common.TopicAndPartition;
-import kafka.message.MessageAndMetadata;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.HasOffsetRanges;
@@ -156,10 +152,9 @@ public abstract class Stream implements Serializable {
                 StringByteArrayRecord.class,
                 JavaConversions.mapAsJavaMap(kafkaCluster.kafkaParams()),
                 fromOffsets,
-                (Function<MessageAndMetadata<String, byte[]>, StringByteArrayRecord>) messageAndMetadata ->
-                        new StringByteArrayRecord(messageAndMetadata.key(), messageAndMetadata.message()))
+                mmd -> new StringByteArrayRecord(mmd.key(), mmd.message()))
                 // Manipulate offsets.
-                .transform((Function<JavaRDD<StringByteArrayRecord>, JavaRDD<StringByteArrayRecord>>) rdd -> {
+                .transform(rdd -> {
                     // Store offsets.
                     final OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
                     offsetRanges.set(offsets);
@@ -182,8 +177,7 @@ public abstract class Stream implements Serializable {
                     return rdd;
                 })
                 // Transform to usual record type.
-                .mapToPair((PairFunction<StringByteArrayRecord, String, byte[]>) consumerRecord ->
-                        new Tuple2<>(consumerRecord.key, consumerRecord.value));
+                .mapToPair(rec -> new Tuple2<>(rec.key, rec.value));
 
         if (toRepartition) {
             // Repartition the records.

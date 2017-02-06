@@ -317,129 +317,131 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
         @Override
         public void addToContext(JavaStreamingContext jssc) {// Handle the messages received from Kafka,
-            final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(COMMAND_TOPIC.NAME), kafkaCluster)
-                    .mapToPair(msg -> {
-                        try {
-                            final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-                            final Logger logger = loggerSingleton.getInst();
+            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
+            buildBytesDirectStream(jssc, Collections.singletonList(COMMAND_TOPIC.NAME), kc)
+                    .foreachRDD(rdd -> {
+                        rdd.foreach(msg -> {
+                            try {
+                                final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+                                final Logger logger = loggerSingleton.getInst();
 
-                            String taskID = UUID.randomUUID().toString();
+                                String taskID = UUID.randomUUID().toString();
 
-                            // Get a next command message.
-                            String cmd = msg._1();
-                            logger.debug("Received command: " + cmd);
+                                // Get a next command message.
+                                String cmd = msg._1();
+                                logger.debug("Received command: " + cmd);
 
-                            final Hashtable<String, Serializable> param = deserialize(msg._2());
+                                final Hashtable<String, Serializable> param = deserialize(msg._2());
 
-                            switch (cmd) {
-                                case CommandType.RT_TRACK_ONLY:
-                                case CommandType.RT_TRACK_ATTRRECOG_REID: {
-                                    // Process real-time data.
-                                    ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
-                                    Serializable tmp = param.get(Parameter.WEBCAM_LOGIN_PARAM);
-                                    if (!(tmp instanceof String)) {
-                                        throw new DataTypeNotMatchedException(
-                                                "Expecting a String but received " + tmp);
+                                switch (cmd) {
+                                    case CommandType.RT_TRACK_ONLY:
+                                    case CommandType.RT_TRACK_ATTRRECOG_REID: {
+                                        // Process real-time data.
+                                        ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
+                                        Serializable tmp = param.get(Parameter.WEBCAM_LOGIN_PARAM);
+                                        if (!(tmp instanceof String)) {
+                                            throw new DataTypeNotMatchedException(
+                                                    "Expecting a String but received " + tmp);
+                                        }
+                                        TaskData taskData = new TaskData(
+                                                plan.findNode(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
+                                                plan, new Gson().fromJson((String) tmp, LoginParam.class));
+                                        sendWithLog(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
+                                                taskID, serialize(taskData), producer, logger);
+                                        break;
                                     }
-                                    TaskData taskData = new TaskData(
-                                            plan.findNode(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC),
-                                            plan, new Gson().fromJson((String) tmp, LoginParam.class));
-                                    sendWithLog(RTVideoStreamTrackingStream.LOGIN_PARAM_TOPIC,
-                                            taskID, serialize(taskData), producer, logger);
-                                    break;
-                                }
-                                case CommandType.TRACK_ONLY:
-                                case CommandType.TRACK_ATTRRECOG:
-                                case CommandType.TRACK_ATTRRECOG_REID:
-                                case CommandType.ATTRRECOG_ONLY:
-                                case CommandType.ATTRRECOG_REID:
-                                case CommandType.REID_ONLY: {
-                                    // Process stored videos.
-                                    List<Path> videoPaths =
-                                            hdfsReaderSingleton.getInst()
-                                                    .listSubfiles(
-                                                            new Path((String) param.get(Parameter.VIDEO_URL)));
+                                    case CommandType.TRACK_ONLY:
+                                    case CommandType.TRACK_ATTRRECOG:
+                                    case CommandType.TRACK_ATTRRECOG_REID:
+                                    case CommandType.ATTRRECOG_ONLY:
+                                    case CommandType.ATTRRECOG_REID:
+                                    case CommandType.REID_ONLY: {
+                                        // Process stored videos.
+                                        List<Path> videoPaths =
+                                                hdfsReaderSingleton.getInst()
+                                                        .listSubfiles(
+                                                                new Path((String) param.get(Parameter.VIDEO_URL)));
 
-                                    // Create an execution plan according to the command.
-                                    ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
+                                        // Create an execution plan according to the command.
+                                        ExecutionPlan plan = createPlanByCmdAndParam(cmd, param);
 
-                                    // For each video to be processed
-                                    for (Path path : videoPaths) {
-                                        // Choose modules to send data to according to the command.
-                                        switch (cmd) {
-                                            // These commands need to send only video URLs to
-                                            // the tracking module.
-                                            case CommandType.TRACK_ONLY:
-                                            case CommandType.TRACK_ATTRRECOG:
-                                            case CommandType.TRACK_ATTRRECOG_REID: {
-                                                Serializable tmp = param.get(Parameter.VIDEO_URL);
-                                                if (!(tmp instanceof String)) {
-                                                    throw new DataTypeNotMatchedException(
-                                                            "Expecting a String but received " + tmp);
+                                        // For each video to be processed
+                                        for (Path path : videoPaths) {
+                                            // Choose modules to send data to according to the command.
+                                            switch (cmd) {
+                                                // These commands need to send only video URLs to
+                                                // the tracking module.
+                                                case CommandType.TRACK_ONLY:
+                                                case CommandType.TRACK_ATTRRECOG:
+                                                case CommandType.TRACK_ATTRRECOG_REID: {
+                                                    Serializable tmp = param.get(Parameter.VIDEO_URL);
+                                                    if (!(tmp instanceof String)) {
+                                                        throw new DataTypeNotMatchedException(
+                                                                "Expecting a String but received " + tmp);
+                                                    }
+                                                    TaskData taskData = new TaskData(
+                                                            plan.findNode(
+                                                                    HDFSVideoTrackingStream.VIDEO_URL_TOPIC),
+                                                            plan,
+                                                            tmp);
+                                                    sendWithLog(HDFSVideoTrackingStream.VIDEO_URL_TOPIC,
+                                                            taskID, serialize(taskData), producer, logger);
+                                                    break;
                                                 }
-                                                TaskData taskData = new TaskData(
-                                                        plan.findNode(
-                                                                HDFSVideoTrackingStream.VIDEO_URL_TOPIC),
-                                                        plan,
-                                                        tmp);
-                                                sendWithLog(HDFSVideoTrackingStream.VIDEO_URL_TOPIC,
-                                                        taskID, serialize(taskData), producer, logger);
-                                                break;
-                                            }
-                                            // These commands need only sending tracklet IDs to the
-                                            // data managing module to retrieve tracklets.
-                                            case CommandType.ATTRRECOG_ONLY:
-                                            case CommandType.ATTRRECOG_REID: {
-                                                Serializable tmp = param.get(Parameter.TRACKLET_SERIAL_NUM);
-                                                if (!(tmp instanceof String)) {
-                                                    throw new DataTypeNotMatchedException(
-                                                            "Expecting a String but received " + tmp);
+                                                // These commands need only sending tracklet IDs to the
+                                                // data managing module to retrieve tracklets.
+                                                case CommandType.ATTRRECOG_ONLY:
+                                                case CommandType.ATTRRECOG_REID: {
+                                                    Serializable tmp = param.get(Parameter.TRACKLET_SERIAL_NUM);
+                                                    if (!(tmp instanceof String)) {
+                                                        throw new DataTypeNotMatchedException(
+                                                                "Expecting a String but received " + tmp);
+                                                    }
+                                                    Tracklet.Identifier id = new Tracklet.Identifier(
+                                                            path.toString(),
+                                                            Integer.valueOf((String) tmp));
+                                                    TaskData taskData = new TaskData(
+                                                            plan.findNode(PedestrainTrackletRetrievingStream
+                                                                    .RTRV_JOB_TOPIC),
+                                                            plan,
+                                                            id);
+                                                    sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
+                                                            taskID, serialize(taskData), producer, logger);
+                                                    break;
                                                 }
-                                                Tracklet.Identifier id = new Tracklet.Identifier(
-                                                        path.toString(),
-                                                        Integer.valueOf((String) tmp));
-                                                TaskData taskData = new TaskData(
-                                                        plan.findNode(PedestrainTrackletRetrievingStream
-                                                                .RTRV_JOB_TOPIC),
-                                                        plan,
-                                                        id);
-                                                sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
-                                                        taskID, serialize(taskData), producer, logger);
-                                                break;
-                                            }
-                                            // This command needs only sending tracklet IDs to the
-                                            // data managing module to retrieve tracklets and attributes.
-                                            case CommandType.REID_ONLY: {
-                                                Serializable tmp = param.get(Parameter.TRACKLET_SERIAL_NUM);
-                                                if (!(tmp instanceof String)) {
-                                                    throw new DataTypeNotMatchedException(
-                                                            "Expecting a String but received " + tmp);
+                                                // This command needs only sending tracklet IDs to the
+                                                // data managing module to retrieve tracklets and attributes.
+                                                case CommandType.REID_ONLY: {
+                                                    Serializable tmp = param.get(Parameter.TRACKLET_SERIAL_NUM);
+                                                    if (!(tmp instanceof String)) {
+                                                        throw new DataTypeNotMatchedException(
+                                                                "Expecting a String but received " + tmp);
+                                                    }
+                                                    Tracklet.Identifier id = new Tracklet.Identifier(
+                                                            path.toString(),
+                                                            Integer.valueOf((String) tmp));
+                                                    TaskData taskData = new TaskData(
+                                                            plan.findNode(PedestrainTrackletAttrRetrievingStream
+                                                                    .RTRV_JOB_TOPIC),
+                                                            plan,
+                                                            id);
+                                                    sendWithLog(
+                                                            PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
+                                                            taskID, serialize(taskData), producer, logger);
+                                                    break;
                                                 }
-                                                Tracklet.Identifier id = new Tracklet.Identifier(
-                                                        path.toString(),
-                                                        Integer.valueOf((String) tmp));
-                                                TaskData taskData = new TaskData(
-                                                        plan.findNode(PedestrainTrackletAttrRetrievingStream
-                                                                .RTRV_JOB_TOPIC),
-                                                        plan,
-                                                        id);
-                                                sendWithLog(
-                                                        PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
-                                                        taskID, serialize(taskData), producer, logger);
-                                                break;
                                             }
                                         }
+                                        break;
                                     }
-                                    break;
                                 }
+                            } catch (Exception e) {
+                                loggerSingleton.getInst().error("During msg handling", e);
                             }
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During msg handling", e);
-                        }
-                        return msg;
-                    })
-                    .foreachRDD(rdd -> KafkaHelper.submitOffset(kafkaCluster, offsetRanges.get()));
+                        });
+
+                        KafkaHelper.submitOffset(kc, offsetRanges.get());
+                    });
         }
     }
 }
