@@ -6,7 +6,6 @@ import javax.annotation.{Nonnull, Nullable}
 import kafka.common.TopicAndPartition
 import org.apache.kafka.clients.consumer.ConsumerConfig._
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import org.apache.kafka.common.errors.NetworkException
 import org.apache.spark.streaming.kafka.{KafkaCluster, OffsetRange}
 import org.cripac.isee.vpe.common.Topic
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
@@ -94,27 +93,18 @@ object KafkaHelper {
                      @Nonnull topics: util.Collection[String]
                     ): util.Map[TopicAndPartition, java.lang.Long] = {
     // Retrieve partition information of the topics from the Kafka cluster.
-    val partitions = kafkaCluster getPartitions (topics toSet) match {
-      case Left(err) => throw new NetworkException("Cannot retrieve partitions from Kafka cluster: " + err)
-      case Right(v) => v
-    }
+    val partitions = KafkaCluster.checkErrors(kafkaCluster.getPartitions(topics toSet))
 
     // Retrieve offset metadata of the Kafka cluster.
-    val earliestOffsets = kafkaCluster.getEarliestLeaderOffsets(partitions) match {
-      case Left(err) => throw new NetworkException("Cannot retrieve earliest offsets from Kafka cluster: " + err)
-      case Right(offsets) => offsets
-    }
-    val latestOffsets = kafkaCluster.getLatestLeaderOffsets(partitions) match {
-      case Left(err) => throw new NetworkException("Cannot retrieve latest offsets from Kafka cluster: " + err)
-      case Right(offsets) => offsets
-    }
+    val earliestOffsets = KafkaCluster.checkErrors(kafkaCluster.getEarliestLeaderOffsets(partitions))
+    val latestOffsets = KafkaCluster.checkErrors(kafkaCluster.getLatestLeaderOffsets(partitions))
 
     // Create a map to store corrected fromOffsets
     val fromOffsets = new util.HashMap[TopicAndPartition, java.lang.Long]
     // Retrieve consumer offsets.
     kafkaCluster getConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, partitions) match {
       // No offset (new group). Auto configure the offsets.
-      case Left(err) => {
+      case Left(_) => {
         val autoResetConfig = kafkaCluster kafkaParams AUTO_OFFSET_RESET_CONFIG
         val offsets = autoResetConfig match {
           case "largest" | "latest" => latestOffsets

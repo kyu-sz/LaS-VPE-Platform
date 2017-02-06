@@ -220,12 +220,6 @@ public class DataManagingApp extends SparkStreamingApp {
                                         // Mark the current node as executed.
                                         taskData.curNode.markExecuted();
 
-                                        if (succTopics.size() == 0) {
-                                            loggerSingleton.getInst().debug(
-                                                    "No succeeding topics found for"
-                                                            + " pedestrian tracklet retrieving stream!");
-                                        }
-
                                         // Send to all the successor nodes.
                                         final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                         final String taskID = kvPair._1();
@@ -264,10 +258,8 @@ public class DataManagingApp extends SparkStreamingApp {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             kafkaParams = propCenter.getKafkaParams(INFO.NAME);
-            Properties producerProp = propCenter.getKafkaProducerProp(false);
-
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(
-                    producerProp));
+            final Properties producerProp = propCenter.getKafkaProducerProp(false);
+            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
 
@@ -281,6 +273,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 rdd.foreach(job -> {
                                     final Logger logger = loggerSingleton.getInst();
                                     try {
+                                        final String taskID = job._1();
                                         // Recover task data.
                                         final TaskData taskData = deserialize(job._2());
                                         // Get parameters for the job.
@@ -309,7 +302,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                                 logger.warn("When changing node in TaskData", e);
                                             }
                                             sendWithLog(topic,
-                                                    job._1(),
+                                                    taskID,
                                                     serialize(taskData),
                                                     producerSingleton.getInst(),
                                                     logger);

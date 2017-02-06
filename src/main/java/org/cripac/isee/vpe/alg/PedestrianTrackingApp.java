@@ -118,7 +118,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 new JavaStreamingContext(new SparkConf(true), Durations.milliseconds(batchDuration));
 
         fragmentTrackingStream.addToContext(jsc);
-        rtTrackingStream.addToContext(jsc);
+        // TODO: After completed the real-time tracking stream, uncomment the following line.
+//        rtTrackingStream.addToContext(jsc);
 
         return jsc;
     }
@@ -271,8 +272,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<FileSystem> hdfsSingleton;
 
-        public HDFSVideoTrackingStream(SystemPropertyCenter propCenter) throws
-                Exception {
+        public HDFSVideoTrackingStream(SystemPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
 
             kafkaParams = propCenter.getKafkaParams(INFO.NAME);
