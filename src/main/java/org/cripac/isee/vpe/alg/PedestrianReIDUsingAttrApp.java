@@ -83,12 +83,12 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
      */
     public static void main(String[] args) throws Exception {
         // Load system properties.
-        SystemPropertyCenter propertyCenter;
-        propertyCenter = new SystemPropertyCenter(args);
+        SystemPropertyCenter propertyCenter = new SystemPropertyCenter(args);
+
+        TopicManager.checkTopics(propertyCenter);
 
         // Start the pedestrian tracking application.
         SparkStreamingApp app = new PedestrianReIDUsingAttrApp(propertyCenter);
-        TopicManager.checkTopics(propertyCenter);
         app.initialize(propertyCenter);
         app.start();
         app.awaitTermination();
@@ -105,11 +105,11 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jssc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
+        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
 
-        reidStream.addToContext(jssc);
+        reidStream.addToContext(jsc);
 
-        return jssc;
+        return jsc;
     }
 
     /*

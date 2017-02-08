@@ -125,9 +125,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         // Load system properties.
         AppPropertyCenter propCenter = new AppPropertyCenter(args);
 
+        TopicManager.checkTopics(propCenter);
+
         // Start the pedestrian tracking application.
         PedestrianAttrRecogApp app = new PedestrianAttrRecogApp(propCenter);
-        TopicManager.checkTopics(propCenter);
         app.initialize(propCenter);
         app.start();
         app.awaitTermination();
