@@ -143,7 +143,6 @@ public abstract class Stream implements Serializable {
                            @Nonnull Collection<String> topics,
                            @Nonnull KafkaCluster kafkaCluster,
                            boolean toRepartition) {
-        final Logger logger;
         Logger tmpLogger;
         try {
             tmpLogger = loggerSingleton.getInst();
@@ -151,11 +150,10 @@ public abstract class Stream implements Serializable {
             tmpLogger = new ConsoleLogger();
             e.printStackTrace();
         }
-        logger = tmpLogger;
-        logger.info("Getting initial fromOffsets from Kafka cluster.");
+        tmpLogger.info("Getting initial fromOffsets from Kafka cluster.");
         // Retrieve and correct offsets from Kafka cluster.
         final Map<TopicAndPartition, Long> fromOffsets = KafkaHelper.getFromOffsets(kafkaCluster, topics);
-        logger.info("Initial fromOffsets=" + fromOffsets);
+        tmpLogger.info("Initial fromOffsets=" + fromOffsets);
 
         // Create a direct stream from the retrieved offsets.
         JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
@@ -168,6 +166,8 @@ public abstract class Stream implements Serializable {
                 mmd -> new StringByteArrayRecord(mmd.key(), mmd.message()))
                 // Manipulate offsets.
                 .transform(rdd -> {
+                    final Logger logger = loggerSingleton.getInst();
+
                     // Store offsets.
                     final OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
                     offsetRanges.set(offsets);

@@ -143,12 +143,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
-        sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
+        JavaStreamingContext jssc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
 
-        attrRecogStream.addToContext(jsc);
+        attrRecogStream.addToContext(jssc);
 
-        return jsc;
+        return jssc;
     }
 
     /*

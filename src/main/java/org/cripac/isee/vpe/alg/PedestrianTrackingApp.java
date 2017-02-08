@@ -112,14 +112,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     @Override
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
-        JavaStreamingContext jsc =
+        JavaStreamingContext jssc =
                 new JavaStreamingContext(new SparkConf(true), Durations.milliseconds(batchDuration));
 
-        fragmentTrackingStream.addToContext(jsc);
+        fragmentTrackingStream.addToContext(jssc);
         // TODO: After completed the real-time tracking stream, uncomment the following line.
 //        rtTrackingStream.addToContext(jsc);
 
-        return jsc;
+        return jssc;
     }
 
     /*

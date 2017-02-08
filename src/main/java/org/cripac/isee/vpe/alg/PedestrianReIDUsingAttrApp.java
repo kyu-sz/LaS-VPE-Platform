@@ -105,11 +105,11 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
+        JavaStreamingContext jssc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
 
-        reidStream.addToContext(jsc);
+        reidStream.addToContext(jssc);
 
-        return jsc;
+        return jssc;
     }
 
     /*
