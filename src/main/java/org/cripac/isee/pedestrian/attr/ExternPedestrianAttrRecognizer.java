@@ -68,7 +68,7 @@ import java.nio.ByteOrder;
 public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
     private Logger logger;
-    private Socket socket;
+    private Socket socket = null;
     private InetAddress solverAddress;
     private int port;
 
@@ -82,20 +82,22 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      */
     public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,
                                           int port,
-                                          @Nullable Logger logger) throws IOException {
+                                          @Nullable Logger logger) {
         if (logger == null) {
             this.logger = new ConsoleLogger();
         } else {
             this.logger = logger;
         }
+        this.solverAddress = solverAddress;
+        this.port = port;
         this.logger.debug("Using extern recognition server at " + solverAddress.getHostAddress() + ":" + port);
-        connect(solverAddress, port);
     }
 
+    @SuppressWarnings("unused")
     public void connect(@Nonnull InetAddress solverAddress, int port) {
         this.solverAddress = solverAddress;
         this.port = port;
-        connect();
+        socket = null;
     }
 
     private void connect() {
@@ -129,6 +131,11 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
     Attributes recognize(@Nonnull Tracklet tracklet) {
         // Create a new message consisting the comparation task.
         final RequestMessage message = new RequestMessage(tracklet);
+
+        // Connect lazily.
+        if (socket == null) {
+            connect();
+        }
 
         // Write the bytes of the message to the socket.
         while (true) {

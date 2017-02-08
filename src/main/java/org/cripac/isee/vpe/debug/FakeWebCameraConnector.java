@@ -50,7 +50,7 @@ public class FakeWebCameraConnector extends WebCameraConnector {
          * @throws Exception On failure creating a new instance.
          */
         @Override
-        public WebCameraConnector produce() throws Exception {
+        public WebCameraConnector produce() {
             return new FakeWebCameraConnector(loginParam);
         }
     }

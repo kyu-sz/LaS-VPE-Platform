@@ -201,8 +201,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     recognizerSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
                             propCenter.externAttrRecogServerAddr,
                             propCenter.externAttrRecogServerPort,
-                            loggerSingleton.getInst()
-                    ));
+                            loggerSingleton.getInst()));
                     break;
                 case DeepMAR:
                     recognizerSingleton = new Singleton<>(() -> new DeepMAR(-1, loggerSingleton.getInst()));

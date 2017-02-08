@@ -28,6 +28,7 @@ import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.apache.spark.streaming.kafka.OffsetRange;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import scala.Tuple2;
 import scala.collection.JavaConversions;
@@ -141,8 +142,16 @@ public abstract class Stream implements Serializable {
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
                            @Nonnull KafkaCluster kafkaCluster,
-                           boolean toRepartition) throws Exception {
-        final Logger logger = loggerSingleton.getInst();
+                           boolean toRepartition) {
+        final Logger logger;
+        Logger tmpLogger;
+        try {
+            tmpLogger = loggerSingleton.getInst();
+        } catch (Exception e) {
+            tmpLogger = new ConsoleLogger();
+            e.printStackTrace();
+        }
+        logger = tmpLogger;
         logger.info("Getting initial fromOffsets from Kafka cluster.");
         // Retrieve and correct offsets from Kafka cluster.
         final Map<TopicAndPartition, Long> fromOffsets = KafkaHelper.getFromOffsets(kafkaCluster, topics);
@@ -203,7 +212,7 @@ public abstract class Stream implements Serializable {
     protected JavaPairDStream<String, byte[]>
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
-                           @Nonnull KafkaCluster kafkaCluster) throws Exception {
+                           @Nonnull KafkaCluster kafkaCluster) {
         return buildBytesDirectStream(jssc, topics, kafkaCluster, true);
     }
 }

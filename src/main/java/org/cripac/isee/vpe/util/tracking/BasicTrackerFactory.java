@@ -66,10 +66,16 @@ public class BasicTrackerFactory implements Factory<BasicTracker> {
      * Produce a new BasicTracker instance.
      *
      * @return A new BasicTracker instance newly produced.
-     * @throws Exception On failure creating a new BasicTracker instance.
      */
     @Override
-    public BasicTracker produce() throws Exception {
-        return new BasicTracker(conf, loggerSingleton.getInst());
+    public BasicTracker produce() {
+        Logger logger;
+        try {
+            logger = loggerSingleton.getInst();
+        } catch (Exception e) {
+            logger = new ConsoleLogger();
+            logger.error("Cannot get logger.", e);
+        }
+        return new BasicTracker(conf, logger);
     }
 }
