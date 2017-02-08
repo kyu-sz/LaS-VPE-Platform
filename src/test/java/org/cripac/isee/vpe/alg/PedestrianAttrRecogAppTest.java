@@ -21,10 +21,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
-import org.cripac.isee.pedestrian.attr.Attributes;
-import org.cripac.isee.pedestrian.attr.DeepMAR;
-import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
-import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
+import org.cripac.isee.pedestrian.attr.DeepMARTest;
+import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizerTest;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.Topic;
@@ -36,7 +34,6 @@ import org.junit.Before;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
@@ -44,8 +41,6 @@ import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
-import static org.cripac.isee.pedestrian.attr.DeepMARTest.img2Tracklet;
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
@@ -69,6 +64,7 @@ public class PedestrianAttrRecogAppTest {
     private ConsoleLogger logger;
     public InetAddress externAttrRecogServerAddr;
     public int externAttrRecogServerPort = 0;
+    private PedestrianAttrRecogApp.AppPropertyCenter propCenter;
     private static boolean toTestApp = true;
 
     public static void main(String[] args) {
@@ -98,9 +94,7 @@ public class PedestrianAttrRecogAppTest {
     public void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
         logger = new ConsoleLogger(Level.DEBUG);
 
-        PedestrianAttrRecogApp.AppPropertyCenter propCenter =
-                new PedestrianAttrRecogApp.AppPropertyCenter(args);
-
+        propCenter = new PedestrianAttrRecogApp.AppPropertyCenter(args);
         externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
         externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
 
@@ -121,27 +115,24 @@ public class PedestrianAttrRecogAppTest {
     }
 
     //    @Test
-    public void testExternAttrReognizer() throws IOException {
-        logger.info("Testing extern attr recognizer.");
-        PedestrianAttrRecognizer recognizer =
-                new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
-                        externAttrRecogServerPort, logger);
-        Tracklet tracklet = new FakePedestrianTracker().track(null)[0];
-        logger.info("Tracklet length: " + tracklet.locationSequence.length);
-        for (Tracklet.BoundingBox boundingBox : tracklet.locationSequence) {
-            logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
-                    + " " + boundingBox.width + " " + boundingBox.height);
+    public void testExternAttrReognizer() throws Exception {
+        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.EXT) {
+            logger.info("Using external pedestrian attribute recognizer.");
+
+            ExternPedestrianAttrRecognizerTest test = new ExternPedestrianAttrRecognizerTest();
+            test.setUp();
+            test.recognize();
         }
-        logger.info(recognizer.recognize(tracklet));
     }
 
-    public void testDeepMAR() throws IOException {
-        PedestrianAttrRecognizer recognizer = new DeepMAR(-1, logger);
+    public void testDeepMAR() throws Exception {
+        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
+            logger.info("Using DeepMAR for pedestrian attribute recognition.");
 
-        final String testImage = "src/test/resources/" +
-                "CAM01_2014-02-15_20140215161032-20140215162620_tarid0_frame218_line1.png";
-        Attributes attributes = recognizer.recognize(img2Tracklet(imread(testImage)));
-        logger.info(attributes);
+            DeepMARTest test = new DeepMARTest();
+            test.setUp();
+            test.recognize();
+        }
     }
 
     //    @Test

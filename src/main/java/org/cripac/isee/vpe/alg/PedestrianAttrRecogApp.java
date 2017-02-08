@@ -61,7 +61,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * @author Ken Yu, CRIPAC, 2016
  */
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
-    private enum Algorithm {
+    enum Algorithm {
         EXT,
         DeepMAR
     }
