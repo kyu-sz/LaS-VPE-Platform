@@ -116,6 +116,7 @@ public abstract class Stream implements Serializable {
     protected final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<>();
 
     private static class StringByteArrayRecord implements Serializable {
+        private static final long serialVersionUID = -7522425828162991655L;
         String key;
         byte[] value;
 
@@ -140,9 +141,12 @@ public abstract class Stream implements Serializable {
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
                            @Nonnull KafkaCluster kafkaCluster,
-                           boolean toRepartition) {
+                           boolean toRepartition) throws Exception {
+        final Logger logger = loggerSingleton.getInst();
+        logger.info("Getting initial fromOffsets from Kafka cluster.");
         // Retrieve and correct offsets from Kafka cluster.
         final Map<TopicAndPartition, Long> fromOffsets = KafkaHelper.getFromOffsets(kafkaCluster, topics);
+        logger.info("Initial fromOffsets=" + fromOffsets);
 
         // Create a direct stream from the retrieved offsets.
         JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
@@ -160,7 +164,6 @@ public abstract class Stream implements Serializable {
                     offsetRanges.set(offsets);
 
                     // Find offsets which indicate new messages have been received.
-                    final Logger logger = loggerSingleton.getInst();
                     boolean hasNewMessages = false;
                     for (OffsetRange o : offsets) {
                         if (o.untilOffset() > o.fromOffset()) {
@@ -200,7 +203,7 @@ public abstract class Stream implements Serializable {
     protected JavaPairDStream<String, byte[]>
     buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
                            @Nonnull Collection<String> topics,
-                           @Nonnull KafkaCluster kafkaCluster) {
+                           @Nonnull KafkaCluster kafkaCluster) throws Exception {
         return buildBytesDirectStream(jssc, topics, kafkaCluster, true);
     }
 }

@@ -157,13 +157,12 @@ public class TaskData implements Serializable, Cloneable {
         public Node findNode(@Nonnull Stream.Info info)
                 throws RecordNotFoundException {
             if (!nodes.containsKey(info)) {
-                StringBuilder builder = new StringBuilder(info
+                throw new RecordNotFoundException(info
                         + " cannot be found in execution plan!"
-                        + " Available streams are: ");
-                for (Stream.Info _info : nodes.keySet()) {
-                    builder.append(_info).append(" ");
-                }
-                throw new RecordNotFoundException(builder.toString());
+                        + " Available streams are: "
+                        + nodes.keySet().stream()
+                        .map(Stream.Info::toString)
+                        .reduce("", (s1, s2) -> s1 + " " + s2));
             }
             return nodes.get(info);
         }
