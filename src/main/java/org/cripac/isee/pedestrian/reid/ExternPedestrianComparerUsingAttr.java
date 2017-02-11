@@ -243,16 +243,10 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
                 byteBuffer.putInt(tracklet.locationSequence.length);
                 outputStream.write(byteBuffer.array());
                 // Each bounding box.
-                for (BoundingBox box : tracklet.locationSequence) {
+                for (BoundingBox bbox : tracklet.locationSequence) {
                     // 16 bytes - Bounding box data.
-                    byteBuffer = ByteBuffer.allocate(Integer.BYTES * 4);
-                    byteBuffer.putInt(box.x);
-                    byteBuffer.putInt(box.y);
-                    byteBuffer.putInt(box.width);
-                    byteBuffer.putInt(box.height);
-                    outputStream.write(byteBuffer.array());
                     // width * height * 3 bytes - Image data.
-                    outputStream.write(box.patchData);
+                    outputStream.write(bbox.toBytes());
                 }
 
                 // Attributes.

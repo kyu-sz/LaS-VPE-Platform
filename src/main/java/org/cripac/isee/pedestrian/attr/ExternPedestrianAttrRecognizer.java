@@ -212,8 +212,8 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
          * Given an output stream, the RequestMessage writes itself to the
          * stream as a byte array in a specialized form.
          *
-         * @param outputStream The output stream to write to.
-         * @throws IOException
+         * @param outputStream the output stream to write to.
+         * @throws IOException if an I/O error occurs.
          */
         void getBytes(@Nonnull OutputStream outputStream) throws IOException {
             BufferedOutputStream bufferedStream = new BufferedOutputStream(outputStream);
@@ -225,14 +225,8 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             // Each bounding box.
             for (BoundingBox bbox : tracklet.locationSequence) {
                 // 16 bytes - Bounding box data.
-                buf = ByteBuffer.allocate(Integer.BYTES * 4);
-                buf.putInt(bbox.x);
-                buf.putInt(bbox.y);
-                buf.putInt(bbox.width);
-                buf.putInt(bbox.height);
-                bufferedStream.write(buf.array());
                 // width * height * 3 bytes - Image data.
-                bufferedStream.write(bbox.patchData);
+                bufferedStream.write(bbox.toBytes());
             }
 
             bufferedStream.flush();

@@ -470,10 +470,10 @@ public class DataManagingApp extends SparkStreamingApp {
     }
 
     public static class AttrSavingStream extends Stream {
-        public static final Info INFO = new Info("data-saving", DataTypes.NONE);
+        public static final Info INFO = new Info("attr-saving", DataTypes.NONE);
         public static final Topic PED_ATTR_SAVING_TOPIC =
                 new Topic("pedestrian-attr-saving", DataTypes.ATTR, AttrSavingStream.INFO);
-        private static final long serialVersionUID = 2820895755662980265L;
+        private static final long serialVersionUID = 858443725387544606L;
         private final Map<String, String> kafkaParams;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
@@ -513,14 +513,10 @@ public class DataManagingApp extends SparkStreamingApp {
     }
 
     public static class IDRankSavingStream extends Stream {
-        public static final Info INFO = new Info("data-saving", DataTypes.NONE);
-        public static final Topic PED_TRACKLET_SAVING_TOPIC =
-                new Topic("pedestrian-tracklet-saving", DataTypes.TRACKLET, IDRankSavingStream.INFO);
-        public static final Topic PED_ATTR_SAVING_TOPIC =
-                new Topic("pedestrian-attr-saving", DataTypes.ATTR, IDRankSavingStream.INFO);
+        public static final Info INFO = new Info("idrank-saving", DataTypes.NONE);
         public static final Topic PED_IDRANK_SAVING_TOPIC =
                 new Topic("pedestrian-idrank-saving", DataTypes.IDRANK, IDRankSavingStream.INFO);
-        private static final long serialVersionUID = 2820895755662980265L;
+        private static final long serialVersionUID = -6469177153696762040L;
         private final Map<String, String> kafkaParams;
 
         public IDRankSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
