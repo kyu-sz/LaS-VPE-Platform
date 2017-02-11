@@ -26,10 +26,8 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
-import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
@@ -69,7 +67,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "pedestrian-tracking";
-    private int batchDuration = 1000;
+    private static final long serialVersionUID = 662603522385058035L;
 
     private Stream fragmentTrackingStream;
     private Stream rtTrackingStream;
@@ -82,7 +80,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public PedestrianTrackingApp(SystemPropertyCenter propCenter) throws Exception {
-        batchDuration = propCenter.batchDuration;
+        super(propCenter);
         fragmentTrackingStream = new HDFSVideoTrackingStream(propCenter);
         rtTrackingStream = new RTVideoStreamTrackingStream(propCenter);
     }
@@ -99,7 +97,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         // Start the pedestrian tracking application.
         SparkStreamingApp app = new PedestrianTrackingApp(propCenter);
-        app.initialize(propCenter);
+        app.initialize();
         app.start();
         app.awaitTermination();
     }
@@ -113,13 +111,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     @Override
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
-        JavaStreamingContext jssc =
-                new JavaStreamingContext(new SparkConf(true), Durations.milliseconds(batchDuration));
-
+        JavaStreamingContext jssc = super.getStreamContext();
         fragmentTrackingStream.addToContext(jssc);
         // TODO: After completed the real-time tracking stream, uncomment the following line.
 //        rtTrackingStream.addToContext(jsc);
-
         return jssc;
     }
 

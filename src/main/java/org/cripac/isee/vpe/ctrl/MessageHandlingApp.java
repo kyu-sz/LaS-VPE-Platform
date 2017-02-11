@@ -20,9 +20,6 @@ package org.cripac.isee.vpe.ctrl;
 import com.google.gson.Gson;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
@@ -62,7 +59,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "message-handling";
-    private int batchDuration = 1000;
     private Stream msgHandlingStream;
 
     /**
@@ -73,7 +69,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public MessageHandlingApp(SystemPropertyCenter propCenter) throws Exception {
-        this.batchDuration = propCenter.batchDuration;
+        super(propCenter);
         msgHandlingStream = new MessageHandlingStream(propCenter);
     }
 
@@ -87,19 +83,15 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
         SparkStreamingApp app = new MessageHandlingApp(propCenter);
         TopicManager.checkTopics(propCenter);
-        app.initialize(propCenter);
+        app.initialize();
         app.start();
         app.awaitTermination();
     }
 
     @Override
     protected JavaStreamingContext getStreamContext() {
-        JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
-        sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jssc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
-
+        JavaStreamingContext jssc = super.getStreamContext();
         msgHandlingStream.addToContext(jssc);
-
         return jssc;
     }
 

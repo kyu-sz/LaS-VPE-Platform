@@ -19,9 +19,6 @@ package org.cripac.isee.vpe.alg;
 
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.cripac.isee.pedestrian.attr.Attributes;
@@ -33,6 +30,7 @@ import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
+import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
@@ -50,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
@@ -61,6 +58,8 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * @author Ken Yu, CRIPAC, 2016
  */
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
+    private static final long serialVersionUID = 2559258492435661197L;
+
     enum Algorithm {
         EXT,
         DeepMAR
@@ -71,7 +70,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public static final String APP_NAME = "pedestrian-attr-recog";
     private Stream attrRecogStream;
-    private int batchDuration = 1000;
 
     /**
      * Constructor of the application, configuring properties read from a
@@ -81,7 +79,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public PedestrianAttrRecogApp(AppPropertyCenter propCenter) throws Exception {
-        this.batchDuration = propCenter.batchDuration;
+        super(propCenter);
         attrRecogStream = new RecogStream(propCenter);
     }
 
@@ -129,7 +127,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
         // Start the pedestrian tracking application.
         PedestrianAttrRecogApp app = new PedestrianAttrRecogApp(propCenter);
-        app.initialize(propCenter);
+        app.initialize();
         app.start();
         app.awaitTermination();
     }
@@ -143,11 +141,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
     @Override
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
-        JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
-        JavaStreamingContext jssc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
-
+        JavaStreamingContext jssc = super.getStreamContext();
         attrRecogStream.addToContext(jssc);
-
         return jssc;
     }
 
@@ -217,16 +212,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             // Recognize attributes from the tracklets.
             final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
             buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kc)
-                    .mapValues(taskDataBytes -> {
-                        TaskData taskData;
-                        try {
-                            taskData = deserialize(taskDataBytes);
-                            return taskData;
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During TaskData deserialization", e);
-                            return null;
-                        }
-                    })
+                    .mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
                     .foreachRDD(rdd -> {
                         rdd.foreach(kv -> {
                             try {

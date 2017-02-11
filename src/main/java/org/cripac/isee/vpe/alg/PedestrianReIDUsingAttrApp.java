@@ -18,8 +18,6 @@
 package org.cripac.isee.vpe.alg;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.Optional;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -34,6 +32,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
+import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
@@ -61,7 +60,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "pedestrian-reID-using-attr";
-    private int batchDuration = 1000;
+    private static final long serialVersionUID = 7561012713161590005L;
 
     private Stream reidStream;
 
@@ -70,26 +69,26 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
      * property center.
      *
      * @param propCenter A class saving all the properties this application may need.
-     * @throws Exception
+     * @throws Exception On failure in Spark.
      */
     public PedestrianReIDUsingAttrApp(SystemPropertyCenter propCenter) throws Exception {
-        batchDuration = propCenter.batchDuration;
+        super(propCenter);
         reidStream = new ReIDStream(propCenter);
     }
 
     /**
      * @param args No options supported currently.
-     * @throws Exception
+     * @throws Exception On failure in Spark.
      */
     public static void main(String[] args) throws Exception {
         // Load system properties.
-        SystemPropertyCenter propertyCenter = new SystemPropertyCenter(args);
+        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
-        TopicManager.checkTopics(propertyCenter);
+        TopicManager.checkTopics(propCenter);
 
         // Start the pedestrian tracking application.
-        SparkStreamingApp app = new PedestrianReIDUsingAttrApp(propertyCenter);
-        app.initialize(propertyCenter);
+        SparkStreamingApp app = new PedestrianReIDUsingAttrApp(propCenter);
+        app.initialize();
         app.start();
         app.awaitTermination();
     }
@@ -103,13 +102,9 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
     @Override
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
-        JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
-        sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-        JavaStreamingContext jsc = new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
-
-        reidStream.addToContext(jsc);
-
-        return jsc;
+        JavaStreamingContext jssc = super.getStreamContext();
+        reidStream.addToContext(jssc);
+        return jssc;
     }
 
     /*
@@ -294,16 +289,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // attributes belong to.
             final JavaPairDStream<String, TaskData> integralTrackletAttrDStream =
                     buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_ATTR_TOPIC.NAME), kc)
-                            .mapValues(bytes -> {
-                                TaskData taskData;
-                                try {
-                                    taskData = deserialize(bytes);
-                                    return taskData;
-                                } catch (Exception e) {
-                                    loggerSingleton.getInst().error("During TaskData deserialization", e);
-                                    return null;
-                                }
-                            });
+                            .mapValues(SerializationHelper::<TaskData>deserializeNoThrow);
 
             // Union the two track with attribute streams and perform ReID.
             integralTrackletAttrDStream.union(asmTrackletAttrDStream)

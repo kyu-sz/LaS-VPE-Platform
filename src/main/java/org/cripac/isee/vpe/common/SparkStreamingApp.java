@@ -20,11 +20,12 @@ package org.cripac.isee.vpe.common;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 
-import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -40,36 +41,45 @@ import java.io.Serializable;
 public abstract class SparkStreamingApp implements Serializable {
 
     private static final long serialVersionUID = 3098753124157119358L;
+    private int batchDuration = 1000;
+    private String checkpointRootDir;
+    private String sparkMaster;
+
+    public SparkStreamingApp(SystemPropertyCenter propCenter) {
+        batchDuration = propCenter.batchDuration;
+        checkpointRootDir = propCenter.checkpointRootDir;
+        sparkMaster = propCenter.sparkMaster;
+    }
 
     /**
      * Common Spark Streaming context variable.
      */
-    private transient JavaStreamingContext streamingContext = null;
+    private transient JavaStreamingContext jssc = null;
 
     /**
-     * Implemented by subclasses, this method produces an application-specified
-     * Spark Streaming context.
+     * This method produces an empty Spark Streaming context.
+     * Should be further implemented by subclasses to produce an application-specified context.
      *
-     * @return An application-specified Spark Streaming context.
+     * @return An empty Spark Streaming context.
      */
-    protected abstract JavaStreamingContext getStreamContext();
+    protected JavaStreamingContext getStreamContext() {
+        // Create contexts.
+        JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
+        sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
+        return new JavaStreamingContext(sparkContext, Durations.milliseconds(batchDuration));
+    }
 
     abstract public String getAppName();
 
     /**
      * Initialize the application.
-     *
-     * @param propCenter Properties of the whole system.
      */
-    public void initialize(@Nonnull SystemPropertyCenter propCenter) {
-        SynthesizedLogger logger = new SynthesizedLogger(getAppName(), propCenter);
-
-        String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
-        logger.info("Using " + checkpointDir + " as checkpoint directory.");
-        streamingContext = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
+    public void initialize() {
+        String checkpointDir = checkpointRootDir + "/" + getAppName();
+        jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
             JavaStreamingContext context = getStreamContext();
             try {
-                if (propCenter.sparkMaster.contains("local")) {
+                if (sparkMaster.contains("local")) {
                     File dir = new File(checkpointDir);
                     //noinspection ResultOfMethodCallIgnored
                     dir.delete();
@@ -93,14 +103,14 @@ public abstract class SparkStreamingApp implements Serializable {
      * Start the application.
      */
     public void start() {
-        streamingContext.start();
+        jssc.start();
     }
 
     /**
      * Stop the application.
      */
     public void stop() {
-        streamingContext.stop();
+        jssc.stop();
     }
 
     /**
@@ -108,7 +118,7 @@ public abstract class SparkStreamingApp implements Serializable {
      */
     public void awaitTermination() {
         try {
-            streamingContext.awaitTermination();
+            jssc.awaitTermination();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -116,8 +126,8 @@ public abstract class SparkStreamingApp implements Serializable {
 
     @Override
     protected void finalize() throws Throwable {
-        if (streamingContext != null) {
-            streamingContext.close();
+        if (jssc != null) {
+            jssc.close();
         }
         super.finalize();
     }

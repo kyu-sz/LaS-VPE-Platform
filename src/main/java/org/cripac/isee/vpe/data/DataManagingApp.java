@@ -28,8 +28,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.SparkConf;
-import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.bytedeco.javacpp.BytePointer;
@@ -88,7 +86,6 @@ public class DataManagingApp extends SparkStreamingApp {
      */
     public static final String APP_NAME = "data-managing";
     private static final long serialVersionUID = 7338424132131492017L;
-    private int batchDuration = 1000;
 
     private Stream pedTrackletRtrvStream;
     private Stream pedTrackletAttrRtrvStream;
@@ -97,7 +94,7 @@ public class DataManagingApp extends SparkStreamingApp {
     private Stream idRandkSavingStream;
 
     public DataManagingApp(AppPropertyCenter propCenter) throws Exception {
-        this.batchDuration = propCenter.batchDuration;
+        super(propCenter);
 
         pedTrackletRtrvStream = new PedestrainTrackletRetrievingStream(propCenter);
         pedTrackletAttrRtrvStream = new PedestrainTrackletAttrRetrievingStream(propCenter);
@@ -127,7 +124,7 @@ public class DataManagingApp extends SparkStreamingApp {
         TopicManager.checkTopics(propCenter);
 
         final SparkStreamingApp app = new DataManagingApp(propCenter);
-        app.initialize(propCenter);
+        app.initialize();
         app.start();
         app.awaitTermination();
     }
@@ -135,7 +132,7 @@ public class DataManagingApp extends SparkStreamingApp {
     @Override
     protected JavaStreamingContext getStreamContext() {
         // Create contexts.
-        JavaStreamingContext jssc = new JavaStreamingContext(new SparkConf(), Durations.milliseconds(batchDuration));
+        JavaStreamingContext jssc = super.getStreamContext();
 
         // Setup streams for data feeding.
         pedTrackletRtrvStream.addToContext(jssc);
