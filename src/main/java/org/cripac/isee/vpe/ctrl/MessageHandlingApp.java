@@ -184,7 +184,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             param.get(Parameter.TRACKING_CONF_FILE));
                     // The letNodeOutputTo method will automatically add the DataManagingApp node.
                     plan.letNodeOutputTo(trackingNode,
-                            DataManagingApp.IDRankSavingStream.PED_TRACKLET_SAVING_TOPIC);
+                            DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC);
                     break;
                 }
                 case CommandType.RT_TRACK_ONLY: {
@@ -194,7 +194,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             param.get(Parameter.TRACKING_CONF_FILE));
                     // The letNodeOutputTo method will automatically add the DataManagingApp node.
                     plan.letNodeOutputTo(trackingNode,
-                            DataManagingApp.IDRankSavingStream.PED_TRACKLET_SAVING_TOPIC);
+                            DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC);
                     break;
                 }
                 case CommandType.ATTRRECOG_ONLY: {
@@ -206,7 +206,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     plan.letNodeOutputTo(trackletDataNode,
                             PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
                     plan.letNodeOutputTo(attrRecogNode,
-                            DataManagingApp.IDRankSavingStream.PED_ATTR_SAVING_TOPIC);
+                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
                     break;
                 }
                 case CommandType.TRACK_ATTRRECOG: {
@@ -219,9 +219,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     plan.letNodeOutputTo(trackingNode,
                             PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
                     plan.letNodeOutputTo(trackingNode,
-                            DataManagingApp.IDRankSavingStream.PED_TRACKLET_SAVING_TOPIC);
+                            DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC);
                     plan.letNodeOutputTo(attrRecogNode,
-                            DataManagingApp.IDRankSavingStream.PED_ATTR_SAVING_TOPIC);
+                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
                     break;
                 }
                 case CommandType.REID_ONLY: {
@@ -251,7 +251,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     plan.letNodeOutputTo(attrRecogNode,
                             PedestrianReIDUsingAttrApp.ReIDStream.ATTR_TOPIC);
                     plan.letNodeOutputTo(attrRecogNode,
-                            DataManagingApp.IDRankSavingStream.PED_ATTR_SAVING_TOPIC);
+                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
                     plan.letNodeOutputTo(reidNode,
                             DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_TOPIC);
                     break;
@@ -271,9 +271,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     plan.letNodeOutputTo(attrRecogNode,
                             PedestrianReIDUsingAttrApp.ReIDStream.ATTR_TOPIC);
                     plan.letNodeOutputTo(trackingNode,
-                            DataManagingApp.IDRankSavingStream.PED_TRACKLET_SAVING_TOPIC);
+                            DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC);
                     plan.letNodeOutputTo(attrRecogNode,
-                            DataManagingApp.IDRankSavingStream.PED_ATTR_SAVING_TOPIC);
+                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
                     plan.letNodeOutputTo(reidNode,
                             DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_TOPIC);
                     break;
@@ -293,9 +293,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
                     plan.letNodeOutputTo(attrRecogNode,
                             PedestrianReIDUsingAttrApp.ReIDStream.ATTR_TOPIC);
                     plan.letNodeOutputTo(trackingNode,
-                            DataManagingApp.IDRankSavingStream.PED_TRACKLET_SAVING_TOPIC);
+                            DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC);
                     plan.letNodeOutputTo(attrRecogNode,
-                            DataManagingApp.IDRankSavingStream.PED_ATTR_SAVING_TOPIC);
+                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
                     plan.letNodeOutputTo(reidNode,
                             DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_TOPIC);
                     break;

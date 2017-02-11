@@ -18,7 +18,7 @@
 package org.cripac.isee.vpe.common;
 
 /**
- * Enumeration of data types that can be accepted by applications.
+ * Enumeration of data types that can be outputted or accepted by applications.
  *
  * Created by ken.yu on 16-10-27.
  */

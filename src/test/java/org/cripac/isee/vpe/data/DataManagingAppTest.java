@@ -96,7 +96,7 @@ public class DataManagingAppTest {
             tracklet.id = new Tracklet.Identifier("fake", i);
 
             TaskData data = new TaskData(savingNode, plan, tracklet);
-            sendWithLog(DataManagingApp.IDRankSavingStream.PED_TRACKLET_SAVING_TOPIC,
+            sendWithLog(DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC,
                     taskID,
                     serialize(data),
                     producer,
@@ -114,7 +114,7 @@ public class DataManagingAppTest {
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
 
         TaskData data = new TaskData(savingNode, plan, attributes);
-        sendWithLog(DataManagingApp.IDRankSavingStream.PED_ATTR_SAVING_TOPIC,
+        sendWithLog(DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,
