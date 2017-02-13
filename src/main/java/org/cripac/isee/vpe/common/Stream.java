@@ -173,18 +173,20 @@ public abstract class Stream implements Serializable {
                     offsetRanges.set(offsets);
 
                     // Find offsets which indicate new messages have been received.
-                    boolean hasNewMessages = false;
+                    int numNewMessages = 0;
                     for (OffsetRange o : offsets) {
                         if (o.untilOffset() > o.fromOffset()) {
-                            hasNewMessages = true;
+                            numNewMessages += o.untilOffset() - o.fromOffset();
                             logger.debug("Received {topic=" + o.topic()
                                     + ", partition=" + o.partition()
                                     + ", fromOffset=" + o.fromOffset()
                                     + ", untilOffset=" + o.untilOffset() + "}");
                         }
                     }
-                    if (!hasNewMessages) {
+                    if (numNewMessages == 0) {
                         logger.debug("No new messages!");
+                    } else {
+                        logger.debug("Received " + numNewMessages + " messages totally.");
                     }
                     return rdd;
                 })
