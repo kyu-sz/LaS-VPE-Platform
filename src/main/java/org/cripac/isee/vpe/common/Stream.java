@@ -17,27 +17,13 @@
 
 package org.cripac.isee.vpe.common;
 
-import kafka.common.TopicAndPartition;
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.HasOffsetRanges;
-import org.apache.spark.streaming.kafka.KafkaCluster;
-import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.apache.spark.streaming.kafka.OffsetRange;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
-import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
-import scala.Tuple2;
-import scala.collection.JavaConversions;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.List;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
@@ -108,113 +94,11 @@ public abstract class Stream implements Serializable {
     }
 
     /**
-     * Add the stream to a Spark Streaming context.
+     * Append the stream to a Spark Streaming stream.
      *
-     * @param jssc A Spark Streaming context.
+     * @param globalStream A Spark Streaming stream.
      */
-    public abstract void addToContext(JavaStreamingContext jssc);
+    public abstract void addToStream(JavaPairDStream<String, byte[]> globalStream);
 
-    protected final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<>();
-
-    private static class StringByteArrayRecord implements Serializable {
-        private static final long serialVersionUID = -7522425828162991655L;
-        String key;
-        byte[] value;
-
-        StringByteArrayRecord(String key, byte[] value) {
-            this.key = key;
-            this.value = value;
-        }
-    }
-
-    /**
-     * Utility function for all applications to receive messages with byte
-     * array values from Kafka with direct stream.
-     *
-     * @param jssc          The streaming context of the applications.
-     * @param topics        Topics from which the direct stream reads.
-     * @param kafkaCluster  Kafka cluster created from getKafkaParams
-     *                      (please use {@link KafkaHelper#createKafkaCluster(Map)}).
-     * @param toRepartition Whether to repartition the RDDs.
-     * @return A Kafka non-receiver input stream.
-     */
-    protected JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
-                           @Nonnull Collection<String> topics,
-                           @Nonnull KafkaCluster kafkaCluster,
-                           boolean toRepartition) {
-        Logger tmpLogger;
-        try {
-            tmpLogger = loggerSingleton.getInst();
-        } catch (Exception e) {
-            tmpLogger = new ConsoleLogger();
-            e.printStackTrace();
-        }
-        tmpLogger.info("Getting initial fromOffsets from Kafka cluster.");
-        // Retrieve and correct offsets from Kafka cluster.
-        final Map<TopicAndPartition, Long> fromOffsets = KafkaHelper.getFromOffsets(kafkaCluster, topics);
-        tmpLogger.info("Initial fromOffsets=" + fromOffsets);
-
-        // Create a direct stream from the retrieved offsets.
-        JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
-                jssc,
-                String.class, byte[].class,
-                StringDecoder.class, DefaultDecoder.class,
-                StringByteArrayRecord.class,
-                JavaConversions.mapAsJavaMap(kafkaCluster.kafkaParams()),
-                fromOffsets,
-                mmd -> new StringByteArrayRecord(mmd.key(), mmd.message()))
-                // Manipulate offsets.
-                .transform(rdd -> {
-                    final Logger logger = loggerSingleton.getInst();
-
-                    // Store offsets.
-                    final OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-                    offsetRanges.set(offsets);
-
-                    // Find offsets which indicate new messages have been received.
-                    int numNewMessages = 0;
-                    for (OffsetRange o : offsets) {
-                        if (o.untilOffset() > o.fromOffset()) {
-                            numNewMessages += o.untilOffset() - o.fromOffset();
-                            logger.debug("Received {topic=" + o.topic()
-                                    + ", partition=" + o.partition()
-                                    + ", fromOffset=" + o.fromOffset()
-                                    + ", untilOffset=" + o.untilOffset() + "}");
-                        }
-                    }
-                    if (numNewMessages == 0) {
-                        logger.debug("No new messages!");
-                    } else {
-                        logger.debug("Received " + numNewMessages + " messages totally.");
-                    }
-                    return rdd;
-                })
-                // Transform to usual record type.
-                .mapToPair(rec -> new Tuple2<>(rec.key, rec.value));
-
-        if (toRepartition) {
-            // Repartition the records.
-            stream = stream.repartition(jssc.sparkContext().defaultParallelism());
-        }
-
-        return stream;
-    }
-
-    /**
-     * Utility function for all applications to receive messages with byte
-     * array values from Kafka with direct stream. RDDs are repartitioned by default.
-     *
-     * @param jssc         The streaming context of the applications.
-     * @param topics       Topics from which the direct stream reads.
-     * @param kafkaCluster Kafka cluster created from getKafkaParams
-     *                     (please use {@link KafkaHelper#createKafkaCluster(Map)}).
-     * @return A Kafka non-receiver input stream.
-     */
-    protected JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
-                           @Nonnull Collection<String> topics,
-                           @Nonnull KafkaCluster kafkaCluster) {
-        return buildBytesDirectStream(jssc, topics, kafkaCluster, true);
-    }
+    public abstract List<String> listeningTopics();
 }

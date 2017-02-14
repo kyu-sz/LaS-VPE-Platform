@@ -19,8 +19,7 @@ package org.cripac.isee.vpe.alg;
 
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaCluster;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.DeepMAR;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
@@ -32,7 +31,6 @@ import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -69,7 +67,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      * The NAME of this application.
      */
     public static final String APP_NAME = "pedestrian-attr-recog";
-    private Stream attrRecogStream;
 
     /**
      * Constructor of the application, configuring properties read from a
@@ -79,8 +76,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public PedestrianAttrRecogApp(AppPropertyCenter propCenter) throws Exception {
-        super(propCenter);
-        attrRecogStream = new RecogStream(propCenter);
+        super(propCenter, APP_NAME);
+
+        registerStreams(Collections.singletonList(new RecogStream(propCenter)));
     }
 
     public static class AppPropertyCenter extends SystemPropertyCenter {
@@ -135,20 +133,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
     /*
      * (non-Javadoc)
      *
-     * @see
-     * SparkStreamingApp#getStreamContext()
-     */
-    @Override
-    protected JavaStreamingContext getStreamContext() {
-        // Create contexts.
-        JavaStreamingContext jssc = super.getStreamContext();
-        attrRecogStream.addToContext(jssc);
-        return jssc;
-    }
-
-    /*
-     * (non-Javadoc)
-     *
      * @see SparkStreamingApp#getStreamInfo()
      */
     @Override
@@ -168,23 +152,15 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         DataTypes.TRACKLET, INFO);
         private static final long serialVersionUID = -4672941060404428484L;
 
-        /**
-         * Kafka parameters for creating input streams pulling messages from Kafka
-         * Brokers.
-         */
-        private final Map<String, String> kafkaParams;
-
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<PedestrianAttrRecognizer> recognizerSingleton;
         // Max length of the resulting tracklet. 0 means not limiting.
         private final int maxTrackletLength;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
+            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME + ":" + INFO.NAME, propCenter)));
 
             this.maxTrackletLength = propCenter.maxTrackletLength;
-
-            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
 
             Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
@@ -208,76 +184,75 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jssc) {// Extract tracklets from the data.
+        public void addToStream(JavaPairDStream<String, byte[]> globalStream) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(TRACKLET_TOPIC.NAME), kc)
-                    .mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
-                    .foreachRDD(rdd -> {
-                        rdd.foreach(kv -> {
-                            try {
-                                Logger logger = loggerSingleton.getInst();
+            globalStream.mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
+                    .foreachRDD(rdd -> rdd.foreach(kv -> {
+                        try {
+                            Logger logger = loggerSingleton.getInst();
 
-                                String taskID = kv._1();
-                                TaskData taskData = kv._2();
-                                logger.debug("Received task " + taskID + "!");
+                            String taskID = kv._1();
+                            TaskData taskData = kv._2();
+                            logger.debug("Received task " + taskID + "!");
 
-                                if (taskData.predecessorRes == null) {
-                                    throw new DataTypeNotMatchedException("Predecessor result sent by "
-                                            + taskData.predecessorInfo
-                                            + " is null!");
-                                }
-                                if (!(taskData.predecessorRes instanceof Tracklet)) {
-                                    throw new DataTypeNotMatchedException("Predecessor result sent by "
-                                            + taskData.predecessorInfo
-                                            + " is expected to be a Tracklet,"
-                                            + " but received \""
-                                            + taskData.predecessorRes + "\"!");
-                                }
-
-                                Tracklet tracklet = (Tracklet) taskData.predecessorRes;
-                                logger.debug("To recognize attributes for task " + taskID + "!");
-                                // Truncate and shrink the tracklet in case it is too large.
-                                if (maxTrackletLength > 0
-                                        && tracklet.locationSequence.length > maxTrackletLength) {
-                                    final int increment = tracklet.locationSequence.length / maxTrackletLength;
-                                    final int start =
-                                            tracklet.locationSequence.length - maxTrackletLength * increment;
-                                    tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
-                                }
-                                // Recognize attributes.
-                                Attributes attr = recognizerSingleton.getInst().recognize(tracklet);
-                                logger.debug("Attributes retrieved for task " + taskID + "!");
-                                attr.trackletID = tracklet.id;
-
-                                // Prepare new task data.
-                                // Stored the track in the task data, which can be
-                                // cyclic utilized.
-                                taskData.predecessorRes = attr;
-                                // Get the IDs of successor nodes.
-                                List<Topic> succTopics = taskData.curNode.getSuccessors();
-                                // Mark the current node as executed.
-                                taskData.curNode.markExecuted();
-
-                                // Send to all the successor nodes.
-                                final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-                                for (Topic topic : succTopics) {
-                                    try {
-                                        taskData.changeCurNode(topic);
-                                    } catch (RecordNotFoundException e) {
-                                        logger.warn("When changing node in TaskData", e);
-                                    }
-
-                                    final byte[] serialized = serialize(taskData);
-                                    sendWithLog(topic, taskID, serialized, producer, logger);
-                                }
-                            } catch (Exception e) {
-                                loggerSingleton.getInst().error("During processing attributes.", e);
+                            if (taskData.predecessorRes == null) {
+                                throw new DataTypeNotMatchedException("Predecessor result sent by "
+                                        + taskData.predecessorInfo
+                                        + " is null!");
                             }
-                        });
+                            if (!(taskData.predecessorRes instanceof Tracklet)) {
+                                throw new DataTypeNotMatchedException("Predecessor result sent by "
+                                        + taskData.predecessorInfo
+                                        + " is expected to be a Tracklet,"
+                                        + " but received \""
+                                        + taskData.predecessorRes + "\"!");
+                            }
 
-                        KafkaHelper.submitOffset(kc, offsetRanges.get());
-                    });
+                            Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                            logger.debug("To recognize attributes for task " + taskID + "!");
+                            // Truncate and shrink the tracklet in case it is too large.
+                            if (maxTrackletLength > 0
+                                    && tracklet.locationSequence.length > maxTrackletLength) {
+                                final int increment = tracklet.locationSequence.length / maxTrackletLength;
+                                final int start =
+                                        tracklet.locationSequence.length - maxTrackletLength * increment;
+                                tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
+                            }
+                            // Recognize attributes.
+                            Attributes attr = recognizerSingleton.getInst().recognize(tracklet);
+                            logger.debug("Attributes retrieved for task " + taskID + "!");
+                            attr.trackletID = tracklet.id;
+
+                            // Prepare new task data.
+                            // Stored the track in the task data, which can be
+                            // cyclic utilized.
+                            taskData.predecessorRes = attr;
+                            // Get the IDs of successor nodes.
+                            List<Topic> succTopics = taskData.curNode.getSuccessors();
+                            // Mark the current node as executed.
+                            taskData.curNode.markExecuted();
+
+                            // Send to all the successor nodes.
+                            final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+                            for (Topic topic : succTopics) {
+                                try {
+                                    taskData.changeCurNode(topic);
+                                } catch (RecordNotFoundException e) {
+                                    logger.warn("When changing node in TaskData", e);
+                                }
+
+                                final byte[] serialized = serialize(taskData);
+                                sendWithLog(topic, taskID, serialized, producer, logger);
+                            }
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During processing attributes.", e);
+                        }
+                    }));
+        }
+
+        @Override
+        public List<String> listeningTopics() {
+            return Collections.singletonList(TRACKLET_TOPIC.NAME);
         }
     }
 }
