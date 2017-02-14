@@ -79,6 +79,12 @@ public class SynthesizedLogger extends Logger {
         producer = new KafkaProducer<>(producerProp);
     }
 
+    @Override
+    protected void finalize() throws Throwable {
+        producer.close();
+        super.finalize();
+    }
+
     private void send(@Nonnull String message) {
         producer.send(new ProducerRecord<>(username + "_report", this.username, message));
     }
