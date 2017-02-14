@@ -20,12 +20,14 @@ package org.cripac.isee.vpe.common;
 import kafka.common.TopicAndPartition;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.HasOffsetRanges;
 import org.apache.spark.streaming.kafka.KafkaCluster;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 import org.apache.spark.streaming.kafka.OffsetRange;
+import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -34,10 +36,15 @@ import scala.Tuple2;
 import scala.collection.JavaConversions;
 
 import javax.annotation.Nonnull;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
@@ -216,5 +223,23 @@ public abstract class Stream implements Serializable {
                            @Nonnull Collection<String> topics,
                            @Nonnull KafkaCluster kafkaCluster) {
         return buildBytesDirectStream(jssc, topics, kafkaCluster, true);
+    }
+
+    protected void output(List<Topic> topics,
+                          String taskID,
+                          TaskData taskData,
+                          KafkaProducer<String, byte[]> producer,
+                          Logger logger) throws IOException {
+        for (Topic topic : topics) {
+            try {
+                taskData.changeCurNode(topic);
+            } catch (RecordNotFoundException e) {
+                logger.warn("When changing node in TaskData", e);
+            }
+
+            final byte[] serialized = serialize(taskData);
+            logger.debug("To sendWithLog message with size: " + serialized.length);
+            sendWithLog(topic, taskID, serialized, producer, logger);
+        }
     }
 }

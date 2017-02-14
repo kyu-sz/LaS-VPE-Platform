@@ -52,8 +52,6 @@ import java.io.InputStream;
 import java.util.*;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The PedestrianTrackingApp class takes in video URLs from Kafka, then process
@@ -335,17 +333,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     // Stored the track in the task data, which can be cyclic utilized.
                                     taskData.predecessorRes = tracklet;
                                     // Send to all the successor nodes.
-                                    for (Topic topic : succTopics) {
-                                        try {
-                                            taskData.changeCurNode(topic);
-                                        } catch (RecordNotFoundException e) {
-                                            logger.warn("When changing node in TaskData", e);
-                                        }
-
-                                        final byte[] serialized = serialize(taskData);
-                                        logger.debug("To sendWithLog message with size: " + serialized.length);
-                                        sendWithLog(topic, taskID, serialized, producer, logger);
-                                    }
+                                    output(succTopics, taskID, taskData, producer, logger);
                                 }
                             } catch (Throwable e) {
                                 logger.error("During tracking.", e);

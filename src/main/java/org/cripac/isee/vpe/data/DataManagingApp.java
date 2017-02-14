@@ -38,7 +38,10 @@ import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.*;
+import org.cripac.isee.vpe.common.DataTypes;
+import org.cripac.isee.vpe.common.SparkStreamingApp;
+import org.cripac.isee.vpe.common.Stream;
+import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TopicManager;
@@ -64,9 +67,7 @@ import java.util.*;
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The DataManagingApp class combines two functions: meta data saving and data
@@ -223,15 +224,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                         // Send to all the successor nodes.
                                         final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                         final String taskID = kv._1();
-                                        for (Topic topic : succTopics) {
-                                            try {
-                                                taskData.changeCurNode(topic);
-                                            } catch (RecordNotFoundException e) {
-                                                logger.warn("When changing node in TaskData", e);
-                                            }
-
-                                            sendWithLog(topic, taskID, serialize(taskData), producer, logger);
-                                        }
+                                        output(succTopics, taskID, taskData, producer, logger);
                                     } catch (Exception e) {
                                         logger.error("During retrieving tracklets", e);
                                     }
@@ -295,18 +288,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                         // Mark the current node as executed.
                                         taskData.curNode.markExecuted();
                                         // Send to all the successor nodes.
-                                        for (Topic topic : succTopics) {
-                                            try {
-                                                taskData.changeCurNode(topic);
-                                            } catch (RecordNotFoundException e) {
-                                                logger.warn("When changing node in TaskData", e);
-                                            }
-                                            sendWithLog(topic,
-                                                    taskID,
-                                                    serialize(taskData),
-                                                    producerSingleton.getInst(),
-                                                    logger);
-                                        }
+                                        final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+                                        output(succTopics, taskID, taskData, producer, logger);
                                     } catch (Exception e) {
                                         logger.error("During retrieving tracklet and attributes", e);
                                     }

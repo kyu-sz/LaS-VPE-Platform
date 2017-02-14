@@ -48,9 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
-
 /**
  * The PedestrianAttrRecogApp class is a Spark Streaming application which
  * performs pedestrian attribute recognition.
@@ -261,16 +258,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
                                 // Send to all the successor nodes.
                                 final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-                                for (Topic topic : succTopics) {
-                                    try {
-                                        taskData.changeCurNode(topic);
-                                    } catch (RecordNotFoundException e) {
-                                        logger.warn("When changing node in TaskData", e);
-                                    }
-
-                                    final byte[] serialized = serialize(taskData);
-                                    sendWithLog(topic, taskID, serialized, producer, logger);
-                                }
+                                output(succTopics, taskID, taskData, producer, logger);
                             } catch (Exception e) {
                                 loggerSingleton.getInst().error("During processing attributes.", e);
                             }

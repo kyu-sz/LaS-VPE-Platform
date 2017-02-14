@@ -417,8 +417,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                                                     .RTRV_JOB_TOPIC),
                                                             plan,
                                                             id);
-                                                    sendWithLog(
-                                                            PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
+                                                    sendWithLog(PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
                                                             taskID, serialize(taskData), producer, logger);
                                                     break;
                                                 }
