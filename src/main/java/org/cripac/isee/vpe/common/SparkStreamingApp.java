@@ -92,7 +92,7 @@ public abstract class SparkStreamingApp implements Serializable {
 
     private final List<Stream> streams = new ArrayList<>();
 
-    public void checkTopics(Collection<String> topics) {
+    private void checkTopics(Collection<String> topics) {
         Logger logger;
         try {
             logger = loggerSingleton.getInst();
@@ -100,11 +100,13 @@ public abstract class SparkStreamingApp implements Serializable {
             e.printStackTrace();
             logger = new ConsoleLogger(Level.DEBUG);
         }
+        logger.info("Checking topics: " + topics.stream().reduce("", (s1, s2) -> s1 + ", " + s2));
+
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
         ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
         ZkClient zkClient = new ZkClient(zkConn);
+
         for (String topic : topics) {
-            logger.info("Checking topic: " + topic);
             if (!AdminUtils.topicExists(zkClient, topic)) {
                 // AdminUtils.createTopic(zkClient, topic,
                 // propCenter.kafkaNumPartitions,
@@ -119,6 +121,7 @@ public abstract class SparkStreamingApp implements Serializable {
                                 "--replication-factor", "" + propCenter.kafkaReplFactor});
             }
         }
+
         logger.info("Topics checked!");
     }
 
@@ -212,25 +215,6 @@ public abstract class SparkStreamingApp implements Serializable {
         return buildBytesDirectStream(topics, true);
     }
 
-    /**
-     * This method produces a new Spark Streaming context with registered streams.
-     *
-     * @return A new Spark Streaming context.
-     */
-    private JavaStreamingContext getStreamContext(Collection<String> listeningTopics) {
-        // Create contexts.
-        JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
-        sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
-
-        JavaStreamingContext jssc = new JavaStreamingContext(sparkContext,
-                Durations.milliseconds(propCenter.batchDuration));
-
-        final JavaPairDStream<String, byte[]> inputStream = buildBytesDirectStream(listeningTopics, true);
-        streams.forEach(stream -> stream.addToStream(inputStream));
-
-        return jssc;
-    }
-
     abstract public String getAppName();
 
     /**
@@ -245,7 +229,15 @@ public abstract class SparkStreamingApp implements Serializable {
 
         String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
         jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
-            JavaStreamingContext context = getStreamContext(listeningTopics);
+            // Create contexts.
+            JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
+            sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
+
+            jssc = new JavaStreamingContext(sparkContext, Durations.milliseconds(propCenter.batchDuration));
+
+            final JavaPairDStream<String, byte[]> inputStream = buildBytesDirectStream(listeningTopics);
+            streams.forEach(stream -> stream.addToStream(inputStream));
+
             try {
                 if (propCenter.sparkMaster.contains("local")) {
                     File dir = new File(checkpointDir);
@@ -259,11 +251,11 @@ public abstract class SparkStreamingApp implements Serializable {
                     fs.delete(dir, true);
                     fs.mkdirs(dir);
                 }
-                context.checkpoint(checkpointDir);
+                jssc.checkpoint(checkpointDir);
             } catch (IllegalArgumentException | IOException e) {
                 e.printStackTrace();
             }
-            return context;
+            return jssc;
         }, new Configuration(), true);
     }
 
