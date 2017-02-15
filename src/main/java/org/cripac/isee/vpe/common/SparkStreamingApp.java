@@ -217,19 +217,13 @@ public abstract class SparkStreamingApp implements Serializable {
      *
      * @return A new Spark Streaming context.
      */
-    private JavaStreamingContext getStreamContext() {
+    private JavaStreamingContext getStreamContext(Collection<String> listeningTopics) {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
 
         JavaStreamingContext jssc = new JavaStreamingContext(sparkContext,
                 Durations.milliseconds(propCenter.batchDuration));
-
-        Collection<String> listeningTopics = streams.stream()
-                .flatMap(stream -> stream.listeningTopics().stream())
-                .collect(Collectors.toList());
-
-        checkTopics(listeningTopics);
 
         final JavaPairDStream<String, byte[]> inputStream = buildBytesDirectStream(listeningTopics, true);
         streams.forEach(stream -> stream.addToStream(inputStream));
@@ -243,9 +237,15 @@ public abstract class SparkStreamingApp implements Serializable {
      * Initialize the application.
      */
     public void initialize() {
+        final Collection<String> listeningTopics = streams.stream()
+                .flatMap(stream -> stream.listeningTopics().stream())
+                .collect(Collectors.toList());
+
+        checkTopics(listeningTopics);
+
         String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
         jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
-            JavaStreamingContext context = getStreamContext();
+            JavaStreamingContext context = getStreamContext(listeningTopics);
             try {
                 if (propCenter.sparkMaster.contains("local")) {
                     File dir = new File(checkpointDir);
