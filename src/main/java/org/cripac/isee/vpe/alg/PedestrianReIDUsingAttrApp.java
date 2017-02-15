@@ -28,7 +28,6 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
@@ -78,8 +77,6 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
     public static void main(String[] args) throws Exception {
         // Load system properties.
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
-
-        TopicManager.checkTopics(propCenter);
 
         // Start the pedestrian tracking application.
         SparkStreamingApp app = new PedestrianReIDUsingAttrApp(propCenter);

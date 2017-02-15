@@ -17,6 +17,9 @@
 
 package org.cripac.isee.vpe.alg;
 
+import kafka.admin.AdminUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -27,9 +30,9 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataTypes;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.logging.Logger;
 import org.junit.Before;
 import org.xml.sax.SAXException;
 
@@ -56,14 +59,14 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class PedestrianAttrRecogAppTest {
 
-    public static final Topic TEST_PED_ATTR_RECV_TOPIC
+    private static final Topic TEST_PED_ATTR_RECV_TOPIC
             = new Topic("test-pedestrian-attr-recv", DataTypes.ATTR, null);
 
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
-    public InetAddress externAttrRecogServerAddr;
-    public int externAttrRecogServerPort = 0;
+    private InetAddress externAttrRecogServerAddr;
+    private int externAttrRecogServerPort = 0;
     private PedestrianAttrRecogApp.AppPropertyCenter propCenter;
     private static boolean toTestApp = true;
 
@@ -86,21 +89,42 @@ public class PedestrianAttrRecogAppTest {
         }
     }
 
+    void checkTopic(String topic) {
+        Logger logger = new ConsoleLogger(Level.DEBUG);
+        logger.info("Connecting to zookeeper: " + propCenter.zkConn);
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn);
+        logger.info("Checking topic: " + topic);
+        if (!AdminUtils.topicExists(zkClient, topic)) {
+            // AdminUtils.createTopic(zkClient, topic,
+            // propCenter.kafkaNumPartitions,
+            // propCenter.kafkaReplFactor, new Properties());
+            logger.info("Creating topic: " + topic);
+            kafka.admin.TopicCommand.main(
+                    new String[]{
+                            "--create",
+                            "--zookeeper", propCenter.zkConn,
+                            "--topic", topic,
+                            "--partitions", "" + propCenter.kafkaNumPartitions,
+                            "--replication-factor", "" + propCenter.kafkaReplFactor});
+        }
+    }
+
     @Before
     public void init() throws Exception {
         init(new String[0]);
     }
 
-    public void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
+    private void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
         logger = new ConsoleLogger(Level.DEBUG);
 
         propCenter = new PedestrianAttrRecogApp.AppPropertyCenter(args);
         externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
         externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
 
-        try {
-            TopicManager.checkTopics(propCenter);
+        checkTopic(TEST_PED_ATTR_RECV_TOPIC.NAME);
 
+        try {
             Properties producerProp = propCenter.getKafkaProducerProp(false);
             producer = new KafkaProducer<>(producerProp);
 

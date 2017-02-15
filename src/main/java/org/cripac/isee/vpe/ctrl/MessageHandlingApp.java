@@ -80,7 +80,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
         }
 
         SparkStreamingApp app = new MessageHandlingApp(propCenter);
-        TopicManager.checkTopics(propCenter);
         app.initialize();
         app.start();
         app.awaitTermination();

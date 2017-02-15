@@ -17,12 +17,16 @@
 
 package org.cripac.isee.vpe.common;
 
+import kafka.admin.AdminUtils;
 import kafka.common.TopicAndPartition;
 import kafka.serializer.DefaultDecoder;
 import kafka.serializer.StringDecoder;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
@@ -87,6 +91,36 @@ public abstract class SparkStreamingApp implements Serializable {
     protected final Singleton<Logger> loggerSingleton;
 
     private final List<Stream> streams = new ArrayList<>();
+
+    public void checkTopics(Collection<String> topics) {
+        Logger logger;
+        try {
+            logger = loggerSingleton.getInst();
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger = new ConsoleLogger(Level.DEBUG);
+        }
+        logger.info("Connecting to zookeeper: " + propCenter.zkConn);
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn);
+        for (String topic : topics) {
+            logger.info("Checking topic: " + topic);
+            if (!AdminUtils.topicExists(zkClient, topic)) {
+                // AdminUtils.createTopic(zkClient, topic,
+                // propCenter.kafkaNumPartitions,
+                // propCenter.kafkaReplFactor, new Properties());
+                logger.info("Creating topic: " + topic);
+                kafka.admin.TopicCommand.main(
+                        new String[]{
+                                "--create",
+                                "--zookeeper", propCenter.zkConn,
+                                "--topic", topic,
+                                "--partitions", "" + propCenter.kafkaNumPartitions,
+                                "--replication-factor", "" + propCenter.kafkaReplFactor});
+            }
+        }
+        logger.info("Topics checked!");
+    }
 
     protected void registerStreams(Collection<Stream> streams) {
         this.streams.addAll(streams);
@@ -194,6 +228,8 @@ public abstract class SparkStreamingApp implements Serializable {
         Collection<String> listeningTopics = streams.stream()
                 .flatMap(stream -> stream.listeningTopics().stream())
                 .collect(Collectors.toList());
+
+        checkTopics(listeningTopics);
 
         final JavaPairDStream<String, byte[]> inputStream = buildBytesDirectStream(listeningTopics, true);
         streams.forEach(stream -> stream.addToStream(inputStream));

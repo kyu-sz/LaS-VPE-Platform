@@ -40,7 +40,6 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
@@ -113,8 +112,6 @@ public class DataManagingApp extends SparkStreamingApp {
 
     public static void main(String[] args) throws Exception {
         final AppPropertyCenter propCenter = new AppPropertyCenter(args);
-
-        TopicManager.checkTopics(propCenter);
 
         final SparkStreamingApp app = new DataManagingApp(propCenter);
         app.initialize();

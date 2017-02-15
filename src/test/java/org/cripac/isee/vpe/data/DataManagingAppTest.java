@@ -23,7 +23,6 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -76,8 +75,6 @@ public class DataManagingAppTest {
 
     public void init(String[] args) throws Exception {
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
-
-        TopicManager.checkTopics(propCenter);
 
         Properties producerProp = propCenter.getKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);

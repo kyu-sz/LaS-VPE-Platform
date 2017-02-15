@@ -28,7 +28,6 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
@@ -120,8 +119,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
     public static void main(String[] args) throws Exception {
         // Load system properties.
         AppPropertyCenter propCenter = new AppPropertyCenter(args);
-
-        TopicManager.checkTopics(propCenter);
 
         // Start the pedestrian tracking application.
         PedestrianAttrRecogApp app = new PedestrianAttrRecogApp(propCenter);

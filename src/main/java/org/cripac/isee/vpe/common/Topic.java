@@ -15,8 +15,6 @@ package org.cripac.isee.vpe.common;/********************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-import org.cripac.isee.vpe.ctrl.TopicManager;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
@@ -56,7 +54,6 @@ public final class Topic implements Serializable {
         this.NAME = name;
         this.INPUT_TYPE = type;
         this.STREAM_INFO = streamInfo;
-        TopicManager.registerTopic(this);
     }
 
     /**
