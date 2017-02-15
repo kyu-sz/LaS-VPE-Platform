@@ -50,6 +50,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,
@@ -178,12 +179,11 @@ public abstract class SparkStreamingApp implements Serializable {
     }
 
     /**
-     * This method produces an empty Spark Streaming context.
-     * Should be further implemented by subclasses to produce an application-specified context.
+     * This method produces a new Spark Streaming context with registered streams.
      *
-     * @return An empty Spark Streaming context.
+     * @return A new Spark Streaming context.
      */
-    protected JavaStreamingContext getStreamContext() {
+    private JavaStreamingContext getStreamContext() {
         // Create contexts.
         JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
         sparkContext.setLocalProperty("spark.scheduler.pool", "vpe");
@@ -191,8 +191,9 @@ public abstract class SparkStreamingApp implements Serializable {
         JavaStreamingContext jssc = new JavaStreamingContext(sparkContext,
                 Durations.milliseconds(propCenter.batchDuration));
 
-        ArrayList<String> listeningTopics = new ArrayList<>();
-        streams.forEach(stream -> listeningTopics.addAll(stream.listeningTopics()));
+        Collection<String> listeningTopics = streams.stream()
+                .flatMap(stream -> stream.listeningTopics().stream())
+                .collect(Collectors.toList());
 
         final JavaPairDStream<String, byte[]> inputStream = buildBytesDirectStream(listeningTopics, true);
         streams.forEach(stream -> stream.addToStream(inputStream));
