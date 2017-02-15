@@ -30,7 +30,7 @@ import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.HasOffsetRanges;
 import org.apache.spark.streaming.kafka.KafkaCluster;
@@ -42,7 +42,6 @@ import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
-import scala.Tuple2;
 import scala.collection.JavaConversions;
 
 import javax.annotation.Nonnull;
@@ -68,6 +67,7 @@ public abstract class SparkStreamingApp implements Serializable {
 
     private static final long serialVersionUID = 3098753124157119358L;
     private SystemPropertyCenter propCenter;
+    private final String appName;
 
     /**
      * Kafka parameters for creating input streams pulling messages from Kafka
@@ -77,6 +77,7 @@ public abstract class SparkStreamingApp implements Serializable {
 
     public SparkStreamingApp(SystemPropertyCenter propCenter, String appName) throws Exception {
         this.propCenter = propCenter;
+        this.appName = appName;
         this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
         kafkaParams = propCenter.getKafkaParams(appName);
     }
@@ -137,9 +138,9 @@ public abstract class SparkStreamingApp implements Serializable {
      * @param toRepartition Whether to repartition the RDDs.
      * @return A Kafka non-receiver input stream.
      */
-    protected JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(@Nonnull Collection<String> topics,
-                           boolean toRepartition) {
+    protected JavaDStream<StringByteArrayRecord>
+    buildDirectStream(@Nonnull Collection<String> topics,
+                      boolean toRepartition) {
         final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
 
         Logger tmpLogger;
@@ -155,14 +156,14 @@ public abstract class SparkStreamingApp implements Serializable {
         tmpLogger.info("Initial fromOffsets=" + fromOffsets);
 
         // Create a direct stream from the retrieved offsets.
-        JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
+        JavaDStream<StringByteArrayRecord> stream = KafkaUtils.createDirectStream(
                 jssc,
                 String.class, byte[].class,
                 StringDecoder.class, DefaultDecoder.class,
                 StringByteArrayRecord.class,
                 JavaConversions.mapAsJavaMap(kafkaCluster.kafkaParams()),
                 fromOffsets,
-                mmd -> new StringByteArrayRecord(mmd.key(), mmd.message()))
+                mmd -> new StringByteArrayRecord(mmd.key(), mmd.message(), mmd.topic()))
                 // Manipulate offsets.
                 .transform(rdd -> {
                     final Logger logger = loggerSingleton.getInst();
@@ -191,9 +192,7 @@ public abstract class SparkStreamingApp implements Serializable {
                         logger.debug("Received " + numNewMessages + " messages totally.");
                     }
                     return rdd;
-                })
-                // Transform to usual record type.
-                .mapToPair(rec -> new Tuple2<>(rec.key, rec.value));
+                });
 
         if (toRepartition) {
             // Repartition the records.
@@ -210,12 +209,10 @@ public abstract class SparkStreamingApp implements Serializable {
      * @param topics Topics from which the direct stream reads.
      * @return A Kafka non-receiver input stream.
      */
-    protected JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(@Nonnull Collection<String> topics) {
-        return buildBytesDirectStream(topics, true);
+    protected JavaDStream<StringByteArrayRecord>
+    buildDirectStream(@Nonnull Collection<String> topics) {
+        return buildDirectStream(topics, true);
     }
-
-    abstract public String getAppName();
 
     /**
      * Initialize the application.
@@ -227,7 +224,7 @@ public abstract class SparkStreamingApp implements Serializable {
 
         checkTopics(listeningTopics);
 
-        String checkpointDir = propCenter.checkpointRootDir + "/" + getAppName();
+        String checkpointDir = propCenter.checkpointRootDir + "/" + appName;
         jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
             // Create contexts.
             JavaSparkContext sparkContext = new JavaSparkContext(new SparkConf(true));
@@ -235,7 +232,7 @@ public abstract class SparkStreamingApp implements Serializable {
 
             jssc = new JavaStreamingContext(sparkContext, Durations.milliseconds(propCenter.batchDuration));
 
-            final JavaPairDStream<String, byte[]> inputStream = buildBytesDirectStream(listeningTopics);
+            final JavaDStream<StringByteArrayRecord> inputStream = buildDirectStream(listeningTopics);
             streams.forEach(stream -> stream.addToStream(inputStream));
 
             try {
@@ -292,14 +289,17 @@ public abstract class SparkStreamingApp implements Serializable {
         super.finalize();
     }
 
-    private static class StringByteArrayRecord implements Serializable {
+    public static class StringByteArrayRecord implements Serializable {
         private static final long serialVersionUID = -7522425828162991655L;
-        String key;
-        byte[] value;
+        public String key;
+        public byte[] value;
+        public String topic;
 
-        StringByteArrayRecord(String key, byte[] value) {
+        StringByteArrayRecord(String key, byte[] value, String topic) {
             this.key = key;
             this.value = value;
+            this.topic = topic;
         }
     }
+
 }

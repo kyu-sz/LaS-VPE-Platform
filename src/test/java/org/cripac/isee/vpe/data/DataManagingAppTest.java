@@ -84,7 +84,7 @@ public class DataManagingAppTest {
     //    @Test
     public void testTrackletSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.INFO);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
         Tracklet[] tracklets = new FakePedestrianTracker().track(null);
         String taskID = UUID.randomUUID().toString();
@@ -92,7 +92,7 @@ public class DataManagingAppTest {
             Tracklet tracklet = tracklets[i];
             tracklet.id = new Tracklet.Identifier("fake", i);
 
-            TaskData data = new TaskData(savingNode, plan, tracklet);
+            TaskData<Tracklet> data = new TaskData<>(savingNode, plan, tracklet);
             sendWithLog(DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC,
                     taskID,
                     serialize(data),
@@ -104,13 +104,13 @@ public class DataManagingAppTest {
     //    @Test
     public void testAttrSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.INFO);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
         Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
                 new FakePedestrianTracker().track(null)[0]);
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
 
-        TaskData data = new TaskData(savingNode, plan, attributes);
+        TaskData<Attributes> data = new TaskData<>(savingNode, plan, attributes);
         sendWithLog(DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),

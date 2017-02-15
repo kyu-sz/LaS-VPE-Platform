@@ -27,7 +27,7 @@ import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.DeepMARTest;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizerTest;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataTypes;
+import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
@@ -59,8 +59,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class PedestrianAttrRecogAppTest {
 
-    private static final Topic TEST_PED_ATTR_RECV_TOPIC
-            = new Topic("test-pedestrian-attr-recv", DataTypes.ATTR, null);
+    private static final Topic TEST_PED_ATTR_RECV_TOPIC = new Topic("test-pedestrian-attr-recv", DataType.ATTR);
 
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
@@ -89,7 +88,7 @@ public class PedestrianAttrRecogAppTest {
         }
     }
 
-    void checkTopic(String topic) {
+    private void checkTopic(String topic) {
         Logger logger = new ConsoleLogger(Level.DEBUG);
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
         ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
@@ -163,11 +162,12 @@ public class PedestrianAttrRecogAppTest {
     public void testAttrRecogApp() throws Exception {
         logger.info("Testing attr recogn app.");
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
-        plan.letNodeOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
+        TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
+        TaskData.ExecutionPlan.Node attrSavingNode = plan.addNode(DataType.NONE);
+        plan.letNodeOutputTo(recogNode, attrSavingNode, TEST_PED_ATTR_RECV_TOPIC);
 
         // Send request (fake tracklet).
-        TaskData trackletData = new TaskData(recogNode, plan,
+        TaskData trackletData = new TaskData<>(recogNode, plan,
                 new FakePedestrianTracker().track(null)[0]);
         assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
         sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,

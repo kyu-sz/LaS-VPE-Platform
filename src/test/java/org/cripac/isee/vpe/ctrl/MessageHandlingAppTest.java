@@ -182,7 +182,7 @@ public class MessageHandlingAppTest implements Serializable {
                     logger);
         }
 
-        param.put(MessageHandlingApp.Parameter.TRACKLET_SERIAL_NUM, "1");
+        param.put(MessageHandlingApp.Parameter.TRACKLET_INDEX, "1");
 
         sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
                 MessageHandlingApp.CommandType.ATTRRECOG_ONLY,

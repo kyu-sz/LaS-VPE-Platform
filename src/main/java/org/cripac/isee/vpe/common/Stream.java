@@ -1,4 +1,4 @@
-/***********************************************************************
+package org.cripac.isee.vpe.common;/***********************************************************************
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -15,15 +15,25 @@
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.cripac.isee.vpe.common;
-
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
+import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import scala.Tuple2;
 
-import javax.annotation.Nonnull;
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.List;
+import java.util.Properties;
+
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
@@ -31,66 +41,49 @@ import java.util.List;
  * Created by ken.yu on 16-10-26.
  */
 public abstract class Stream implements Serializable {
+    /**
+     * Name of the stream.
+     */
+    public final String name;
 
     private static final long serialVersionUID = 7965952554107861881L;
+    private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
 
-    /**
-     * The Info class is designed to force the output data INPUT_TYPE to
-     * be assigned to a stream, so that INPUT_TYPE matching checking can
-     * be conducted.
-     */
-    public static class Info implements Serializable {
-        private static final long serialVersionUID = -2859100367977900846L;
-        /**
-         * Name of the stream.
-         */
-        public final String NAME;
-
-        /**
-         * Type of output.
-         */
-        public final DataTypes OUTPUT_TYPE;
-
-        /**
-         * Construct a stream with NAME specified.
-         *
-         * @param name Name of the stream.
-         */
-        public Info(String name, DataTypes outputType) {
-            this.NAME = name;
-            this.OUTPUT_TYPE = outputType;
+    protected <T extends Serializable> void
+    output(Collection<TaskData.ExecutionPlan.Node.Port> outputPorts,
+           TaskData.ExecutionPlan executionPlan,
+           T result,
+           String taskID) throws Exception {
+        final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+        for (TaskData.ExecutionPlan.Node.Port port : outputPorts) {
+            final TaskData<T> resTaskData = new TaskData<>(port.getNode(), executionPlan, result);
+            final byte[] serialized = serialize(resTaskData);
+            sendWithLog(port.topic, taskID, serialized, producer, loggerSingleton.getInst());
         }
+    }
 
-        @Override
-        public int hashCode() {
-            return NAME.hashCode();
-        }
-
-        @Override
-        public String toString() {
-            return "Topic(name: \'" + NAME + "\', output type: \'" + OUTPUT_TYPE + "\')";
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o instanceof Info) {
-                assert OUTPUT_TYPE == ((Info) o).OUTPUT_TYPE;
-                return NAME.equals(((Info) o).NAME);
-            } else {
-                return super.equals(o);
-            }
-        }
+    protected <T extends Serializable> JavaPairDStream<String, T>
+    filter(JavaDStream<SparkStreamingApp.StringByteArrayRecord> stream, Topic topic) {
+        return stream
+                .filter(rec -> (Boolean) (rec.topic.equals(topic.NAME)))
+                .mapToPair(rec -> {
+                    try {
+                        return new Tuple2<>(rec.key, SerializationHelper.<T>deserialize(rec.value));
+                    } catch (Exception e) {
+                        loggerSingleton.getInst().error("On deserialization", e);
+                        return null;
+                    }
+                });
     }
 
     protected final Singleton<Logger> loggerSingleton;
 
-    /**
-     * Require inputting a logger singleton for this class and all its subclasses.
-     *
-     * @param loggerSingleton A singleton of logger.
-     */
-    public Stream(@Nonnull Singleton<Logger> loggerSingleton) {
-        this.loggerSingleton = loggerSingleton;
+    public Stream(String name, SystemPropertyCenter propCenter) throws Exception {
+        this.name = name;
+        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(name, propCenter));
+
+        Properties producerProp = propCenter.getKafkaProducerProp(false);
+        producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
     }
 
     /**
@@ -98,7 +91,7 @@ public abstract class Stream implements Serializable {
      *
      * @param globalStream A Spark Streaming stream.
      */
-    public abstract void addToStream(JavaPairDStream<String, byte[]> globalStream);
+    public abstract void addToStream(JavaDStream<SparkStreamingApp.StringByteArrayRecord> globalStream);
 
     public abstract List<String> listeningTopics();
 }

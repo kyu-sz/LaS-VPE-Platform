@@ -28,7 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.apache.spark.streaming.api.java.JavaDStream;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.helper.opencv_core;
@@ -37,16 +37,17 @@ import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.*;
+import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.SparkStreamingApp;
+import org.cripac.isee.vpe.common.Stream;
+import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
-import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
 import org.spark_project.guava.collect.Range;
@@ -61,9 +62,7 @@ import java.util.*;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The DataManagingApp class combines two functions: meta data saving and data
@@ -119,16 +118,12 @@ public class DataManagingApp extends SparkStreamingApp {
         app.awaitTermination();
     }
 
-    @Override
-    public String getAppName() {
-        return APP_NAME;
-    }
-
     public static class PedestrainTrackletRetrievingStream extends Stream {
 
-        public static final Info INFO = new Info("pedestrian-tracklet-rtrv", DataTypes.TRACKLET);
+        public static final String NAME = "pedestrian-tracklet-rtrv";
+        public static final DataType OUTPUT_TYPE = DataType.TRACKLET;
         public static final Topic RTRV_JOB_TOPIC =
-                new Topic("pedestrian-tracklet-rtrv-job", DataTypes.TRACKLET_ID, INFO);
+                new Topic("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID);
         private static final long serialVersionUID = -3588633503578388408L;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
@@ -136,7 +131,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter)
                 throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME + ":" + INFO.NAME, propCenter)));
+            super(APP_NAME + ":" + NAME, propCenter);
 
             Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
@@ -145,69 +140,36 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
+        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
             // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
-            globalStream
-                    .mapValues(msg -> {
-                        try {
-                            return SerializationHelper.<TaskData>deserialize(msg);
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During deserialization", e);
-                            return null;
-                        }
-                    })
-                    .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
+            this.<TaskData<Tracklet.Identifier>>filter(globalStream, RTRV_JOB_TOPIC)
                     // Retrieve and deliver tracklets.
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                                 final Logger logger = loggerSingleton.getInst();
 
                                 try {
                                     // Recover task data.
-                                    TaskData taskData = kv._2();
-                                    if (taskData.predecessorRes == null) {
-                                        logger.fatal("TaskData from " + taskData.predecessorInfo
-                                                + " contains no result data!");
-                                        return;
-                                    }
-                                    if (!(taskData.predecessorRes instanceof Tracklet.Identifier)) {
-                                        logger.fatal("TaskData from " + taskData.predecessorInfo
-                                                + " contains no result data!");
-                                        logger.fatal("Result sent by "
-                                                + taskData.predecessorInfo
-                                                + " is expected to be a tracklet identifier,"
-                                                + " but received \""
-                                                + taskData.predecessorRes + "\"!");
-                                        return;
-                                    }
-                                    final Tracklet.Identifier trackletID =
-                                            (Tracklet.Identifier) taskData.predecessorRes;
+                                    final TaskData<Tracklet.Identifier> taskData = kv._2();
+                                    final Tracklet.Identifier trackletID = taskData.predecessorRes;
 
                                     // Retrieve the track from HDFS.
                                     // Store the track to a task data (reused).
-                                    taskData.predecessorRes = retrieveTracklet(
+                                    final Tracklet tracklet = retrieveTracklet(
                                             dbConnSingleton.getInst().getTrackletSavingDir(trackletID.videoID),
                                             trackletID,
                                             loggerSingleton.getInst());
 
                                     // Get the IDs of successor nodes.
-                                    final List<Topic> succTopics = taskData.curNode.getSuccessors();
+                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts =
+                                            taskData.curNode.getOutputPorts();
                                     // Mark the current node as executed.
                                     taskData.curNode.markExecuted();
 
                                     // Send to all the successor nodes.
-                                    final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                     final String taskID = kv._1();
-                                    for (Topic topic : succTopics) {
-                                        try {
-                                            taskData.changeCurNode(topic);
-                                        } catch (RecordNotFoundException e) {
-                                            logger.warn("When changing node in TaskData", e);
-                                        }
-
-                                        sendWithLog(topic, taskID, serialize(taskData), producer, logger);
-                                    }
+                                    output(outputPorts, taskData.executionPlan, tracklet, taskID);
                                 } catch (Exception e) {
                                     logger.error("During retrieving tracklets", e);
                                 }
@@ -222,17 +184,17 @@ public class DataManagingApp extends SparkStreamingApp {
     }
 
     public static class PedestrainTrackletAttrRetrievingStream extends Stream {
-
-        public static final Info INFO = new Info("pedestrian-tracklet-attr-rtrv", DataTypes.TRACKLET_ATTR);
+        public static final String NAME = "pedestrian-tracklet-attr-rtrv";
+        public static final DataType OUTPUT_TYPE = DataType.TRACKLET_ATTR;
         public static final Topic RTRV_JOB_TOPIC =
-                new Topic("pedestrian-tracklet-attr-rtrv-job", DataTypes.TRACKLET_ID, INFO);
+                new Topic("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID);
         private static final long serialVersionUID = -8876416114616771091L;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME + ":" + INFO.NAME, propCenter)));
+            super(APP_NAME + ":" + NAME, propCenter);
 
             final Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
@@ -240,27 +202,18 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
+        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
-            globalStream
-                    .mapValues(msg -> {
-                        try {
-                            return SerializationHelper.<TaskData>deserialize(msg);
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During deserialization", e);
-                            return null;
-                        }
-                    })
-                    .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
+            this.<TaskData<Tracklet.Identifier>>filter(globalStream, RTRV_JOB_TOPIC)
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> rdd.foreach(job -> {
                                 final Logger logger = loggerSingleton.getInst();
                                 try {
                                     final String taskID = job._1();
                                     // Recover task data.
-                                    final TaskData taskData = job._2();
+                                    final TaskData<Tracklet.Identifier> taskData = job._2();
                                     // Get parameters for the job.
-                                    final Tracklet.Identifier trackletID = (Tracklet.Identifier) taskData.predecessorRes;
+                                    final Tracklet.Identifier trackletID = taskData.predecessorRes;
                                     final String videoURL = trackletID.videoID;
 
                                     final PedestrianInfo info = new PedestrianInfo();
@@ -271,25 +224,15 @@ public class DataManagingApp extends SparkStreamingApp {
                                             logger);
                                     // Retrieve the attributes from database.
                                     info.attr = dbConnSingleton.getInst().getPedestrianAttributes(trackletID.toString());
-                                    taskData.predecessorRes = info;
 
                                     // Get the IDs of successor nodes.
-                                    final List<Topic> succTopics = taskData.curNode.getSuccessors();
+                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts
+                                            = taskData.curNode.getOutputPorts();
                                     // Mark the current node as executed.
                                     taskData.curNode.markExecuted();
+
                                     // Send to all the successor nodes.
-                                    for (Topic topic : succTopics) {
-                                        try {
-                                            taskData.changeCurNode(topic);
-                                        } catch (RecordNotFoundException e) {
-                                            logger.warn("When changing node in TaskData", e);
-                                        }
-                                        sendWithLog(topic,
-                                                taskID,
-                                                serialize(taskData),
-                                                producerSingleton.getInst(),
-                                                logger);
-                                    }
+                                    output(outputPorts, taskData.executionPlan, info, taskID);
                                 } catch (Exception e) {
                                     logger.error("During retrieving tracklet and attributes", e);
                                 }
@@ -304,16 +247,17 @@ public class DataManagingApp extends SparkStreamingApp {
     }
 
     public static class TrackletSavingStream extends Stream {
-        public static final Info INFO = new Info("tracklet-saving", DataTypes.NONE);
+        public static final String NAME = "tracklet-saving";
+        public static final DataType OUTPUT_TYPE = DataType.NONE;
         public static final Topic PED_TRACKLET_SAVING_TOPIC =
-                new Topic("pedestrian-tracklet-saving", DataTypes.TRACKLET, TrackletSavingStream.INFO);
+                new Topic("pedestrian-tracklet-saving", DataType.TRACKLET);
         private static final long serialVersionUID = 2820895755662980265L;
         private final String metadataDir;
         private final Singleton<FileSystem> hdfsSingleton;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME + ":" + INFO.NAME, propCenter)));
+            super(APP_NAME + ":" + NAME, propCenter);
 
             metadataDir = propCenter.metadataDir;
 
@@ -384,17 +328,8 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaPairDStream<String, byte[]> globalStream) {// Save tracklets.
-            globalStream
-                    .mapValues(msg -> {
-                        try {
-                            return SerializationHelper.<TaskData>deserialize(msg);
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During deserialization", e);
-                            return null;
-                        }
-                    })
-                    .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
+        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {// Save tracklets.
+            this.<TaskData<Tracklet>>filter(globalStream, PED_TRACKLET_SAVING_TOPIC)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
@@ -461,32 +396,24 @@ public class DataManagingApp extends SparkStreamingApp {
     }
 
     public static class AttrSavingStream extends Stream {
-        public static final Info INFO = new Info("attr-saving", DataTypes.NONE);
+        public static final String NAME = "attr-saving";
+        public static final DataType OUTPUT_TYPE = DataType.NONE;
         public static final Topic PED_ATTR_SAVING_TOPIC =
-                new Topic("pedestrian-attr-saving", DataTypes.ATTR, AttrSavingStream.INFO);
+                new Topic("pedestrian-attr-saving", DataType.ATTR);
         private static final long serialVersionUID = 858443725387544606L;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         AttrSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME + ":" + INFO.NAME, propCenter)));
+            super(APP_NAME + ":" + NAME, propCenter);
 
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
 
         @Override
-        public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
+        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
-            globalStream
-                    .mapValues(msg -> {
-                        try {
-                            return SerializationHelper.<TaskData>deserialize(msg);
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During deserialization", e);
-                            return null;
-                        }
-                    })
-                    .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
+            this.<TaskData<Tracklet>>filter(globalStream, PED_ATTR_SAVING_TOPIC)
                     .foreachRDD(rdd -> rdd.foreach(res -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
@@ -511,29 +438,21 @@ public class DataManagingApp extends SparkStreamingApp {
     }
 
     public static class IDRankSavingStream extends Stream {
-        public static final Info INFO = new Info("idrank-saving", DataTypes.NONE);
+        public static final String NAME = "idrank-saving";
+        public static final DataType OUTPUT_TYPE = DataType.NONE;
         public static final Topic PED_IDRANK_SAVING_TOPIC =
-                new Topic("pedestrian-idrank-saving", DataTypes.IDRANK, IDRankSavingStream.INFO);
+                new Topic("pedestrian-idrank-saving", DataType.IDRANK);
         private static final long serialVersionUID = -6469177153696762040L;
 
         public IDRankSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME + ":" + INFO.NAME, propCenter)));
+            super(APP_NAME + ":" + NAME, propCenter);
         }
 
         @Override
-        public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
+        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
-            globalStream
-                    .mapValues(msg -> {
-                        try {
-                            return SerializationHelper.<TaskData>deserialize(msg);
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During deserialization", e);
-                            return null;
-                        }
-                    })
-                    .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
+            this.<TaskData<Tracklet>>filter(globalStream, PED_IDRANK_SAVING_TOPIC)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {

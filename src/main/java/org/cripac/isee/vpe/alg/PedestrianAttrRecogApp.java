@@ -18,21 +18,20 @@
 package org.cripac.isee.vpe.alg;
 
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.apache.spark.streaming.api.java.JavaDStream;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.DeepMAR;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.*;
+import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.SparkStreamingApp;
+import org.cripac.isee.vpe.common.Stream;
+import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
@@ -43,10 +42,6 @@ import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The PedestrianAttrRecogApp class is a Spark Streaming application which
@@ -127,40 +122,26 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         app.awaitTermination();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see SparkStreamingApp#getStreamInfo()
-     */
-    @Override
-    public String getAppName() {
-        return APP_NAME;
-    }
-
     public static class RecogStream extends Stream {
 
-        public static final Info INFO = new Info("recog", DataTypes.ATTR);
+        public static final String NAME = "recog";
+        public static final DataType OUTPUT_TYPE = DataType.ATTR;
 
         /**
          * Topic to input tracklets from Kafka.
          */
         public static final Topic TRACKLET_TOPIC =
-                new Topic("pedestrian-tracklet-for-attr-recog",
-                        DataTypes.TRACKLET, INFO);
+                new Topic("pedestrian-tracklet-for-attr-recog", DataType.TRACKLET);
         private static final long serialVersionUID = -4672941060404428484L;
 
-        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<PedestrianAttrRecognizer> recognizerSingleton;
         // Max length of the resulting tracklet. 0 means not limiting.
         private final int maxTrackletLength;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME + ":" + INFO.NAME, propCenter)));
+            super(APP_NAME + ":" + NAME, propCenter);
 
             this.maxTrackletLength = propCenter.maxTrackletLength;
-
-            Properties producerProp = propCenter.getKafkaProducerProp(false);
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
 
             loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBootstrapServers);
 
@@ -181,39 +162,18 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaPairDStream<String, byte[]> globalStream) {// Extract tracklets from the data.
+        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            globalStream
-                    .mapValues(msg -> {
-                        try {
-                            return SerializationHelper.<TaskData>deserialize(msg);
-                        } catch (Exception e) {
-                            loggerSingleton.getInst().error("During deserialization", e);
-                            return null;
-                        }
-                    })
+            this.<TaskData<Tracklet>>filter(globalStream, TRACKLET_TOPIC)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         try {
                             Logger logger = loggerSingleton.getInst();
 
                             String taskID = kv._1();
-                            TaskData taskData = kv._2();
+                            TaskData<Tracklet> taskData = kv._2();
                             logger.debug("Received task " + taskID + "!");
 
-                            if (taskData.predecessorRes == null) {
-                                throw new DataTypeNotMatchedException("Predecessor result sent by "
-                                        + taskData.predecessorInfo
-                                        + " is null!");
-                            }
-                            if (!(taskData.predecessorRes instanceof Tracklet)) {
-                                throw new DataTypeNotMatchedException("Predecessor result sent by "
-                                        + taskData.predecessorInfo
-                                        + " is expected to be a Tracklet,"
-                                        + " but received \""
-                                        + taskData.predecessorRes + "\"!");
-                            }
-
-                            Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                            Tracklet tracklet = taskData.predecessorRes;
                             logger.debug("To recognize attributes for task " + taskID + "!");
                             // Truncate and shrink the tracklet in case it is too large.
                             if (maxTrackletLength > 0
@@ -228,27 +188,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             logger.debug("Attributes retrieved for task " + taskID + "!");
                             attr.trackletID = tracklet.id;
 
-                            // Prepare new task data.
-                            // Stored the track in the task data, which can be
-                            // cyclic utilized.
-                            taskData.predecessorRes = attr;
                             // Get the IDs of successor nodes.
-                            List<Topic> succTopics = taskData.curNode.getSuccessors();
+                            List<TaskData.ExecutionPlan.Node.Port> outputPorts = taskData.curNode.getOutputPorts();
                             // Mark the current node as executed.
                             taskData.curNode.markExecuted();
 
-                            // Send to all the successor nodes.
-                            final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-                            for (Topic topic : succTopics) {
-                                try {
-                                    taskData.changeCurNode(topic);
-                                } catch (RecordNotFoundException e) {
-                                    logger.warn("When changing node in TaskData", e);
-                                }
-
-                                final byte[] serialized = serialize(taskData);
-                                sendWithLog(topic, taskID, serialized, producer, logger);
-                            }
+                            output(outputPorts, taskData.executionPlan, attr, taskID);
                         } catch (Exception e) {
                             loggerSingleton.getInst().error("During processing attributes.", e);
                         }
