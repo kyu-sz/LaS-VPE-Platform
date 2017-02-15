@@ -172,8 +172,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private final Singleton<FileSystem> hdfsSingleton;
         private final Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
 
-        public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws
-                Exception {
+        public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws Exception {
             super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME + ":" + INFO.NAME, propCenter)));
 
             Properties producerProp = propCenter.getKafkaProducerProp(false);
@@ -185,7 +184,15 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
-            globalStream.mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
+            globalStream
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<TaskData>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
@@ -248,8 +255,15 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         @Override
         public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
-            globalStream.mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
-                    .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
+            globalStream
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<TaskData>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .foreachRDD(rdd -> {
                         final Broadcast<Map<String, byte[]>> confPool =
                                 ConfigPool.getInst(new JavaSparkContext(rdd.context()),

@@ -142,7 +142,14 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         @Override
         public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
             final JavaPairDStream<String, TaskData> localStream = globalStream
-                    .mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<TaskData>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO));
             final JavaPairDStream<String, TaskData> trackletDStream = localStream.filter(kv ->
                     (Boolean) (kv._2().predecessorRes instanceof Tracklet));

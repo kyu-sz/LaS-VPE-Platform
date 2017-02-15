@@ -149,7 +149,15 @@ public class DataManagingApp extends SparkStreamingApp {
             // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
-            globalStream.mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
+            globalStream
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<TaskData>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
                     // Retrieve and deliver tracklets.
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
@@ -234,7 +242,15 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
-            globalStream.mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
+            globalStream
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<TaskData>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> rdd.foreach(job -> {
@@ -369,7 +385,15 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void addToStream(JavaPairDStream<String, byte[]> globalStream) {// Save tracklets.
-            globalStream.mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
+            globalStream
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<TaskData>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
@@ -453,7 +477,15 @@ public class DataManagingApp extends SparkStreamingApp {
         public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
-            globalStream.mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
+            globalStream
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<TaskData>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
                     .foreachRDD(rdd -> rdd.foreach(res -> {
                         final Logger logger = loggerSingleton.getInst();
@@ -492,7 +524,15 @@ public class DataManagingApp extends SparkStreamingApp {
         public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
-            globalStream.mapValues(SerializationHelper::<TaskData>deserializeNoThrow)
+            globalStream
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<TaskData>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .filter(kv -> (Boolean) (kv._2().curNode.getStreamInfo() == INFO))
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();

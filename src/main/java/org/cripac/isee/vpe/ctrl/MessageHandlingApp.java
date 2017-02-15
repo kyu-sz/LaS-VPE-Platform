@@ -297,7 +297,15 @@ public class MessageHandlingApp extends SparkStreamingApp {
         // Handle the messages received from Kafka,
         @Override
         public void addToStream(JavaPairDStream<String, byte[]> globalStream) {
-            globalStream.mapValues(SerializationHelper::<Hashtable<String, Serializable>>deserializeNoThrow)
+            globalStream
+                    .mapValues(msg -> {
+                        try {
+                            return SerializationHelper.<Hashtable<String, Serializable>>deserialize(msg);
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .foreachRDD(rdd -> rdd.foreach(msg -> {
                         try {
                             final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
