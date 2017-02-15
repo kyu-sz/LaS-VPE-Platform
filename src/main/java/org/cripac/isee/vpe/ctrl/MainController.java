@@ -19,12 +19,9 @@ package org.cripac.isee.vpe.ctrl;
 
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.log4j.Level;
 import org.apache.spark.launcher.SparkLauncher;
 import org.apache.zookeeper.KeeperException.UnimplementedException;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
-import org.cripac.isee.vpe.util.logging.ConsoleLogger;
-import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -62,7 +59,6 @@ public class MainController {
 
             // Create a thread to listen to reports.
             Thread listener = new Thread(() -> {
-                Logger logger = new ConsoleLogger(Level.DEBUG);
                 KafkaConsumer<String, String> consumer = new KafkaConsumer<>(
                         propCenter.getKafkaConsumerProp(UUID.randomUUID().toString(), true));
                 ArrayList<String> topicList = new ArrayList<>();
@@ -72,7 +68,7 @@ public class MainController {
                 consumer.subscribe(topicList);
                 while (true) {
                     ConsumerRecords<String, String> records = consumer.poll(0);
-                    records.forEach(rec -> logger.info(rec.value()));
+                    records.forEach(rec -> System.out.println(rec.value()));
                 }
             });
             listener.start();
