@@ -358,10 +358,8 @@ public class MessageHandlingApp extends SparkStreamingApp {
         public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
             this.<Hashtable<String, Serializable>>filter(globalStream, COMMAND_TOPIC)
                     .foreachRDD(rdd -> rdd.foreach(msg -> {
+                        final Logger logger = loggerSingleton.getInst();
                         try {
-                            final Logger logger = loggerSingleton.getInst();
-                            final HDFSReader hdfsReader = hdfsReaderSingleton.getInst();
-
                             String taskID = UUID.randomUUID().toString();
 
                             // Get a next command message.
@@ -378,7 +376,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                                 handle(cmd, param, taskID);
                             }
                         } catch (Exception e) {
-                            loggerSingleton.getInst().error("During msg handling", e);
+                            logger.error("During msg handling", e);
                         }
                     }));
         }

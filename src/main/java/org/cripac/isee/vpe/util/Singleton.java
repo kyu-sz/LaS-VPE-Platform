@@ -49,7 +49,7 @@ public class Singleton<T> implements Serializable {
     private final char[] typeParameterClass;
 
     /**
-     * Create a singleton manager of specified class T, and update the instance
+     * Create a singleton of specified class T, and do not update the instance
      * by default.
      *
      * @param objFactory Factory to create new instance of class T when instance of it
@@ -57,7 +57,7 @@ public class Singleton<T> implements Serializable {
      * @throws Exception On failure creating a new instance.
      */
     public Singleton(Factory<T> objFactory) throws Exception {
-        this(objFactory, true);
+        this(objFactory, false);
     }
 
     /**
@@ -66,19 +66,17 @@ public class Singleton<T> implements Serializable {
      * @param objFactory       Factory to create new instance of class T when instance of it
      *                         does not exist.
      * @param toUpdateInstance Whether to update the instance in the pool on create of this
-     *                         manager.
+     *                         singleton object.
      * @throws Exception On failure creating a new instance.
      */
     public Singleton(Factory<T> objFactory, boolean toUpdateInstance) throws Exception {
         this.objFactory = objFactory;
         this.typeParameterClass = objFactory.produce().getClass().getName().toCharArray();
 
-        if (toUpdateInstance) {
-            checkPool();
-            synchronized (Singleton.class) {
-                if (!instancePool.containsKey(typeParameterClass)) {
-                    instancePool.put(typeParameterClass, objFactory.produce());
-                }
+        checkPool();
+        synchronized (Singleton.class) {
+            if (toUpdateInstance || !instancePool.containsKey(typeParameterClass)) {
+                instancePool.put(typeParameterClass, objFactory.produce());
             }
         }
     }

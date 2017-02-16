@@ -40,7 +40,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     private final static SimpleDateFormat ft = new SimpleDateFormat("yy.MM.dd HH:mm:ss");
 
     private String wrapMsg(Object msg) {
-        return ft.format(new Date()) + "\t" + "localhost\t" + msg;
+        return ft.format(new Date()) + "\t" + localName + "\t" + msg;
     }
 
     @Override
