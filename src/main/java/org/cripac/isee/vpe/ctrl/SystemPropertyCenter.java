@@ -469,7 +469,7 @@ public class SystemPropertyCenter implements Serializable {
         Properties consumerProp = new Properties();
         consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG, group);
-        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 isStringValue ? StringDeserializer.class : ByteArrayDeserializer.class);

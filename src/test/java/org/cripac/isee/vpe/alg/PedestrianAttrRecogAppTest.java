@@ -196,6 +196,8 @@ public class PedestrianAttrRecogAppTest {
                 }
                 logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
             });
+
+            consumer.commitSync();
         }
     }
 }

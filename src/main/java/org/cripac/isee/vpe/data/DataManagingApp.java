@@ -27,6 +27,8 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.bytedeco.javacpp.BytePointer;
@@ -49,8 +51,10 @@ import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
 import org.spark_project.guava.collect.Range;
@@ -120,6 +124,9 @@ public class DataManagingApp extends SparkStreamingApp {
 
     public static void main(String[] args) throws Exception {
         final AppPropertyCenter propCenter = new AppPropertyCenter(args);
+
+        Thread packingThread = new Thread(new TrackletPackingThread(propCenter));
+        packingThread.start();
 
         final SparkStreamingApp app = new DataManagingApp(propCenter);
         app.initialize();
@@ -329,23 +336,95 @@ public class DataManagingApp extends SparkStreamingApp {
         }
     }
 
+    /**
+     * This is a thread independent from Spark Streaming,
+     * which listen to tracklet packing jobs from Kafka,
+     * and perform HAR packing. There is no need to worry
+     * about job loss due to system faults, since offsets
+     * are committed after jobs are finished, so interrupted
+     * jobs can be retrieved from Kafka and executed again
+     * on another start of this thread. This thread is to be
+     * started together with the DataManagingApp.
+     */
+    static class TrackletPackingThread implements Runnable {
+
+        final static Topic JOB_TOPIC = new Topic("tracklet-packing-job", DataType.URL);
+
+        final Properties consumerProperties;
+        final String metadataDir;
+        final Logger logger;
+        final GraphDatabaseConnector databaseConnector;
+
+        TrackletPackingThread(SystemPropertyCenter propCenter) {
+            consumerProperties = propCenter.getKafkaConsumerProp("tracklet-packing", true);
+            metadataDir = propCenter.metadataDir;
+            logger = new SynthesizedLogger(APP_NAME, propCenter);
+            databaseConnector = new FakeDatabaseConnector();
+        }
+
+        @Override
+        public void run() {
+            KafkaConsumer<String, String> jobListener = new KafkaConsumer<>(consumerProperties);
+            jobListener.subscribe(Collections.singletonList(JOB_TOPIC.NAME));
+            while (true) {
+                ConsumerRecords<String, String> records = jobListener.poll(1000);
+                logger.debug("Tracklet packing thread received " + records.count() + " jobs!");
+                records.forEach(rec -> {
+                    final String taskID = rec.key();
+                    final String videoID = rec.value();
+                    final String videoRoot = metadataDir + "/" + videoID;
+                    final String taskRoot = videoRoot + "/" + taskID;
+
+                    logger.info("Starting to pack metadata for Task " + taskID + "(" + videoID + ")!");
+
+                    final HadoopArchives arch = new HadoopArchives(new Configuration());
+                    final ArrayList<String> harPackingOptions = new ArrayList<>();
+                    harPackingOptions.add("-archiveName");
+                    harPackingOptions.add(taskID + ".har");
+                    harPackingOptions.add("-p");
+                    harPackingOptions.add(taskRoot);
+                    harPackingOptions.add(videoRoot);
+                    try {
+                        arch.run(Arrays.copyOf(harPackingOptions.toArray(),
+                                harPackingOptions.size(), String[].class));
+                    } catch (Exception e) {
+                        logger.error("On running archiving", e);
+                    }
+
+                    logger.info("Task " + taskID + "(" + videoID + ") packed!");
+
+                    databaseConnector.setTrackSavingPath(videoID, videoRoot + "/" + taskID + ".har");
+
+                    // Delete the original folder recursively.
+                    try {
+                        new HDFSFactory().produce().delete(new Path(taskRoot), true);
+                    } catch (IOException e) {
+                        logger.error("On deleting original task folder", e);
+                    }
+                });
+                jobListener.commitSync();
+            }
+        }
+    }
+
     public static class TrackletSavingStream extends Stream {
         public static final String NAME = "tracklet-saving";
         public static final DataType OUTPUT_TYPE = DataType.NONE;
         public static final Topic PED_TRACKLET_SAVING_TOPIC =
                 new Topic("pedestrian-tracklet-saving", DataType.TRACKLET);
         private static final long serialVersionUID = 2820895755662980265L;
-        private final String metadataDir;
         private final Singleton<FileSystem> hdfsSingleton;
-        private final Singleton<GraphDatabaseConnector> dbConnSingleton;
+        private final String metadataDir;
+        private final Singleton<KafkaProducer<String, String>> packingJobProducerSingleton;
 
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
-            metadataDir = propCenter.metadataDir;
-
             hdfsSingleton = new Singleton<>(new HDFSFactory());
-            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
+            metadataDir = propCenter.metadataDir;
+            packingJobProducerSingleton = new Singleton<>(
+                    new KafkaProducerFactory<>(propCenter.getKafkaProducerProp(true))
+            );
         }
 
         /**
@@ -441,27 +520,12 @@ public class DataManagingApp extends SparkStreamingApp {
                             final long dirCnt = contentSummary.getDirectoryCount();
                             // Decrease one for directory counter.
                             if (dirCnt - 1 == numTracklets) {
-                                logger.info("Starting to pack metadata for Task " + taskID
+                                logger.info("Should pack metadata for Task " + taskID
                                         + "(" + tracklet.id.videoID + ")! The directory consumes "
                                         + contentSummary.getSpaceConsumed() + " bytes.");
 
-                                final HadoopArchives arch = new HadoopArchives(new Configuration());
-                                final ArrayList<String> harPackingOptions = new ArrayList<>();
-                                harPackingOptions.add("-archiveName");
-                                harPackingOptions.add(taskID + ".har");
-                                harPackingOptions.add("-p");
-                                harPackingOptions.add(taskRoot);
-                                harPackingOptions.add(videoRoot);
-                                arch.run(Arrays.copyOf(harPackingOptions.toArray(),
-                                        harPackingOptions.size(), String[].class));
-
-                                logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") packed!");
-
-                                dbConnSingleton.getInst().setTrackSavingPath(tracklet.id.videoID,
-                                        videoRoot + "/" + taskID + ".har");
-
-                                // Delete the original folder recursively.
-                                hdfs.delete(new Path(taskRoot), true);
+                                KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC, taskID, tracklet.id.videoID,
+                                        packingJobProducerSingleton.getInst(), logger);
                             } else {
                                 logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") need "
                                         + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");

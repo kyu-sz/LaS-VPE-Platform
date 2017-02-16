@@ -69,6 +69,7 @@ public class MainController {
                 while (true) {
                     ConsumerRecords<String, String> records = consumer.poll(0);
                     records.forEach(rec -> System.out.println(rec.value()));
+                    consumer.commitSync();
                 }
             });
             listener.start();
