@@ -30,8 +30,7 @@ public enum DataType {
     TRACKLET_ID,
     TRACKLET_ATTR,
     URL,
-    PLAIN_TEXT,
-    RAW_VIDEO_FRAG_BYTES,
+    FRAME_ARRAY,
     /**
      * Login parameters for web cameras.
      *
