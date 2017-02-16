@@ -17,6 +17,9 @@
 
 package org.cripac.isee.vpe.util.logging;
 
+import kafka.admin.AdminUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -43,7 +46,8 @@ import java.util.concurrent.TimeoutException;
  */
 public class SynthesizedLogger extends Logger {
 
-    private String username;
+    private final String username;
+    private final String reportTopic;
     private org.apache.log4j.Logger log4jLogger;
     private ConsoleLogger consoleLogger;
     private KafkaProducer<String, String> producer;
@@ -52,6 +56,24 @@ public class SynthesizedLogger extends Logger {
 
     private String wrapMsg(Object msg) {
         return ft.format(new Date()) + "\t" + localName + "\t" + username + ":\t" + msg;
+    }
+
+    private void checkTopic(String topic, SystemPropertyCenter propCenter) {
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn);
+
+        if (!AdminUtils.topicExists(zkClient, topic)) {
+            // AdminUtils.createTopic(zkClient, topic,
+            // propCenter.kafkaNumPartitions,
+            // propCenter.kafkaReplFactor, new Properties());
+            kafka.admin.TopicCommand.main(
+                    new String[]{
+                            "--create",
+                            "--zookeeper", propCenter.zkConn,
+                            "--topic", topic,
+                            "--partitions", "" + propCenter.kafkaNumPartitions,
+                            "--replication-factor", "" + propCenter.kafkaReplFactor});
+        }
     }
 
     /**
@@ -66,6 +88,7 @@ public class SynthesizedLogger extends Logger {
         super(propCenter.verbose ? Level.DEBUG : Level.INFO);
 
         this.username = username;
+        this.reportTopic = username + "_report";
 
         PropertyConfigurator.configure("log4j.properties");
         log4jLogger = LogManager.getRootLogger();
@@ -73,6 +96,7 @@ public class SynthesizedLogger extends Logger {
 
         consoleLogger = new ConsoleLogger(this.level);
 
+        checkTopic(reportTopic, propCenter);
         Properties producerProp = propCenter.getKafkaProducerProp(true);
         producer = new KafkaProducer<>(producerProp);
     }
@@ -85,7 +109,7 @@ public class SynthesizedLogger extends Logger {
 
     private void send(@Nonnull String message) {
         Future<RecordMetadata> metadataFuture =
-                producer.send(new ProducerRecord<>(username + "_report", this.username, message));
+                producer.send(new ProducerRecord<>(reportTopic, username, message));
         try {
             RecordMetadata recordMetadata = metadataFuture.get(5, TimeUnit.SECONDS);
             consoleLogger.debug("Report sent to " + recordMetadata.topic() + ":" + recordMetadata.partition()
