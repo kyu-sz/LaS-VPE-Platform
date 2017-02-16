@@ -18,6 +18,8 @@ package org.cripac.isee.vpe.util.logging;/**************************************
 import org.apache.log4j.Level;
 
 import javax.annotation.Nonnull;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 /**
  * Created by ken.yu on 16-10-24.
@@ -26,8 +28,17 @@ public abstract class Logger {
 
     protected Level level;
 
+    protected String localName;
+
     public Logger(Level level) {
         setLevel(level);
+
+        try {
+            localName = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+            localName = "Unknown Host";
+        }
     }
 
     public void setLevel(Level level) {

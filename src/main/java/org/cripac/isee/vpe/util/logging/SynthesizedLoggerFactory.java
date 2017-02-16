@@ -45,11 +45,7 @@ public class SynthesizedLoggerFactory implements Factory<Logger> {
         this.propCenter = propCenter;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject()
-     */
+    @Nonnull
     @Override
     public SynthesizedLogger produce() {
         return new SynthesizedLogger(username, propCenter);

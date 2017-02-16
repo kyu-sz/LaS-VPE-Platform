@@ -62,12 +62,12 @@ public class SystemPropertyCenter implements Serializable {
     private transient Logger logger = new ConsoleLogger(Level.INFO);
 
     // Zookeeper properties
-    String zkConn = "localhost:2181";
-    int sessionTimeoutMs = 10 * 10000;
+    public String zkConn = "localhost:2181";
+    public int sessionTimeoutMs = 10 * 10000;
     // Kafka properties
     public String kafkaBootstrapServers = "localhost:9092";
-    int kafkaNumPartitions = 1;
-    int kafkaReplFactor = 1;
+    public int kafkaNumPartitions = 1;
+    public int kafkaReplFactor = 1;
     private int kafkaMsgMaxBytes = 100000000;
     private int kafkaSendMaxSize = 100000000;
     private int kafkaRequestTimeoutMs = 60000;
@@ -76,10 +76,10 @@ public class SystemPropertyCenter implements Serializable {
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "metadata";
     public String sparkMaster = "local[*]";
-    private String sparkDeployMode = "client";
+    public String sparkDeployMode = "client";
     String[] appsToStart = null;
     // Caffe properties
-    private int caffeGPU = -1;
+    public int caffeGPU = -1;
     /**
      * Memory per executor (e.g. 1000M, 2G) (Default: 1G)
      */

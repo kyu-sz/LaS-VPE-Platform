@@ -19,6 +19,7 @@ import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.util.Factory;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PipedInputStream;
@@ -49,6 +50,7 @@ public class FakeWebCameraConnector extends WebCameraConnector {
          * @return An object newly produced.
          * @throws Exception On failure creating a new instance.
          */
+        @Nonnull
         @Override
         public WebCameraConnector produce() {
             return new FakeWebCameraConnector(loginParam);

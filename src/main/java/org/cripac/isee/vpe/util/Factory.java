@@ -17,7 +17,7 @@
 
 package org.cripac.isee.vpe.util;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 import java.io.Serializable;
 
 /**
@@ -31,6 +31,6 @@ public interface Factory<T> extends Serializable {
      *
      * @return An object newly produced. Returns null on failure.
      */
-    @Nullable
+    @Nonnull
     T produce() throws Exception;
 }

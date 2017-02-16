@@ -22,7 +22,7 @@ package org.cripac.isee.vpe.common;
  *
  * Created by ken.yu on 16-10-27.
  */
-public enum DataTypes {
+public enum DataType {
     ATTR,
     COMMAND,
     IDRANK,

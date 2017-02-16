@@ -67,6 +67,7 @@ public class BasicTrackerFactory implements Factory<BasicTracker> {
      *
      * @return A new BasicTracker instance newly produced.
      */
+    @Nonnull
     @Override
     public BasicTracker produce() {
         Logger logger;

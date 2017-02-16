@@ -1,4 +1,4 @@
-/***********************************************************************
+package org.cripac.isee.vpe.common;/***********************************************************************
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -15,33 +15,22 @@
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-package org.cripac.isee.vpe.common;
-
-import kafka.common.TopicAndPartition;
-import kafka.serializer.DefaultDecoder;
-import kafka.serializer.StringDecoder;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.HasOffsetRanges;
-import org.apache.spark.streaming.kafka.KafkaCluster;
-import org.apache.spark.streaming.kafka.KafkaUtils;
-import org.apache.spark.streaming.kafka.OffsetRange;
+import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
-import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
-import scala.collection.JavaConversions;
 
-import javax.annotation.Nonnull;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Properties;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
@@ -52,194 +41,58 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * Created by ken.yu on 16-10-26.
  */
 public abstract class Stream implements Serializable {
-
     private static final long serialVersionUID = 7965952554107861881L;
+    private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
 
-    /**
-     * The Info class is designed to force the output data INPUT_TYPE to
-     * be assigned to a stream, so that INPUT_TYPE matching checking can
-     * be conducted.
-     */
-    public static class Info implements Serializable {
-        private static final long serialVersionUID = -2859100367977900846L;
-        /**
-         * Name of the stream.
-         */
-        public final String NAME;
-
-        /**
-         * Type of output.
-         */
-        public final DataTypes OUTPUT_TYPE;
-
-        /**
-         * Construct a stream with NAME specified.
-         *
-         * @param name Name of the stream.
-         */
-        public Info(String name, DataTypes outputType) {
-            this.NAME = name;
-            this.OUTPUT_TYPE = outputType;
+    protected <T extends Serializable> void
+    output(Collection<TaskData.ExecutionPlan.Node.Port> outputPorts,
+           TaskData.ExecutionPlan executionPlan,
+           T result,
+           String taskID) throws Exception {
+        final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+        for (TaskData.ExecutionPlan.Node.Port port : outputPorts) {
+            final TaskData<T> resTaskData = new TaskData<>(port.getNode(), executionPlan, result);
+            final byte[] serialized = serialize(resTaskData);
+            sendWithLog(port.topic, taskID, serialized, producer, loggerSingleton.getInst());
         }
+    }
 
-        @Override
-        public int hashCode() {
-            return NAME.hashCode();
-        }
-
-        @Override
-        public String toString() {
-            return "Topic(name: \'" + NAME + "\', output type: \'" + OUTPUT_TYPE + "\')";
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o instanceof Info) {
-                assert OUTPUT_TYPE == ((Info) o).OUTPUT_TYPE;
-                return NAME.equals(((Info) o).NAME);
-            } else {
-                return super.equals(o);
-            }
-        }
+    protected <T extends Serializable> JavaPairDStream<String, T>
+    filter(JavaDStream<SparkStreamingApp.StringByteArrayRecord> stream, Topic topic) {
+        return stream
+                .filter(rec -> (Boolean) (rec.topic.equals(topic.NAME)))
+                .mapToPair(rec -> {
+                    try {
+                        return new Tuple2<>(rec.key, SerializationHelper.<T>deserialize(rec.value));
+                    } catch (Exception e) {
+                        loggerSingleton.getInst().error("On deserialization", e);
+                        return null;
+                    }
+                });
     }
 
     protected final Singleton<Logger> loggerSingleton;
 
     /**
-     * Require inputting a logger singleton for this class and all its subclasses.
+     * Initialize necessary components of a Stream object.
      *
-     * @param loggerSingleton A singleton of logger.
+     * @param appName    Enclosing application name.
+     * @param propCenter System property center.
+     * @throws Exception On failure creating singleton.
      */
-    public Stream(@Nonnull Singleton<Logger> loggerSingleton) {
-        this.loggerSingleton = loggerSingleton;
+    public Stream(String appName, SystemPropertyCenter propCenter) throws Exception {
+        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
+
+        Properties producerProp = propCenter.getKafkaProducerProp(false);
+        producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
     }
 
     /**
-     * Add the stream to a Spark Streaming context.
+     * Append the stream to a Spark Streaming stream.
      *
-     * @param jssc A Spark Streaming context.
+     * @param globalStream A Spark Streaming stream.
      */
-    public abstract void addToContext(JavaStreamingContext jssc);
+    public abstract void addToStream(JavaDStream<SparkStreamingApp.StringByteArrayRecord> globalStream);
 
-    protected final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<>();
-
-    private static class StringByteArrayRecord implements Serializable {
-        private static final long serialVersionUID = -7522425828162991655L;
-        String key;
-        byte[] value;
-
-        StringByteArrayRecord(String key, byte[] value) {
-            this.key = key;
-            this.value = value;
-        }
-    }
-
-    /**
-     * Utility function for all applications to receive messages with byte
-     * array values from Kafka with direct stream.
-     *
-     * @param jssc          The streaming context of the applications.
-     * @param topics        Topics from which the direct stream reads.
-     * @param kafkaCluster  Kafka cluster created from getKafkaParams
-     *                      (please use {@link KafkaHelper#createKafkaCluster(Map)}).
-     * @param toRepartition Whether to repartition the RDDs.
-     * @return A Kafka non-receiver input stream.
-     */
-    protected JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
-                           @Nonnull Collection<String> topics,
-                           @Nonnull KafkaCluster kafkaCluster,
-                           boolean toRepartition) {
-        Logger tmpLogger;
-        try {
-            tmpLogger = loggerSingleton.getInst();
-        } catch (Exception e) {
-            tmpLogger = new ConsoleLogger();
-            e.printStackTrace();
-        }
-        tmpLogger.info("Getting initial fromOffsets from Kafka cluster.");
-        // Retrieve and correct offsets from Kafka cluster.
-        final Map<TopicAndPartition, Long> fromOffsets = KafkaHelper.getFromOffsets(kafkaCluster, topics);
-        tmpLogger.info("Initial fromOffsets=" + fromOffsets);
-
-        // Create a direct stream from the retrieved offsets.
-        JavaPairDStream<String, byte[]> stream = KafkaUtils.createDirectStream(
-                jssc,
-                String.class, byte[].class,
-                StringDecoder.class, DefaultDecoder.class,
-                StringByteArrayRecord.class,
-                JavaConversions.mapAsJavaMap(kafkaCluster.kafkaParams()),
-                fromOffsets,
-                mmd -> new StringByteArrayRecord(mmd.key(), mmd.message()))
-                // Manipulate offsets.
-                .transform(rdd -> {
-                    final Logger logger = loggerSingleton.getInst();
-
-                    // Store offsets.
-                    final OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-                    offsetRanges.set(offsets);
-
-                    // Find offsets which indicate new messages have been received.
-                    int numNewMessages = 0;
-                    for (OffsetRange o : offsets) {
-                        if (o.untilOffset() > o.fromOffset()) {
-                            numNewMessages += o.untilOffset() - o.fromOffset();
-                            logger.debug("Received {topic=" + o.topic()
-                                    + ", partition=" + o.partition()
-                                    + ", fromOffset=" + o.fromOffset()
-                                    + ", untilOffset=" + o.untilOffset() + "}");
-                        }
-                    }
-                    if (numNewMessages == 0) {
-                        logger.debug("No new messages!");
-                    } else {
-                        logger.debug("Received " + numNewMessages + " messages totally.");
-                    }
-                    return rdd;
-                })
-                // Transform to usual record type.
-                .mapToPair(rec -> new Tuple2<>(rec.key, rec.value));
-
-        if (toRepartition) {
-            // Repartition the records.
-            stream = stream.repartition(jssc.sparkContext().defaultParallelism());
-        }
-
-        return stream;
-    }
-
-    /**
-     * Utility function for all applications to receive messages with byte
-     * array values from Kafka with direct stream. RDDs are repartitioned by default.
-     *
-     * @param jssc         The streaming context of the applications.
-     * @param topics       Topics from which the direct stream reads.
-     * @param kafkaCluster Kafka cluster created from getKafkaParams
-     *                     (please use {@link KafkaHelper#createKafkaCluster(Map)}).
-     * @return A Kafka non-receiver input stream.
-     */
-    protected JavaPairDStream<String, byte[]>
-    buildBytesDirectStream(@Nonnull JavaStreamingContext jssc,
-                           @Nonnull Collection<String> topics,
-                           @Nonnull KafkaCluster kafkaCluster) {
-        return buildBytesDirectStream(jssc, topics, kafkaCluster, true);
-    }
-
-    protected void output(List<Topic> topics,
-                          String taskID,
-                          TaskData taskData,
-                          KafkaProducer<String, byte[]> producer,
-                          Logger logger) throws IOException {
-        for (Topic topic : topics) {
-            try {
-                taskData.changeCurNode(topic);
-            } catch (RecordNotFoundException e) {
-                logger.warn("When changing node in TaskData", e);
-            }
-
-            final byte[] serialized = serialize(taskData);
-            logger.debug("To sendWithLog message with size: " + serialized.length);
-            sendWithLog(topic, taskID, serialized, producer, logger);
-        }
-    }
+    public abstract List<String> listeningTopics();
 }

@@ -18,7 +18,6 @@
 package org.cripac.isee.vpe.util;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.*;
 
 /**
@@ -58,23 +57,6 @@ public class SerializationHelper {
             } catch (IOException e) {
                 // ignore close exception
             }
-        }
-    }
-
-    /**
-     * Deserialize a byte array of an object. Return null on failure.
-     *
-     * @param byteArray The byte array serialized from an object.
-     * @return An object from which the byte array is serialized, or null on failure.
-     */
-    public
-    @Nullable
-    static <T> T deserializeNoThrow(@Nonnull byte[] byteArray) {
-        try {
-            return deserialize(byteArray);
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-            return null;
         }
     }
 

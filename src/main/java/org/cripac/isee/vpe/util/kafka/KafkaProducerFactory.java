@@ -21,7 +21,6 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.cripac.isee.vpe.util.Factory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Properties;
 
 /**
@@ -51,6 +50,7 @@ public class KafkaProducerFactory<K, V> implements Factory<KafkaProducer<K, V>> 
      * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject(java.util.
      * Properties)
      */
+    @Nonnull
     @Override
     public KafkaProducer<K, V> produce() {
         return new KafkaProducer<>(config);

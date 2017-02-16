@@ -28,30 +28,29 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
-import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.apache.spark.streaming.kafka.KafkaCluster;
+import org.apache.spark.streaming.api.java.JavaDStream;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.pedestrian.tracking.Tracker;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.debug.FakeWebCameraConnector;
+import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import scala.Tuple2;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
  * The PedestrianTrackingApp class takes in video URLs from Kafka, then process
@@ -67,9 +66,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     public static final String APP_NAME = "pedestrian-tracking";
     private static final long serialVersionUID = 662603522385058035L;
 
-    private Stream fragmentTrackingStream;
-    private Stream rtTrackingStream;
-
     /**
      * Constructor of the application, configuring properties read from a
      * property center.
@@ -78,9 +74,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      * @throws Exception Any exception that might occur during execution.
      */
     public PedestrianTrackingApp(SystemPropertyCenter propCenter) throws Exception {
-        super(propCenter);
-        fragmentTrackingStream = new HDFSVideoTrackingStream(propCenter);
-        rtTrackingStream = new RTVideoStreamTrackingStream(propCenter);
+        super(propCenter, APP_NAME);
+
+        registerStreams(Arrays.asList(
+                new HDFSVideoTrackingStream(propCenter),
+                new RTVideoStreamTrackingStream(propCenter)));
     }
 
     /**
@@ -91,39 +89,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         // Load system properties.
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
-        TopicManager.checkTopics(propCenter);
-
         // Start the pedestrian tracking application.
         SparkStreamingApp app = new PedestrianTrackingApp(propCenter);
         app.initialize();
         app.start();
         app.awaitTermination();
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * SparkStreamingApp#getStreamContext()
-     */
-    @Override
-    protected JavaStreamingContext getStreamContext() {
-        // Create contexts.
-        JavaStreamingContext jssc = super.getStreamContext();
-        fragmentTrackingStream.addToContext(jssc);
-        // TODO: After completed the real-time tracking stream, uncomment the following line.
-//        rtTrackingStream.addToContext(jsc);
-        return jssc;
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see SparkStreamingApp#getStreamInfo()
-     */
-    @Override
-    public String getAppName() {
-        return APP_NAME;
     }
 
     /**
@@ -176,33 +146,24 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      * stream from these cameras.
      */
     public static class RTVideoStreamTrackingStream extends Stream {
-
-        public static final Info INFO =
-                new Info("rt-video-tracking", DataTypes.TRACKLET);
+        public static final String NAME = "rt-video-tracking";
+        public static final DataType OUTPUT_TYPE = DataType.TRACKLET;
 
         /**
          * Topic for inputting from Kafka the IPs of cameras.
          */
         public static final Topic LOGIN_PARAM_TOPIC =
                 new Topic("cam-address-for-pedestrian-tracking",
-                        DataTypes.WEBCAM_LOGIN_PARAM, INFO);
+                        DataType.WEBCAM_LOGIN_PARAM);
         private static final long serialVersionUID = -278417583644937040L;
-
-        /**
-         * Kafka parameters for creating input streams pulling messages
-         * from Kafka brokers.
-         */
-        private final Map<String, String> kafkaParams;
 
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<FileSystem> hdfsSingleton;
         private final Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
 
-        public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws
-                Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
+        public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws Exception {
+            super(APP_NAME, propCenter);
 
-            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
             Properties producerProp = propCenter.getKafkaProducerProp(false);
 
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
@@ -211,16 +172,25 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jssc) {
-            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(LOGIN_PARAM_TOPIC.NAME), kc)
+        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
+            globalStream
+                    .filter(rec -> (Boolean) (rec.topic == LOGIN_PARAM_TOPIC.NAME))
+                    .mapToPair(rec -> {
+                        try {
+                            return new Tuple2<>(rec.key,
+                                    SerializationHelper.<TaskData<LoginParam>>deserialize(rec.value));
+                        } catch (Exception e) {
+                            loggerSingleton.getInst().error("During deserialization", e);
+                            return null;
+                        }
+                    })
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             // Recover data.
                             final String taskID = kv._1();
-                            final TaskData taskData = deserialize(kv._2());
-                            final LoginParam loginParam = (LoginParam) taskData.predecessorRes;
+                            final TaskData<LoginParam> taskData = kv._2();
+                            final LoginParam loginParam = taskData.predecessorRes;
 
                             final WebCameraConnector cameraConnector;
                             if (connectorPool.containsKey(loginParam.serverID)) {
@@ -243,31 +213,30 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             })
                     );
         }
+
+        @Override
+        public List<String> listeningTopics() {
+            return Collections.singletonList(LOGIN_PARAM_TOPIC.NAME);
+        }
     }
 
     public static class HDFSVideoTrackingStream extends Stream {
 
-        public static final Info INFO = new Info("hdfs-video-tracking", DataTypes.TRACKLET);
+        public static final String NAME = "hdfs-video-tracking";
+        public static final DataType OUTPUT_TYPE = DataType.TRACKLET;
 
         /**
          * Topic to input video URLs from Kafka.
          */
         public static final Topic VIDEO_URL_TOPIC =
-                new Topic("hdfs-video-url-for-pedestrian-tracking", DataTypes.URL, INFO);
+                new Topic("hdfs-video-url-for-pedestrian-tracking", DataType.URL);
         private static final long serialVersionUID = -6738652169567844016L;
-        /**
-         * Kafka parameters for creating input streams pulling messages
-         * from Kafka brokers.
-         */
-        private final Map<String, String> kafkaParams;
 
         private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<FileSystem> hdfsSingleton;
 
         public HDFSVideoTrackingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(new Singleton<>(new SynthesizedLoggerFactory(APP_NAME, propCenter)));
-
-            kafkaParams = propCenter.getKafkaParams(INFO.NAME);
+            super(APP_NAME, propCenter);
 
             Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
@@ -276,9 +245,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToContext(JavaStreamingContext jssc) {
-            final KafkaCluster kc = KafkaHelper.createKafkaCluster(kafkaParams);
-            buildBytesDirectStream(jssc, Collections.singletonList(VIDEO_URL_TOPIC.NAME), kc)
+        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
+            this.<TaskData<String>>filter(globalStream, VIDEO_URL_TOPIC)
                     .foreachRDD(rdd -> {
                         final Broadcast<Map<String, byte[]>> confPool =
                                 ConfigPool.getInst(new JavaSparkContext(rdd.context()),
@@ -289,9 +257,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                             final Logger logger = loggerSingleton.getInst();
                             try {
                                 final String taskID = kv._1();
-                                final TaskData taskData = deserialize(kv._2());
+                                final TaskData<String> taskData = kv._2();
 
-                                final String videoURL = (String) taskData.predecessorRes;
+                                final String videoURL = taskData.predecessorRes;
                                 final InputStream videoStream = hdfsSingleton.getInst().open(new Path(videoURL));
                                 logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
 
@@ -304,7 +272,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 }
 
                                 // Get the IDs of successor nodes.
-                                final List<Topic> succTopics = curNode.getSuccessors();
+                                final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                                 // Mark the current node as executed in advance.
                                 taskData.curNode.markExecuted();
 
@@ -327,21 +295,26 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                                 // Send tracklets.
                                 final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-                                for (Tracklet tracklet : tracklets) {
-                                    // Complete identifier of each tracklet.
-                                    tracklet.id.videoID = videoURL;
-                                    // Stored the track in the task data, which can be cyclic utilized.
-                                    taskData.predecessorRes = tracklet;
-                                    // Send to all the successor nodes.
-                                    output(succTopics, taskID, taskData, producer, logger);
+                                for (TaskData.ExecutionPlan.Node.Port port : outputPorts) {
+                                    for (Tracklet tracklet : tracklets) {
+                                        final TaskData<Tracklet> resTaskData = new TaskData<>(
+                                                port.getNode(), taskData.executionPlan, tracklet
+                                        );
+
+                                        final byte[] serialized = serialize(resTaskData);
+                                        sendWithLog(port.topic, taskID, serialized, producer, logger);
+                                    }
                                 }
                             } catch (Throwable e) {
                                 logger.error("During tracking.", e);
                             }
                         });
-
-                        KafkaHelper.submitOffset(kc, offsetRanges.get());
                     });
+        }
+
+        @Override
+        public List<String> listeningTopics() {
+            return Collections.singletonList(VIDEO_URL_TOPIC.NAME);
         }
     }
 }
