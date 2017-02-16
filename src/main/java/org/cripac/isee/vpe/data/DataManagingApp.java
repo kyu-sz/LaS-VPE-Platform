@@ -126,15 +126,10 @@ public class DataManagingApp extends SparkStreamingApp {
                 new Topic("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID);
         private static final long serialVersionUID = -3588633503578388408L;
         // Create KafkaSink for Spark Streaming to output to Kafka.
-        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
-        public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter)
-                throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
-
-            Properties producerProp = propCenter.getKafkaProducerProp(false);
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
+        public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
+            super(APP_NAME, propCenter);
 
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
@@ -194,7 +189,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
 
             final Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
@@ -257,7 +252,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
 
             metadataDir = propCenter.metadataDir;
 
@@ -404,7 +399,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         AttrSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
 
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
@@ -445,7 +440,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private static final long serialVersionUID = -6469177153696762040L;
 
         public IDRankSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
         }
 
         @Override

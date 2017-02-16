@@ -120,7 +120,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         private Singleton<PedestrianReIDer> reidSingleton;
 
         public ReIDStream(SystemPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
 
             bufDuration = propCenter.bufDuration;
 

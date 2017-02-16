@@ -135,7 +135,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
         private Singleton<HDFSReader> hdfsReaderSingleton;
 
         public MessageHandlingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
 
             Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));

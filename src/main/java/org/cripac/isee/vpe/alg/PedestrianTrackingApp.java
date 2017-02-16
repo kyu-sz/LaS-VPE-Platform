@@ -162,7 +162,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private final Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
 
         public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
 
             Properties producerProp = propCenter.getKafkaProducerProp(false);
 
@@ -236,7 +236,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private final Singleton<FileSystem> hdfsSingleton;
 
         public HDFSVideoTrackingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
 
             Properties producerProp = propCenter.getKafkaProducerProp(false);
             producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));

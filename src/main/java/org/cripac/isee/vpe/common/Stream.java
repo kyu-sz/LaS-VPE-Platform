@@ -41,11 +41,6 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  * Created by ken.yu on 16-10-26.
  */
 public abstract class Stream implements Serializable {
-    /**
-     * Name of the stream.
-     */
-    public final String name;
-
     private static final long serialVersionUID = 7965952554107861881L;
     private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
 
@@ -78,9 +73,15 @@ public abstract class Stream implements Serializable {
 
     protected final Singleton<Logger> loggerSingleton;
 
-    public Stream(String name, SystemPropertyCenter propCenter) throws Exception {
-        this.name = name;
-        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(name, propCenter));
+    /**
+     * Initialize necessary components of a Stream object.
+     *
+     * @param appName    Enclosing application name.
+     * @param propCenter System property center.
+     * @throws Exception On failure creating singleton.
+     */
+    public Stream(String appName, SystemPropertyCenter propCenter) throws Exception {
+        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
 
         Properties producerProp = propCenter.getKafkaProducerProp(false);
         producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));

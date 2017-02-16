@@ -139,7 +139,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private final int maxTrackletLength;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
-            super(APP_NAME + ":" + NAME, propCenter);
+            super(APP_NAME, propCenter);
 
             this.maxTrackletLength = propCenter.maxTrackletLength;
 

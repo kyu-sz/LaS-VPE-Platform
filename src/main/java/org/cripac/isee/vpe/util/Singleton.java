@@ -71,12 +71,13 @@ public class Singleton<T> implements Serializable {
      */
     public Singleton(Factory<T> objFactory, boolean toUpdateInstance) throws Exception {
         this.objFactory = objFactory;
-        this.typeParameterClass = objFactory.produce().getClass().getName().toCharArray();
+        T inst = objFactory.produce();
+        this.typeParameterClass = inst.getClass().getName().toCharArray();
 
-        checkPool();
-        synchronized (Singleton.class) {
-            if (toUpdateInstance || !instancePool.containsKey(typeParameterClass)) {
-                instancePool.put(typeParameterClass, objFactory.produce());
+        if (toUpdateInstance) {
+            checkPool();
+            synchronized (Singleton.class) {
+                instancePool.put(typeParameterClass, inst);
             }
         }
     }
