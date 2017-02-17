@@ -79,8 +79,14 @@ object KafkaHelper {
     * @return A KafkaCluster instance.
     */
   def createKafkaCluster(@Nonnull kafkaParams: util.Map[String, Object]): KafkaCluster = {
+    // Transform non string values to string
     new KafkaCluster(kafkaParams.mapValues {
-      case s: String => s
+      case s: String => s match {
+        // Transform new version settings to old version.
+        case "latest" => "largest"
+        case "earliest" => "smallest"
+        case _ => s
+      }
       case obj => obj.toString
     }.toMap)
   }
