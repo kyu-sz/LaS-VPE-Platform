@@ -17,7 +17,10 @@
 
 package org.cripac.isee.pedestrian.tracking;
 
+import org.bytedeco.javacv.FrameGrabber;
+
 import javax.annotation.Nonnull;
+import java.io.InputStream;
 
 /**
  * The Tracker class is the base class of all pedestrian tracking
@@ -31,8 +34,10 @@ public abstract class Tracker {
     /**
      * Read a video from a URL, and perform pedestrian tracking on it.
      *
-     * @param videoBytes Bytes of the video to conduct tracking on.
+     * @param videoStream Video stream to conduct tracking on.
      * @return A set of tracklets of pedestrians.
      */
-    public abstract Tracklet[] track(@Nonnull byte[] videoBytes);
+    public abstract
+    @Nonnull
+    Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception;
 }

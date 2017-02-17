@@ -25,6 +25,7 @@
 package org.cripac.isee.pedestrian.attr;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -37,7 +38,6 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 
 /**
  * The class ExternPedestrianAttrRecognizer is a recognizer of pedestrian
@@ -68,7 +68,7 @@ import java.nio.charset.StandardCharsets;
 public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
     private Logger logger;
-    private Socket socket;
+    private Socket socket = null;
     private InetAddress solverAddress;
     private int port;
 
@@ -82,20 +82,22 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      */
     public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,
                                           int port,
-                                          @Nullable Logger logger) throws IOException {
+                                          @Nullable Logger logger) {
         if (logger == null) {
             this.logger = new ConsoleLogger();
         } else {
             this.logger = logger;
         }
-        logger.debug("Using extern recognition server at " + solverAddress.getHostAddress() + ":" + port);
-        connect(solverAddress, port);
+        this.solverAddress = solverAddress;
+        this.port = port;
+        this.logger.debug("Using extern recognition server at " + solverAddress.getHostAddress() + ":" + port);
     }
 
+    @SuppressWarnings("unused")
     public void connect(@Nonnull InetAddress solverAddress, int port) {
         this.solverAddress = solverAddress;
         this.port = port;
-        connect();
+        socket = null;
     }
 
     private void connect() {
@@ -124,9 +126,16 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      * Tracklet)
      */
     @Override
-    public Attributes recognize(@Nonnull Tracklet tracklet) {
+    public
+    @Nonnull
+    Attributes recognize(@Nonnull Tracklet tracklet) {
         // Create a new message consisting the comparation task.
-        RequestMessage message = new RequestMessage(tracklet);
+        final RequestMessage message = new RequestMessage(tracklet);
+
+        // Connect lazily.
+        if (socket == null) {
+            connect();
+        }
 
         // Write the bytes of the message to the socket.
         while (true) {
@@ -134,7 +143,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                 message.getBytes(socket.getOutputStream());
                 logger.debug("Sent request for tracklet " + tracklet.id);
 
-                byte[] jsonLenBytes = new byte[4];
+                final byte[] jsonLenBytes = new byte[4];
 
                 InputStream inputStream = new DataInputStream(socket.getInputStream());
 
@@ -147,9 +156,12 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                     int bytesRead = inputStream.read(jsonLenBytes, bytesCnt, jsonLenBytes.length - bytesCnt);
                     bytesCnt += bytesRead;
                 } while (bytesCnt < 4);
-                int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
+                final int jsonLen = ByteBuffer.wrap(jsonLenBytes).order(ByteOrder.BIG_ENDIAN).getInt();
+                if (jsonLen <= 0) {
+                    throw new IOException("Received invalid Json length (<= 0).");
+                }
                 // Create a buffer for JSON.
-                byte[] jsonBytes = new byte[jsonLen];
+                final byte[] jsonBytes = new byte[jsonLen];
                 logger.debug("To receive " + jsonLen + " bytes.");
 
                 // jsonLen bytes - Bytes of UTF-8 JSON string representing the attributes.
@@ -159,13 +171,16 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
                     // Append the data into Json string.
                     bytesCnt += bytesRead;
                 } while (bytesCnt < jsonLen);
-                String json = new String(jsonBytes, 0, jsonLen);
+                final String json = new String(jsonBytes, 0, jsonLen);
                 logger.debug("Received attr json (len=" + json.length() + "): " + json);
 
-                Attributes attr = new Gson().fromJson(json, Attributes.class);
-                return attr;
+                return new Gson().fromJson(json, Attributes.class);
             } catch (IOException e) {
-                logger.error("When communicating with extern attr recog server", e);
+                logger.error("On communicating with extern attr recog server", e);
+                connect();
+                logger.info("Connection recovered!");
+            } catch (JsonSyntaxException e) {
+                logger.error("On analyzing Json", e);
                 connect();
                 logger.info("Connection recovered!");
             }
@@ -197,10 +212,10 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
          * Given an output stream, the RequestMessage writes itself to the
          * stream as a byte array in a specialized form.
          *
-         * @param outputStream The output stream to write to.
-         * @throws IOException
+         * @param outputStream the output stream to write to.
+         * @throws IOException if an I/O error occurs.
          */
-        public void getBytes(@Nonnull OutputStream outputStream) throws IOException {
+        void getBytes(@Nonnull OutputStream outputStream) throws IOException {
             BufferedOutputStream bufferedStream = new BufferedOutputStream(outputStream);
 
             // 4 bytes - Tracklet length (number of bounding boxes).
@@ -210,14 +225,8 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
             // Each bounding box.
             for (BoundingBox bbox : tracklet.locationSequence) {
                 // 16 bytes - Bounding box data.
-                buf = ByteBuffer.allocate(Integer.BYTES * 4);
-                buf.putInt(bbox.x);
-                buf.putInt(bbox.y);
-                buf.putInt(bbox.width);
-                buf.putInt(bbox.height);
-                bufferedStream.write(buf.array());
                 // width * height * 3 bytes - Image data.
-                bufferedStream.write(bbox.patchData);
+                bufferedStream.write(bbox.toBytes());
             }
 
             bufferedStream.flush();

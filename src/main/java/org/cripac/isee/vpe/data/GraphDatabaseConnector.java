@@ -90,16 +90,6 @@ public abstract class GraphDatabaseConnector {
     public abstract Attributes getPedestrianAttributes(@Nonnull String id) throws NoSuchElementException;
 
     /**
-     * Get all the pedestrians linked to one target pedestrian.
-     *
-     * @param id The id of the target pedestrian.
-     * @return IDs of all the pedestrians linked to the target pedestrian. The
-     * array might be empty.
-     * @throws NoSuchElementException On failure finding the target pedestrian.
-     */
-    public abstract Link[] getLinkedPedestrians(@Nonnull String id) throws NoSuchElementException;
-
-    /**
      * The class Link represents a link from one node to another in the graph
      * database.
      *

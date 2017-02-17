@@ -22,22 +22,20 @@ import org.apache.log4j.Level;
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Assert;
-import org.junit.Test;
 
 import java.io.FileInputStream;
+import java.io.InputStream;
 
 /**
  * Created by ken.yu on 16-10-23.
  */
 public class BasicTrackerTest {
-    @Test
+    //    @Test
     public void initialize() throws Exception {
         System.out.println("Performing memory leak test...");
 
         byte[] conf = IOUtils.toByteArray(new FileInputStream(
-                "conf/"
-                        + PedestrianTrackingApp.APP_NAME
-                        + "/isee-basic/CAM01_0.conf"));
+                "conf/" + PedestrianTrackingApp.APP_NAME + "/isee-basic/CAM01_0.conf"));
         for (int i = 0; i < 100000; ++i) {
             BasicTracker tracker = new BasicTracker(conf, new ConsoleLogger(Level.DEBUG));
         }
@@ -48,22 +46,17 @@ public class BasicTrackerTest {
         System.out.println("Performing validness test...");
 
         System.out.println("Reading video...");
-        byte[] videoBytes =
-                IOUtils.toByteArray(new FileInputStream(
-                        "src/test/resources/20131220184349-20131220184937.h264"));
+        InputStream videoStream = new FileInputStream("src/test/resources/20131220184349-20131220184937.h264");
 
         System.out.println("Native library path: " + System.getProperty("java.library.path"));
         System.out.println("Creating tracker...");
-        BasicTracker tracker =
-                new BasicTracker(
-                        IOUtils.toByteArray(new FileInputStream(
-                                "conf/"
-                                        + PedestrianTrackingApp.APP_NAME
-                                        + "/isee-basic/CAM01_0.conf")),
-                        new ConsoleLogger(Level.DEBUG));
+        BasicTracker tracker = new BasicTracker(
+                IOUtils.toByteArray(new FileInputStream(
+                        "conf/" + PedestrianTrackingApp.APP_NAME + "/isee-basic/CAM01_0.conf")),
+                new ConsoleLogger(Level.DEBUG));
 
         System.out.println("Start tracking...");
-        Tracklet[] tracklets = tracker.track(videoBytes);
+        Tracklet[] tracklets = tracker.track(videoStream);
 
         System.out.println("Tracked " + tracklets.length + " pedestrians!");
         for (Tracklet tracklet : tracklets) {

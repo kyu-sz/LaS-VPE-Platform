@@ -17,8 +17,9 @@
 
 package org.cripac.isee.vpe.util;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -34,7 +35,7 @@ public class Singleton<T> implements Serializable {
     /**
      * Lazy-evaluated instance pool of all the classes.
      */
-    private static volatile Map<String, Object> instancePool = null;
+    private static volatile Map<char[], Object> instancePool = null;
 
     /**
      * Factory for creating a new instance if there is not instance in the pool
@@ -45,10 +46,10 @@ public class Singleton<T> implements Serializable {
     /**
      * Name of class T.
      */
-    private final String typeParameterClass;
+    private final char[] typeParameterClass;
 
     /**
-     * Create a singleton manager of specified class T, and update the instance
+     * Create a singleton of specified class T, and do not update the instance
      * by default.
      *
      * @param objFactory Factory to create new instance of class T when instance of it
@@ -56,7 +57,7 @@ public class Singleton<T> implements Serializable {
      * @throws Exception On failure creating a new instance.
      */
     public Singleton(Factory<T> objFactory) throws Exception {
-        this(objFactory, true);
+        this(objFactory, false);
     }
 
     /**
@@ -65,19 +66,18 @@ public class Singleton<T> implements Serializable {
      * @param objFactory       Factory to create new instance of class T when instance of it
      *                         does not exist.
      * @param toUpdateInstance Whether to update the instance in the pool on create of this
-     *                         manager.
+     *                         singleton object.
      * @throws Exception On failure creating a new instance.
      */
     public Singleton(Factory<T> objFactory, boolean toUpdateInstance) throws Exception {
         this.objFactory = objFactory;
-        this.typeParameterClass = objFactory.produce().getClass().getName();
+        T inst = objFactory.produce();
+        this.typeParameterClass = inst.getClass().getName().toCharArray();
 
         if (toUpdateInstance) {
             checkPool();
             synchronized (Singleton.class) {
-                if (!instancePool.containsKey(typeParameterClass)) {
-                    instancePool.put(typeParameterClass, objFactory.produce());
-                }
+                instancePool.put(typeParameterClass, inst);
             }
         }
     }
@@ -89,7 +89,7 @@ public class Singleton<T> implements Serializable {
         if (instancePool == null) {
             synchronized (Singleton.class) {
                 if (instancePool == null) {
-                    instancePool = new HashMap<>();
+                    instancePool = new Object2ObjectOpenHashMap<>();
                 }
             }
         }
@@ -112,6 +112,7 @@ public class Singleton<T> implements Serializable {
             }
         }
 
+        //noinspection unchecked
         return (T) instancePool.get(typeParameterClass);
     }
 }

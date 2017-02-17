@@ -19,6 +19,8 @@ import org.apache.log4j.Level;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
  * A simple logger for output logs to the console only.
@@ -35,10 +37,16 @@ public class ConsoleLogger extends Logger implements Serializable {
         super(level);
     }
 
+    private final static SimpleDateFormat ft = new SimpleDateFormat("yy.MM.dd HH:mm:ss");
+
+    private String wrapMsg(Object msg) {
+        return ft.format(new Date()) + "\t" + localName + "\t" + msg;
+    }
+
     @Override
     public void debug(@Nonnull Object msg) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
-            System.out.println("[DEBUG]\tlocalhost\t" + msg);
+            System.out.println("[DEBUG]\t" + wrapMsg(msg));
         }
     }
 
@@ -46,7 +54,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void debug(@Nonnull Object msg,
                       @Nonnull Throwable t) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
-            System.out.println("[DEBUG]\tlocalhost\t" + msg);
+            System.out.println("[DEBUG]\t" + wrapMsg(msg));
             t.printStackTrace();
         }
     }
@@ -54,7 +62,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void info(@Nonnull Object msg) {
         if (Level.INFO.isGreaterOrEqual(level)) {
-            System.out.println("[INFO]\tlocalhost\t" + msg);
+            System.out.println("[INFO]\t" + wrapMsg(msg));
         }
     }
 
@@ -62,7 +70,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void info(@Nonnull Object msg,
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
-            System.out.println("[INFO]\tlocalhost\t" + msg);
+            System.out.println("[INFO]\t" + wrapMsg(msg));
             t.printStackTrace();
         }
     }
@@ -70,7 +78,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void warn(@Nonnull Object msg) {
         if (Level.WARN.isGreaterOrEqual(level)) {
-            System.out.println("[WARNING]\tlocalhost\t" + msg);
+            System.out.println("[WARNING]\t" + wrapMsg(msg));
         }
     }
 
@@ -78,7 +86,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void warn(@Nonnull Object msg,
                      @Nonnull Throwable t) {
         if (Level.WARN.isGreaterOrEqual(level)) {
-            System.out.println("[WARNING]\tlocalhost\t" + msg);
+            System.out.println("[WARNING]\t" + wrapMsg(msg));
             t.printStackTrace();
         }
     }
@@ -86,7 +94,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void error(@Nonnull Object msg) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
-            System.err.println("[ERROR]\tlocalhost\t" + msg);
+            System.err.println("[ERROR]\t" + wrapMsg(msg));
         }
     }
 
@@ -94,7 +102,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void error(@Nonnull Object msg,
                       @Nonnull Throwable t) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
-            System.err.println("[ERROR]\tlocalhost\t" + msg);
+            System.err.println("[ERROR]\t" + wrapMsg(msg));
             t.printStackTrace();
         }
     }
@@ -102,7 +110,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     @Override
     public void fatal(@Nonnull Object msg) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
-            System.err.println("[FATAL]\tlocalhost\t" + msg);
+            System.err.println("[FATAL]\t" + wrapMsg(msg));
         }
     }
 
@@ -110,7 +118,7 @@ public class ConsoleLogger extends Logger implements Serializable {
     public void fatal(@Nonnull Object msg,
                       @Nonnull Throwable t) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
-            System.err.println("[FATAL]\tlocalhost\t" + msg);
+            System.err.println("[FATAL]\t" + wrapMsg(msg));
             t.printStackTrace();
         }
     }

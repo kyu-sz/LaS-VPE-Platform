@@ -88,7 +88,9 @@ public class DirectoryHierarchy {
                               @Nullable DirectoryHierarchy parent) {
         this.name = name;
         this.parent = parent;
-        parent.subHierarchy.put(name, this);
+        if (parent != null) {
+            parent.subHierarchy.put(name, this);
+        }
     }
 
     /**
@@ -104,7 +106,7 @@ public class DirectoryHierarchy {
         if (parent == null) {
             return list;
         } else {
-            return parent.wrapUpperHierarchies(list.stream()
+            return parent.wrapUpperHierarchies(list.parallelStream()
                     .map(descriptor -> descriptor.wrap(name))
                     .collect(Collectors.toList()));
         }
@@ -112,13 +114,13 @@ public class DirectoryHierarchy {
 
     private List<FileDescriptor> gatherLowerFiles() {
         // Create a list with descriptors of files in current hierarchy.
-        List<FileDescriptor> gathered = files.stream()
+        List<FileDescriptor> gathered = files.parallelStream()
                 .map(FileDescriptor::new)
                 .collect(Collectors.toList());
 
         // Add files in sub-hierarchies after wrapping them.
         for (DirectoryHierarchy subgroup : subHierarchy.values()) {
-            gathered = subgroup.gatherLowerFiles().stream()
+            gathered = subgroup.gatherLowerFiles().parallelStream()
                     .map(fileDescriptor -> fileDescriptor.wrap(subgroup.name))
                     .collect(Collectors.toList());
         }

@@ -28,37 +28,6 @@ fi
 ##################################################
 
 ##################################################
-# Build Video-Decoder
-##################################################
-echo "Building Video-Decoder..."
-##################################################
-cd ${NATIVE_SRC}/Video-Decoder
-if [ $? -ne 0 ]
-then
-  exit $?
-fi
-##################################################
-rm -r -f build
-mkdir build
-cd build
-cmake ..
-if [ $? -ne 0 ]
-then
-  exit $?
-fi
-##################################################
-make clean
-make -j 16
-if [ $? -ne 0 ]
-then
-  exit $?
-fi
-##################################################
-cp -Rpu lib/libvideo_decoder_jni.so ${PROJECT_PATH}/lib/linux || :
-cp -Rpu lib/libvideo_decoder_jni.dll ${PROJECT_PATH}/lib/windows || :
-##################################################
-
-##################################################
 # Build ISEE-Basic-Pedestrian-Tracker
 ##################################################
 echo "Building ISEE-Basic-Pedestrian-Tracker..."

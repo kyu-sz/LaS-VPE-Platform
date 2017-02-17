@@ -17,20 +17,26 @@
 
 package org.cripac.isee.vpe.util.logging;
 
+import kafka.admin.AdminUtils;
+import kafka.utils.ZkUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
-import org.cripac.isee.vpe.common.DataTypes;
-import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 
 import javax.annotation.Nonnull;
-import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * The SynthesizedLogger class synthesizes various logging methods, like log4j,
@@ -41,10 +47,35 @@ import java.util.Properties;
  */
 public class SynthesizedLogger extends Logger {
 
-    private String username;
+    private final String username;
+    private final String reportTopic;
     private org.apache.log4j.Logger log4jLogger;
-    private String localName;
-    private KafkaProducer producer;
+    private ConsoleLogger consoleLogger;
+    private KafkaProducer<String, String> producer;
+
+    private final static SimpleDateFormat ft = new SimpleDateFormat("yy.MM.dd HH:mm:ss");
+
+    private String wrapMsg(Object msg) {
+        return ft.format(new Date()) + "\t" + localName + "\t" + username + ":\t" + msg;
+    }
+
+    private void checkTopic(String topic, SystemPropertyCenter propCenter) {
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn);
+        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
+        if (!AdminUtils.topicExists(zkUtils, topic)) {
+            // AdminUtils.createTopic(zkClient, topic,
+            // propCenter.kafkaNumPartitions,
+            // propCenter.kafkaReplFactor, new Properties());
+            kafka.admin.TopicCommand.main(
+                    new String[]{
+                            "--create",
+                            "--zookeeper", propCenter.zkConn,
+                            "--topic", topic,
+                            "--partitions", "" + propCenter.kafkaNumPartitions,
+                            "--replication-factor", "" + propCenter.kafkaReplFactor});
+        }
+    }
 
     /**
      * Create a synthesized logger. Logs will be print to console, transferred to default Log4j logger and sent to
@@ -52,39 +83,48 @@ public class SynthesizedLogger extends Logger {
      *
      * @param username   Name of the logger user.
      * @param propCenter Properties of the system.
-     * @throws UnknownHostException
-     * @throws SocketException
      */
     public SynthesizedLogger(@Nonnull String username,
                              @Nonnull SystemPropertyCenter propCenter) {
         super(propCenter.verbose ? Level.DEBUG : Level.INFO);
 
         this.username = username;
+        this.reportTopic = username + "_report";
 
         PropertyConfigurator.configure("log4j.properties");
         log4jLogger = LogManager.getRootLogger();
         log4jLogger.setLevel(level);
 
-        try {
-            localName = InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-            localName = "Unknown Host";
-        }
+        consoleLogger = new ConsoleLogger(this.level);
 
-        Properties producerProp = propCenter.generateKafkaProducerProp(true);
-        producer = new KafkaProducer(producerProp);
+        checkTopic(reportTopic, propCenter);
+        Properties producerProp = propCenter.getKafkaProducerProp(true);
+        producer = new KafkaProducer<>(producerProp);
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        producer.close();
+        super.finalize();
     }
 
     private void send(@Nonnull String message) {
-        producer.send(new ProducerRecord(username + "_report", this.username, message));
+        Future<RecordMetadata> metadataFuture =
+                producer.send(new ProducerRecord<>(reportTopic, username, message));
+        try {
+            RecordMetadata recordMetadata = metadataFuture.get(5, TimeUnit.SECONDS);
+            consoleLogger.debug("Report sent to " + recordMetadata.topic() + ":" + recordMetadata.partition()
+                    + "-" + recordMetadata.offset());
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            consoleLogger.error("Error on sending report", e);
+        }
     }
 
     public void debug(@Nonnull Object message) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message);
-            String richMsg = "[DEBUG]\t" + localName + "\t" + username + ":\t" + message;
-            System.out.println(richMsg);
+            consoleLogger.debug(message);
+            String richMsg = "[DEBUG]\t" + wrapMsg(message);
             send(richMsg);
         }
     }
@@ -93,16 +133,15 @@ public class SynthesizedLogger extends Logger {
                       @Nonnull Throwable t) {
         if (Level.DEBUG.isGreaterOrEqual(level)) {
             log4jLogger.debug(message, t);
+            consoleLogger.debug(message, t);
 
-            String richMsg = "[DEBUG]\t" + localName + "\t" + username + ":\t" + message + ": " + t;
-            System.out.println(richMsg);
-            t.printStackTrace();
+            String richMsg = "[DEBUG]\t" + wrapMsg(message) + ": " + t;
             send(richMsg);
 
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -111,8 +150,8 @@ public class SynthesizedLogger extends Logger {
     public void info(@Nonnull Object message) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message);
-            String richMsg = "[INFO]\t" + localName + "\t" + username + ":\t" + message;
-            System.out.println(richMsg);
+            consoleLogger.info(message);
+            String richMsg = "[INFO]\t" + wrapMsg(message);
             send(richMsg);
         }
     }
@@ -121,14 +160,13 @@ public class SynthesizedLogger extends Logger {
                      @Nonnull Throwable t) {
         if (Level.INFO.isGreaterOrEqual(level)) {
             log4jLogger.info(message, t);
-            String richMsg = "[INFO]\t" + localName + "\t" + username + ":\t" + message + ": " + t;
-            System.out.println(richMsg);
-            t.printStackTrace();
+            consoleLogger.info(message, t);
+            String richMsg = "[INFO]\t" + wrapMsg(message) + ": " + t;
             send(richMsg);
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -137,8 +175,8 @@ public class SynthesizedLogger extends Logger {
     public void warn(@Nonnull Object message) {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message);
-            String richMsg = "[WARNING]\t" + localName + "\t" + username + ":\t" + message;
-            System.out.println(richMsg);
+            consoleLogger.warn(message);
+            String richMsg = "[WARNING]\t" + wrapMsg(message);
             send(richMsg);
         }
     }
@@ -147,16 +185,15 @@ public class SynthesizedLogger extends Logger {
                      @Nonnull Throwable t) {
         if (Level.WARN.isGreaterOrEqual(level)) {
             log4jLogger.warn(message, t);
+            consoleLogger.warn(message, t);
 
-            String richMsg = "[WARNING]\t" + localName + "\t" + username + ":\t" + message + ": " + t;
-            System.out.println(richMsg);
-            t.printStackTrace();
+            String richMsg = "[WARNING]\t" + wrapMsg(message) + ": " + t;
             send(richMsg);
 
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -165,8 +202,8 @@ public class SynthesizedLogger extends Logger {
     public void error(@Nonnull Object message) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message);
-            String richMsg = "[ERROR]\t" + localName + "\t" + username + ":\t" + message;
-            System.err.println(richMsg);
+            consoleLogger.error(message);
+            String richMsg = "[ERROR]\t" + wrapMsg(message);
             send(richMsg);
         }
     }
@@ -175,16 +212,15 @@ public class SynthesizedLogger extends Logger {
                       @Nonnull Throwable t) {
         if (Level.ERROR.isGreaterOrEqual(level)) {
             log4jLogger.error(message, t);
+            consoleLogger.error(message, t);
 
-            String richMsg = "[ERROR]\t" + localName + "\t" + username + ":\t" + message + "\t" + t;
-            System.err.println(richMsg);
-            t.printStackTrace();
+            String richMsg = "[ERROR]\t" + wrapMsg(message) + "\t" + t;
             send(richMsg);
 
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -193,8 +229,8 @@ public class SynthesizedLogger extends Logger {
     public void fatal(@Nonnull Object message) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message);
-            String richMsg = "[FATAL]\t" + localName + "\t" + username + ":\t" + message;
-            System.err.println(richMsg);
+            consoleLogger.fatal(message);
+            String richMsg = "[FATAL]\t" + wrapMsg(message);
             send(richMsg);
         }
     }
@@ -203,15 +239,14 @@ public class SynthesizedLogger extends Logger {
                       @Nonnull Throwable t) {
         if (Level.FATAL.isGreaterOrEqual(level)) {
             log4jLogger.fatal(message, t);
-            String richMsg = "[FATAL]\t" + localName + "\t" + username + ":\t" + message + ": " + t;
-            System.err.println(richMsg);
-            t.printStackTrace();
+            consoleLogger.fatal(message, t);
+            String richMsg = "[FATAL]\t" + wrapMsg(message) + ": " + t;
             send(richMsg);
 
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }

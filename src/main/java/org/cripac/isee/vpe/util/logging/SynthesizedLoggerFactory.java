@@ -29,6 +29,7 @@ import javax.annotation.Nonnull;
  */
 public class SynthesizedLoggerFactory implements Factory<Logger> {
 
+    private static final long serialVersionUID = 784961952714587116L;
     private String username;
     private SystemPropertyCenter propCenter;
 
@@ -44,11 +45,7 @@ public class SynthesizedLoggerFactory implements Factory<Logger> {
         this.propCenter = propCenter;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.casia.cripac.isee.vpe.common.ObjectFactory#getObject()
-     */
+    @Nonnull
     @Override
     public SynthesizedLogger produce() {
         return new SynthesizedLogger(username, propCenter);

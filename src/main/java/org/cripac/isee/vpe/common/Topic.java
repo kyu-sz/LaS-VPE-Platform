@@ -15,10 +15,7 @@ package org.cripac.isee.vpe.common;/********************************************
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  ************************************************************************/
 
-import org.cripac.isee.vpe.ctrl.TopicManager;
-
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.Serializable;
 
 /**
@@ -35,28 +32,18 @@ public final class Topic implements Serializable {
     /**
      * Type of the topic used within the system.
      */
-    public final DataTypes INPUT_TYPE;
-    /**
-     * Name of stream this topic belongs to.
-     */
-    public final Stream.Info STREAM_INFO;
+    public final DataType INPUT_TYPE;
 
     /**
      * Create a topic.
      *
      * @param name    Name of the topic to appear in Kafka.
      * @param type    Type of the topic used within the system.
-     * @param streamInfo Information of stream this topic belongs to.
-     *                   If set as null, the topic is dangling from any streams,
-     *                   which is only used within external tests.
      */
     public Topic(@Nonnull String name,
-                 @Nonnull DataTypes type,
-                 @Nullable Stream.Info streamInfo) {
+                 @Nonnull DataType type) {
         this.NAME = name;
         this.INPUT_TYPE = type;
-        this.STREAM_INFO = streamInfo;
-        TopicManager.registerTopic(this);
     }
 
     /**

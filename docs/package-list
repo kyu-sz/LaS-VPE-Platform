@@ -13,4 +13,3 @@ org.cripac.isee.vpe.util.hdfs
 org.cripac.isee.vpe.util.kafka
 org.cripac.isee.vpe.util.logging
 org.cripac.isee.vpe.util.tracking
-org.cripac.isee.vpe.web

@@ -34,17 +34,16 @@ public class SerializationHelper {
      * @param object The object to serialize.
      * @return A serialized byte array of the object.
      */
-    public static byte[] serialize(@Nonnull Object object) {
+    public static
+    @Nonnull
+    byte[] serialize(@Nonnull org.cripac.isee.vpe.ctrl.TaskData object)
+            throws IOException {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         ObjectOutput objectOutput = null;
         try {
             objectOutput = new ObjectOutputStream(byteArrayOutputStream);
             objectOutput.writeObject(object);
-
             return byteArrayOutputStream.toByteArray();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
         } finally {
             try {
                 if (objectOutput != null) {
@@ -68,15 +67,15 @@ public class SerializationHelper {
      * @return An object from which the byte array is serialized.
      * @throws ClassNotFoundException On failure finding target class.
      */
-    public static Serializable deserialize(@Nonnull byte[] byteArray) throws ClassNotFoundException {
+    public
+    @Nonnull
+    static <T> T deserialize(@Nonnull byte[] byteArray) throws IOException, ClassNotFoundException {
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
         ObjectInput objectInput = null;
         try {
             objectInput = new ObjectInputStream(byteArrayInputStream);
-            return (Serializable) objectInput.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-            return null;
+            //noinspection unchecked
+            return (T) objectInput.readObject();
         } finally {
             try {
                 if (objectInput != null) {

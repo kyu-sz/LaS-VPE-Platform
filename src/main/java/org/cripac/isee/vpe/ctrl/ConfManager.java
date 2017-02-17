@@ -69,23 +69,27 @@ public class ConfManager {
         if (tmpDir == null) {
             prepareTmpCfgFiles();
         }
-        return getCfgFileList(path).stream()
+        return getCfgFileList(path).parallelStream()
                 .map(descriptor -> tmpDir + "/" + descriptor.getConcatName())
                 .collect(Collectors.joining(connector));
     }
 
-    private static void prepareTmpCfgFiles() throws IOException {
+    private static void prepareTmpCfgFiles() {
         tmpDir = System.getProperty("java.io.tmpdir");
         List<FileDescriptor> fileList =
                 ConfManager.getCfgFileList(PedestrianTrackingApp.APP_NAME);
-        for (FileDescriptor file : fileList) {
+        fileList.parallelStream().forEach(file -> {
             File tmp = new File(tmpDir + "/" + file.getConcatName());
-            tmp.createNewFile();
-            FileOutputStream tmpOutputStream = new FileOutputStream(tmp);
-            IOUtils.copy(new FileInputStream(CONF_DIR + "/" + file.getPath()), tmpOutputStream);
-            tmpOutputStream.close();
-            tmp.deleteOnExit();
-        }
+            try {
+                tmp.createNewFile();
+                tmp.deleteOnExit();
+                FileOutputStream tmpOutputStream = new FileOutputStream(tmp);
+                IOUtils.copy(new FileInputStream(CONF_DIR + "/" + file.getPath()), tmpOutputStream);
+                tmpOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public final static String CONF_DIR = "conf";

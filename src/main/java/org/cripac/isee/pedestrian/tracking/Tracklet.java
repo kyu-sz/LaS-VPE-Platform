@@ -17,10 +17,12 @@
 
 package org.cripac.isee.pedestrian.tracking;
 
+import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 
 /**
  * The Tracklet class stores a sequence of bounding boxes, representing the
@@ -68,15 +70,7 @@ public class Tracklet implements Serializable {
      */
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("@Tracklet\n");
-        sb.append("Video URL: " + id.videoID + "\n");
-        sb.append("Serial number: " + id.serialNumber + "/" + numTracklets + "\n");
-        sb.append("Range: " + startFrameIndex + " -> " + (startFrameIndex + locationSequence.length) + "\n");
-        for (int i = 0; i < locationSequence.length; ++i) {
-            sb.append("At frame " + (startFrameIndex + i) + ": " + locationSequence[i] + "\n");
-        }
-        return sb.toString();
+        return new Gson().toJson(this);
     }
 
     /**
@@ -115,8 +109,7 @@ public class Tracklet implements Serializable {
          *                     the starting time of the video fragment.
          * @param serialNumber The serial number of the track in the video (1, 2, 3...).
          */
-        public Identifier(@Nonnull String videoID,
-                          int serialNumber) {
+        public Identifier(@Nonnull String videoID, int serialNumber) {
             this.videoID = videoID;
             this.serialNumber = serialNumber;
         }
@@ -179,13 +172,13 @@ public class Tracklet implements Serializable {
         private static final long serialVersionUID = -5261437055893590056L;
 
         /**
-         * x-coordinate of the point on the left-upper corner of the bounding
+         * x-coordinator of the point on the left-upper corner of the bounding
          * box.
          */
         public int x = 0;
 
         /**
-         * y-coordinate of the point on the left-upper corner of the bounding
+         * y-coordinator of the point on the left-upper corner of the bounding
          * box.
          */
         public int y = 0;
@@ -211,15 +204,30 @@ public class Tracklet implements Serializable {
          */
         public byte[] patchData = null;
 
-        /*
-         * (non-Javadoc)
-         *
-         * @see java.lang.Object#toString()
+        /**
+         * Transform the bounding box to a Json string.
+         * The string contains location information only (no pixel data).
+         * @return A Json string representing the location information of the bounding box.
          */
         @Override
         public String toString() {
-            return "@Bounding box " + "x: " + x + ", " + "y: " + y + ", " + "width: " + width + ", " + "height: "
-                    + height;
+            return "{x=" + x + ", y=" + y + ", width=" + width + ", height=" + height + "}";
+        }
+
+        /**
+         * Transform the bounding box into a byte array.
+         *
+         * @return 16 bytes representing x, y, width and height,
+         * then width * height * 3 bytes representing the pixels in the patch.
+         */
+        public byte[] toBytes() {
+            ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES * 4 + patchData.length);
+            buf.putInt(x);
+            buf.putInt(y);
+            buf.putInt(width);
+            buf.putInt(height);
+            buf.put(patchData);
+            return buf.array();
         }
     }
 }

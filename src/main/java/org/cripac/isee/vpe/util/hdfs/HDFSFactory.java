@@ -19,6 +19,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.cripac.isee.vpe.util.Factory;
 
+import javax.annotation.Nonnull;
+import java.io.IOException;
+
 /**
  * Created by ken.yu on 16-10-26.
  */
@@ -29,8 +32,9 @@ public class HDFSFactory implements Factory<FileSystem> {
      * @return An object newly produced.
      * @throws Exception On failure creating a new instance.
      */
+    @Nonnull
     @Override
-    public FileSystem produce() throws Exception {
+    public FileSystem produce() throws IOException {
         Configuration hdfsConf = new Configuration();
         hdfsConf.setBoolean("dfs.support.append", true);
         return FileSystem.get(hdfsConf);

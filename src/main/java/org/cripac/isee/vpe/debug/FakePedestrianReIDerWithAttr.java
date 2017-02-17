@@ -29,7 +29,7 @@ import java.util.Random;
  */
 public class FakePedestrianReIDerWithAttr extends PedestrianReIDer {
 
-    Random rand = new Random();
+    private Random rand = new Random();
 
     /*
      * (non-Javadoc)

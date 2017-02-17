@@ -17,28 +17,31 @@
 
 package org.cripac.isee.vpe.alg;
 
+import kafka.admin.AdminUtils;
+import kafka.utils.ZkUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
-import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
-import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
+import org.cripac.isee.pedestrian.attr.DeepMARTest;
+import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizerTest;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataTypes;
+import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
+import org.cripac.isee.vpe.util.logging.Logger;
 import org.junit.Before;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -57,14 +60,15 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class PedestrianAttrRecogAppTest {
 
-    public static final Topic TEST_PED_ATTR_RECV_TOPIC
-            = new Topic("test-pedestrian-attr-recv", DataTypes.ATTR, null);
+    private static final Topic TEST_PED_ATTR_RECV_TOPIC = new Topic("test-pedestrian-attr-recv", DataType.ATTR);
 
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
-    public InetAddress externAttrRecogServerAddr;
-    public int externAttrRecogServerPort = 0;
+    private InetAddress externAttrRecogServerAddr;
+    private int externAttrRecogServerPort = 0;
+    private PedestrianAttrRecogApp.AppPropertyCenter propCenter;
+    private static boolean toTestApp = true;
 
     public static void main(String[] args) {
         PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
@@ -75,10 +79,35 @@ public class PedestrianAttrRecogAppTest {
             return;
         }
         try {
+            test.testDeepMAR();
             test.testExternAttrReognizer();
-            test.testAttrRecogApp();
+            if (toTestApp) {
+                test.testAttrRecogApp();
+            }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void checkTopic(String topic) {
+        Logger logger = new ConsoleLogger(Level.DEBUG);
+        logger.info("Connecting to zookeeper: " + propCenter.zkConn);
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn);
+        logger.info("Checking topic: " + topic);
+        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
+        if (!AdminUtils.topicExists(zkUtils, topic)) {
+            // AdminUtils.createTopic(zkClient, topic,
+            // propCenter.kafkaNumPartitions,
+            // propCenter.kafkaReplFactor, new Properties());
+            logger.info("Creating topic: " + topic);
+            kafka.admin.TopicCommand.main(
+                    new String[]{
+                            "--create",
+                            "--zookeeper", propCenter.zkConn,
+                            "--topic", topic,
+                            "--partitions", "" + propCenter.kafkaNumPartitions,
+                            "--replication-factor", "" + propCenter.kafkaReplFactor});
         }
     }
 
@@ -87,50 +116,61 @@ public class PedestrianAttrRecogAppTest {
         init(new String[0]);
     }
 
-    public void init(String[] args)
-            throws SAXException, ParserConfigurationException, URISyntaxException, UnknownHostException {
-        PedestrianAttrRecogApp.AppPropertyCenter propCenter =
-                new PedestrianAttrRecogApp.AppPropertyCenter(args);
+    private void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
+        logger = new ConsoleLogger(Level.DEBUG);
 
+        propCenter = new PedestrianAttrRecogApp.AppPropertyCenter(args);
         externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
         externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
 
-        TopicManager.checkTopics(propCenter);
+        checkTopic(TEST_PED_ATTR_RECV_TOPIC.NAME);
 
-        Properties producerProp = propCenter.generateKafkaProducerProp(false);
-        producer = new KafkaProducer<>(producerProp);
-        logger = new ConsoleLogger(Level.DEBUG);
+        try {
+            Properties producerProp = propCenter.getKafkaProducerProp(false);
+            producer = new KafkaProducer<>(producerProp);
 
-        Properties consumerProp = propCenter.generateKafkaConsumerProp(UUID.randomUUID().toString(), false);
-        consumer = new KafkaConsumer<>(consumerProp);
-        consumer.subscribe(Arrays.asList(TEST_PED_ATTR_RECV_TOPIC.NAME));
+            Properties consumerProp = propCenter.getKafkaConsumerProp(UUID.randomUUID().toString(), false);
+            consumer = new KafkaConsumer<>(consumerProp);
+            consumer.subscribe(Collections.singletonList(TEST_PED_ATTR_RECV_TOPIC.NAME));
+        } catch (Exception e) {
+            logger.error("When checking topics", e);
+            logger.info("App test is disabled.");
+            toTestApp = false;
+        }
     }
 
     //    @Test
-    public void testExternAttrReognizer() throws IOException {
-        logger.info("Testing extern attr recognizer.");
-        PedestrianAttrRecognizer recognizer =
-                new ExternPedestrianAttrRecognizer(externAttrRecogServerAddr,
-                        externAttrRecogServerPort, logger);
-        Tracklet tracklet = new FakePedestrianTracker().track(new byte[0])[0];
-        logger.info("Tracklet length: " + tracklet.locationSequence.length);
-        for (Tracklet.BoundingBox boundingBox : tracklet.locationSequence) {
-            logger.info("\tbbox: " + boundingBox.x + " " + boundingBox.y
-                    + " " + boundingBox.width + " " + boundingBox.height);
+    public void testExternAttrReognizer() throws Exception {
+        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.EXT) {
+            logger.info("Using external pedestrian attribute recognizer.");
+
+            ExternPedestrianAttrRecognizerTest test = new ExternPedestrianAttrRecognizerTest();
+            test.setUp();
+            test.recognize();
         }
-        logger.info(recognizer.recognize(tracklet));
+    }
+
+    public void testDeepMAR() throws Exception {
+        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
+            logger.info("Using DeepMAR for pedestrian attribute recognition.");
+
+            DeepMARTest test = new DeepMARTest();
+            test.setUp();
+            test.recognize();
+        }
     }
 
     //    @Test
     public void testAttrRecogApp() throws Exception {
         logger.info("Testing attr recogn app.");
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.INFO);
-        plan.letNodeOutputTo(recogNode, TEST_PED_ATTR_RECV_TOPIC);
+        TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
+        TaskData.ExecutionPlan.Node attrSavingNode = plan.addNode(DataType.NONE);
+        plan.letNodeOutputTo(recogNode, attrSavingNode, TEST_PED_ATTR_RECV_TOPIC);
 
         // Send request (fake tracklet).
-        TaskData trackletData = new TaskData(recogNode, plan,
-                new FakePedestrianTracker().track(new byte[0])[0]);
+        TaskData trackletData = new TaskData<>(recogNode, plan,
+                new FakePedestrianTracker().track(null)[0]);
         assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
         sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
                 UUID.randomUUID().toString(),
@@ -151,13 +191,15 @@ public class PedestrianAttrRecogAppTest {
             records.forEach(rec -> {
                 TaskData taskData;
                 try {
-                    taskData = (TaskData) deserialize(rec.value());
+                    taskData = deserialize(rec.value());
                 } catch (Exception e) {
                     logger.error("During TaskData deserialization", e);
                     return;
                 }
                 logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
             });
+
+            consumer.commitSync();
         }
     }
 }

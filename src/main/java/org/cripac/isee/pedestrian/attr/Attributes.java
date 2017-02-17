@@ -22,6 +22,7 @@ import com.google.gson.annotations.SerializedName;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
 
 /**
  * The Attribute class stores all the pre-defined attributes of a pedestrian at
@@ -60,7 +61,7 @@ public class Attributes implements Serializable {
     public float ageSixty;
 
     @SerializedName("age_older_60")
-    public float ageOtherSixty;
+    public float ageOlderSixty;
 
     @SerializedName("weight_very_fat")
     public float weightVeryFat;
@@ -93,19 +94,19 @@ public class Attributes implements Serializable {
     public float headShoulderBlackHair;
 
     @SerializedName("head_shoulder_with_hat")
-    public float headShouldWithHat;
+    public float headShoulderWithHat;
 
     @SerializedName("head_shoulder_glasses")
-    public float headShouldGlasses;
+    public float headShoulderGlasses;
 
     @SerializedName("head_shoulder_sunglasses")
-    public float headShouldSunglasses;
+    public float headShoulderSunglasses;
 
     @SerializedName("head_shoulder_scarf")
-    public float headShouldScarf;
+    public float headShoulderScarf;
 
     @SerializedName("head_shoulder_mask")
-    public float headShouldMask;
+    public float headShoulderMask;
 
     @SerializedName("upper_shirt")
     public float upperShirt;
@@ -135,7 +136,7 @@ public class Attributes implements Serializable {
     public float upperCotta;
 
     @SerializedName("upper_other")
-    public float upperOhter;
+    public float upperOther;
 
     @SerializedName("upper_black")
     public float upperBlack;
@@ -309,13 +310,13 @@ public class Attributes implements Serializable {
     public float shoesOtherColor;
 
     @SerializedName("accessory_backpack")
-    public float accessoryBackPack;
+    public float accessoryBackpack;
 
     @SerializedName("accessory_shoulderbag")
-    public float accessorySholderBag;
+    public float accessoryShoulderBag;
 
     @SerializedName("accessory_handbag")
-    public float accessoryHandBag;
+    public float accessoryHandbag;
 
     @SerializedName("accessory_waistbag")
     public float accessoryWaistBag;
@@ -360,7 +361,7 @@ public class Attributes implements Serializable {
     public float actionRunning;
 
     @SerializedName("action_holdthing")
-    public float actionHolding;
+    public float actionHoldThing;
 
     @SerializedName("action_pushing")
     public float actionPushing;
@@ -416,5 +417,30 @@ public class Attributes implements Serializable {
     @Override
     public String toString() {
         return new Gson().toJson(this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof Attributes) {
+            for (Field field : Attributes.class.getFields()) {
+                if (field.getType() == float.class) {
+                    try {
+                        final float thisValue = (float) field.get(this);
+                        final float thatValue = (float) field.get(o);
+                        if (thatValue * thisValue < 0 || Math.abs(thisValue - thatValue) >= 0.00001) {
+                            System.out.println(field.getName() + ": " + thisValue + " vs " + thatValue + " -> "
+                                    + Math.abs(thisValue - thatValue));
+                            return false;
+                        }
+                    } catch (IllegalAccessException e) {
+                        e.printStackTrace();
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } else {
+            return super.equals(o);
+        }
     }
 }

@@ -17,6 +17,9 @@
 
 package org.cripac.isee.vpe.util.hdfs;
 
+import org.spark_project.guava.collect.ContiguousSet;
+import org.spark_project.guava.collect.DiscreteDomain;
+import org.spark_project.guava.collect.Range;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -50,25 +53,27 @@ public class HadoopXMLParser {
         Element root = doc.getDocumentElement();
         if (null != root && root.getNodeName().equals("configuration")) {
             NodeList nodeList = root.getChildNodes();
-            for (int i = 0; i < nodeList.getLength(); ++i) {
-                String key = null;
-                String value = null;
+            ContiguousSet.create(Range.closedOpen(0, nodeList.getLength()), DiscreteDomain.integers())
+                    .parallelStream()
+                    .forEach(idx -> {
+                        String key = null;
+                        String value = null;
 
-                Node props = nodeList.item(i);
-                NodeList keyList = props.getChildNodes();
-                for (int j = 0; j < keyList.getLength(); ++j) {
-                    Node item = keyList.item(j);
-                    if (item.getNodeName().equals("name")) {
-                        key = item.getFirstChild().getNodeValue();
-                    } else if (item.getNodeName().equals("value")) {
-                        value = item.getFirstChild().getNodeValue();
-                    }
-                }
+                        Node props = nodeList.item(idx);
+                        NodeList keyList = props.getChildNodes();
+                        for (int j = 0; j < keyList.getLength(); ++j) {
+                            Node item = keyList.item(j);
+                            if (item.getNodeName().equals("name")) {
+                                key = item.getFirstChild().getNodeValue();
+                            } else if (item.getNodeName().equals("value")) {
+                                value = item.getFirstChild().getNodeValue();
+                            }
+                        }
 
-                if (key != null && value != null) {
-                    propMap.put(key, value);
-                }
-            }
+                        if (key != null && value != null) {
+                            propMap.put(key, value);
+                        }
+                    });
         }
 
         return propMap;

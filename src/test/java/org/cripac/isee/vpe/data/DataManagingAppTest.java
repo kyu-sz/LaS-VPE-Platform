@@ -23,7 +23,6 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.ctrl.TopicManager;
 import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -77,9 +76,7 @@ public class DataManagingAppTest {
     public void init(String[] args) throws Exception {
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
-        TopicManager.checkTopics(propCenter);
-
-        Properties producerProp = propCenter.generateKafkaProducerProp(false);
+        Properties producerProp = propCenter.getKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
         logger = new ConsoleLogger(Level.DEBUG);
     }
@@ -87,16 +84,16 @@ public class DataManagingAppTest {
     //    @Test
     public void testTrackletSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
-        Tracklet[] tracklets = new FakePedestrianTracker().track(new byte[0]);
+        Tracklet[] tracklets = new FakePedestrianTracker().track(null);
         String taskID = UUID.randomUUID().toString();
         for (int i = 0; i < tracklets.length; ++i) {
             Tracklet tracklet = tracklets[i];
             tracklet.id = new Tracklet.Identifier("fake", i);
 
-            TaskData data = new TaskData(savingNode, plan, tracklet);
-            sendWithLog(DataManagingApp.SavingStream.PED_TRACKLET_SAVING_TOPIC,
+            TaskData<Tracklet> data = new TaskData<>(savingNode, plan, tracklet);
+            sendWithLog(DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC,
                     taskID,
                     serialize(data),
                     producer,
@@ -107,15 +104,14 @@ public class DataManagingAppTest {
     //    @Test
     public void testAttrSaving() throws Exception {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
-        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.SavingStream.INFO);
+        TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
         Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
-                new FakePedestrianTracker().track(new byte[0])[0]);
+                new FakePedestrianTracker().track(null)[0]);
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
-        assert attributes != null;
 
-        TaskData data = new TaskData(savingNode, plan, attributes);
-        sendWithLog(DataManagingApp.SavingStream.PED_ATTR_SAVING_TOPIC,
+        TaskData<Attributes> data = new TaskData<>(savingNode, plan, attributes);
+        sendWithLog(DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC,
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,

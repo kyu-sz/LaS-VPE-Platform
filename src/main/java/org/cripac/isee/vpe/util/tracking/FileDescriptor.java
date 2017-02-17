@@ -86,7 +86,7 @@ public class FileDescriptor {
         ListIterator listIterator = hierarchy.listIterator(hierarchy.size());
         while (listIterator.hasPrevious()) {
             String dir = (String) listIterator.previous();
-            concat.append(dir + connector);
+            concat.append(dir).append(connector);
         }
         concat.append(name);
         return concat.toString();
