@@ -1,4 +1,4 @@
-package org.cripac.isee.vpe.util.tracking;/***********************************************************************
+package org.cripac.isee.vpe.util.tracking;/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -13,7 +13,7 @@ package org.cripac.isee.vpe.util.tracking;/*************************************
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;

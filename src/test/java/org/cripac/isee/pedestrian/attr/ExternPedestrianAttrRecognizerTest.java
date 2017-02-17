@@ -13,7 +13,7 @@ import java.net.InetAddress;
 
 import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
 import static org.junit.Assert.assertEquals;
-/***********************************************************************
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ import static org.junit.Assert.assertEquals;
  *
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
- ************************************************************************/
+ */
 
 /**
  * Created by ken.yu on 17-1-11.
