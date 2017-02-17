@@ -22,7 +22,6 @@ import java.util.Properties
 import kafka.api._
 import kafka.common.{ErrorMapping, OffsetAndMetadata, OffsetMetadataAndError, TopicAndPartition}
 import kafka.consumer.{ConsumerConfig, SimpleConsumer}
-import org.apache.kafka.common.TopicPartition
 import org.apache.spark.SparkException
 import org.apache.spark.annotation.DeveloperApi
 
@@ -42,8 +41,7 @@ import scala.util.control.NonFatal
   *                    NOT zookeeper servers, specified in host1:port1,host2:port2 form
   */
 @DeveloperApi
-class KafkaCluster(val kafkaParams: Map[String, Object]) extends Serializable {
-
+class KafkaCluster(val kafkaParams: Map[String, String]) extends Serializable {
   import KafkaCluster.{Err, LeaderOffset, SimpleConsumerConfig}
 
   // ConsumerConfig isn't serializable
@@ -86,15 +84,15 @@ class KafkaCluster(val kafkaParams: Map[String, Object]) extends Serializable {
   }
 
   def findLeaders(
-                   topicPartitions: Set[TopicAndPartition]
+                   topicAndPartitions: Set[TopicAndPartition]
                  ): Either[Err, Map[TopicAndPartition, (String, Int)]] = {
-    val topics = topicPartitions.map(_.topic)
+    val topics = topicAndPartitions.map(_.topic)
     val response = getPartitionMetadata(topics).right
     val answer = response.flatMap { tms: Set[TopicMetadata] =>
       val leaderMap = tms.flatMap { tm: TopicMetadata =>
         tm.partitionsMetadata.flatMap { pm: PartitionMetadata =>
-          val tp = new TopicAndPartition(tm.topic, pm.partitionId)
-          if (topicPartitions(tp)) {
+          val tp = TopicAndPartition(tm.topic, pm.partitionId)
+          if (topicAndPartitions(tp)) {
             pm.leader.map { l =>
               tp -> (l.host -> l.port)
             }
@@ -104,10 +102,10 @@ class KafkaCluster(val kafkaParams: Map[String, Object]) extends Serializable {
         }
       }.toMap
 
-      if (leaderMap.keys.size == topicPartitions.size) {
+      if (leaderMap.keys.size == topicAndPartitions.size) {
         Right(leaderMap)
       } else {
-        val missing = topicPartitions.diff(leaderMap.keySet)
+        val missing = topicAndPartitions.diff(leaderMap.keySet)
         val err = new Err
         err += new SparkException(s"Couldn't find leaders for ${missing}")
         Left(err)
@@ -120,7 +118,7 @@ class KafkaCluster(val kafkaParams: Map[String, Object]) extends Serializable {
     getPartitionMetadata(topics).right.map { r =>
       r.flatMap { tm: TopicMetadata =>
         tm.partitionsMetadata.map { pm: PartitionMetadata =>
-          new TopicAndPartition(tm.topic, pm.partitionId)
+          TopicAndPartition(tm.topic, pm.partitionId)
         }
       }
     }
@@ -254,8 +252,6 @@ class KafkaCluster(val kafkaParams: Map[String, Object]) extends Serializable {
     }
   }
 
-  def toOldTopicAndPartition(tp: TopicPartition): TopicAndPartition = TopicAndPartition(tp.topic(), tp.partition())
-
   /**
     * Requires Kafka 0.8.1.1 or later.
     * Defaults to the original ZooKeeper backed API version.
@@ -268,16 +264,16 @@ class KafkaCluster(val kafkaParams: Map[String, Object]) extends Serializable {
 
   def getConsumerOffsetMetadata(
                                  groupId: String,
-                                 topicPartitions: Set[TopicAndPartition],
+                                 topicAndPartitions: Set[TopicAndPartition],
                                  consumerApiVersion: Short
                                ): Either[Err, Map[TopicAndPartition, OffsetMetadataAndError]] = {
     var result = Map[TopicAndPartition, OffsetMetadataAndError]()
-    val req = OffsetFetchRequest(groupId, topicPartitions.toSeq, consumerApiVersion)
+    val req = OffsetFetchRequest(groupId, topicAndPartitions.toSeq, consumerApiVersion)
     val errs = new Err
     withBrokers(Random.shuffle(config.seedBrokers), errs) { consumer =>
       val resp = consumer.fetchOffsets(req)
       val respMap = resp.requestInfo
-      val needed = topicPartitions.diff(result.keySet)
+      val needed = topicAndPartitions.diff(result.keySet)
       needed.foreach { tp: TopicAndPartition =>
         respMap.get(tp).foreach { ome: OffsetMetadataAndError =>
           if (ome.error == ErrorMapping.NoError) {
@@ -287,11 +283,11 @@ class KafkaCluster(val kafkaParams: Map[String, Object]) extends Serializable {
           }
         }
       }
-      if (result.keys.size == topicPartitions.size) {
+      if (result.keys.size == topicAndPartitions.size) {
         return Right(result)
       }
     }
-    val missing = topicPartitions.diff(result.keySet)
+    val missing = topicAndPartitions.diff(result.keySet)
     errs += new SparkException(s"Couldn't find consumer offsets for ${missing}")
     Left(errs)
   }
@@ -413,12 +409,12 @@ object KafkaCluster {
       * Make a consumer config without requiring group.id or zookeeper.connect,
       * since communicating with brokers also needs common settings such as timeout
       */
-    def apply(kafkaParams: Map[String, Object]): SimpleConsumerConfig = {
+    def apply(kafkaParams: Map[String, String]): SimpleConsumerConfig = {
       // These keys are from other pre-existing kafka configs for specifying brokers, accept either
       val brokers = kafkaParams.get("metadata.broker.list")
         .orElse(kafkaParams.get("bootstrap.servers"))
         .getOrElse(throw new SparkException(
-          "Must specify metadata.broker.list or bootstrap.servers")).toString
+          "Must specify metadata.broker.list or bootstrap.servers"))
 
       val props = new Properties()
       kafkaParams.foreach { case (key, value) =>
@@ -437,5 +433,4 @@ object KafkaCluster {
       new SimpleConsumerConfig(brokers, props)
     }
   }
-
 }

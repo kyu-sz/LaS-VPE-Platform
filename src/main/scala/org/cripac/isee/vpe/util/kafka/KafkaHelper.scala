@@ -27,7 +27,7 @@ import org.apache.spark.streaming.kafka.KafkaCluster
 import org.cripac.isee.vpe.common.Topic
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
 
-import scala.collection.JavaConversions
+import scala.collection.JavaConversions._
 import scala.language.postfixOps
 
 /**
@@ -79,7 +79,10 @@ object KafkaHelper {
     * @return A KafkaCluster instance.
     */
   def createKafkaCluster(@Nonnull kafkaParams: util.Map[String, Object]): KafkaCluster = {
-    new KafkaCluster(JavaConversions.mapAsScalaMap(kafkaParams).toMap)
+    new KafkaCluster(kafkaParams.mapValues {
+      case s: String => s
+      case obj => obj.asInstanceOf[Integer].toString
+    }.toMap)
   }
 
   /**
@@ -94,8 +97,7 @@ object KafkaHelper {
                      @Nonnull topics: util.Collection[String]
                     ): util.Map[TopicPartition, java.lang.Long] = {
     // Retrieve partition information of the topics from the Kafka cluster.
-    val partitions = KafkaCluster.checkErrors(kafkaCluster.getPartitions(
-      JavaConversions.asScalaSet(new util.HashSet[String](topics)).toSet))
+    val partitions = KafkaCluster.checkErrors(kafkaCluster.getPartitions(new util.HashSet[String](topics).toSet))
 
     // Retrieve offset metadata of the Kafka cluster.
     val earliestOffsets = KafkaCluster.checkErrors(kafkaCluster.getEarliestLeaderOffsets(partitions))
