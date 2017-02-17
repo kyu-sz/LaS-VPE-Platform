@@ -16,12 +16,18 @@
  */
 package org.cripac.isee.vpe.util.kafka
 
+import java.util
 import javax.annotation.{Nonnull, Nullable}
 
+import org.apache.kafka.clients.consumer.ConsumerConfig._
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.common.TopicPartition
+import org.apache.spark.SparkException
+import org.apache.spark.streaming.kafka.KafkaCluster
 import org.cripac.isee.vpe.common.Topic
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
 
+import scala.collection.JavaConversions
 import scala.language.postfixOps
 
 /**
@@ -64,5 +70,69 @@ object KafkaHelper {
       case e: InterruptedException =>
         logger error("Interrupted when retrieving Kafka sending result.", e)
     }
+  }
+
+  /**
+    * Create a KakfaCluster with given Kafka parameters.
+    *
+    * @param kafkaParams Configuration parameters of the Kafka cluster.
+    * @return A KafkaCluster instance.
+    */
+  def createKafkaCluster(@Nonnull kafkaParams: util.Map[String, Object]): KafkaCluster = {
+    new KafkaCluster(JavaConversions.mapAsScalaMap(kafkaParams).toMap)
+  }
+
+  /**
+    * Get fromOffsets stored at a Kafka cluster.
+    *
+    * @param kafkaCluster The Kafka cluster.
+    * @param topics       Topics the offsets belong to.
+    * @return A map from each partition of each topic to the fromOffset.
+    */
+  @throws[SparkException]
+  def getFromOffsets(@Nonnull kafkaCluster: KafkaCluster,
+                     @Nonnull topics: util.Collection[String]
+                    ): util.Map[TopicPartition, java.lang.Long] = {
+    // Retrieve partition information of the topics from the Kafka cluster.
+    val partitions = KafkaCluster.checkErrors(kafkaCluster.getPartitions(
+      JavaConversions.asScalaSet(new util.HashSet[String](topics)).toSet))
+
+    // Retrieve offset metadata of the Kafka cluster.
+    val earliestOffsets = KafkaCluster.checkErrors(kafkaCluster.getEarliestLeaderOffsets(partitions))
+    val latestOffsets = KafkaCluster.checkErrors(kafkaCluster.getLatestLeaderOffsets(partitions))
+
+    // Create a map to store corrected fromOffsets
+    val fromOffsets = new util.HashMap[TopicPartition, java.lang.Long]
+    // Retrieve consumer offsets.
+    kafkaCluster getConsumerOffsets((kafkaCluster kafkaParams GROUP_ID_CONFIG).toString, partitions) match {
+      // No offset (new group). Auto configure the offsets.
+      case Left(_) =>
+        val autoResetConfig = kafkaCluster kafkaParams AUTO_OFFSET_RESET_CONFIG
+        val offsets = autoResetConfig match {
+          case "largest" | "latest" => latestOffsets
+          case "smallest" | "earliest" => earliestOffsets
+        }
+        offsets foreach (offset => fromOffsets put(
+          new TopicPartition(offset._1.topic, offset._1.partition), offset._2.offset))
+      // Store the offsets after checking the values.
+      // If an offset is smaller than 0, change it to 0.
+      case Right(consumerOffsets) =>
+        consumerOffsets foreach (consumerOffset => {
+          val topicAndPartition = consumerOffset._1
+          val earliestOffset = earliestOffsets(topicAndPartition).offset
+          val latestOffset = latestOffsets(topicAndPartition).offset
+          fromOffsets put(new TopicPartition(topicAndPartition.topic, topicAndPartition.partition),
+            if (consumerOffset._2 < earliestOffset) {
+              println("Offset for " + topicAndPartition + " is out of date. Update to " + earliestOffset)
+              earliestOffset
+            } else if (consumerOffset._2 > latestOffset) {
+              println("Offset for " + topicAndPartition + " is out of date. Update to " + latestOffset)
+              latestOffset
+            } else consumerOffset._2)
+        })
+    }
+
+    // Return the fromOffsets
+    fromOffsets
   }
 }

@@ -25,6 +25,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkException;
@@ -36,6 +37,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -138,9 +140,22 @@ public abstract class SparkStreamingApp implements Serializable {
     protected JavaDStream<ConsumerRecord<String, byte[]>>
     buildDirectStream(@Nonnull Collection<String> topics,
                       boolean toRepartition) throws SparkException {
+        Logger tmpLogger;
+        try {
+            tmpLogger = loggerSingleton.getInst();
+        } catch (Exception e) {
+            tmpLogger = new ConsoleLogger();
+            e.printStackTrace();
+        }
+        tmpLogger.info("Getting initial fromOffsets from Kafka cluster.");
+        // Retrieve and correct offsets from Kafka cluster.
+        final Map<TopicPartition, Long> fromOffsets =
+                KafkaHelper.getFromOffsets(KafkaHelper.createKafkaCluster(kafkaParams), topics);
+        tmpLogger.info("Initial fromOffsets=" + fromOffsets);
+
         final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream = KafkaUtils.createDirectStream(jssc,
                 LocationStrategies.PreferBrokers(),
-                ConsumerStrategies.Subscribe(topics, kafkaParams));
+                ConsumerStrategies.Subscribe(topics, kafkaParams, fromOffsets));
 
         JavaDStream<ConsumerRecord<String, byte[]>> stream = inputDStream
                 // Manipulate offsets.
