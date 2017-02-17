@@ -56,7 +56,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
     /**
      * The NAME of this application.
      */
-    public static final String APP_NAME = "pedestrian-reID-using-attr";
+    public static final String APP_NAME = "pedestrian-reid-using-attr";
     private static final long serialVersionUID = 7561012713161590005L;
 
     /**

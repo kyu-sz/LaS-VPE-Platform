@@ -140,7 +140,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -165,7 +165,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -192,7 +192,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -219,7 +219,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }
@@ -245,7 +245,7 @@ public class SynthesizedLogger extends Logger {
             String stackTraceMsg = "";
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + element.toString() + "\n";
+                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
             }
             send(stackTraceMsg);
         }

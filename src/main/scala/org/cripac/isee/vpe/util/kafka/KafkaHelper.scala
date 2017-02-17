@@ -6,6 +6,8 @@ import javax.annotation.{Nonnull, Nullable}
 import kafka.common.TopicAndPartition
 import org.apache.kafka.clients.consumer.ConsumerConfig._
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.spark.SparkException
+import org.apache.spark.streaming.kafka.KafkaCluster.Err
 import org.apache.spark.streaming.kafka.{KafkaCluster, OffsetRange}
 import org.cripac.isee.vpe.common.Topic
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
@@ -82,6 +84,16 @@ object KafkaHelper {
     kafkaCluster setConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, tpOffsetMap toMap)
   }
 
+  def checkErrors[T](result: Either[Err, T]): T = {
+    result.fold(
+      errs =>
+        throw new SparkException(
+          errs.map(t => t + "\n" + t.getStackTrace.map(element => "\t" + element).mkString("\n")).mkString("\n")
+        ),
+      ok => ok
+    )
+  }
+
   /**
     * Get fromOffsets stored at a Kafka cluster.
     *
@@ -89,6 +101,7 @@ object KafkaHelper {
     * @param topics       Topics the offsets belong to.
     * @return A map from each partition of each topic to the fromOffset.
     */
+  @throws[SparkException]
   def getFromOffsets(@Nonnull kafkaCluster: KafkaCluster,
                      @Nonnull topics: util.Collection[String]
                     ): util.Map[TopicAndPartition, java.lang.Long] = {
@@ -104,24 +117,27 @@ object KafkaHelper {
     // Retrieve consumer offsets.
     kafkaCluster getConsumerOffsets(kafkaCluster kafkaParams GROUP_ID_CONFIG, partitions) match {
       // No offset (new group). Auto configure the offsets.
-      case Left(_) => {
+      case Left(_) =>
         val autoResetConfig = kafkaCluster kafkaParams AUTO_OFFSET_RESET_CONFIG
         val offsets = autoResetConfig match {
           case "largest" | "latest" => latestOffsets
           case "smallest" | "earliest" => earliestOffsets
         }
         offsets foreach (offset => fromOffsets put(offset._1, offset._2.offset))
-      }
       // Store the offsets after checking the values.
       // If an offset is smaller than 0, change it to 0.
       case Right(consumerOffsets) =>
         consumerOffsets foreach (consumerOffset => {
           val topicAndPartition = consumerOffset._1
           val earliestOffset = earliestOffsets(topicAndPartition).offset
+          val latestOffset = latestOffsets(topicAndPartition).offset
           fromOffsets put(topicAndPartition,
             if (consumerOffset._2 < earliestOffset) {
               println("Offset for " + topicAndPartition + " is out of date. Update to " + earliestOffset)
               earliestOffset
+            } else if (consumerOffset._2 > latestOffset) {
+              println("Offset for " + topicAndPartition + " is out of date. Update to " + latestOffset)
+              latestOffset
             } else consumerOffset._2)
         })
     }

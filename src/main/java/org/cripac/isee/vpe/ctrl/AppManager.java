@@ -52,6 +52,6 @@ public class AppManager {
         if (classNameMap.containsKey(appName))
             return classNameMap.get(appName);
         else
-            throw new NoAppSpecifiedException();
+            throw new NoAppSpecifiedException("Cannot find application " + appName);
     }
 }

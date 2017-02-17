@@ -40,6 +40,7 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class MessageHandlingAppTest implements Serializable {
 
+    private static final long serialVersionUID = 6788686506662339278L;
     private KafkaProducer<String, byte[]> producer;
     private ConsoleLogger logger;
 
@@ -54,7 +55,7 @@ public class MessageHandlingAppTest implements Serializable {
         init(new String[0]);
     }
 
-    public void init(String[] args) throws Exception {
+    private void init(String[] args) throws Exception {
         SystemPropertyCenter propCenter;
         if (args.length > 0) {
             propCenter = new SystemPropertyCenter(args);

@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
+import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaDStream;
@@ -140,7 +141,7 @@ public abstract class SparkStreamingApp implements Serializable {
      */
     protected JavaDStream<StringByteArrayRecord>
     buildDirectStream(@Nonnull Collection<String> topics,
-                      boolean toRepartition) {
+                      boolean toRepartition) throws SparkException {
         final KafkaCluster kafkaCluster = KafkaHelper.createKafkaCluster(kafkaParams);
 
         Logger tmpLogger;
@@ -210,7 +211,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * @return A Kafka non-receiver input stream.
      */
     protected JavaDStream<StringByteArrayRecord>
-    buildDirectStream(@Nonnull Collection<String> topics) {
+    buildDirectStream(@Nonnull Collection<String> topics) throws SparkException {
         return buildDirectStream(topics, true);
     }
 

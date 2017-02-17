@@ -297,6 +297,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
                                 for (TaskData.ExecutionPlan.Node.Port port : outputPorts) {
                                     for (Tracklet tracklet : tracklets) {
+                                        tracklet.id.videoID = videoURL;
                                         final TaskData<Tracklet> resTaskData = new TaskData<>(
                                                 port.getNode(), taskData.executionPlan, tracklet
                                         );

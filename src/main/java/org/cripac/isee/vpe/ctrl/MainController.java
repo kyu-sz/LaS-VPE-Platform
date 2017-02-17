@@ -43,12 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class MainController {
 
     public static void main(String[] args)
-            throws NoAppSpecifiedException,
-            URISyntaxException,
-            IOException,
-            ParserConfigurationException,
-            SAXException,
-            UnimplementedException {
+            throws URISyntaxException, IOException, ParserConfigurationException, SAXException, UnimplementedException {
         // Analyze the command line and store the options into a system property
         // center.
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
@@ -86,20 +81,24 @@ public class MainController {
 
             List<ProcessWithName> processesWithNames = new LinkedList<>();
             for (String appName : propCenter.appsToStart) {
-                SparkLauncher launcher = propCenter.GetSparkLauncher(appName);
+                try {
+                    SparkLauncher launcher = propCenter.GetSparkLauncher(appName);
 
-                Process launcherProcess = launcher.launch();
-                processesWithNames.add(new ProcessWithName(launcherProcess, appName));
+                    Process launcherProcess = launcher.launch();
+                    processesWithNames.add(new ProcessWithName(launcherProcess, appName));
 
-                // Create threads listening to output of the launcher process.
-                Thread infoThread = new Thread(
-                        new InputStreamReaderRunnable(launcherProcess.getInputStream(), "INFO"),
-                        "LogStreamReader info");
-                Thread errorThread = new Thread(
-                        new InputStreamReaderRunnable(launcherProcess.getErrorStream(), "ERROR"),
-                        "LogStreamReader error");
-                infoThread.start();
-                errorThread.start();
+                    // Create threads listening to output of the launcher process.
+                    Thread infoThread = new Thread(
+                            new InputStreamReaderRunnable(launcherProcess.getInputStream(), "INFO"),
+                            "LogStreamReader info");
+                    Thread errorThread = new Thread(
+                            new InputStreamReaderRunnable(launcherProcess.getErrorStream(), "ERROR"),
+                            "LogStreamReader error");
+                    infoThread.start();
+                    errorThread.start();
+                } catch (NoAppSpecifiedException e) {
+                    e.printStackTrace();
+                }
             }
 
             while (!processesWithNames.isEmpty()) {

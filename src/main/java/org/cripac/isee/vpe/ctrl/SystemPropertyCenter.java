@@ -360,9 +360,8 @@ public class SystemPropertyCenter implements Serializable {
      * stored properties.
      *
      * @return An array of string with format required by SparkSubmit client.
-     * @throws NoAppSpecifiedException When no application is specified to run.
      */
-    private String[] getArgs() throws NoAppSpecifiedException {
+    private String[] getArgs() {
         ArrayList<String> optList = new ArrayList<>();
 
         if (verbose) {
@@ -390,7 +389,7 @@ public class SystemPropertyCenter implements Serializable {
         return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);
     }
 
-    SparkLauncher GetSparkLauncher(String appName) throws IOException {
+    SparkLauncher GetSparkLauncher(String appName) throws IOException, NoAppSpecifiedException {
         SparkLauncher launcher = new SparkLauncher()
                 .setAppResource(jarPath)
                 .setMainClass(AppManager.getMainClassName(appName))
@@ -447,8 +446,12 @@ public class SystemPropertyCenter implements Serializable {
      *
      * @author Ken Yu, CRIPAC, 2016
      */
-    public static class NoAppSpecifiedException extends RuntimeException {
+    public static class NoAppSpecifiedException extends Exception {
         private static final long serialVersionUID = -8356206863229009557L;
+
+        public NoAppSpecifiedException(String message) {
+            super(message);
+        }
     }
 
     public Properties getKafkaProducerProp(boolean isStringValue) {
