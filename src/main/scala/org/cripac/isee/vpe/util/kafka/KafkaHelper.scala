@@ -81,7 +81,7 @@ object KafkaHelper {
   def createKafkaCluster(@Nonnull kafkaParams: util.Map[String, Object]): KafkaCluster = {
     new KafkaCluster(kafkaParams.mapValues {
       case s: String => s
-      case obj => obj.asInstanceOf[Integer].toString
+      case obj => obj.toString
     }.toMap)
   }
 
