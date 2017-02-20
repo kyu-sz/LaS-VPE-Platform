@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * A Stream is a flow of DStreams. Each stream outputs at most one inputType of output.
+ * A Stream is a flow of DStreams. Each stream outputs at most one type of data.
  * <p>
  * Created by ken.yu on 16-10-26.
  */
@@ -97,19 +97,19 @@ public abstract class Stream implements Serializable {
     public static final class Port implements Serializable {
         private static final long serialVersionUID = -7567029992452814611L;
         /**
-         * Name of the prototype to appear in Kafka.
+         * Name of the port.
          */
         public final String name;
         /**
-         * Type of the prototype used within the system.
+         * Input data type of the port.
          */
         public final DataType inputType;
 
         /**
-         * Create a prototype.
+         * Create a port.
          *
-         * @param name Name of the prototype to appear in Kafka.
-         * @param type Type of the prototype used within the system.
+         * @param name Name of the port.
+         * @param type Input data type of the port.
          */
         public Port(@Nonnull String name,
                     @Nonnull DataType type) {
@@ -118,9 +118,9 @@ public abstract class Stream implements Serializable {
         }
 
         /**
-         * Transform the prototype into a string in format as "[inputType]name".
+         * Transform the port into a string in format as "[inputType]name".
          *
-         * @return String representing the prototype.
+         * @return String representing the port.
          */
         @Override
         public String toString() {

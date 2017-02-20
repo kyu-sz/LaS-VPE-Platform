@@ -63,14 +63,14 @@ public class SynthesizedLogger extends Logger {
         ZkClient zkClient = new ZkClient(zkConn);
 
         if (!AdminUtils.topicExists(zkClient, topic)) {
-            // AdminUtils.createTopic(zkClient, prototype,
+            // AdminUtils.createTopic(zkClient, topic,
             // propCenter.kafkaNumPartitions,
             // propCenter.kafkaReplFactor, new Properties());
             kafka.admin.TopicCommand.main(
                     new String[]{
                             "--create",
                             "--zookeeper", propCenter.zkConn,
-                            "--prototype", topic,
+                            "--topic", topic,
                             "--partitions", "" + propCenter.kafkaNumPartitions,
                             "--replication-factor", "" + propCenter.kafkaReplFactor});
         }
@@ -78,7 +78,7 @@ public class SynthesizedLogger extends Logger {
 
     /**
      * Create a synthesized logger. Logs will be print to console, transferred to default Log4j logger and sent to
-     * Kafka on prototype ${username}_report.
+     * Kafka on topic ${username}_report.
      *
      * @param username   Name of the logger user.
      * @param propCenter Properties of the system.

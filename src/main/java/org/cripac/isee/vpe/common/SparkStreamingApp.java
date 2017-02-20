@@ -111,7 +111,7 @@ public abstract class SparkStreamingApp implements Serializable {
 
         for (String topic : topics) {
             if (!AdminUtils.topicExists(zkClient, topic)) {
-                // AdminUtils.createTopic(zkClient, prototype,
+                // AdminUtils.createTopic(zkClient, topic,
                 // propCenter.kafkaNumPartitions,
                 // propCenter.kafkaReplFactor, new Properties());
                 logger.info("Creating prototype: " + topic);
@@ -119,7 +119,7 @@ public abstract class SparkStreamingApp implements Serializable {
                         new String[]{
                                 "--create",
                                 "--zookeeper", propCenter.zkConn,
-                                "--prototype", topic,
+                                "--topic", topic,
                                 "--partitions", "" + propCenter.kafkaNumPartitions,
                                 "--replication-factor", "" + propCenter.kafkaReplFactor});
             }

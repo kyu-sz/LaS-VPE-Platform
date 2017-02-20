@@ -80,7 +80,7 @@ public class TaskData implements Serializable, Cloneable {
     /**
      * Create a task with an execution plan with predecessor result.
      *
-     * @param destPort      Destination prototype of this TaskData.
+     * @param destPort      Destination port of this TaskData.
      * @param executionPlan A global execution plan.
      */
     public TaskData(@Nonnull ExecutionPlan.Node.Port destPort,
@@ -91,7 +91,7 @@ public class TaskData implements Serializable, Cloneable {
     /**
      * Create a task with an execution plan with predecessor result.
      *
-     * @param destPort       Destination prototype of this TaskData.
+     * @param destPort       Destination port of this TaskData.
      * @param executionPlan  A global execution plan.
      * @param predecessorRes Result of the predecessor node,
      *                       which is a serializable object.
@@ -225,7 +225,7 @@ public class TaskData implements Serializable, Cloneable {
             }
 
             /**
-             * IO prototype of a node. Specified by a node and a particular prototype.
+             * IO port of a node. Created from a execution node with a port topic.
              */
             public class Port implements Serializable {
                 private static final long serialVersionUID = -762800114750459971L;

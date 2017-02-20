@@ -93,17 +93,17 @@ public class PedestrianAttrRecogAppTest {
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
         ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
         ZkClient zkClient = new ZkClient(zkConn);
-        logger.info("Checking prototype: " + topic);
+        logger.info("Checking topic: " + topic);
         if (!AdminUtils.topicExists(zkClient, topic)) {
-            // AdminUtils.createTopic(zkClient, prototype,
+            // AdminUtils.createTopic(zkClient, topic,
             // propCenter.kafkaNumPartitions,
             // propCenter.kafkaReplFactor, new Properties());
-            logger.info("Creating prototype: " + topic);
+            logger.info("Creating topic: " + topic);
             kafka.admin.TopicCommand.main(
                     new String[]{
                             "--create",
                             "--zookeeper", propCenter.zkConn,
-                            "--prototype", topic,
+                            "--topic", topic,
                             "--partitions", "" + propCenter.kafkaNumPartitions,
                             "--replication-factor", "" + propCenter.kafkaReplFactor});
         }

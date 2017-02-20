@@ -22,7 +22,7 @@ import java.io.Serializable;
 import java.net.InetAddress;
 
 /**
- * Parameters for server login (e.g. web camera), including camera IP, prototype, username and password.
+ * Parameters for server login (e.g. web camera), including camera IP, port, username and password.
  */
 public class LoginParam implements Serializable {
     private static final long serialVersionUID = -3831767044437766754L;
