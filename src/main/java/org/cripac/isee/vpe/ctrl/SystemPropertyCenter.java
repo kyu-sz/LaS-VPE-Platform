@@ -167,7 +167,7 @@ public class SystemPropertyCenter implements Serializable {
         options.addOption(null, "app-property-file", true, "Path of the application-specific system property file.");
         options.addOption(null, "log4j-property-file", true, "Path of the log4j property file.");
         options.addOption(null, "report-listening-addr", true, "Address of runtime report listener.");
-        options.addOption(null, "report-listening-port", true, "Port of runtime report listener.");
+        options.addOption(null, "report-listening-topic", true, "Port of runtime report listener.");
         CommandLine commandLine;
 
         try {
@@ -307,7 +307,7 @@ public class SystemPropertyCenter implements Serializable {
                 case "spark.yarn.am.nodeLabelExpression":
                     yarnAmNodeLabelExpression = (String) entry.getValue();
                     break;
-                case "hdfs.default.NAME":
+                case "hdfs.default.name":
                     hdfsDefaultName = (String) entry.getValue();
                     break;
                 case "executor.num":

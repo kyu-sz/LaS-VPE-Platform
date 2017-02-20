@@ -24,7 +24,8 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.TopicPartition
 import org.apache.spark.SparkException
 import org.apache.spark.streaming.kafka.KafkaCluster
-import org.cripac.isee.vpe.common.Topic
+import org.cripac.isee.vpe.ctrl.TaskData
+import org.cripac.isee.vpe.util.SerializationHelper
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
 
 import scala.collection.JavaConversions._
@@ -49,16 +50,18 @@ object KafkaHelper {
     * @tparam K Type of the key.
     * @tparam V Type of the value.
     */
-  def sendWithLog[K, V](@Nonnull topic: Topic,
-                        @Nonnull key: K,
-                        @Nonnull value: V,
-                        @Nonnull producer: KafkaProducer[K, V],
-                        @Nullable extLogger: Logger) {
+  def sendWithLog[K, V](
+                         @Nonnull topic: String,
+                         @Nonnull key: K,
+                         @Nonnull value: V,
+                         @Nonnull producer: KafkaProducer[K, V],
+                         @Nullable extLogger: Logger
+                       ): Unit = {
     // Check if logger is provided. If not, create a console logger.
     val logger = if (extLogger == null) new ConsoleLogger() else extLogger
     // Send the message.
     logger debug ("Sending to Kafka <" + topic + ">\t" + key)
-    val future = producer send new ProducerRecord[K, V](topic.NAME, key, value)
+    val future = producer send new ProducerRecord[K, V](topic, key, value)
     // Retrieve sending report.
     try {
       val recMeta = future get;
@@ -70,6 +73,19 @@ object KafkaHelper {
       case e: InterruptedException =>
         logger error("Interrupted when retrieving Kafka sending result.", e)
     }
+  }
+
+  def sendWithLog[K](
+                      @Nonnull key: K,
+                      @Nonnull taskData: TaskData,
+                      @Nonnull producer: KafkaProducer[K, Array[Byte]],
+                      @Nullable extLogger: Logger
+                    ): Unit = {
+    sendWithLog(taskData.outputType.name(),
+      key,
+      SerializationHelper.serialize(taskData),
+      producer,
+      extLogger)
   }
 
   /**
@@ -99,8 +115,9 @@ object KafkaHelper {
     * @return A map from each partition of each topic to the fromOffset.
     */
   @throws[SparkException]
-  def getFromOffsets(@Nonnull kafkaCluster: KafkaCluster,
-                     @Nonnull topics: util.Collection[String]
+  def getFromOffsets(
+                      @Nonnull kafkaCluster: KafkaCluster,
+                      @Nonnull topics: util.Collection[String]
                     ): util.Map[TopicPartition, java.lang.Long] = {
     // Retrieve partition information of the topics from the Kafka cluster.
     val partitions = KafkaCluster.checkErrors(kafkaCluster.getPartitions(new util.HashSet[String](topics).toSet))

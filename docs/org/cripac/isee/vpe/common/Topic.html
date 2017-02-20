@@ -101,7 +101,7 @@ var activeTableTab = "activeTableTab";
 <li>java.lang.Object</li>
 <li>
 <ul class="inheritance">
-<li>org.cripac.isee.vpe.common.Topic</li>
+    <li>org.cripac.isee.vpe.common.Stream.Topic</li>
 </ul>
 </li>
 </ul>
@@ -148,14 +148,14 @@ implements java.io.Serializable</pre>
                                                   title="enum in org.cripac.isee.vpe.common">DataType</a></code></td>
                     <td class="colLast"><code><span class="memberNameLink"><a
                             href="../../../../../org/cripac/isee/vpe/common/Topic.html#INPUT_TYPE">INPUT_TYPE</a></span></code>
-                        <div class="block">Type of the topic used within the system.</div>
+                        <div class="block">Type of the port used within the system.</div>
                     </td>
                 </tr>
                 <tr class="rowColor">
                     <td class="colFirst"><code>java.lang.String</code></td>
                     <td class="colLast"><code><span class="memberNameLink"><a
                             href="../../../../../org/cripac/isee/vpe/common/Topic.html#NAME">NAME</a></span></code>
-                        <div class="block">Name of the topic to appear in Kafka.</div>
+                        <div class="block">Name of the port to appear in Kafka.</div>
                     </td>
                 </tr>
             </table>
@@ -176,7 +176,7 @@ implements java.io.Serializable</pre>
     <td class="colOne"><code><span class="memberNameLink"><a
             href="../../../../../org/cripac/isee/vpe/common/Topic.html#Topic-java.lang.String-org.cripac.isee.vpe.common.DataType-">Topic</a></span>(java.lang.String&nbsp;name,
         <a href="../../../../../org/cripac/isee/vpe/common/DataType.html" title="enum in org.cripac.isee.vpe.common">DataType</a>&nbsp;type)</code>
-        <div class="block">Create a topic.</div>
+        <div class="block">Create a port.</div>
 </td>
 </tr>
 </table>
@@ -203,7 +203,7 @@ implements java.io.Serializable</pre>
 <tr id="i1" class="rowColor">
 <td class="colFirst"><code>java.lang.String</code></td>
 <td class="colLast"><code><span class="memberNameLink"><a href="../../../../../org/cripac/isee/vpe/common/Topic.html#toString--">toString</a></span>()</code>
-    <div class="block">Transform the topic into a string in format as "[INPUT_TYPE]NAME".</div>
+    <div class="block">Transform the port into a string in format as "[INPUT_TYPE]NAME".</div>
 </td>
 </tr>
 </table>
@@ -235,7 +235,7 @@ implements java.io.Serializable</pre>
                 <li class="blockList">
                     <h4>NAME</h4>
                     <pre>public final&nbsp;java.lang.String NAME</pre>
-                    <div class="block">Name of the topic to appear in Kafka.</div>
+                    <div class="block">Name of the port to appear in Kafka.</div>
                 </li>
             </ul>
             <a name="INPUT_TYPE">
@@ -246,7 +246,7 @@ implements java.io.Serializable</pre>
                     <h4>INPUT_TYPE</h4>
                     <pre>public final&nbsp;<a href="../../../../../org/cripac/isee/vpe/common/DataType.html"
                                               title="enum in org.cripac.isee.vpe.common">DataType</a> INPUT_TYPE</pre>
-                    <div class="block">Type of the topic used within the system.</div>
+                    <div class="block">Type of the port used within the system.</div>
                 </li>
             </ul>
         </li>
@@ -268,11 +268,11 @@ implements java.io.Serializable</pre>
              @Nonnull
              <a href="../../../../../org/cripac/isee/vpe/common/DataType.html"
                 title="enum in org.cripac.isee.vpe.common">DataType</a>&nbsp;type)</pre>
-    <div class="block">Create a topic.</div>
+    <div class="block">Create a port.</div>
 <dl>
 <dt><span class="paramLabel">Parameters:</span></dt>
-<dd><code>name</code> - Name of the topic to appear in Kafka.</dd>
-<dd><code>type</code> - Type of the topic used within the system.</dd>
+    <dd><code>name</code> - Name of the port to appear in Kafka.</dd>
+    <dd><code>type</code> - Type of the port used within the system.</dd>
 </dl>
 </li>
 </ul>
@@ -291,12 +291,12 @@ implements java.io.Serializable</pre>
 <li class="blockList">
     <h4>toString</h4>
     <pre>public&nbsp;java.lang.String&nbsp;toString()</pre>
-    <div class="block">Transform the topic into a string in format as "[INPUT_TYPE]NAME".</div>
+    <div class="block">Transform the port into a string in format as "[INPUT_TYPE]NAME".</div>
 <dl>
     <dt><span class="overrideSpecifyLabel">Overrides:</span></dt>
     <dd><code>toString</code>&nbsp;in class&nbsp;<code>java.lang.Object</code></dd>
 <dt><span class="returnLabel">Returns:</span></dt>
-    <dd>String representing the topic.</dd>
+    <dd>String representing the port.</dd>
 </dl>
 </li>
 </ul>

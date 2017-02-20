@@ -33,23 +33,24 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaInputDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
+import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
+import scala.Tuple2;
 
 import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -91,7 +92,7 @@ public abstract class SparkStreamingApp implements Serializable {
 
     private final List<Stream> streams = new ArrayList<>();
 
-    private void checkTopics(Collection<String> topics) {
+    protected void checkTopics(Collection<String> topics) {
         Logger logger;
         try {
             logger = loggerSingleton.getInst();
@@ -133,8 +134,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
-     * @param topics        Topics from which the direct stream reads.
-     * @param toRepartition Whether to repartition the RDDs.
+     * @param toRepartition   Whether to repartition the RDDs.
      * @return A Kafka non-receiver input stream.
      */
     protected JavaDStream<ConsumerRecord<String, byte[]>>
@@ -209,11 +209,21 @@ public abstract class SparkStreamingApp implements Serializable {
     }
 
     /**
+     * Add streaming actions directly to the global streaming context.
+     * This is for applications that may take as input messages with types other than {@link TaskData}.
+     * Actions that take {@link TaskData} as input should be implemented in the
+     * {@link Stream#addToGlobalStream(Map)}, in order to save time of deserialization.
+     * Note that existence of Kafka topics used in this method is not automatically checked.
+     * Remember to call {@link #checkTopics(Collection)} to check this.
+     */
+    public abstract void addToContext() throws Exception;
+
+    /**
      * Initialize the application.
      */
     public void initialize() {
         final Collection<String> listeningTopics = streams.stream()
-                .flatMap(stream -> stream.listeningTopics().stream())
+                .flatMap(stream -> stream.getPorts().stream().map(port -> port.inputType.name()))
                 .collect(Collectors.toList());
 
         checkTopics(listeningTopics);
@@ -226,8 +236,16 @@ public abstract class SparkStreamingApp implements Serializable {
 
             jssc = new JavaStreamingContext(sparkContext, Durations.milliseconds(propCenter.batchDuration));
 
-            final JavaDStream<ConsumerRecord<String, byte[]>> inputStream = buildDirectStream(listeningTopics);
-            streams.forEach(stream -> stream.addToStream(inputStream));
+            addToContext();
+
+            if (!listeningTopics.isEmpty()) {
+                final JavaDStream<ConsumerRecord<String, byte[]>> inputStream = buildDirectStream(listeningTopics);
+                Map<String, JavaPairDStream<String, TaskData>> streamMap = new HashMap<>();
+                listeningTopics.forEach(topic -> streamMap.put(topic, inputStream
+                        .filter(rec -> (Boolean) (Objects.equals(rec.topic(), topic)))
+                        .mapToPair(rec -> new Tuple2<>(rec.key(), SerializationHelper.deserialize(rec.value())))));
+                streams.forEach(stream -> stream.addToGlobalStream(streamMap));
+            }
 
             try {
                 if (propCenter.sparkMaster.contains("local")) {
@@ -281,5 +299,21 @@ public abstract class SparkStreamingApp implements Serializable {
             jssc.close();
         }
         super.finalize();
+    }
+
+    /**
+     * The class StringByteArrayRecord contains basic data of a Kafka message.
+     */
+    public static class StringByteArrayRecord implements Serializable {
+        private static final long serialVersionUID = -7522425828162991655L;
+        public String key;
+        public byte[] value;
+        public String topic;
+
+        StringByteArrayRecord(String key, byte[] value, String topic) {
+            this.key = key;
+            this.value = value;
+            this.topic = topic;
+        }
     }
 }

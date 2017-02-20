@@ -27,11 +27,10 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.helper.opencv_core;
@@ -45,7 +44,6 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
@@ -78,7 +76,7 @@ import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
  * results of vision algorithms, to HDFS and Neo4j database. The data feeding
  * function retrieves stored results and sendWithLog them to algorithm modules from
  * HDFS and Neo4j database. The reason why combine these two functions is that
- * they should both be modified when and only when a new data INPUT_TYPE shall be
+ * they should both be modified when and only when a new data inputType shall be
  * supported by the system, and they require less resources than other modules,
  * so combining them can save resources while not harming performance.
  *
@@ -86,7 +84,7 @@ import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
  */
 public class DataManagingApp extends SparkStreamingApp {
     /**
-     * The NAME of this application.
+     * The name of this application.
      */
     public static final String APP_NAME = "data-managing";
     private static final long serialVersionUID = 7338424132131492017L;
@@ -137,7 +135,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
     public static class VideoCuttingStream extends Stream {
 
-        public final static Topic VIDEO_URL_TOPIC = new Topic("video-url-for-cutting", DataType.URL);
+        public final static Port VIDEO_URL_PORT = new Port("video-url-for-cutting", DataType.URL);
         private static final long serialVersionUID = -6187153660239066646L;
         public static final DataType OUTPUT_TYPE = DataType.FRAME_ARRAY;
         private final Singleton<FileSystem> hdfsSingleton;
@@ -157,20 +155,23 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaDStream<ConsumerRecord<String, byte[]>> globalStream) {
-            this.<TaskData<String>>filter(globalStream, VIDEO_URL_TOPIC)
+        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+            this.filter(globalStreamMap, VIDEO_URL_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
                             final String taskID = kv._1();
-                            final TaskData<String> taskData = kv._2();
+                            final TaskData taskData = kv._2();
 
                             FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(
-                                    hdfsSingleton.getInst().open(new Path(taskData.predecessorRes))
+                                    hdfsSingleton.getInst().open(new Path((String) taskData.predecessorRes))
                             );
 
                             Frame[] fragments = new Frame[maxFramePerFragment];
                             int cnt = 0;
+                            final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(VIDEO_URL_PORT);
+                            final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                            curNode.markExecuted();
                             while (true) {
                                 Frame frame;
                                 try {
@@ -180,8 +181,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                     if (cnt > 0) {
                                         Frame[] lastFragments = new Frame[cnt];
                                         System.arraycopy(fragments, 0, lastFragments, 0, cnt);
-                                        output(taskData.curNode.getOutputPorts(),
-                                                taskData.executionPlan, lastFragments, taskID);
+                                        output(outputPorts, taskData.executionPlan, lastFragments, taskID);
                                     }
                                     break;
                                 }
@@ -189,16 +189,14 @@ public class DataManagingApp extends SparkStreamingApp {
                                     if (cnt > 0) {
                                         Frame[] lastFragments = new Frame[cnt];
                                         System.arraycopy(fragments, 0, lastFragments, 0, cnt);
-                                        output(taskData.curNode.getOutputPorts(),
-                                                taskData.executionPlan, lastFragments, taskID);
+                                        output(outputPorts, taskData.executionPlan, lastFragments, taskID);
                                     }
                                     break;
                                 }
 
                                 fragments[cnt++] = frame;
                                 if (cnt >= maxFramePerFragment) {
-                                    output(taskData.curNode.getOutputPorts(),
-                                            taskData.executionPlan, fragments, taskID);
+                                    output(outputPorts, taskData.executionPlan, fragments, taskID);
                                     cnt = 0;
                                 }
                             }
@@ -209,8 +207,8 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public List<String> listeningTopics() {
-            return Collections.singletonList(VIDEO_URL_TOPIC.NAME);
+        public List<Port> getPorts() {
+            return Collections.singletonList(VIDEO_URL_PORT);
         }
     }
 
@@ -218,8 +216,8 @@ public class DataManagingApp extends SparkStreamingApp {
 
         public static final String NAME = "pedestrian-tracklet-rtrv";
         public static final DataType OUTPUT_TYPE = DataType.TRACKLET;
-        public static final Topic RTRV_JOB_TOPIC =
-                new Topic("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID);
+        public static final Port RTRV_JOB_PORT =
+                new Port("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID);
         private static final long serialVersionUID = -3588633503578388408L;
         // Create KafkaSink for Spark Streaming to output to Kafka.
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
@@ -231,19 +229,20 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaDStream<ConsumerRecord<String, byte[]>> globalStream) {
+        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
-            this.<TaskData<Tracklet.Identifier>>filter(globalStream, RTRV_JOB_TOPIC)
+            this.filter(globalStreamMap, RTRV_JOB_PORT)
                     // Retrieve and deliver tracklets.
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                                 final Logger logger = loggerSingleton.getInst();
 
                                 try {
                                     // Recover task data.
-                                    final TaskData<Tracklet.Identifier> taskData = kv._2();
-                                    final Tracklet.Identifier trackletID = taskData.predecessorRes;
+                                    final TaskData taskData = kv._2();
+                                    final Tracklet.Identifier trackletID =
+                                            (Tracklet.Identifier) taskData.predecessorRes;
 
                                     // Retrieve the track from HDFS.
                                     // Store the track to a task data (reused).
@@ -252,11 +251,11 @@ public class DataManagingApp extends SparkStreamingApp {
                                             trackletID,
                                             loggerSingleton.getInst());
 
-                                    // Get the IDs of successor nodes.
-                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts =
-                                            taskData.curNode.getOutputPorts();
+                                    // Get ports to output to.
+                                    final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(RTRV_JOB_PORT);
+                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                                     // Mark the current node as executed.
-                                    taskData.curNode.markExecuted();
+                                    curNode.markExecuted();
 
                                     // Send to all the successor nodes.
                                     final String taskID = kv._1();
@@ -269,42 +268,39 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public List<String> listeningTopics() {
-            return Collections.singletonList(RTRV_JOB_TOPIC.NAME);
+        public List<Port> getPorts() {
+            return Collections.singletonList(RTRV_JOB_PORT);
         }
     }
 
     public static class PedestrainTrackletAttrRetrievingStream extends Stream {
         public static final String NAME = "pedestrian-tracklet-attr-rtrv";
         public static final DataType OUTPUT_TYPE = DataType.TRACKLET_ATTR;
-        public static final Topic RTRV_JOB_TOPIC =
-                new Topic("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID);
+        public static final Port RTRV_JOB_PORT =
+                new Port("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID);
         private static final long serialVersionUID = -8876416114616771091L;
-        // Create KafkaSink for Spark Streaming to output to Kafka.
-        private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
-            final Properties producerProp = propCenter.getKafkaProducerProp(false);
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
         }
 
         @Override
-        public void addToStream(JavaDStream<ConsumerRecord<String, byte[]>> globalStream) {
+        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
-            this.<TaskData<Tracklet.Identifier>>filter(globalStream, RTRV_JOB_TOPIC)
+            this.filter(globalStreamMap, RTRV_JOB_PORT)
                     // Retrieve and deliver tracklets with attributes.
                     .foreachRDD(rdd -> rdd.foreach(job -> {
                                 final Logger logger = loggerSingleton.getInst();
                                 try {
                                     final String taskID = job._1();
                                     // Recover task data.
-                                    final TaskData<Tracklet.Identifier> taskData = job._2();
+                                    final TaskData taskData = job._2();
                                     // Get parameters for the job.
-                                    final Tracklet.Identifier trackletID = taskData.predecessorRes;
+                                    final Tracklet.Identifier trackletID =
+                                            (Tracklet.Identifier) taskData.predecessorRes;
                                     final String videoURL = trackletID.videoID;
 
                                     final PedestrianInfo info = new PedestrianInfo();
@@ -316,11 +312,11 @@ public class DataManagingApp extends SparkStreamingApp {
                                     // Retrieve the attributes from database.
                                     info.attr = dbConnSingleton.getInst().getPedestrianAttributes(trackletID.toString());
 
-                                    // Get the IDs of successor nodes.
-                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts
-                                            = taskData.curNode.getOutputPorts();
+                                    // Get ports to output to.
+                                    final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(RTRV_JOB_PORT);
+                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                                     // Mark the current node as executed.
-                                    taskData.curNode.markExecuted();
+                                    curNode.markExecuted();
 
                                     // Send to all the successor nodes.
                                     output(outputPorts, taskData.executionPlan, info, taskID);
@@ -332,8 +328,8 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public List<String> listeningTopics() {
-            return Collections.singletonList(RTRV_JOB_TOPIC.NAME);
+        public List<Port> getPorts() {
+            return Collections.singletonList(RTRV_JOB_PORT);
         }
     }
 
@@ -349,7 +345,7 @@ public class DataManagingApp extends SparkStreamingApp {
      */
     static class TrackletPackingThread implements Runnable {
 
-        final static Topic JOB_TOPIC = new Topic("tracklet-packing-job", DataType.URL);
+        final static String JOB_TOPIC = "tracklet-packing-job";
 
         final Properties consumerProperties;
         final String metadataDir;
@@ -366,7 +362,7 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public void run() {
             KafkaConsumer<String, String> jobListener = new KafkaConsumer<>(consumerProperties);
-            jobListener.subscribe(Collections.singletonList(JOB_TOPIC.NAME));
+            jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
             while (true) {
                 ConsumerRecords<String, String> records = jobListener.poll(1000);
                 logger.debug("Tracklet packing thread received " + records.count() + " jobs!");
@@ -411,8 +407,8 @@ public class DataManagingApp extends SparkStreamingApp {
     public static class TrackletSavingStream extends Stream {
         public static final String NAME = "tracklet-saving";
         public static final DataType OUTPUT_TYPE = DataType.NONE;
-        public static final Topic PED_TRACKLET_SAVING_TOPIC =
-                new Topic("pedestrian-tracklet-saving", DataType.TRACKLET);
+        public static final Port PED_TRACKLET_SAVING_PORT =
+                new Port("pedestrian-tracklet-saving", DataType.TRACKLET);
         private static final long serialVersionUID = 2820895755662980265L;
         private final Singleton<FileSystem> hdfsSingleton;
         private final String metadataDir;
@@ -491,8 +487,8 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaDStream<ConsumerRecord<String, byte[]>> globalStream) {// Save tracklets.
-            this.<TaskData<Tracklet>>filter(globalStream, PED_TRACKLET_SAVING_TOPIC)
+        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {// Save tracklets.
+            this.filter(globalStreamMap, PED_TRACKLET_SAVING_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
@@ -538,16 +534,16 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public List<String> listeningTopics() {
-            return Collections.singletonList(PED_TRACKLET_SAVING_TOPIC.NAME);
+        public List<Port> getPorts() {
+            return Collections.singletonList(PED_TRACKLET_SAVING_PORT);
         }
     }
 
     public static class AttrSavingStream extends Stream {
         public static final String NAME = "attr-saving";
         public static final DataType OUTPUT_TYPE = DataType.NONE;
-        public static final Topic PED_ATTR_SAVING_TOPIC =
-                new Topic("pedestrian-attr-saving", DataType.ATTR);
+        public static final Port PED_ATTR_SAVING_PORT =
+                new Port("pedestrian-attr-saving", DataType.ATTRIBUTES);
         private static final long serialVersionUID = 858443725387544606L;
         private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
@@ -558,10 +554,10 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaDStream<ConsumerRecord<String, byte[]>> globalStream) {
+        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
-            this.<TaskData<Tracklet>>filter(globalStream, PED_ATTR_SAVING_TOPIC)
+            this.filter(globalStreamMap, PED_ATTR_SAVING_PORT)
                     .foreachRDD(rdd -> rdd.foreach(res -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
@@ -580,16 +576,16 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public List<String> listeningTopics() {
-            return Collections.singletonList(PED_ATTR_SAVING_TOPIC.NAME);
+        public List<Port> getPorts() {
+            return Collections.singletonList(PED_ATTR_SAVING_PORT);
         }
     }
 
     public static class IDRankSavingStream extends Stream {
         public static final String NAME = "idrank-saving";
         public static final DataType OUTPUT_TYPE = DataType.NONE;
-        public static final Topic PED_IDRANK_SAVING_TOPIC =
-                new Topic("pedestrian-idrank-saving", DataType.IDRANK);
+        public static final Port PED_IDRANK_SAVING_PORT =
+                new Port("pedestrian-idrank-saving", DataType.IDRANK);
         private static final long serialVersionUID = -6469177153696762040L;
 
         public IDRankSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
@@ -597,10 +593,10 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaDStream<ConsumerRecord<String, byte[]>> globalStream) {
+        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
-            this.<TaskData<Tracklet>>filter(globalStream, PED_IDRANK_SAVING_TOPIC)
+            this.filter(globalStreamMap, PED_IDRANK_SAVING_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
@@ -620,8 +616,13 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public List<String> listeningTopics() {
-            return Collections.singletonList(PED_IDRANK_SAVING_TOPIC.NAME);
+        public List<Port> getPorts() {
+            return Collections.singletonList(PED_IDRANK_SAVING_PORT);
         }
+    }
+
+    @Override
+    public void addToContext() throws Exception {
+        // Do nothing.
     }
 }

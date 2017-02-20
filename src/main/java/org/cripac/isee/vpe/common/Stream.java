@@ -17,27 +17,24 @@ package org.cripac.isee.vpe.common;/*
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
-import scala.Tuple2;
 
+import javax.annotation.Nonnull;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
-import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
-
 /**
- * A Stream is a flow of DStreams. Each stream outputs at most one INPUT_TYPE of output.
+ * A Stream is a flow of DStreams. Each stream outputs at most one type of data.
  * <p>
  * Created by ken.yu on 16-10-26.
  */
@@ -45,31 +42,21 @@ public abstract class Stream implements Serializable {
     private static final long serialVersionUID = 7965952554107861881L;
     private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
 
-    protected <T extends Serializable> void
+    protected void
     output(Collection<TaskData.ExecutionPlan.Node.Port> outputPorts,
            TaskData.ExecutionPlan executionPlan,
-           T result,
+           Serializable result,
            String taskID) throws Exception {
-        final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-        for (TaskData.ExecutionPlan.Node.Port port : outputPorts) {
-            final TaskData<T> resTaskData = new TaskData<>(port.getNode(), executionPlan, result);
-            final byte[] serialized = serialize(resTaskData);
-            sendWithLog(port.topic, taskID, serialized, producer, loggerSingleton.getInst());
-        }
+        KafkaHelper.sendWithLog(taskID,
+                new TaskData(outputPorts, executionPlan, result),
+                producerSingleton.getInst(),
+                loggerSingleton.getInst());
     }
 
-    protected <T extends Serializable> JavaPairDStream<String, T>
-    filter(JavaDStream<ConsumerRecord<String, byte[]>> stream, Topic topic) {
-        return stream
-                .filter(rec -> (Boolean) (rec.topic().equals(topic.NAME)))
-                .mapToPair(rec -> {
-                    try {
-                        return new Tuple2<>(rec.key(), SerializationHelper.<T>deserialize(rec.value()));
-                    } catch (Exception e) {
-                        loggerSingleton.getInst().error("On deserialization", e);
-                        return null;
-                    }
-                });
+    protected JavaPairDStream<String, TaskData>
+    filter(Map<String, JavaPairDStream<String, TaskData>> streamMap, Port port) {
+        return streamMap.get(port.inputType.name())
+                .filter(rec -> (Boolean) rec._2().destPorts.containsKey(port));
     }
 
     protected final Singleton<Logger> loggerSingleton;
@@ -89,11 +76,61 @@ public abstract class Stream implements Serializable {
     }
 
     /**
-     * Append the stream to a Spark Streaming stream.
+     * Add streaming actions to the global {@link TaskData} stream.
+     * This global stream contains pre-deserialized TaskData messages, so as to save time.
      *
-     * @param globalStream A Spark Streaming stream.
+     * @param globalStreamMap A map of streams. The key of an entry is the topic name,
+     *                        which must be one of the {@link DataType}.
+     *                        The value is a filtered stream.
      */
-    public abstract void addToStream(JavaDStream<ConsumerRecord<String, byte[]>> globalStream);
+    public abstract void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap);
 
-    public abstract List<String> listeningTopics();
+    /**
+     * Get input ports of the stream.
+     *
+     * @return A list of ports.
+     */
+    public abstract List<Port> getPorts();
+
+    /**
+     * The class Port represents an input port of a stream.
+     */
+    public static final class Port implements Serializable {
+        private static final long serialVersionUID = -7567029992452814611L;
+        /**
+         * Name of the port.
+         */
+        public final String name;
+        /**
+         * Input data type of the port.
+         */
+        public final DataType inputType;
+
+        /**
+         * Create a port.
+         *
+         * @param name Name of the port.
+         * @param type Input data type of the port.
+         */
+        public Port(@Nonnull String name,
+                    @Nonnull DataType type) {
+            this.name = name;
+            this.inputType = type;
+        }
+
+        /**
+         * Transform the port into a string in format as "[inputType]name".
+         *
+         * @return String representing the port.
+         */
+        @Override
+        public String toString() {
+            return "[" + inputType + "]" + name;
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+    }
 }

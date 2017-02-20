@@ -29,7 +29,7 @@ import org.cripac.isee.pedestrian.attr.DeepMARTest;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizerTest;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
-import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -46,7 +46,6 @@ import java.util.Properties;
 import java.util.UUID;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -60,7 +59,8 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class PedestrianAttrRecogAppTest {
 
-    private static final Topic TEST_PED_ATTR_RECV_TOPIC = new Topic("test-pedestrian-attr-recv", DataType.ATTR);
+    private static final Stream.Port TEST_PED_ATTR_RECV_PORT =
+            new Stream.Port("test-pedestrian-attr-recv", DataType.ATTRIBUTES);
 
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
@@ -123,7 +123,7 @@ public class PedestrianAttrRecogAppTest {
         externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
         externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
 
-        checkTopic(TEST_PED_ATTR_RECV_TOPIC.NAME);
+        checkTopic(TEST_PED_ATTR_RECV_PORT.inputType.name());
 
         try {
             Properties producerProp = propCenter.getKafkaProducerProp(false);
@@ -131,7 +131,7 @@ public class PedestrianAttrRecogAppTest {
 
             Properties consumerProp = propCenter.getKafkaConsumerProp(UUID.randomUUID().toString(), false);
             consumer = new KafkaConsumer<>(consumerProp);
-            consumer.subscribe(Collections.singletonList(TEST_PED_ATTR_RECV_TOPIC.NAME));
+            consumer.subscribe(Collections.singletonList(TEST_PED_ATTR_RECV_PORT.inputType.name()));
         } catch (Exception e) {
             logger.error("When checking topics", e);
             logger.info("App test is disabled.");
@@ -166,15 +166,14 @@ public class PedestrianAttrRecogAppTest {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
         TaskData.ExecutionPlan.Node attrSavingNode = plan.addNode(DataType.NONE);
-        plan.letNodeOutputTo(recogNode, attrSavingNode, TEST_PED_ATTR_RECV_TOPIC);
+        recogNode.outputTo(attrSavingNode.createInputPort(TEST_PED_ATTR_RECV_PORT));
 
         // Send request (fake tracklet).
-        TaskData trackletData = new TaskData<>(recogNode, plan,
+        TaskData trackletData = new TaskData(recogNode.getOutputPorts(), plan,
                 new FakePedestrianTracker().track(null)[0]);
         assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
-        sendWithLog(PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC,
-                UUID.randomUUID().toString(),
-                serialize(trackletData),
+        sendWithLog(UUID.randomUUID().toString(),
+                trackletData,
                 producer,
                 logger);
 
@@ -196,7 +195,9 @@ public class PedestrianAttrRecogAppTest {
                     logger.error("During TaskData deserialization", e);
                     return;
                 }
-                logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
+                if (taskData.destPorts.containsKey(TEST_PED_ATTR_RECV_PORT)) {
+                    logger.info("<" + rec.topic() + ">\t" + rec.key() + "\t-\t" + taskData.predecessorRes);
+                }
             });
 
             consumer.commitSync();

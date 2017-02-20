@@ -20,6 +20,7 @@ package org.cripac.isee.vpe.ctrl;
 import com.google.gson.Gson;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
+import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
@@ -164,19 +165,19 @@ public class MessageHandlingAppTest implements Serializable {
         for (String url : cam01VideoURLs) {
             param.put(MessageHandlingApp.Parameter.VIDEO_URL, url);
 
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+            sendWithLog(DataType.COMMAND.name(),
                     MessageHandlingApp.CommandType.TRACK_ONLY,
                     serialize(param),
                     producer,
                     logger);
 
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+            sendWithLog(DataType.COMMAND.name(),
                     MessageHandlingApp.CommandType.TRACK_ATTRRECOG,
                     serialize(param),
                     producer,
                     logger);
 
-            sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+            sendWithLog(DataType.COMMAND.name(),
                     MessageHandlingApp.CommandType.TRACK_ATTRRECOG_REID,
                     serialize(param),
                     producer,
@@ -185,19 +186,19 @@ public class MessageHandlingAppTest implements Serializable {
 
         param.put(MessageHandlingApp.Parameter.TRACKLET_INDEX, "1");
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        sendWithLog(DataType.COMMAND.name(),
                 MessageHandlingApp.CommandType.ATTRRECOG_ONLY,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        sendWithLog(DataType.COMMAND.name(),
                 MessageHandlingApp.CommandType.ATTRRECOG_REID,
                 serialize(param),
                 producer,
                 logger);
 
-        sendWithLog(MessageHandlingApp.MessageHandlingStream.COMMAND_TOPIC,
+        sendWithLog(DataType.COMMAND.name(),
                 MessageHandlingApp.CommandType.REID_ONLY,
                 serialize(param),
                 producer,
