@@ -20,7 +20,7 @@ package org.cripac.isee.vpe.ctrl;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.SparkException;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
@@ -28,8 +28,6 @@ import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp.HDFSVideoTrackingStream;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.data.DataManagingApp;
 import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletAttrRetrievingStream;
@@ -39,11 +37,10 @@ import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**
@@ -55,9 +52,12 @@ import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
  */
 public class MessageHandlingApp extends SparkStreamingApp {
     /**
-     * The NAME of this application.
+     * The name of this application.
      */
     public static final String APP_NAME = "message-handling";
+
+    private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+    private Singleton<HDFSReader> hdfsReaderSingleton;
 
     /**
      * The constructor method. It sets the configurations, but does not run
@@ -69,7 +69,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
     public MessageHandlingApp(SystemPropertyCenter propCenter) throws Exception {
         super(propCenter, APP_NAME);
 
-        registerStreams(Collections.singletonList(new MessageHandlingStream(propCenter)));
+        Properties producerProp = propCenter.getKafkaProducerProp(false);
+        producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
+
+        hdfsReaderSingleton = new Singleton<>(HDFSReader::new);
     }
 
     public static void main(String[] args) throws Exception {
@@ -114,276 +117,242 @@ public class MessageHandlingApp extends SparkStreamingApp {
         public final static String TRACK_ATTRRECOG_REID = "track-attrrecog-reid";
         public final static String RT_TRACK_ONLY = "rttrack";
         public final static String RT_TRACK_ATTRRECOG_REID = "rt-track-attrrecog-reid";
+
+        private CommandType() {
+        }
     }
 
     public static class UnsupportedCommandException extends Exception {
         private static final long serialVersionUID = -940732652485656739L;
     }
 
-    public static class MessageHandlingStream extends Stream {
+    @Override
+    public void addToContext() throws SparkException {
+        checkTopics(Collections.singleton(DataType.COMMAND.name()));
 
-        public static final String NAME = "msg-handling";
-        public static final DataType OUTPUT_TYPE = DataType.NONE;
-        /**
-         * Topic of command.
-         */
-        public static final Topic COMMAND_TOPIC = new Topic(
-                "command", DataType.COMMAND);
-        private static final long serialVersionUID = -8438559854398738231L;
+        buildDirectStream(Collections.singleton(DataType.COMMAND.name()))
+                .foreachRDD(rdd -> rdd.foreach(rec -> {
+                    final Logger logger = loggerSingleton.getInst();
+                    try {
+                        String taskID = UUID.randomUUID().toString();
 
-        private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
-        private Singleton<HDFSReader> hdfsReaderSingleton;
+                        // Get a next command message.
+                        String cmd = rec.key;
+                        logger.debug("Received command: " + cmd);
 
-        public MessageHandlingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(APP_NAME, propCenter);
+                        final Hashtable<String, Serializable> param = deserialize(rec.value);
 
-            Properties producerProp = propCenter.getKafkaProducerProp(false);
-            producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
-
-            hdfsReaderSingleton = new Singleton<>(HDFSReader::new);
-        }
-
-        private void handle(String cmd, Map<String, Serializable> param, String taskID) throws Exception {
-            final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
-            final Logger logger = loggerSingleton.getInst();
-            final ExecutionPlan plan = new ExecutionPlan();
-            // Process stored videos.
-            final List<Path> videoPaths = hdfsReaderSingleton.getInst().listSubfiles(
-                    new Path((String) param.get(Parameter.VIDEO_URL)));
-
-            switch (cmd) {
-                case CommandType.TRACK_ONLY: {
-                    // Perform tracking only.
-                    ExecutionPlan.Node trackingNode = plan.addNode(
-                            HDFSVideoTrackingStream.OUTPUT_TYPE,
-                            param.get(Parameter.TRACKING_CONF_FILE));
-                    ExecutionPlan.Node trackletSavingNode = plan.addNode(
-                            DataManagingApp.TrackletSavingStream.OUTPUT_TYPE);
-                    // The letNodeOutputTo method will automatically add the DataManagingApp node.
-                    plan.letNodeOutputTo(trackingNode,
-                            trackletSavingNode,
-                            DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC);
-                    videoPaths.forEach(path -> {
-                        final TaskData<String> taskData = new TaskData<>(trackingNode, plan, path.toString());
-                        try {
-                            sendWithLog(HDFSVideoTrackingStream.VIDEO_URL_TOPIC,
-                                    taskID, serialize(taskData), producer, logger);
-                        } catch (IOException e) {
-                            logger.error("On serializing TaskData", e);
+                        if (cmd.equals(CommandType.RT_TRACK_ONLY)
+                                || cmd.equals(CommandType.RT_TRACK_ATTRRECOG_REID)) {
+                            // TODO: After finishing real time processing function, implement here.
+                            throw new NotImplementedException();
+                        } else {
+                            handle(cmd, param, taskID);
                         }
-                    });
-                    break;
-                }
-                case CommandType.TRACK_ATTRRECOG: {
-                    // Do tracking, then output to attr recog module.
-                    ExecutionPlan.Node trackingNode = plan.addNode(
-                            PedestrianTrackingApp.HDFSVideoTrackingStream.OUTPUT_TYPE,
-                            param.get(Parameter.TRACKING_CONF_FILE));
-                    ExecutionPlan.Node attrRecogNode = plan.addNode(
-                            PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node trackletSavingNode = plan.addNode(
-                            DataManagingApp.TrackletSavingStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node attrSavingNode = plan.addNode(
-                            DataManagingApp.AttrSavingStream.OUTPUT_TYPE);
-                    plan.letNodeOutputTo(trackingNode,
-                            attrRecogNode,
-                            PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
-                    plan.letNodeOutputTo(trackingNode,
-                            trackletSavingNode,
-                            DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC);
-                    plan.letNodeOutputTo(attrRecogNode,
-                            attrSavingNode,
-                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
-                    videoPaths.forEach(path -> {
-                        final TaskData<String> taskData = new TaskData<>(trackingNode, plan, path.toString());
-                        try {
-                            sendWithLog(HDFSVideoTrackingStream.VIDEO_URL_TOPIC,
-                                    taskID, serialize(taskData), producer, logger);
-                        } catch (IOException e) {
-                            logger.error("On serializing TaskData", e);
-                        }
-                    });
-                    break;
-                }
-                case CommandType.TRACK_ATTRRECOG_REID: {
-                    ExecutionPlan.Node trackingNode = plan.addNode(
-                            HDFSVideoTrackingStream.OUTPUT_TYPE,
-                            param.get(Parameter.TRACKING_CONF_FILE));
-                    ExecutionPlan.Node attrRecogNode = plan.addNode(
-                            PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node reidNode = plan.addNode(
-                            PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node trackletSavingNode = plan.addNode(
-                            DataManagingApp.TrackletSavingStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node attrSavingNode = plan.addNode(
-                            DataManagingApp.AttrSavingStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node idRankSavingNode = plan.addNode(
-                            DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
-                    plan.letNodeOutputTo(trackingNode,
-                            attrRecogNode,
-                            PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
-                    plan.letNodeOutputTo(trackingNode,
-                            reidNode,
-                            PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_TOPIC);
-                    plan.letNodeOutputTo(attrRecogNode,
-                            reidNode,
-                            PedestrianReIDUsingAttrApp.ReIDStream.ATTR_TOPIC);
-                    plan.letNodeOutputTo(trackingNode,
-                            trackletSavingNode,
-                            DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC);
-                    plan.letNodeOutputTo(attrRecogNode,
-                            attrSavingNode,
-                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
-                    plan.letNodeOutputTo(reidNode,
-                            idRankSavingNode,
-                            DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_TOPIC);
-                    videoPaths.forEach(path -> {
-                        final TaskData<String> taskData = new TaskData<>(trackingNode, plan, path.toString());
-                        try {
-                            sendWithLog(HDFSVideoTrackingStream.VIDEO_URL_TOPIC,
-                                    taskID, serialize(taskData), producer, logger);
-                        } catch (IOException e) {
-                            logger.error("On serializing TaskData", e);
-                        }
-                    });
-                    break;
-                }
-                case CommandType.ATTRRECOG_ONLY: {
-                    // Retrieve track data, then feed it to attr recog module.
-                    ExecutionPlan.Node trackletDataNode = plan.addNode(
-                            PedestrainTrackletRetrievingStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node attrRecogNode = plan.addNode(
-                            PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node attrSavingNode = plan.addNode(
-                            DataManagingApp.AttrSavingStream.OUTPUT_TYPE);
-                    plan.letNodeOutputTo(trackletDataNode,
-                            trackletDataNode,
-                            PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
-                    plan.letNodeOutputTo(attrRecogNode,
-                            attrSavingNode,
-                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
-                    String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
-                    videoPaths.forEach(path -> {
-                        Tracklet.Identifier id = new Tracklet.Identifier(
-                                path.toString(),
-                                Integer.valueOf(trackletIdx));
-                        final TaskData<Tracklet.Identifier> taskData = new TaskData<>(trackletDataNode, plan, id);
-                        try {
-                            sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
-                                    taskID, serialize(taskData), producer, logger);
-                        } catch (IOException e) {
-                            logger.error("On serializing TaskData", e);
-                        }
-                    });
-                    break;
-                }
-                case CommandType.ATTRRECOG_REID: {
-                    ExecutionPlan.Node trackletDataNode = plan.addNode(
-                            PedestrainTrackletRetrievingStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node attrRecogNode = plan.addNode(
-                            PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node reidNode = plan.addNode(
-                            PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node attrSavingNode = plan.addNode(
-                            DataManagingApp.AttrSavingStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node idRankSavingNode = plan.addNode(
-                            DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
-                    plan.letNodeOutputTo(trackletDataNode,
-                            attrRecogNode,
-                            PedestrianAttrRecogApp.RecogStream.TRACKLET_TOPIC);
-                    plan.letNodeOutputTo(trackletDataNode,
-                            reidNode,
-                            PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_TOPIC);
-                    plan.letNodeOutputTo(attrRecogNode,
-                            reidNode,
-                            PedestrianReIDUsingAttrApp.ReIDStream.ATTR_TOPIC);
-                    plan.letNodeOutputTo(attrRecogNode,
-                            attrSavingNode,
-                            DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC);
-                    plan.letNodeOutputTo(reidNode,
-                            idRankSavingNode,
-                            DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_TOPIC);
-                    String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
-                    videoPaths.forEach(path -> {
-                        Tracklet.Identifier id = new Tracklet.Identifier(
-                                path.toString(),
-                                Integer.valueOf(trackletIdx));
-                        final TaskData<Tracklet.Identifier> taskData = new TaskData<>(trackletDataNode, plan, id);
-                        try {
-                            sendWithLog(PedestrainTrackletRetrievingStream.RTRV_JOB_TOPIC,
-                                    taskID, serialize(taskData), producer, logger);
-                        } catch (IOException e) {
-                            logger.error("On serializing TaskData", e);
-                        }
-                    });
-                    break;
-                }
-                case CommandType.REID_ONLY: {
-                    // Retrieve track and attr data integrally, then feed them to ReID
-                    // module.
-                    ExecutionPlan.Node trackWithAttrDataNode = plan.addNode(
-                            PedestrainTrackletAttrRetrievingStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node reidNode = plan.addNode(
-                            PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE);
-                    ExecutionPlan.Node idRankSavingNode = plan.addNode(
-                            DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
-                    plan.letNodeOutputTo(trackWithAttrDataNode,
-                            reidNode,
-                            PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_ATTR_TOPIC);
-                    plan.letNodeOutputTo(reidNode,
-                            idRankSavingNode,
-                            DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_TOPIC);
-                    String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
-                    videoPaths.forEach(path -> {
-                        Tracklet.Identifier id = new Tracklet.Identifier(
-                                path.toString(),
-                                Integer.valueOf(trackletIdx));
-                        final TaskData<Tracklet.Identifier> taskData = new TaskData<>(trackWithAttrDataNode, plan, id);
-                        try {
-                            sendWithLog(PedestrainTrackletAttrRetrievingStream.RTRV_JOB_TOPIC,
-                                    taskID, serialize(taskData), producer, logger);
-                        } catch (IOException e) {
-                            logger.error("On serializing TaskData", e);
-                        }
-                    });
-                    break;
-                }
-                default:
-                    throw new UnsupportedCommandException();
+                    } catch (Exception e) {
+                        logger.error("During msg handling", e);
+                    }
+                }));
+    }
+
+    private void handle(String cmd, Map<String, Serializable> param, String taskID) throws Exception {
+        final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
+        final Logger logger = loggerSingleton.getInst();
+        final ExecutionPlan plan = new ExecutionPlan();
+        // Process stored videos.
+        final List<Path> videoPaths = hdfsReaderSingleton.getInst().listSubfiles(
+                new Path((String) param.get(Parameter.VIDEO_URL)));
+
+        switch (cmd) {
+            case CommandType.TRACK_ONLY: {
+                // Perform tracking only.
+                ExecutionPlan.Node trackingNode = plan.addNode(
+                        HDFSVideoTrackingStream.OUTPUT_TYPE,
+                        param.get(Parameter.TRACKING_CONF_FILE));
+                ExecutionPlan.Node trackletSavingNode = plan.addNode(
+                        DataManagingApp.TrackletSavingStream.OUTPUT_TYPE
+                );
+                // The letNodeOutputTo method will automatically add the DataManagingApp node.
+                trackingNode.outputTo(
+                        trackletSavingNode.createInputPort(
+                                DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT));
+                videoPaths.forEach(path -> {
+                    final TaskData taskData = new TaskData(
+                            trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
+                            plan,
+                            path.toString());
+                    sendWithLog(taskID, taskData, producer, logger);
+                });
+                break;
             }
-        }
-
-        // Handle the messages received from Kafka,
-        @Override
-        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {
-            this.<Hashtable<String, Serializable>>filter(globalStream, COMMAND_TOPIC)
-                    .foreachRDD(rdd -> rdd.foreach(msg -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            String taskID = UUID.randomUUID().toString();
-
-                            // Get a next command message.
-                            String cmd = msg._1();
-                            logger.debug("Received command: " + cmd);
-
-                            final Hashtable<String, Serializable> param = msg._2();
-
-                            if (cmd.equals(CommandType.RT_TRACK_ONLY)
-                                    || cmd.equals(CommandType.RT_TRACK_ATTRRECOG_REID)) {
-                                // TODO: After finishing real time processing function, implement here.
-                                throw new NotImplementedException();
-                            } else {
-                                handle(cmd, param, taskID);
-                            }
-                        } catch (Exception e) {
-                            logger.error("During msg handling", e);
-                        }
-                    }));
-        }
-
-        @Override
-        public List<String> listeningTopics() {
-            return Collections.singletonList(COMMAND_TOPIC.NAME);
+            case CommandType.TRACK_ATTRRECOG: {
+                // Do tracking, then output to attr recog module.
+                ExecutionPlan.Node trackingNode = plan.addNode(
+                        PedestrianTrackingApp.HDFSVideoTrackingStream.OUTPUT_TYPE,
+                        param.get(Parameter.TRACKING_CONF_FILE));
+                ExecutionPlan.Node attrRecogNode = plan.addNode(
+                        PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node trackletSavingNode = plan.addNode(
+                        DataManagingApp.TrackletSavingStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node attrSavingNode = plan.addNode(
+                        DataManagingApp.AttrSavingStream.OUTPUT_TYPE
+                );
+                trackingNode.outputTo(attrRecogNode.createInputPort(
+                        PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT));
+                trackingNode.outputTo(trackletSavingNode.createInputPort(
+                        DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT));
+                attrRecogNode.outputTo(attrSavingNode.createInputPort(
+                        DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
+                videoPaths.forEach(path -> {
+                    final TaskData taskData = new TaskData(
+                            trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
+                            plan,
+                            path.toString());
+                    sendWithLog(taskID, taskData, producer, logger);
+                });
+                break;
+            }
+            case CommandType.TRACK_ATTRRECOG_REID: {
+                ExecutionPlan.Node trackingNode = plan.addNode(
+                        HDFSVideoTrackingStream.OUTPUT_TYPE,
+                        param.get(Parameter.TRACKING_CONF_FILE));
+                ExecutionPlan.Node attrRecogNode = plan.addNode(
+                        PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node reidNode = plan.addNode(
+                        PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node trackletSavingNode = plan.addNode(
+                        DataManagingApp.TrackletSavingStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node attrSavingNode = plan.addNode(
+                        DataManagingApp.AttrSavingStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node idRankSavingNode = plan.addNode(
+                        DataManagingApp.IDRankSavingStream.OUTPUT_TYPE
+                );
+                trackingNode.outputTo(attrRecogNode.createInputPort(
+                        PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT));
+                trackingNode.outputTo(reidNode.createInputPort(
+                        PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_PORT));
+                attrRecogNode.outputTo(reidNode.createInputPort(
+                        PedestrianReIDUsingAttrApp.ReIDStream.ATTR_PORT));
+                trackingNode.outputTo(trackletSavingNode.createInputPort(
+                        DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT));
+                attrRecogNode.outputTo(attrSavingNode.createInputPort(
+                        DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
+                reidNode.outputTo(idRankSavingNode.createInputPort(
+                        DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_PORT));
+                videoPaths.forEach(path -> {
+                    final TaskData taskData = new TaskData(
+                            trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
+                            plan,
+                            path.toString());
+                    sendWithLog(taskID, taskData, producer, logger);
+                });
+                break;
+            }
+            case CommandType.ATTRRECOG_ONLY: {
+                // Retrieve track data, then feed it to attr recog module.
+                ExecutionPlan.Node trackletDataNode = plan.addNode(
+                        PedestrainTrackletRetrievingStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node attrRecogNode = plan.addNode(
+                        PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node attrSavingNode = plan.addNode(
+                        DataManagingApp.AttrSavingStream.OUTPUT_TYPE
+                );
+                trackletDataNode.outputTo(trackletDataNode.createInputPort(
+                        PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT));
+                attrRecogNode.outputTo(attrSavingNode.createInputPort(
+                        DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
+                String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
+                videoPaths.forEach(path -> {
+                    final Tracklet.Identifier id = new Tracklet.Identifier(
+                            path.toString(),
+                            Integer.valueOf(trackletIdx));
+                    final TaskData taskData = new TaskData(
+                            trackletDataNode.createInputPort(PedestrainTrackletRetrievingStream.RTRV_JOB_PORT),
+                            plan,
+                            id);
+                    sendWithLog(taskID, taskData, producer, logger);
+                });
+                break;
+            }
+            case CommandType.ATTRRECOG_REID: {
+                ExecutionPlan.Node trackletDataNode = plan.addNode(
+                        PedestrainTrackletRetrievingStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node attrRecogNode = plan.addNode(
+                        PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node reidNode = plan.addNode(
+                        PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node attrSavingNode = plan.addNode(
+                        DataManagingApp.AttrSavingStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node idRankSavingNode = plan.addNode(
+                        DataManagingApp.IDRankSavingStream.OUTPUT_TYPE
+                );
+                trackletDataNode.outputTo(attrRecogNode.createInputPort(
+                        PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT));
+                trackletDataNode.outputTo(reidNode.createInputPort(
+                        PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_PORT));
+                attrRecogNode.outputTo(reidNode.createInputPort(
+                        PedestrianReIDUsingAttrApp.ReIDStream.ATTR_PORT));
+                attrRecogNode.outputTo(attrSavingNode.createInputPort(
+                        DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
+                reidNode.outputTo(idRankSavingNode.createInputPort(
+                        DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_PORT));
+                String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
+                videoPaths.forEach(path -> {
+                    final Tracklet.Identifier id = new Tracklet.Identifier(
+                            path.toString(),
+                            Integer.valueOf(trackletIdx));
+                    final TaskData taskData = new TaskData(
+                            trackletDataNode.createInputPort(PedestrainTrackletRetrievingStream.RTRV_JOB_PORT),
+                            plan,
+                            id);
+                    sendWithLog(taskID, taskData, producer, logger);
+                });
+                break;
+            }
+            case CommandType.REID_ONLY: {
+                // Retrieve track and attr data integrally, then feed them to ReID
+                // module.
+                ExecutionPlan.Node trackWithAttrDataNode = plan.addNode(
+                        PedestrainTrackletAttrRetrievingStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node reidNode = plan.addNode(
+                        PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE
+                );
+                ExecutionPlan.Node idRankSavingNode = plan.addNode(
+                        DataManagingApp.IDRankSavingStream.OUTPUT_TYPE
+                );
+                trackWithAttrDataNode.outputTo(reidNode.createInputPort(
+                        PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_ATTR_PORT));
+                reidNode.outputTo(idRankSavingNode.createInputPort(
+                        DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_PORT));
+                String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
+                videoPaths.forEach(path -> {
+                    final Tracklet.Identifier id = new Tracklet.Identifier(
+                            path.toString(),
+                            Integer.valueOf(trackletIdx));
+                    final TaskData taskData = new TaskData(
+                            trackWithAttrDataNode.createInputPort(
+                                    PedestrainTrackletAttrRetrievingStream.RTRV_JOB_PORT),
+                            plan,
+                            id);
+                    sendWithLog(taskID, taskData, producer, logger);
+                });
+                break;
+            }
+            default:
+                throw new UnsupportedCommandException();
         }
     }
 }

@@ -18,7 +18,7 @@
 package org.cripac.isee.vpe.alg;
 
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.DeepMAR;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
@@ -27,7 +27,6 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
-import org.cripac.isee.vpe.common.Topic;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
@@ -52,13 +51,18 @@ import java.util.Map;
 public class PedestrianAttrRecogApp extends SparkStreamingApp {
     private static final long serialVersionUID = 2559258492435661197L;
 
+    @Override
+    public void addToContext() throws Exception {
+        // Do nothing.
+    }
+
     enum Algorithm {
         EXT,
         DeepMAR
     }
 
     /**
-     * The NAME of this application.
+     * The name of this application.
      */
     public static final String APP_NAME = "pedestrian-attr-recog";
 
@@ -125,13 +129,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
     public static class RecogStream extends Stream {
 
         public static final String NAME = "recog";
-        public static final DataType OUTPUT_TYPE = DataType.ATTR;
+        public static final DataType OUTPUT_TYPE = DataType.ATTRIBUTES;
 
         /**
          * Topic to input tracklets from Kafka.
          */
-        public static final Topic TRACKLET_TOPIC =
-                new Topic("pedestrian-tracklet-for-attr-recog", DataType.TRACKLET);
+        public static final Port TRACKLET_PORT =
+                new Port("pedestrian-tracklet-for-attr-recog", DataType.TRACKLET);
         private static final long serialVersionUID = -4672941060404428484L;
 
         private final Singleton<PedestrianAttrRecognizer> recognizerSingleton;
@@ -162,18 +166,18 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToStream(JavaDStream<StringByteArrayRecord> globalStream) {// Extract tracklets from the data.
+        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
-            this.<TaskData<Tracklet>>filter(globalStream, TRACKLET_TOPIC)
+            this.filter(globalStreamMap, TRACKLET_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         try {
                             Logger logger = loggerSingleton.getInst();
 
                             String taskID = kv._1();
-                            TaskData<Tracklet> taskData = kv._2();
+                            TaskData taskData = kv._2();
                             logger.debug("Received task " + taskID + "!");
 
-                            Tracklet tracklet = taskData.predecessorRes;
+                            Tracklet tracklet = (Tracklet) taskData.predecessorRes;
                             logger.debug("To recognize attributes for task " + taskID + "!");
                             // Truncate and shrink the tracklet in case it is too large.
                             if (maxTrackletLength > 0
@@ -188,10 +192,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             logger.debug("Attributes retrieved for task " + taskID + "!");
                             attr.trackletID = tracklet.id;
 
-                            // Get the IDs of successor nodes.
-                            List<TaskData.ExecutionPlan.Node.Port> outputPorts = taskData.curNode.getOutputPorts();
+                            // Find current node.
+                            TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(TRACKLET_PORT);
+                            // Get ports to output to.
+                            List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                             // Mark the current node as executed.
-                            taskData.curNode.markExecuted();
+                            curNode.markExecuted();
 
                             output(outputPorts, taskData.executionPlan, attr, taskID);
                         } catch (Exception e) {
@@ -201,8 +207,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         }
 
         @Override
-        public List<String> listeningTopics() {
-            return Collections.singletonList(TRACKLET_TOPIC.NAME);
+        public List<Port> getPorts() {
+            return Collections.singletonList(TRACKLET_PORT);
         }
     }
 }

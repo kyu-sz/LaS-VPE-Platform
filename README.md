@@ -137,7 +137,7 @@ set *network.proxy.socks_remote_dns* as *true*.
 * _Application_: Same as that in YARN.
 
 * _Stream_: A flow of DStreams. Each stream may take in more than one input Kafka
-topic, but output at most one kind of output. An _Application_ may contains
+port, but output at most one kind of output. An _Application_ may contains
 multiple streams.
 
 * _Node_: An execution of a _Stream_. A pack of input data and parameters are

@@ -21,6 +21,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
@@ -92,8 +93,11 @@ public class DataManagingAppTest {
             Tracklet tracklet = tracklets[i];
             tracklet.id = new Tracklet.Identifier("fake", i);
 
-            TaskData<Tracklet> data = new TaskData<>(savingNode, plan, tracklet);
-            sendWithLog(DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_TOPIC,
+            TaskData data = new TaskData(
+                    savingNode.createInputPort(DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT),
+                    plan,
+                    tracklet);
+            sendWithLog(DataType.TRACKLET.name(),
                     taskID,
                     serialize(data),
                     producer,
@@ -110,8 +114,11 @@ public class DataManagingAppTest {
                 new FakePedestrianTracker().track(null)[0]);
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
 
-        TaskData<Attributes> data = new TaskData<>(savingNode, plan, attributes);
-        sendWithLog(DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_TOPIC,
+        TaskData data = new TaskData(
+                savingNode.createInputPort(DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT),
+                plan,
+                attributes);
+        sendWithLog(DataType.ATTRIBUTES.name(),
                 UUID.randomUUID().toString(),
                 serialize(data),
                 producer,

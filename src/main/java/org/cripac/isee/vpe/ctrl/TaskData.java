@@ -20,69 +20,108 @@ package org.cripac.isee.vpe.ctrl;
 import com.google.gson.Gson;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.cripac.isee.vpe.common.DataType;
-import org.cripac.isee.vpe.common.DataTypeNotMatchedException;
-import org.cripac.isee.vpe.common.Topic;
+import org.cripac.isee.vpe.common.Stream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
-import java.util.Hashtable;
-import java.util.List;
+import java.util.*;
 
 /**
  * The TaskData class contains a global execution plan and the execution result
  * of the predecessor node.
- *
- * @param <T> Type of the predecessor result this TaskData contains.
  */
-public class TaskData<T extends Serializable> implements Serializable, Cloneable {
+public class TaskData implements Serializable, Cloneable {
 
     private static final long serialVersionUID = 6817584209784831375L;
+
     /**
-     * Current node to execute.
+     * Current nodes to execute.
      */
-    public ExecutionPlan.Node curNode;
+    public final Map<Stream.Port, ExecutionPlan.Node.Port> destPorts;
+
     /**
      * Global execution plan.
      */
-    public ExecutionPlan executionPlan = null;
+    public final ExecutionPlan executionPlan;
+
+    public final DataType outputType;
+
     /**
      * Result of the predecessor.
      */
-    public T predecessorRes = null;
+    public final Serializable predecessorRes;
 
-    /**
-     * Create an empty task.
-     */
-    public TaskData() {
-        this.curNode = null;
-        this.executionPlan = null;
+    public ExecutionPlan.Node getCurrentNode(Stream.Port port) {
+        return destPorts.get(port).getNode();
+    }
+
+    public ExecutionPlan.Node getCurrentNode(List<Stream.Port> possiblePorts) {
+        for (Stream.Port port : possiblePorts) {
+            final ExecutionPlan.Node node = getCurrentNode(port);
+            if (node != null) {
+                return node;
+            }
+        }
+        return null;
     }
 
     /**
      * Create a task with an execution plan with no predecessor result.
      *
-     * @param curNode       Current node to execute.
+     * @param destPorts     Destination ports of this TaskData.
      * @param executionPlan A global execution plan.
      */
-    public TaskData(@Nonnull ExecutionPlan.Node curNode,
+    public TaskData(@Nonnull Collection<ExecutionPlan.Node.Port> destPorts,
                     @Nonnull ExecutionPlan executionPlan) {
-        this.curNode = curNode;
-        this.executionPlan = executionPlan;
+        this(destPorts, executionPlan, null);
     }
 
     /**
      * Create a task with an execution plan with predecessor result.
      *
-     * @param curNode        Current node to execute.
+     * @param destPort      Destination prototype of this TaskData.
+     * @param executionPlan A global execution plan.
+     */
+    public TaskData(@Nonnull ExecutionPlan.Node.Port destPort,
+                    @Nonnull ExecutionPlan executionPlan) {
+        this(destPort, executionPlan, null);
+    }
+
+    /**
+     * Create a task with an execution plan with predecessor result.
+     *
+     * @param destPort       Destination prototype of this TaskData.
      * @param executionPlan  A global execution plan.
      * @param predecessorRes Result of the predecessor node,
      *                       which is a serializable object.
      */
-    public TaskData(@Nonnull ExecutionPlan.Node curNode,
+    public TaskData(@Nonnull ExecutionPlan.Node.Port destPort,
                     @Nonnull ExecutionPlan executionPlan,
-                    @Nonnull T predecessorRes) {
-        this.curNode = curNode;
+                    @Nullable Serializable predecessorRes) {
+        this(Collections.singleton(destPort), executionPlan, predecessorRes);
+    }
+
+    /**
+     * Create a task with an execution plan with predecessor result.
+     *
+     * @param destPorts      Destination ports of this TaskData.
+     * @param executionPlan  A global execution plan.
+     * @param predecessorRes Result of the predecessor node,
+     *                       which is a serializable object.
+     */
+    public TaskData(@Nonnull Collection<ExecutionPlan.Node.Port> destPorts,
+                    @Nonnull ExecutionPlan executionPlan,
+                    @Nullable Serializable predecessorRes) {
+        this.destPorts = new HashMap<>();
+        Optional<DataType> outputTypeOptional =
+                destPorts.stream().map(port -> port.prototype.inputType).reduce((dataType1, dataType2) -> {
+                    assert dataType1 == dataType2;
+                    return dataType1;
+                });
+        assert outputTypeOptional.isPresent();
+        outputType = outputTypeOptional.get();
+        destPorts.forEach(port -> this.destPorts.put(port.prototype, port));
         this.executionPlan = executionPlan;
         this.predecessorRes = predecessorRes;
     }
@@ -139,24 +178,6 @@ public class TaskData<T extends Serializable> implements Serializable, Cloneable
         }
 
         /**
-         * Create a link from a head node to a tail node.
-         * If the tail node has not been added to the execution plan,
-         * it will be automatically added here with no execution data.
-         *
-         * @param headNode      The head node.
-         * @param tailNodeTopic Input topic of the tail node.
-         */
-        public void letNodeOutputTo(@Nonnull Node headNode,
-                                    @Nonnull Node tailNode,
-                                    @Nonnull Topic tailNodeTopic) throws DataTypeNotMatchedException {
-            if (headNode.outputType != tailNodeTopic.INPUT_TYPE) {
-                throw new DataTypeNotMatchedException("Output type does not match with input type of topic "
-                        + tailNodeTopic);
-            }
-            headNode.addSuccessor(tailNode, tailNodeTopic);
-        }
-
-        /**
          * Add a node to the execution plan. If it has been added previously with no
          * execution data, the new execution data will be added to the previous node.
          *
@@ -193,8 +214,18 @@ public class TaskData<T extends Serializable> implements Serializable, Cloneable
 
             private static final long serialVersionUID = 4538251384004287468L;
 
+            private ExecutionPlan getPlan() {
+                return ExecutionPlan.this;
+            }
+
+            public void outputTo(Port port) {
+                assert this.getPlan() == port.getNode().getPlan();
+                assert this.outputType == port.prototype.inputType;
+                outputPorts.add(port);
+            }
+
             /**
-             * IO port of a node. Specified by a node and a particular topic.
+             * IO prototype of a node. Specified by a node and a particular prototype.
              */
             public class Port implements Serializable {
                 private static final long serialVersionUID = -762800114750459971L;
@@ -203,10 +234,14 @@ public class TaskData<T extends Serializable> implements Serializable, Cloneable
                     return Node.this;
                 }
 
-                public final Topic topic;
+                public final Stream.Port prototype;
 
-                private Port(Topic topic) {
-                    this.topic = topic;
+                public String getName() {
+                    return prototype.name;
+                }
+
+                private Port(Stream.Port prototype) {
+                    this.prototype = prototype;
                 }
             }
 
@@ -232,9 +267,10 @@ public class TaskData<T extends Serializable> implements Serializable, Cloneable
 
             /**
              * @param execData The data for execution, which is a serializable
-             *                 object.
              */
-            private Node(int id, DataType outputType, Serializable execData) {
+            private Node(int id,
+                         DataType outputType,
+                         @Nullable Serializable execData) {
                 this.id = id;
                 this.outputType = outputType;
                 this.execData = execData;
@@ -280,17 +316,8 @@ public class TaskData<T extends Serializable> implements Serializable, Cloneable
                 }
             }
 
-            Port getPort(Topic topic) {
-                return new Port(topic);
-            }
-
-            /**
-             * Add a node to the successor set of this node.
-             *
-             * @param topic An input of the node to add.
-             */
-            private void addSuccessor(Node node, Topic topic) {
-                outputPorts.add(node.getPort(topic));
+            public Port createInputPort(Stream.Port prototype) {
+                return new Port(prototype);
             }
         }
     }

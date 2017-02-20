@@ -74,10 +74,10 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
     /**
      * Constructor of ExternPedestrianAttrRecognizer specifying extern solver's
-     * address and listening port.
+     * address and listening prototype.
      *
      * @param solverAddress The address of the solver.
-     * @param port          The port the solver is listening to.
+     * @param port          The prototype the solver is listening to.
      * @throws IOException
      */
     public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,

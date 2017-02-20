@@ -125,10 +125,10 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
 
     /**
      * Constructor of ExternPedestrianComparerWithAttr specifying extern
-     * solver's address and listening port.
+     * solver's address and listening prototype.
      *
      * @param solverAddress The address of the solver.
-     * @param port          The port the solver is listening to.
+     * @param port          The prototype the solver is listening to.
      * @throws IOException
      */
     public ExternPedestrianComparerUsingAttr(@Nonnull InetAddress solverAddress,
@@ -140,10 +140,10 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
 
     /**
      * Constructor of ExternPedestrianComparerWithAttr specifying extern
-     * solver's address and listening port.
+     * solver's address and listening prototype.
      *
      * @param solverAddress     The address of the solver.
-     * @param port              The port the solver is listening to.
+     * @param port              The prototype the solver is listening to.
      * @param enableFeatureOnly Enable to compare pedestrians with feature only.
      * @throws IOException
      */
