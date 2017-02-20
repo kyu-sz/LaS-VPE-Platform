@@ -25,7 +25,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkException;
@@ -40,7 +39,6 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -51,7 +49,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -85,8 +82,6 @@ public abstract class SparkStreamingApp implements Serializable {
      * Common Spark Streaming context variable.
      */
     private transient JavaStreamingContext jssc = null;
-
-    protected final AtomicReference<OffsetRange[]> offsetRanges = new AtomicReference<>();
 
     protected final Singleton<Logger> loggerSingleton;
 
@@ -140,22 +135,10 @@ public abstract class SparkStreamingApp implements Serializable {
     protected JavaDStream<ConsumerRecord<String, byte[]>>
     buildDirectStream(@Nonnull Collection<String> topics,
                       boolean toRepartition) throws SparkException {
-        Logger tmpLogger;
-        try {
-            tmpLogger = loggerSingleton.getInst();
-        } catch (Exception e) {
-            tmpLogger = new ConsoleLogger();
-            e.printStackTrace();
-        }
-        tmpLogger.info("Getting initial fromOffsets from Kafka cluster.");
-        // Retrieve and correct offsets from Kafka cluster.
-        final Map<TopicPartition, Long> fromOffsets =
-                KafkaHelper.getFromOffsets(KafkaHelper.createKafkaCluster(kafkaParams), topics);
-        tmpLogger.info("Initial fromOffsets=" + fromOffsets);
-
-        final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream = KafkaUtils.createDirectStream(jssc,
-                LocationStrategies.PreferBrokers(),
-                ConsumerStrategies.Subscribe(topics, kafkaParams, fromOffsets));
+        final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream =
+                KafkaUtils.createDirectStream(jssc,
+                        LocationStrategies.PreferBrokers(),
+                        ConsumerStrategies.<String, byte[]>Subscribe(topics, kafkaParams));
 
         JavaDStream<ConsumerRecord<String, byte[]>> stream = inputDStream
                 // Manipulate offsets.
@@ -163,15 +146,14 @@ public abstract class SparkStreamingApp implements Serializable {
                     final Logger logger = loggerSingleton.getInst();
 
                     // Store offsets.
-                    final OffsetRange[] offsets = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
-                    offsetRanges.set(offsets);
+                    final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
 
                     // Directly commit the offsets, since data has been checkpointed in Spark Streaming.
-                    ((CanCommitOffsets) inputDStream.inputDStream()).commitAsync(offsets);
+                    ((CanCommitOffsets) inputDStream.inputDStream()).commitAsync(offsetRanges);
 
                     // Find offsets which indicate new messages have been received.
                     int numNewMessages = 0;
-                    for (OffsetRange o : offsets) {
+                    for (OffsetRange o : offsetRanges) {
                         if (o.untilOffset() > o.fromOffset()) {
                             numNewMessages += o.untilOffset() - o.fromOffset();
                             logger.debug("Received {topic=" + o.topic()
