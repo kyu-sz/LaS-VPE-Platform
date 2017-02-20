@@ -137,10 +137,10 @@ public class MessageHandlingApp extends SparkStreamingApp {
                         String taskID = UUID.randomUUID().toString();
 
                         // Get a next command message.
-                        String cmd = rec.key;
+                        String cmd = rec.key();
                         logger.debug("Received command: " + cmd);
 
-                        final Hashtable<String, Serializable> param = deserialize(rec.value);
+                        final Hashtable<String, Serializable> param = deserialize(rec.value());
 
                         if (cmd.equals(CommandType.RT_TRACK_ONLY)
                                 || cmd.equals(CommandType.RT_TRACK_ATTRRECOG_REID)) {
