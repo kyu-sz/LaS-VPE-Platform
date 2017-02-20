@@ -134,7 +134,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
-     * @param toRepartition   Whether to repartition the RDDs.
+     * @param toRepartition Whether to repartition the RDDs.
      * @return A Kafka non-receiver input stream.
      */
     protected JavaDStream<ConsumerRecord<String, byte[]>>
@@ -299,21 +299,5 @@ public abstract class SparkStreamingApp implements Serializable {
             jssc.close();
         }
         super.finalize();
-    }
-
-    /**
-     * The class StringByteArrayRecord contains basic data of a Kafka message.
-     */
-    public static class StringByteArrayRecord implements Serializable {
-        private static final long serialVersionUID = -7522425828162991655L;
-        public String key;
-        public byte[] value;
-        public String topic;
-
-        StringByteArrayRecord(String key, byte[] value, String topic) {
-            this.key = key;
-            this.value = value;
-            this.topic = topic;
-        }
     }
 }
