@@ -114,7 +114,7 @@ public abstract class SparkStreamingApp implements Serializable {
                 // AdminUtils.createTopic(zkClient, topic,
                 // propCenter.kafkaNumPartitions,
                 // propCenter.kafkaReplFactor, new Properties());
-                logger.info("Creating prototype: " + topic);
+                logger.info("Creating topic: " + topic);
                 kafka.admin.TopicCommand.main(
                         new String[]{
                                 "--create",
@@ -136,7 +136,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * Utility function for all applications to receive messages with byte
      * array values from Kafka with direct stream.
      *
-     * @param toRepartition   Whether to repartition the RDDs.
+     * @param toRepartition Whether to repartition the RDDs.
      * @return A Kafka non-receiver input stream.
      */
     protected JavaDStream<StringByteArrayRecord>
@@ -181,7 +181,7 @@ public abstract class SparkStreamingApp implements Serializable {
                     for (OffsetRange o : offsets) {
                         if (o.untilOffset() > o.fromOffset()) {
                             numNewMessages += o.untilOffset() - o.fromOffset();
-                            logger.debug("Received {prototype=" + o.topic()
+                            logger.debug("Received {topic=" + o.topic()
                                     + ", partition=" + o.partition()
                                     + ", fromOffset=" + o.fromOffset()
                                     + ", untilOffset=" + o.untilOffset() + "}");
@@ -249,8 +249,8 @@ public abstract class SparkStreamingApp implements Serializable {
                 final JavaDStream<StringByteArrayRecord> inputStream = buildDirectStream(listeningTopics);
                 Map<String, JavaPairDStream<String, TaskData>> streamMap = new HashMap<>();
                 listeningTopics.forEach(topic -> streamMap.put(topic, inputStream
-                        .filter(rec -> (Boolean) (Objects.equals(rec.topic, topic)))
-                        .mapToPair(rec -> new Tuple2<>(rec.key, SerializationHelper.deserialize(rec.value)))));
+                        .filter(rec -> (Boolean) (Objects.equals(rec.topic(), topic)))
+                        .mapToPair(rec -> new Tuple2<>(rec.key(), SerializationHelper.deserialize(rec.value())))));
                 streams.forEach(stream -> stream.addToGlobalStream(streamMap));
             }
 
@@ -313,9 +313,21 @@ public abstract class SparkStreamingApp implements Serializable {
      */
     public static class StringByteArrayRecord implements Serializable {
         private static final long serialVersionUID = -7522425828162991655L;
-        public String key;
-        public byte[] value;
-        public String topic;
+        private String key;
+        private byte[] value;
+        private String topic;
+
+        public byte[] value() {
+            return value;
+        }
+
+        public String key() {
+            return key;
+        }
+
+        public String topic() {
+            return topic;
+        }
 
         StringByteArrayRecord(String key, byte[] value, String topic) {
             this.key = key;
