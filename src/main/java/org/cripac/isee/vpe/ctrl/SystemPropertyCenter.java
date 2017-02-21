@@ -72,6 +72,7 @@ public class SystemPropertyCenter implements Serializable {
     private int kafkaSendMaxSize = 100000000;
     private int kafkaRequestTimeoutMs = 60000;
     private int kafkaFetchTimeoutMs = 60000;
+    public String kafkaLocationStrategy = "PreferBrokers";
     // Spark properties
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "metadata";
@@ -289,6 +290,9 @@ public class SystemPropertyCenter implements Serializable {
                 case "kafka.fetch.max.size":
                     kafkaMsgMaxBytes = new Integer((String) entry.getValue());
                     break;
+                case "kafka.location.strategy":
+                    kafkaLocationStrategy = (String) entry.getValue();
+                    break;
                 case "spark.checkpoint.dir":
                     checkpointRootDir = (String) entry.getValue();
                     break;
@@ -470,7 +474,7 @@ public class SystemPropertyCenter implements Serializable {
 
     public Properties getKafkaConsumerProp(String group, boolean isStringValue) {
         Properties consumerProp = new Properties();
-        consumerProp.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
+        consumerProp.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG, group);
         consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -488,8 +492,8 @@ public class SystemPropertyCenter implements Serializable {
         kafkaParams.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, kafkaMsgMaxBytes);
         kafkaParams.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, kafkaMsgMaxBytes);
         kafkaParams.put("fetch.message.max.bytes", kafkaMsgMaxBytes);
-        kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
         kafkaParams.put(ConsumerConfig.RECEIVE_BUFFER_CONFIG, kafkaMsgMaxBytes);
         kafkaParams.put(ConsumerConfig.SEND_BUFFER_CONFIG, kafkaMsgMaxBytes);
         kafkaParams.put(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaFetchTimeoutMs);

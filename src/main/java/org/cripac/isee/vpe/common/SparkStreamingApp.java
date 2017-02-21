@@ -137,7 +137,9 @@ public abstract class SparkStreamingApp implements Serializable {
                       boolean toRepartition) throws SparkException {
         final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream =
                 KafkaUtils.createDirectStream(jssc,
-                        LocationStrategies.PreferBrokers(),
+                        propCenter.kafkaLocationStrategy.equals("PreferBrokers") ?
+                                LocationStrategies.PreferBrokers() :
+                                LocationStrategies.PreferConsistent(),
                         ConsumerStrategies.<String, byte[]>Subscribe(topics, kafkaParams));
 
         JavaDStream<ConsumerRecord<String, byte[]>> stream = inputDStream
