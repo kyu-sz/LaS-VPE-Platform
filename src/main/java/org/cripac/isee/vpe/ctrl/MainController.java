@@ -32,6 +32,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The MainController class provides an entrance to run any spark
@@ -47,6 +48,9 @@ public class MainController {
         // center.
         SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
+        final AtomicReference<Boolean> running = new AtomicReference<>();
+        running.set(true);
+
         // Prepare system configuration.
         if (propCenter.sparkMaster.toLowerCase().contains("yarn")) {
             System.setProperty("SPARK_YARN_MODE", "true");
@@ -60,7 +64,7 @@ public class MainController {
                     topicList.add(appName + "_report");
                 }
                 consumer.subscribe(topicList);
-                while (true) {
+                while (running.get()) {
                     ConsumerRecords<String, String> records = consumer.poll(0);
                     records.forEach(rec -> System.out.println(rec.value()));
                     consumer.commitSync();
@@ -103,8 +107,7 @@ public class MainController {
             while (!processesWithNames.isEmpty()) {
                 for (ProcessWithName processWithName : processesWithNames) {
                     try {
-                        boolean exited = processWithName.process.waitFor(
-                                100, TimeUnit.MILLISECONDS);
+                        boolean exited = processWithName.process.waitFor(100, TimeUnit.MILLISECONDS);
                         if (exited) {
                             System.out.println("[INFO]Process " + processWithName.name + "finished! Exit code: "
                                     + processWithName.process.exitValue());
@@ -120,6 +123,7 @@ public class MainController {
             // TODO Complete code for running locally.
             throw new UnimplementedException();
         }
-        System.exit(0);
+
+        running.set(false);
     }
 }

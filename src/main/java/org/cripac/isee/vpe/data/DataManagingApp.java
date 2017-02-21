@@ -30,6 +30,7 @@ import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
@@ -65,6 +66,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
@@ -124,13 +126,17 @@ public class DataManagingApp extends SparkStreamingApp {
     public static void main(String[] args) throws Exception {
         final AppPropertyCenter propCenter = new AppPropertyCenter(args);
 
-        Thread packingThread = new Thread(new TrackletPackingThread(propCenter));
+        AtomicReference<Boolean> running = new AtomicReference<>();
+        running.set(true);
+
+        Thread packingThread = new Thread(new TrackletPackingThread(propCenter, running));
         packingThread.start();
 
         final SparkStreamingApp app = new DataManagingApp(propCenter);
         app.initialize();
         app.start();
         app.awaitTermination();
+        running.set(false);
     }
 
     public static class VideoCuttingStream extends Stream {
@@ -350,12 +356,14 @@ public class DataManagingApp extends SparkStreamingApp {
         final Properties consumerProperties;
         final String metadataDir;
         final Logger logger;
+        private final AtomicReference<Boolean> running;
         final GraphDatabaseConnector databaseConnector;
 
-        TrackletPackingThread(SystemPropertyCenter propCenter) {
+        TrackletPackingThread(SystemPropertyCenter propCenter, AtomicReference<Boolean> running) {
             consumerProperties = propCenter.getKafkaConsumerProp("tracklet-packing", true);
             metadataDir = propCenter.metadataDir;
             logger = new SynthesizedLogger(APP_NAME, propCenter);
+            this.running = running;
             databaseConnector = new FakeDatabaseConnector();
         }
 
@@ -363,8 +371,15 @@ public class DataManagingApp extends SparkStreamingApp {
         public void run() {
             KafkaConsumer<String, String> jobListener = new KafkaConsumer<>(consumerProperties);
             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
-            while (true) {
+            while (running.get()) {
                 ConsumerRecords<String, String> records = jobListener.poll(1000);
+                Collection<TopicPartition> topicPartitions = jobListener.assignment();
+                Map<TopicPartition, Long> beginningOffsets = jobListener.beginningOffsets(topicPartitions);
+                Map<TopicPartition, Long> endOffsets = jobListener.endOffsets(topicPartitions);
+                for (TopicPartition topicPartition : topicPartitions) {
+                    logger.debug("Tracklet packing thread: " + topicPartition + "="
+                            + beginningOffsets.get(topicPartition) + "->" + endOffsets.get(topicPartition));
+                }
                 logger.debug("Tracklet packing thread received " + records.count() + " jobs!");
                 records.forEach(rec -> {
                     final String taskID = rec.key();

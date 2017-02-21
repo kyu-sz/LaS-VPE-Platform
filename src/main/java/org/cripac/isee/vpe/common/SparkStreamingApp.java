@@ -151,7 +151,16 @@ public abstract class SparkStreamingApp implements Serializable {
                     final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
 
                     // Directly commit the offsets, since data has been checkpointed in Spark Streaming.
-                    ((CanCommitOffsets) inputDStream.inputDStream()).commitAsync(offsetRanges);
+                    ((CanCommitOffsets) inputDStream.inputDStream())
+                            .commitAsync(offsetRanges, (offsets, exception) -> {
+                                if (offsets != null) {
+                                    offsets.forEach((topicPartition, offsetAndMetadata) ->
+                                            logger.debug("Committed: " + topicPartition + "=" + offsetAndMetadata));
+                                }
+                                if (exception != null) {
+                                    logger.error("On committing offset", exception);
+                                }
+                            });
 
                     // Find offsets which indicate new messages have been received.
                     int numNewMessages = 0;
