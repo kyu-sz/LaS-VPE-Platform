@@ -156,10 +156,12 @@ public abstract class SparkStreamingApp implements Serializable {
                     // Find offsets which indicate new messages have been received.
                     rdd.foreachPartition(consumerRecords -> {
                         OffsetRange o = offsetRanges[TaskContext.getPartitionId()];
-                        loggerSingleton.getInst().debug("Received {topic=" + o.topic()
-                                + ", partition=" + o.partition()
-                                + ", fromOffset=" + o.fromOffset()
-                                + ", untilOffset=" + o.untilOffset() + "}");
+                        if (o.fromOffset() < o.untilOffset()) {
+                            loggerSingleton.getInst().debug("Received {topic=" + o.topic()
+                                    + ", partition=" + o.partition()
+                                    + ", fromOffset=" + o.fromOffset()
+                                    + ", untilOffset=" + o.untilOffset() + "}");
+                        }
                     });
                     int numNewMessages = 0;
                     for (OffsetRange o : offsetRanges) {
