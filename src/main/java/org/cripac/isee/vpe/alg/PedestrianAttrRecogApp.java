@@ -58,6 +58,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         // Do nothing.
     }
 
+    /**
+     * Available algorithms of pedestrian attribute recognition.
+     */
     enum Algorithm {
         EXT,
         DeepMAR
