@@ -153,12 +153,21 @@ public abstract class SparkStreamingApp implements Serializable {
                     // Directly commit the offsets, since data has been checkpointed in Spark Streaming.
                     ((CanCommitOffsets) inputDStream.inputDStream())
                             .commitAsync(offsetRanges, (offsets, exception) -> {
+                                final Logger callbackLogger;
+                                Logger tmpLogger;
+                                try {
+                                    tmpLogger = loggerSingleton.getInst();
+                                } catch (Exception e) {
+                                    tmpLogger = new ConsoleLogger(Level.DEBUG);
+                                    tmpLogger.error("On getting logger instance", e);
+                                }
+                                callbackLogger = tmpLogger;
                                 if (offsets != null) {
-                                    offsets.forEach((topicPartition, offsetAndMetadata) ->
-                                            logger.debug("Committed: " + topicPartition + "=" + offsetAndMetadata));
+                                    offsets.forEach((topicPartition, offsetAndMetadata) -> callbackLogger.debug(
+                                            "Committed " + topicPartition + "=" + offsetAndMetadata));
                                 }
                                 if (exception != null) {
-                                    logger.error("On committing offset", exception);
+                                    callbackLogger.error("On committing offset", exception);
                                 }
                             });
 

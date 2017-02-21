@@ -92,10 +92,10 @@ public class MainController {
 
                     // Create threads listening to output of the launcher process.
                     Thread infoThread = new Thread(
-                            new InputStreamReaderRunnable(launcherProcess.getInputStream(), "INFO"),
+                            new InputStreamReaderRunnable(launcherProcess.getInputStream(), "INFO", running),
                             "LogStreamReader info");
                     Thread errorThread = new Thread(
-                            new InputStreamReaderRunnable(launcherProcess.getErrorStream(), "ERROR"),
+                            new InputStreamReaderRunnable(launcherProcess.getErrorStream(), "ERROR", running),
                             "LogStreamReader error");
                     infoThread.start();
                     errorThread.start();
