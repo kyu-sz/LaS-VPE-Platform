@@ -48,6 +48,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
+import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
@@ -58,6 +59,7 @@ import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
 import org.spark_project.guava.collect.Range;
 import org.xml.sax.SAXException;
+import scala.Tuple2;
 
 import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
@@ -359,7 +361,7 @@ public class DataManagingApp extends SparkStreamingApp {
         final GraphDatabaseConnector databaseConnector;
 
         TrackletPackingThread(SystemPropertyCenter propCenter, AtomicReference<Boolean> running) {
-            consumerProperties = propCenter.getKafkaConsumerProp("tracklet-packing", true);
+            consumerProperties = propCenter.getKafkaConsumerProp("tracklet-packing", false);
             metadataDir = propCenter.metadataDir;
             logger = new SynthesizedLogger(APP_NAME, propCenter);
             this.running = running;
@@ -368,7 +370,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void run() {
-            final KafkaConsumer<String, String> jobListener = new KafkaConsumer<>(consumerProperties);
+            final KafkaConsumer<String, byte[]> jobListener = new KafkaConsumer<>(consumerProperties);
             final FileSystem hdfs;
             FileSystem tmpHDFS;
             while (true) {
@@ -382,13 +384,18 @@ public class DataManagingApp extends SparkStreamingApp {
             hdfs = tmpHDFS;
             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
             while (running.get()) {
-                ConsumerRecords<String, String> records = jobListener.poll(1000);
+                ConsumerRecords<String, byte[]> records = jobListener.poll(1000);
                 records.forEach(rec -> {
-                    logger.debug("Tracklet packing thread: " + rec.key() + "=" + rec.value());
                     final String taskID = rec.key();
-                    final String[] parts = rec.value().split("|");
-                    final String videoID = parts[0];
-                    final int numTracklets = Integer.valueOf(parts[1]);
+                    final Tuple2<String, Integer> info;
+                    try {
+                        info = SerializationHelper.deserialize(rec.value());
+                    } catch (IOException | ClassNotFoundException e) {
+                        logger.error("On deserializing information for task " + taskID, e);
+                        return;
+                    }
+                    final String videoID = info._1();
+                    final int numTracklets = info._2();
                     final String videoRoot = metadataDir + "/" + videoID;
                     final String taskRoot = videoRoot + "/" + taskID;
 
@@ -452,7 +459,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private static final long serialVersionUID = 2820895755662980265L;
         private final Singleton<FileSystem> hdfsSingleton;
         private final String metadataDir;
-        private final Singleton<KafkaProducer<String, String>> packingJobProducerSingleton;
+        private final Singleton<KafkaProducer<String, byte[]>> packingJobProducerSingleton;
 
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
@@ -460,7 +467,7 @@ public class DataManagingApp extends SparkStreamingApp {
             hdfsSingleton = new Singleton<>(new HDFSFactory());
             metadataDir = propCenter.metadataDir;
             packingJobProducerSingleton = new Singleton<>(
-                    new KafkaProducerFactory<>(propCenter.getKafkaProducerProp(true))
+                    new KafkaProducerFactory<>(propCenter.getKafkaProducerProp(false))
             );
         }
 
@@ -553,8 +560,9 @@ public class DataManagingApp extends SparkStreamingApp {
 
                             KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
                                     taskID,
-                                    tracklet.id.videoID + "|" + numTracklets,
-                                    packingJobProducerSingleton.getInst(), logger);
+                                    SerializationHelper.serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
+                                    packingJobProducerSingleton.getInst(),
+                                    logger);
                         } catch (Exception e) {
                             logger.error("During storing tracklets.", e);
                         }

@@ -34,9 +34,8 @@ public class SerializationHelper {
      * @param object The object to serialize.
      * @return A serialized byte array of the object.
      */
-    public static
     @Nonnull
-    byte[] serialize(@Nonnull org.cripac.isee.vpe.ctrl.TaskData object)
+    public static <T extends Serializable> byte[] serialize(@Nonnull T object)
             throws IOException {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         ObjectOutput objectOutput = null;
