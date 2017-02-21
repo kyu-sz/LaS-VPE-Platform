@@ -383,8 +383,8 @@ public class DataManagingApp extends SparkStreamingApp {
             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
             while (running.get()) {
                 ConsumerRecords<String, String> records = jobListener.poll(1000);
-                logger.debug("Tracklet packing thread received " + records.count() + " jobs!");
                 records.forEach(rec -> {
+                    logger.debug("Tracklet packing thread: " + rec.key() + "=" + rec.value());
                     final String taskID = rec.key();
                     final String[] parts = rec.value().split("|");
                     final String videoID = parts[0];
