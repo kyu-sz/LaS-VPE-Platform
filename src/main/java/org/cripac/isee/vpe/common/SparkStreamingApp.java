@@ -39,6 +39,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -136,7 +137,7 @@ public abstract class SparkStreamingApp implements Serializable {
     buildDirectStream(@Nonnull Collection<String> topics,
                       boolean toRepartition) throws SparkException {
         final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream =
-                KafkaUtils.createDirectStream(jssc,
+                KafkaHelper.createDirectStream(jssc,
                         propCenter.kafkaLocationStrategy.equals("PreferBrokers") ?
                                 LocationStrategies.PreferBrokers() :
                                 LocationStrategies.PreferConsistent(),
@@ -151,25 +152,7 @@ public abstract class SparkStreamingApp implements Serializable {
                     final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
 
                     // Directly commit the offsets, since data has been checkpointed in Spark Streaming.
-                    ((CanCommitOffsets) inputDStream.inputDStream())
-                            .commitAsync(offsetRanges, (offsets, exception) -> {
-                                final Logger callbackLogger;
-                                Logger tmpLogger;
-                                try {
-                                    tmpLogger = loggerSingleton.getInst();
-                                } catch (Exception e) {
-                                    tmpLogger = new ConsoleLogger(Level.DEBUG);
-                                    tmpLogger.error("On getting logger instance", e);
-                                }
-                                callbackLogger = tmpLogger;
-                                if (offsets != null) {
-                                    offsets.forEach((topicPartition, offsetAndMetadata) -> callbackLogger.debug(
-                                            "Committed " + topicPartition + "=" + offsetAndMetadata));
-                                }
-                                if (exception != null) {
-                                    callbackLogger.error("On committing offset", exception);
-                                }
-                            });
+                    ((CanCommitOffsets) inputDStream.inputDStream()).commitAsync(offsetRanges);
 
                     // Find offsets which indicate new messages have been received.
                     int numNewMessages = 0;
