@@ -194,7 +194,7 @@ public class SystemPropertyCenter implements Serializable {
 
         if (commandLine.hasOption('a')) {
             appsToStart = commandLine.getOptionValues('a');
-            logger.debug("[INFO]To run application:");
+            logger.debug("To run application:");
             for (String app : appsToStart) {
                 logger.debug("\t\t" + app);
             }

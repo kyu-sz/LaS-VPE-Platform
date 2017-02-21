@@ -65,7 +65,7 @@ public class MainController {
                 }
                 consumer.subscribe(topicList);
                 while (running.get()) {
-                    ConsumerRecords<String, String> records = consumer.poll(1000);
+                    ConsumerRecords<String, String> records = consumer.poll(propCenter.batchDuration);
                     records.forEach(rec -> System.out.println(rec.value()));
                     consumer.commitSync();
                 }

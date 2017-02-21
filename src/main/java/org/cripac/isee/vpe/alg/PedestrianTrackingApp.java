@@ -25,8 +25,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -215,8 +213,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         public HDFSVideoTrackingStream(SystemPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
-
-            Properties producerProp = propCenter.getKafkaProducerProp(false);
 
             hdfsSingleton = new Singleton<>(new HDFSFactory());
         }

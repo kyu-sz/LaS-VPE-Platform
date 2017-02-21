@@ -15,7 +15,6 @@ package org.cripac.isee.vpe.common;/*
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
@@ -118,19 +117,19 @@ public abstract class Stream implements Serializable {
             this.inputType = type;
         }
 
-        /**
-         * Transform the port into a string in format as "[inputType]name".
-         *
-         * @return String representing the port.
-         */
         @Override
         public String toString() {
-            return "[" + inputType + "]" + name;
+            return name;
         }
 
         @Override
         public int hashCode() {
             return name.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return (o instanceof Port) ? name.equals(((Port) o).name) : super.equals(o);
         }
     }
 }

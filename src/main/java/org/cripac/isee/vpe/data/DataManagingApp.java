@@ -30,7 +30,6 @@ import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
@@ -373,13 +372,6 @@ public class DataManagingApp extends SparkStreamingApp {
             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
             while (running.get()) {
                 ConsumerRecords<String, String> records = jobListener.poll(1000);
-                Collection<TopicPartition> topicPartitions = jobListener.assignment();
-                Map<TopicPartition, Long> beginningOffsets = jobListener.beginningOffsets(topicPartitions);
-                Map<TopicPartition, Long> endOffsets = jobListener.endOffsets(topicPartitions);
-                for (TopicPartition topicPartition : topicPartitions) {
-                    logger.debug("Tracklet packing thread: " + topicPartition + "="
-                            + beginningOffsets.get(topicPartition) + "->" + endOffsets.get(topicPartition));
-                }
                 logger.debug("Tracklet packing thread received " + records.count() + " jobs!");
                 records.forEach(rec -> {
                     final String taskID = rec.key();

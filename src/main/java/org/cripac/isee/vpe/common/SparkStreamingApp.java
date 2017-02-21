@@ -28,6 +28,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkException;
+import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaInputDStream;
@@ -153,15 +154,16 @@ public abstract class SparkStreamingApp implements Serializable {
                     ((CanCommitOffsets) inputDStream.inputDStream()).commitAsync(offsetRanges);
 
                     // Find offsets which indicate new messages have been received.
+                    rdd.foreachPartition(consumerRecords -> {
+                        OffsetRange o = offsetRanges[TaskContext.getPartitionId()];
+                        loggerSingleton.getInst().debug("Received {topic=" + o.topic()
+                                + ", partition=" + o.partition()
+                                + ", fromOffset=" + o.fromOffset()
+                                + ", untilOffset=" + o.untilOffset() + "}");
+                    });
                     int numNewMessages = 0;
                     for (OffsetRange o : offsetRanges) {
-                        if (o.untilOffset() > o.fromOffset()) {
-                            numNewMessages += o.untilOffset() - o.fromOffset();
-                            logger.debug("Received {topic=" + o.topic()
-                                    + ", partition=" + o.partition()
-                                    + ", fromOffset=" + o.fromOffset()
-                                    + ", untilOffset=" + o.untilOffset() + "}");
-                        }
+                        numNewMessages += o.untilOffset() - o.fromOffset();
                     }
                     if (numNewMessages == 0) {
                         logger.debug("No new messages!");
