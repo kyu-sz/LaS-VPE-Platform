@@ -37,7 +37,6 @@ public abstract class Tracker {
      * @param videoStream Video stream to conduct tracking on.
      * @return A set of tracklets of pedestrians.
      */
-    public abstract
     @Nonnull
-    Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception;
+    public abstract Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception;
 }

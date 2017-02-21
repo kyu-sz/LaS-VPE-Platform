@@ -149,7 +149,7 @@ public abstract class SparkStreamingApp implements Serializable {
             tmpLogger = loggerSingleton.getInst();
         } catch (Exception e) {
             tmpLogger = new ConsoleLogger();
-            e.printStackTrace();
+            tmpLogger.error("On getting logger instance", e);
         }
         tmpLogger.info("Getting initial fromOffsets from Kafka cluster.");
         // Retrieve and correct offsets from Kafka cluster.

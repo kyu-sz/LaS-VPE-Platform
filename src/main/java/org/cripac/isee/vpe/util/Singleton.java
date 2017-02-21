@@ -25,7 +25,7 @@ import java.util.Map;
 /**
  * The class Singleton manages singletons of any types.
  *
- * @param <T> The inputType of the object.
+ * @param <T> The type of the object.
  * @author Ken Yu, CRIPAC, 2016
  */
 public class Singleton<T> implements Serializable {

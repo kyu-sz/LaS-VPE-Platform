@@ -1,4 +1,4 @@
-package org.cripac.isee.vpe.util.hdfs;/*
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -14,6 +14,8 @@ package org.cripac.isee.vpe.util.hdfs;/*
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+package org.cripac.isee.vpe.util.hdfs;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
