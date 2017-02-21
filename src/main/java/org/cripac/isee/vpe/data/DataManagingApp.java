@@ -28,7 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumerForVPE;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -369,7 +369,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void run() {
-            KafkaConsumerForVPE<String, String> jobListener = new KafkaConsumerForVPE<>(consumerProperties);
+            KafkaConsumer<String, String> jobListener = new KafkaConsumer<>(consumerProperties);
             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
             while (running.get()) {
                 ConsumerRecords<String, String> records = jobListener.poll(1000);

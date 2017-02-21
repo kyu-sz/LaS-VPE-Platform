@@ -19,13 +19,7 @@ package org.cripac.isee.vpe.util.kafka
 import java.{lang => jl, util => ju}
 import javax.annotation.{Nonnull, Nullable}
 
-import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import org.apache.spark.annotation.Experimental
-import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.api.java.{JavaInputDStream, JavaStreamingContext}
-import org.apache.spark.streaming.dstream.InputDStream
-import org.apache.spark.streaming.kafka010._
 import org.cripac.isee.vpe.ctrl.TaskData
 import org.cripac.isee.vpe.util.SerializationHelper
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
@@ -87,52 +81,5 @@ object KafkaHelper {
       SerializationHelper.serialize(taskData),
       producer,
       extLogger)
-  }
-
-  /**
-    * :: Experimental ::
-    * Scala constructor for a DStream where
-    * each given Kafka topic/partition corresponds to an RDD partition.
-    * The spark configuration spark.streaming.kafka.maxRatePerPartition gives the maximum number
-    * of messages
-    * per second that each '''partition''' will accept.
-    *
-    * @param locationStrategy In most cases, pass in LocationStrategies.preferConsistent,
-    *                         see [[LocationStrategies]] for more details.
-    * @param consumerStrategy In most cases, pass in ConsumerStrategies.subscribe,
-    *                         see [[ConsumerStrategies]] for more details
-    * @tparam K type of Kafka message key
-    * @tparam V type of Kafka message value
-    */
-  @Experimental
-  def createDirectStream[K, V](
-                                ssc: StreamingContext,
-                                locationStrategy: LocationStrategy,
-                                consumerStrategy: ConsumerStrategy[K, V]
-                              ): InputDStream[ConsumerRecord[K, V]] = {
-    new DirectKafkaInputDStreamForVPE[K, V](ssc, locationStrategy, consumerStrategy)
-  }
-
-  /**
-    * :: Experimental ::
-    * Java constructor for a DStream where
-    * each given Kafka topic/partition corresponds to an RDD partition.
-    *
-    * @param locationStrategy In most cases, pass in LocationStrategies.preferConsistent,
-    *                         see [[LocationStrategies]] for more details.
-    * @param consumerStrategy In most cases, pass in ConsumerStrategies.subscribe,
-    *                         see [[ConsumerStrategies]] for more details
-    * @tparam K type of Kafka message key
-    * @tparam V type of Kafka message value
-    */
-  @Experimental
-  def createDirectStream[K, V](
-                                jssc: JavaStreamingContext,
-                                locationStrategy: LocationStrategy,
-                                consumerStrategy: ConsumerStrategy[K, V]
-                              ): JavaInputDStream[ConsumerRecord[K, V]] = {
-    new JavaInputDStream(
-      createDirectStream[K, V](
-        jssc.ssc, locationStrategy, consumerStrategy))
   }
 }

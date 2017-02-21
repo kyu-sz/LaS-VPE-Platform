@@ -39,7 +39,6 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -137,11 +136,11 @@ public abstract class SparkStreamingApp implements Serializable {
     buildDirectStream(@Nonnull Collection<String> topics,
                       boolean toRepartition) throws SparkException {
         final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream =
-                KafkaHelper.createDirectStream(jssc,
+                KafkaUtils.createDirectStream(jssc,
                         propCenter.kafkaLocationStrategy.equals("PreferBrokers") ?
                                 LocationStrategies.PreferBrokers() :
                                 LocationStrategies.PreferConsistent(),
-                        ConsumerStrategies.<String, byte[]>Subscribe(topics, kafkaParams));
+                        ConsumerStrategies.Subscribe(topics, kafkaParams));
 
         JavaDStream<ConsumerRecord<String, byte[]>> stream = inputDStream
                 // Manipulate offsets.

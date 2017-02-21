@@ -18,7 +18,7 @@
 package org.cripac.isee.vpe.ctrl;
 
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumerForVPE;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.spark.launcher.SparkLauncher;
 import org.apache.zookeeper.KeeperException.UnimplementedException;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
@@ -57,7 +57,7 @@ public class MainController {
 
             // Create a thread to listen to reports.
             Thread listener = new Thread(() -> {
-                KafkaConsumerForVPE<String, String> consumer = new KafkaConsumerForVPE<>(
+                KafkaConsumer<String, String> consumer = new KafkaConsumer<>(
                         propCenter.getKafkaConsumerProp(UUID.randomUUID().toString(), true));
                 ArrayList<String> topicList = new ArrayList<>();
                 for (String appName : propCenter.appsToStart) {
@@ -65,7 +65,7 @@ public class MainController {
                 }
                 consumer.subscribe(topicList);
                 while (running.get()) {
-                    ConsumerRecords<String, String> records = consumer.poll(0);
+                    ConsumerRecords<String, String> records = consumer.poll(1000);
                     records.forEach(rec -> System.out.println(rec.value()));
                     consumer.commitSync();
                 }
