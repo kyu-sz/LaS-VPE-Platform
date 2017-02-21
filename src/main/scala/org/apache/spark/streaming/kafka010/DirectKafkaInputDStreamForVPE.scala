@@ -185,7 +185,7 @@ class DirectKafkaInputDStreamForVPE[K, V](
     * Returns the latest (highest) available offsets, taking new partitions into account.
     */
   protected def latestOffsets(): Map[TopicPartition, Long] = {
-    val c = tempConsumer()
+    val c = consumer()
     paranoidPoll(c)
     val parts = c.assignment().asScala
 

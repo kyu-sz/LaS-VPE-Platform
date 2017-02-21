@@ -22,7 +22,7 @@ import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.KafkaConsumerForVPE;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.DeepMARTest;
@@ -63,7 +63,7 @@ public class PedestrianAttrRecogAppTest {
             new Stream.Port("test-pedestrian-attr-recv", DataType.ATTRIBUTES);
 
     private KafkaProducer<String, byte[]> producer;
-    private KafkaConsumer<String, byte[]> consumer;
+    private KafkaConsumerForVPE<String, byte[]> consumer;
     private ConsoleLogger logger;
     private InetAddress externAttrRecogServerAddr;
     private int externAttrRecogServerPort = 0;
@@ -130,7 +130,7 @@ public class PedestrianAttrRecogAppTest {
             producer = new KafkaProducer<>(producerProp);
 
             Properties consumerProp = propCenter.getKafkaConsumerProp(UUID.randomUUID().toString(), false);
-            consumer = new KafkaConsumer<>(consumerProp);
+            consumer = new KafkaConsumerForVPE<>(consumerProp);
             consumer.subscribe(Collections.singletonList(TEST_PED_ATTR_RECV_PORT.inputType.name()));
         } catch (Exception e) {
             logger.error("When checking topics", e);
