@@ -1183,6 +1183,9 @@ public class KafkaConsumerForVPE<K, V> implements Consumer<K, V> {
                 }
             }
         }
+        for (TopicPartition tp : parts) {
+            log.debug("Offset of " + tp + "=" + subscriptions.position(tp));
+        }
     }
 
     /**
@@ -1198,7 +1201,7 @@ public class KafkaConsumerForVPE<K, V> implements Consumer<K, V> {
                 log.debug("Seeking to beginning of partition {}", tp);
                 subscriptions.needOffsetReset(tp, OffsetResetStrategy.EARLIEST);
             }
-            waitTillOffsetReset(parts);
+            //waitTillOffsetReset(parts);
         } finally {
             release();
         }
@@ -1217,7 +1220,7 @@ public class KafkaConsumerForVPE<K, V> implements Consumer<K, V> {
                 log.debug("Seeking to end of partition {}", tp);
                 subscriptions.needOffsetReset(tp, OffsetResetStrategy.LATEST);
             }
-            waitTillOffsetReset(parts);
+            //waitTillOffsetReset(parts);
         } finally {
             release();
         }
@@ -1243,6 +1246,7 @@ public class KafkaConsumerForVPE<K, V> implements Consumer<K, V> {
                 throw new IllegalArgumentException("You can only check the position for partitions assigned to this consumer.");
             Long offset = this.subscriptions.position(partition);
             if (offset == null) {
+                log.debug("Offset of " + partition + " is not set!");
                 updateFetchPositions(Collections.singleton(partition));
                 offset = this.subscriptions.position(partition);
             }
@@ -1521,6 +1525,8 @@ public class KafkaConsumerForVPE<K, V> implements Consumer<K, V> {
      *                                       defined
      */
     private void updateFetchPositions(Set<TopicPartition> partitions) {
+        partitions.forEach(tp -> log.debug("Updating fetch position: " + tp));
+
         // lookup any positions for partitions which are awaiting reset (which may be the
         // case if the user called seekToBeginning or seekToEnd. We do this check first to
         // avoid an unnecessary lookup of committed offsets (which typically occurs when
@@ -1534,8 +1540,10 @@ public class KafkaConsumerForVPE<K, V> implements Consumer<K, V> {
             // first refresh commits for all assigned partitions
             coordinator.refreshCommittedOffsetsIfNeeded();
 
+            subscriptions.missingFetchPositions().forEach(tp -> log.debug("Missing fetch position: " + tp));
+
             // then do any offset lookups in case some positions are not known
-            fetcher.updateFetchPositions(partitions);
+            fetcher.updateFetchPositions(subscriptions.missingFetchPositions());
         }
     }
 
