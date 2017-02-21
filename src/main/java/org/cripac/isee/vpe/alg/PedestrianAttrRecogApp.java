@@ -18,8 +18,6 @@
 package org.cripac.isee.vpe.alg;
 
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.DeepMAR;
@@ -171,7 +169,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {// Extract tracklets from the data.
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
             this.filter(globalStreamMap, TRACKLET_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {

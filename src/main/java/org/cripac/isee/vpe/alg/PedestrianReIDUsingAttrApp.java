@@ -17,8 +17,6 @@
 
 package org.cripac.isee.vpe.alg;
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.api.java.Optional;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -127,7 +125,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             final JavaPairDStream<String, TaskData> trackletDStream =
                     filter(globalStreamMap, TRACKLET_PORT);
             final JavaPairDStream<String, TaskData> attrDStream =

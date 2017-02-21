@@ -43,7 +43,10 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * The PedestrianTrackingApp class takes in video URLs from Kafka, then process
@@ -111,7 +114,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                                              Logger logger) throws IOException {
             if (inst == null) {
                 logger.debug("Creating instance of ConfigPool...");
-                Map<String, byte[]> pool = new HashMap<>();
+                Map<String, byte[]> pool = new Object2ObjectOpenHashMap<>();
                 FileSystem stagingDir = FileSystem.get(new Configuration());
                 RemoteIterator<LocatedFileStatus> files =
                         stagingDir.listFiles(new Path(System.getenv("SPARK_YARN_STAGING_DIR")), false);
@@ -159,7 +162,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, LOGIN_PARAM_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
@@ -218,7 +221,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, VIDEO_URL_PORT)
                     .foreachRDD(rdd -> {
                         final Broadcast<Map<String, byte[]>> confPool =

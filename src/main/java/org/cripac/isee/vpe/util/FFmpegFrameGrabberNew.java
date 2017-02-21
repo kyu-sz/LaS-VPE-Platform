@@ -49,6 +49,7 @@
 
 package org.cripac.isee.vpe.util;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.bytedeco.javacpp.*;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
@@ -58,7 +59,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import static org.bytedeco.javacpp.avcodec.*;
@@ -236,7 +237,7 @@ public class FFmpegFrameGrabberNew extends FrameGrabber {
         release();
     }
 
-    static HashMap<Pointer, InputStream> inputStreams = new HashMap<Pointer, InputStream>();
+    static Map<Pointer, InputStream> inputStreams = new Object2ObjectOpenHashMap<>();
 
     static class ReadCallback extends Read_packet_Pointer_BytePointer_int {
         @Override

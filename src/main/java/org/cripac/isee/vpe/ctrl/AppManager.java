@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
@@ -24,7 +25,6 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
 import org.cripac.isee.vpe.data.DataManagingApp;
 
 import javax.annotation.Nonnull;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -32,7 +32,7 @@ import java.util.Map;
  */
 public class AppManager {
 
-    private static Map<String, String> classNameMap = new HashMap<>();
+    private static Map<String, String> classNameMap = new Object2ObjectOpenHashMap<>();
 
     static {
         classNameMap.put(PedestrianReIDUsingAttrApp.APP_NAME, PedestrianReIDUsingAttrApp.class.getName());

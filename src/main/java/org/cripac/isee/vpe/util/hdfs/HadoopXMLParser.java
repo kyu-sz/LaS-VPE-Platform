@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.util.hdfs;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
 import org.spark_project.guava.collect.Range;
@@ -31,7 +32,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -44,7 +44,7 @@ public class HadoopXMLParser {
     public static Map<String, String> getPropsFromXML(File xmlFile)
             throws ParserConfigurationException, SAXException, IOException {
 
-        Map<String, String> propMap = new HashMap<>();
+        Map<String, String> propMap = new Object2ObjectOpenHashMap<>();
 
         DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();

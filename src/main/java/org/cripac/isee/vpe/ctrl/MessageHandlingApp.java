@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -55,6 +56,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
      * The name of this application.
      */
     public static final String APP_NAME = "message-handling";
+    private static final long serialVersionUID = 4894389080346176479L;
 
     private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
     private Singleton<HDFSReader> hdfsReaderSingleton;
@@ -128,21 +130,21 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
     @Override
     public void addToContext() throws SparkException {
-        checkTopics(Collections.singleton(DataType.COMMAND.name()));
+        checkTopics(Collections.singleton(DataType.COMMAND));
 
-        buildDirectStream(Collections.singleton(DataType.COMMAND.name()))
+        buildDirectStream(Collections.singleton(DataType.COMMAND))
                 .foreachRDD(rdd -> rdd.foreach(rec -> {
                     final Logger logger = loggerSingleton.getInst();
                     try {
                         String taskID = UUID.randomUUID().toString();
 
                         // Get a next command message.
-                        final String topic = rec._1();
-                        assert topic.equals(DataType.COMMAND.name());
+                        final DataType dataType = rec._1();
+                        assert dataType.equals(DataType.COMMAND);
                         final String cmd = rec._2()._1();
                         logger.debug("Received command: " + cmd);
 
-                        final Hashtable<String, Serializable> param = deserialize(rec._2()._2());
+                        final Object2ObjectOpenHashMap<String, Serializable> param = deserialize(rec._2()._2());
 
                         if (cmd.equals(CommandType.RT_TRACK_ONLY)
                                 || cmd.equals(CommandType.RT_TRACK_ATTRRECOG_REID)) {

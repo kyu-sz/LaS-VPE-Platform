@@ -160,7 +160,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, VIDEO_URL_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
@@ -234,7 +234,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Read track retrieving jobs in parallel from Kafka.
             // URL of a video is given.
             // The directory storing the tracklets of the video is stored in the database.
@@ -293,7 +293,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Read track with attributes retrieving jobs in parallel from Kafka.
             this.filter(globalStreamMap, RTRV_JOB_PORT)
                     // Retrieve and deliver tracklets with attributes.
@@ -527,7 +527,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {// Save tracklets.
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {// Save tracklets.
             this.filter(globalStreamMap, PED_TRACKLET_SAVING_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
@@ -582,7 +582,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
             this.filter(globalStreamMap, PED_ATTR_SAVING_PORT)
@@ -621,7 +621,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
             this.filter(globalStreamMap, PED_IDRANK_SAVING_PORT)

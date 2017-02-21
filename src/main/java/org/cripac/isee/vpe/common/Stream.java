@@ -53,8 +53,8 @@ public abstract class Stream implements Serializable {
     }
 
     protected JavaPairDStream<String, TaskData>
-    filter(Map<String, JavaPairDStream<String, TaskData>> streamMap, Port port) {
-        return streamMap.get(port.inputType.name())
+    filter(Map<DataType, JavaPairDStream<String, TaskData>> streamMap, Port port) {
+        return streamMap.get(port.inputType)
                 .filter(rec -> (Boolean) rec._2().destPorts.containsKey(port));
     }
 
@@ -82,7 +82,7 @@ public abstract class Stream implements Serializable {
      *                        which must be one of the {@link DataType}.
      *                        The value is a filtered stream.
      */
-    public abstract void addToGlobalStream(Map<String, JavaPairDStream<String, TaskData>> globalStreamMap);
+    public abstract void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap);
 
     /**
      * Get input ports of the stream.

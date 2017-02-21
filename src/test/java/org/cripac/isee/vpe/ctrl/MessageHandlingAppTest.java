@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.ctrl;
 
 import com.google.gson.Gson;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
 import org.cripac.isee.vpe.common.DataType;
@@ -27,7 +28,6 @@ import org.junit.Before;
 
 import java.io.Serializable;
 import java.net.InetAddress;
-import java.util.Hashtable;
 import java.util.Properties;
 
 import static org.apache.commons.lang3.SerializationUtils.serialize;
@@ -155,7 +155,7 @@ public class MessageHandlingAppTest implements Serializable {
                 "source_data/video/CAM01/2013-12-23/20131223175916-20131223180508.h264",
         };
 
-        Hashtable<String, Serializable> param = new Hashtable<>();
+        Object2ObjectOpenHashMap<String, Serializable> param = new Object2ObjectOpenHashMap<>();
         param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "pedestrian-tracking-isee-basic-CAM01_0.conf");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,

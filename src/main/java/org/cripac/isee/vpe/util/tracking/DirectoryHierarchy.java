@@ -17,6 +17,8 @@
 
 package org.cripac.isee.vpe.util.tracking;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
@@ -30,7 +32,7 @@ import java.util.stream.Collectors;
  */
 public class DirectoryHierarchy {
     private String name;
-    private Map<String, DirectoryHierarchy> subHierarchy = new HashMap<>();
+    private Map<String, DirectoryHierarchy> subHierarchy = new Object2ObjectOpenHashMap<>();
     private Set<String> files = new HashSet<>();
     private DirectoryHierarchy parent = null;
 
