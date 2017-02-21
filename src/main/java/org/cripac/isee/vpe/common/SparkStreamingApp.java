@@ -30,7 +30,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -132,7 +131,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * @param toRepartition Whether to repartition the RDDs.
      * @return A Kafka non-receiver input stream.
      */
-    protected JavaDStream<ConsumerRecord<String, byte[]>>
+    protected JavaPairDStream<String, Tuple2<String, byte[]>>
     buildDirectStream(@Nonnull Collection<String> topics,
                       boolean toRepartition) throws SparkException {
         final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream =
@@ -142,7 +141,7 @@ public abstract class SparkStreamingApp implements Serializable {
                                 LocationStrategies.PreferConsistent(),
                         ConsumerStrategies.Subscribe(topics, kafkaParams));
 
-        JavaDStream<ConsumerRecord<String, byte[]>> stream = inputDStream
+        JavaPairDStream<String, Tuple2<String, byte[]>> stream = inputDStream
                 // Manipulate offsets.
                 .transform(rdd -> {
                     final Logger logger = loggerSingleton.getInst();
@@ -170,7 +169,8 @@ public abstract class SparkStreamingApp implements Serializable {
                         logger.debug("Received " + numNewMessages + " messages totally.");
                     }
                     return rdd;
-                });
+                })
+                .mapToPair(rec -> new Tuple2<>(rec.topic(), new Tuple2<>(rec.key(), rec.value())));
 
         if (toRepartition) {
             // Repartition the records.
@@ -187,7 +187,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * @param topics Topics from which the direct stream reads.
      * @return A Kafka non-receiver input stream.
      */
-    protected JavaDStream<ConsumerRecord<String, byte[]>>
+    protected JavaPairDStream<String, Tuple2<String, byte[]>>
     buildDirectStream(@Nonnull Collection<String> topics) throws SparkException {
         return buildDirectStream(topics, true);
     }
@@ -223,11 +223,13 @@ public abstract class SparkStreamingApp implements Serializable {
             addToContext();
 
             if (!listeningTopics.isEmpty()) {
-                final JavaDStream<ConsumerRecord<String, byte[]>> inputStream = buildDirectStream(listeningTopics);
+                final JavaPairDStream<String, Tuple2<String, byte[]>> inputStream =
+                        buildDirectStream(listeningTopics);
                 Map<String, JavaPairDStream<String, TaskData>> streamMap = new HashMap<>();
                 listeningTopics.forEach(topic -> streamMap.put(topic, inputStream
-                        .filter(rec -> (Boolean) (Objects.equals(rec.topic(), topic)))
-                        .mapToPair(rec -> new Tuple2<>(rec.key(), SerializationHelper.deserialize(rec.value())))));
+                        .filter(rec -> (Boolean) (Objects.equals(rec._1(), topic)))
+                        .mapToPair(rec ->
+                                new Tuple2<>(rec._2()._1(), SerializationHelper.deserialize(rec._2()._2())))));
                 streams.forEach(stream -> stream.addToGlobalStream(streamMap));
             }
 
