@@ -233,7 +233,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 final TaskData taskData = kv._2();
 
                                 final String videoURL = (String) taskData.predecessorRes;
-                                final InputStream videoStream = hdfsSingleton.getInst().open(new Path(videoURL));
+                                final Path videoPath = new Path(videoURL);
+                                final InputStream videoStream = hdfsSingleton.getInst().open(videoPath);
                                 logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
 
                                 // Find current node.
@@ -269,7 +270,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                                 // Set video IDs and Send tracklets.
                                 for (Tracklet tracklet : tracklets) {
-                                    tracklet.id.videoID = videoURL;
+                                    tracklet.id.videoID = videoPath.getName();
                                     output(outputPorts, taskData.executionPlan, tracklet, taskID);
                                 }
                             } catch (Throwable e) {

@@ -368,42 +368,75 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void run() {
-            KafkaConsumer<String, String> jobListener = new KafkaConsumer<>(consumerProperties);
+            final KafkaConsumer<String, String> jobListener = new KafkaConsumer<>(consumerProperties);
+            final FileSystem hdfs;
+            FileSystem tmpHDFS;
+            while (true) {
+                try {
+                    tmpHDFS = new HDFSFactory().produce();
+                    break;
+                } catch (IOException e) {
+                    logger.error("On connecting HDFS", e);
+                }
+            }
+            hdfs = tmpHDFS;
             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
             while (running.get()) {
                 ConsumerRecords<String, String> records = jobListener.poll(1000);
                 logger.debug("Tracklet packing thread received " + records.count() + " jobs!");
                 records.forEach(rec -> {
                     final String taskID = rec.key();
-                    final String videoID = rec.value();
+                    final String[] parts = rec.value().split("|");
+                    final String videoID = parts[0];
+                    final int numTracklets = Integer.valueOf(parts[1]);
                     final String videoRoot = metadataDir + "/" + videoID;
                     final String taskRoot = videoRoot + "/" + taskID;
 
-                    logger.info("Starting to pack metadata for Task " + taskID + "(" + videoID + ")!");
-
-                    final HadoopArchives arch = new HadoopArchives(new Configuration());
-                    final ArrayList<String> harPackingOptions = new ArrayList<>();
-                    harPackingOptions.add("-archiveName");
-                    harPackingOptions.add(taskID + ".har");
-                    harPackingOptions.add("-p");
-                    harPackingOptions.add(taskRoot);
-                    harPackingOptions.add(videoRoot);
-                    try {
-                        arch.run(Arrays.copyOf(harPackingOptions.toArray(),
-                                harPackingOptions.size(), String[].class));
-                    } catch (Exception e) {
-                        logger.error("On running archiving", e);
+                    // If all the tracklets from a task are saved,
+                    // it's time to pack them into a HAR!
+                    ContentSummary contentSummary;
+                    while (true) {
+                        try {
+                            contentSummary = hdfs.getContentSummary(new Path(taskRoot));
+                            break;
+                        } catch (IOException e) {
+                            logger.error("On getting summary of " + taskRoot, e);
+                        }
                     }
+                    final long dirCnt = contentSummary.getDirectoryCount();
+                    // Decrease one for directory counter.
+                    if (dirCnt - 1 == numTracklets) {
+                        logger.info("Starting to pack metadata for Task " + taskID
+                                + "(" + videoID + ")! The directory consumes "
+                                + contentSummary.getSpaceConsumed() + " bytes.");
 
-                    logger.info("Task " + taskID + "(" + videoID + ") packed!");
+                        final HadoopArchives arch = new HadoopArchives(new Configuration());
+                        final ArrayList<String> harPackingOptions = new ArrayList<>();
+                        harPackingOptions.add("-archiveName");
+                        harPackingOptions.add(taskID + ".har");
+                        harPackingOptions.add("-p");
+                        harPackingOptions.add(taskRoot);
+                        harPackingOptions.add(videoRoot);
+                        try {
+                            arch.run(Arrays.copyOf(harPackingOptions.toArray(),
+                                    harPackingOptions.size(), String[].class));
+                        } catch (Exception e) {
+                            logger.error("On running archiving", e);
+                        }
 
-                    databaseConnector.setTrackSavingPath(videoID, videoRoot + "/" + taskID + ".har");
+                        logger.info("Task " + taskID + "(" + videoID + ") packed!");
 
-                    // Delete the original folder recursively.
-                    try {
-                        new HDFSFactory().produce().delete(new Path(taskRoot), true);
-                    } catch (IOException e) {
-                        logger.error("On deleting original task folder", e);
+                        databaseConnector.setTrackSavingPath(videoID, videoRoot + "/" + taskID + ".har");
+
+                        // Delete the original folder recursively.
+                        try {
+                            new HDFSFactory().produce().delete(new Path(taskRoot), true);
+                        } catch (IOException e) {
+                            logger.error("On deleting original task folder", e);
+                        }
+                    } else {
+                        logger.info("Task " + taskID + "(" + videoID + ") need "
+                                + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
                     }
                 });
                 jobListener.commitSync();
@@ -518,22 +551,10 @@ public class DataManagingApp extends SparkStreamingApp {
 
                             storeTracklet(storeDir, tracklet);
 
-                            // If all the tracklets from a task are saved,
-                            // it's time to pack them into a HAR!
-                            final ContentSummary contentSummary = hdfs.getContentSummary(new Path(taskRoot));
-                            final long dirCnt = contentSummary.getDirectoryCount();
-                            // Decrease one for directory counter.
-                            if (dirCnt - 1 == numTracklets) {
-                                logger.info("Should pack metadata for Task " + taskID
-                                        + "(" + tracklet.id.videoID + ")! The directory consumes "
-                                        + contentSummary.getSpaceConsumed() + " bytes.");
-
-                                KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC, taskID, tracklet.id.videoID,
-                                        packingJobProducerSingleton.getInst(), logger);
-                            } else {
-                                logger.info("Task " + taskID + "(" + tracklet.id.videoID + ") need "
-                                        + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
-                            }
+                            KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
+                                    taskID,
+                                    tracklet.id.videoID + "|" + numTracklets,
+                                    packingJobProducerSingleton.getInst(), logger);
                         } catch (Exception e) {
                             logger.error("During storing tracklets.", e);
                         }
