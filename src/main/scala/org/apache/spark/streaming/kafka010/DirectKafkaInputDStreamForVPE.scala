@@ -19,7 +19,7 @@ package org.apache.spark.streaming.kafka010
 
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicReference
-import java.{util, util => ju}
+import java.{util => ju}
 
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.TopicPartition
@@ -53,7 +53,7 @@ class DirectKafkaInputDStreamForVPE[K, V](
                                            consumerStrategy: ConsumerStrategy[K, V]
                                          ) extends InputDStream[ConsumerRecord[K, V]](_ssc) with Logging with CanCommitOffsets {
 
-  val executorKafkaParams: util.HashMap[String, Object] = {
+  val executorKafkaParams: ju.HashMap[String, Object] = {
     val ekp = new ju.HashMap[String, Object](consumerStrategy.executorKafkaParams)
     KafkaUtils.fixKafkaParams(ekp)
     ekp
@@ -70,13 +70,17 @@ class DirectKafkaInputDStreamForVPE[K, V](
     kc
   }
 
+  def tempConsumer(): Consumer[K, V] = this.synchronized {
+    consumerStrategy.onStart(currentOffsets.mapValues(l => new java.lang.Long(l)).asJava)
+  }
+
   override def persist(newLevel: StorageLevel): DStream[ConsumerRecord[K, V]] = {
     logError("Kafka ConsumerRecord is not serializable. " +
       "Use .map to extract fields before calling .persist or .window")
     super.persist(newLevel)
   }
 
-  protected def getBrokers: util.HashMap[TopicPartition, String] = {
+  protected def getBrokers: ju.HashMap[TopicPartition, String] = {
     val c = consumer()
     val result = new ju.HashMap[TopicPartition, String]()
     val hosts = new ju.HashMap[TopicPartition, String]()
@@ -181,7 +185,7 @@ class DirectKafkaInputDStreamForVPE[K, V](
     * Returns the latest (highest) available offsets, taking new partitions into account.
     */
   protected def latestOffsets(): Map[TopicPartition, Long] = {
-    val c = consumer()
+    val c = tempConsumer()
     paranoidPoll(c)
     val parts = c.assignment().asScala
 
