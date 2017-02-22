@@ -21,6 +21,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
+import it.unimi.dsi.fastutil.objects.ObjectAVLTreeSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -391,8 +392,15 @@ public class DataManagingApp extends SparkStreamingApp {
             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
             while (running.get()) {
                 ConsumerRecords<String, byte[]> records = jobListener.poll(1000);
+                Set<String> checkedTasks = new ObjectAVLTreeSet<>();
                 records.forEach(rec -> {
                     final String taskID = rec.key();
+                    if (checkedTasks.contains(taskID)) {
+                        // Same taskID exist in the Kafka message batch.
+                        return;
+                    }
+                    checkedTasks.add(taskID);
+
                     final Tuple2<String, Integer> info;
                     try {
                         info = SerializationHelper.deserialize(rec.value());
@@ -407,7 +415,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     for (int i = 0; i < maxRetries; ++i) {
                         try {
                             if (hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
-                                // Packing has been finished in previous request in this batch.
+                                // Packing has been finished in a previous request.
                                 return;
                             } else {
                                 break;
