@@ -467,8 +467,7 @@ public class SystemPropertyCenter implements Serializable {
                 isStringValue ? StringSerializer.class : ByteArraySerializer.class);
         producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, kafkaSendMaxSize);
         producerProp.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaRequestTimeoutMs);
-        //TODO: Fix compression bugs and enable compression.
-        //producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+        producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
         return producerProp;
     }
 

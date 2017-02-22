@@ -35,7 +35,7 @@ LaS-VPE Platform is released under the GPL License.
 	sudo apt-get install maven
 	```
 	
-2. Deploy Kafka(>=0.10.1.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2)
+2. Deploy Kafka(>=0.10.2.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2)
 properly on your cluster.
 
     * Configure the "max.request.size" to a large number, e.g. 157286400 before
