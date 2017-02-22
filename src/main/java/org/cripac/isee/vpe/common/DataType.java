@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.common;
 
 /**
  * Enumeration of data types that can be outputted or accepted by applications.
+ * In current version, each data type correspond to one Kafka topic.
  *
  * Created by ken.yu on 16-10-27.
  */

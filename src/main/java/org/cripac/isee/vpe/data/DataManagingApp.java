@@ -43,6 +43,7 @@ import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
@@ -72,6 +73,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
+import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
 
 /**
@@ -172,46 +174,48 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
-                            final String taskID = kv._1();
-                            final TaskData taskData = kv._2();
+                            new RobustExecutor<Void, Void>(() -> {
+                                final String taskID = kv._1();
+                                final TaskData taskData = kv._2();
 
-                            FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(
-                                    hdfsSingleton.getInst().open(new Path((String) taskData.predecessorRes))
-                            );
+                                FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(
+                                        hdfsSingleton.getInst().open(new Path((String) taskData.predecessorRes))
+                                );
 
-                            Frame[] fragments = new Frame[maxFramePerFragment];
-                            int cnt = 0;
-                            final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(VIDEO_URL_PORT);
-                            final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                            curNode.markExecuted();
-                            while (true) {
-                                Frame frame;
-                                try {
-                                    frame = frameGrabber.grabImage();
-                                } catch (FrameGrabber.Exception e) {
-                                    logger.error("On grabImage: " + e);
-                                    if (cnt > 0) {
-                                        Frame[] lastFragments = new Frame[cnt];
-                                        System.arraycopy(fragments, 0, lastFragments, 0, cnt);
-                                        output(outputPorts, taskData.executionPlan, lastFragments, taskID);
+                                Frame[] fragments = new Frame[maxFramePerFragment];
+                                int cnt = 0;
+                                final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(VIDEO_URL_PORT);
+                                final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                curNode.markExecuted();
+                                while (true) {
+                                    Frame frame;
+                                    try {
+                                        frame = frameGrabber.grabImage();
+                                    } catch (FrameGrabber.Exception e) {
+                                        logger.error("On grabImage: " + e);
+                                        if (cnt > 0) {
+                                            Frame[] lastFragments = new Frame[cnt];
+                                            System.arraycopy(fragments, 0, lastFragments, 0, cnt);
+                                            output(outputPorts, taskData.executionPlan, lastFragments, taskID);
+                                        }
+                                        break;
                                     }
-                                    break;
-                                }
-                                if (frame == null) {
-                                    if (cnt > 0) {
-                                        Frame[] lastFragments = new Frame[cnt];
-                                        System.arraycopy(fragments, 0, lastFragments, 0, cnt);
-                                        output(outputPorts, taskData.executionPlan, lastFragments, taskID);
+                                    if (frame == null) {
+                                        if (cnt > 0) {
+                                            Frame[] lastFragments = new Frame[cnt];
+                                            System.arraycopy(fragments, 0, lastFragments, 0, cnt);
+                                            output(outputPorts, taskData.executionPlan, lastFragments, taskID);
+                                        }
+                                        break;
                                     }
-                                    break;
-                                }
 
-                                fragments[cnt++] = frame;
-                                if (cnt >= maxFramePerFragment) {
-                                    output(outputPorts, taskData.executionPlan, fragments, taskID);
-                                    cnt = 0;
+                                    fragments[cnt++] = frame;
+                                    if (cnt >= maxFramePerFragment) {
+                                        output(outputPorts, taskData.executionPlan, fragments, taskID);
+                                        cnt = 0;
+                                    }
                                 }
-                            }
+                            }).execute();
                         } catch (Throwable t) {
                             logger.error("On cutting video", t);
                         }
@@ -251,27 +255,32 @@ public class DataManagingApp extends SparkStreamingApp {
                                 final Logger logger = loggerSingleton.getInst();
 
                                 try {
-                                    // Recover task data.
-                                    final TaskData taskData = kv._2();
-                                    final Tracklet.Identifier trackletID =
-                                            (Tracklet.Identifier) taskData.predecessorRes;
+                                    new RobustExecutor<Void, Void>(() -> {
+                                        // Recover task data.
+                                        final TaskData taskData = kv._2();
+                                        final Tracklet.Identifier trackletID =
+                                                (Tracklet.Identifier) taskData.predecessorRes;
 
-                                    // Retrieve the track from HDFS.
-                                    // Store the track to a task data (reused).
-                                    final Tracklet tracklet = retrieveTracklet(
-                                            dbConnSingleton.getInst().getTrackletSavingDir(trackletID.videoID),
-                                            trackletID,
-                                            loggerSingleton.getInst());
+                                        // Retrieve the track from HDFS.
+                                        // Store the track to a task data (reused).
+                                        final Tracklet tracklet = new RobustExecutor<Void, Tracklet>(() ->
+                                                retrieveTracklet(
+                                                        dbConnSingleton.getInst()
+                                                                .getTrackletSavingDir(trackletID.videoID),
+                                                        trackletID,
+                                                        loggerSingleton.getInst())
+                                        ).execute();
 
-                                    // Get ports to output to.
-                                    final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(RTRV_JOB_PORT);
-                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                                    // Mark the current node as executed.
-                                    curNode.markExecuted();
+                                        // Get ports to output to.
+                                        TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(RTRV_JOB_PORT);
+                                        List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                        // Mark the current node as executed.
+                                        curNode.markExecuted();
 
-                                    // Send to all the successor nodes.
-                                    final String taskID = kv._1();
-                                    output(outputPorts, taskData.executionPlan, tracklet, taskID);
+                                        // Send to all the successor nodes.
+                                        final String taskID = kv._1();
+                                        output(outputPorts, taskData.executionPlan, tracklet, taskID);
+                                    }).execute();
                                 } catch (Exception e) {
                                     logger.error("During retrieving tracklets", e);
                                 }
@@ -317,16 +326,21 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                     final PedestrianInfo info = new PedestrianInfo();
                                     // Retrieve the track from HDFS.
-                                    info.tracklet = retrieveTracklet(
-                                            dbConnSingleton.getInst().getTrackletSavingDir(videoURL),
-                                            trackletID,
-                                            logger);
+                                    info.tracklet = new RobustExecutor<Void, Tracklet>(() ->
+                                            retrieveTracklet(
+                                                    dbConnSingleton.getInst().getTrackletSavingDir(videoURL),
+                                                    trackletID,
+                                                    logger)
+                                    ).execute();
                                     // Retrieve the attributes from database.
-                                    info.attr = dbConnSingleton.getInst().getPedestrianAttributes(trackletID.toString());
+                                    info.attr = new RobustExecutor<Void, Attributes>(() ->
+                                            dbConnSingleton.getInst()
+                                                    .getPedestrianAttributes(trackletID.toString())
+                                    ).execute();
 
                                     // Get ports to output to.
-                                    final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(RTRV_JOB_PORT);
-                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                    TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(RTRV_JOB_PORT);
+                                    List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                                     // Mark the current node as executed.
                                     curNode.markExecuted();
 
@@ -401,81 +415,72 @@ public class DataManagingApp extends SparkStreamingApp {
                     }
                     checkedTasks.add(taskID);
 
-                    final Tuple2<String, Integer> info;
                     try {
-                        info = SerializationHelper.deserialize(rec.value());
-                    } catch (IOException | ClassNotFoundException e) {
-                        logger.error("On deserializing information for task " + taskID, e);
-                        return;
-                    }
-                    final String videoID = info._1();
-                    final int numTracklets = info._2();
-                    final String videoRoot = metadataDir + "/" + videoID;
+                        final Tuple2<String, Integer> info = SerializationHelper.deserialize(rec.value());
+                        final String videoID = info._1();
+                        final int numTracklets = info._2();
+                        final String videoRoot = metadataDir + "/" + videoID;
+                        final String taskRoot = videoRoot + "/" + taskID;
 
-                    for (int i = 0; i < maxRetries; ++i) {
-                        try {
-                            if (hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
-                                // Packing has been finished in a previous request.
-                                return;
-                            } else {
-                                break;
+                        final boolean harExists = new RobustExecutor<Void, Boolean>(() ->
+                                hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))
+                        ).execute();
+                        if (harExists) {
+                            // Packing has been finished in a previous request.
+                            final boolean taskRootExists = new RobustExecutor<Void, Boolean>(() ->
+                                    hdfs.exists(new Path(videoRoot + "/" + taskID))
+                            ).execute();
+                            if (taskRootExists) {
+                                // But seems to have failed to delete the task root.
+                                // Now do it again.
+                                new RobustExecutor<Void, Void>(() ->
+                                        new HDFSFactory().produce().delete(new Path(taskRoot), true)
+                                ).execute();
                             }
-                        } catch (IOException e) {
-                            logger.error("On checking packing finishing status of " + videoID, e);
-                        }
-                    }
-
-                    final String taskRoot = videoRoot + "/" + taskID;
-
-                    // If all the tracklets from a task are saved,
-                    // it's time to pack them into a HAR!
-                    ContentSummary contentSummary = null;
-                    for (int i = 0; i < maxRetries; ++i) {
-                        try {
-                            contentSummary = hdfs.getContentSummary(new Path(taskRoot));
-                            break;
-                        } catch (IOException e) {
-                            logger.error("On getting summary of " + taskRoot, e);
-                        }
-                    }
-                    if (contentSummary == null) {
-                        logger.error("Failed to get summary of " + taskRoot + "!");
-                        return;
-                    }
-                    final long dirCnt = contentSummary.getDirectoryCount();
-                    // Decrease one for directory counter.
-                    if (dirCnt - 1 == numTracklets) {
-                        logger.info("Starting to pack metadata for Task " + taskID
-                                + "(" + videoID + ")! The directory consumes "
-                                + contentSummary.getSpaceConsumed() + " bytes.");
-
-                        final HadoopArchives arch = new HadoopArchives(new Configuration());
-                        final ArrayList<String> harPackingOptions = new ArrayList<>();
-                        harPackingOptions.add("-archiveName");
-                        harPackingOptions.add(taskID + ".har");
-                        harPackingOptions.add("-p");
-                        harPackingOptions.add(taskRoot);
-                        harPackingOptions.add(videoRoot);
-                        try {
-                            arch.run(Arrays.copyOf(harPackingOptions.toArray(),
-                                    harPackingOptions.size(), String[].class));
-                        } catch (Exception e) {
-                            logger.error("On running archiving", e);
+                            return;
                         }
 
-                        logger.info("Task " + taskID + "(" + videoID + ") packed!");
+                        // If all the tracklets from a task are saved,
+                        // it's time to pack them into a HAR!
+                        final ContentSummary contentSummary = new RobustExecutor<Void, ContentSummary>(() ->
+                                hdfs.getContentSummary(new Path(taskRoot))
+                        ).execute();
+                        final long dirCnt = contentSummary.getDirectoryCount();
+                        // Decrease one for directory counter.
+                        if (dirCnt - 1 == numTracklets) {
+                            logger.info("Starting to pack metadata for Task " + taskID
+                                    + "(" + videoID + ")! The directory consumes "
+                                    + contentSummary.getSpaceConsumed() + " bytes.");
 
-                        databaseConnector.setTrackSavingPath(videoID, videoRoot + "/" + taskID + ".har");
+                            new RobustExecutor<Void, Void>(() -> {
+                                final HadoopArchives arch = new HadoopArchives(new Configuration());
+                                final ArrayList<String> harPackingOptions = new ArrayList<>();
+                                harPackingOptions.add("-archiveName");
+                                harPackingOptions.add(taskID + ".har");
+                                harPackingOptions.add("-p");
+                                harPackingOptions.add(taskRoot);
+                                harPackingOptions.add(videoRoot);
+                                arch.run(Arrays.copyOf(harPackingOptions.toArray(),
+                                        harPackingOptions.size(), String[].class));
+                            }).execute();
 
-                        // Delete the original folder recursively.
-                        try {
-                            new HDFSFactory().produce().delete(new Path(taskRoot), true);
-                        } catch (IOException e) {
-                            logger.error("On deleting original task folder", e);
+                            logger.info("Task " + taskID + "(" + videoID + ") packed!");
+
+                            new RobustExecutor<Void, Void>(() ->
+                                    databaseConnector.setTrackSavingPath(videoID,
+                                            videoRoot + "/" + taskID + ".har")
+                            ).execute();
+
+                            // Delete the original folder recursively.
+                            new RobustExecutor<Void, Void>(() ->
+                                    new HDFSFactory().produce().delete(new Path(taskRoot), true)
+                            ).execute();
+                        } else {
+                            logger.info("Task " + taskID + "(" + videoID + ") need "
+                                    + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
                         }
-                    } else {
-                        logger.info("Task " + taskID + "(" + videoID + ") need "
-                                + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
+                    } catch (Exception e) {
+                        logger.error("On trying to pack tracklets", e);
                     }
                 });
                 jobListener.commitSync();
@@ -571,10 +576,13 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
-                            // RuntimeException: No native JavaCPP library
-                            // in memory. (Has Loader.load() been called?)
-                            Loader.load(opencv_core.class);
-                            Loader.load(opencv_imgproc.class);
+                            new RobustExecutor<Void, Void>(() -> {
+                                // These two lines are used to solve the following problem:
+                                // RuntimeException: No native JavaCPP library
+                                // in memory. (Has Loader.load() been called?)
+                                Loader.load(opencv_core.class);
+                                Loader.load(opencv_imgproc.class);
+                            }).execute();
 
                             final FileSystem hdfs = hdfsSingleton.getInst();
 
@@ -587,20 +595,22 @@ public class DataManagingApp extends SparkStreamingApp {
                             final String taskRoot = videoRoot + "/" + taskID;
                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                             final Path storePath = new Path(storeDir);
-                            if (hdfs.exists(storePath)
-                                    || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
-                                logger.warn("Duplicated storing request for " + tracklet.id);
-                            } else {
-                                hdfs.mkdirs(new Path(storeDir));
-                                storeTracklet(storeDir, tracklet);
+                            new RobustExecutor<Void, Void>(() -> {
+                                if (hdfs.exists(storePath)
+                                        || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
+                                    logger.warn("Duplicated storing request for " + tracklet.id);
+                                } else {
+                                    hdfs.mkdirs(new Path(storeDir));
+                                    storeTracklet(storeDir, tracklet);
 
-                                // Check packing.
-                                KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
-                                        taskID,
-                                        SerializationHelper.serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
-                                        packingJobProducerSingleton.getInst(),
-                                        logger);
-                            }
+                                    // Check packing.
+                                    KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
+                                            taskID,
+                                            serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
+                                            packingJobProducerSingleton.getInst(),
+                                            logger);
+                                }
+                            }).execute();
                         } catch (Exception e) {
                             logger.error("During storing tracklets.", e);
                         }
@@ -640,7 +650,9 @@ public class DataManagingApp extends SparkStreamingApp {
 
                             logger.debug("Received " + res._1() + ": " + attr);
 
-                            dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr);
+                            new RobustExecutor<Void, Void>(() ->
+                                    dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr)
+                            ).execute();
 
                             logger.debug("Saved " + res._1() + ": " + attr);
                         } catch (Exception e) {

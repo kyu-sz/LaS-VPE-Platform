@@ -25,6 +25,7 @@ import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
@@ -173,9 +174,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             // Recognize attributes from the tracklets.
             this.filter(globalStreamMap, TRACKLET_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
+                        Logger logger = loggerSingleton.getInst();
                         try {
-                            Logger logger = loggerSingleton.getInst();
-
                             String taskID = kv._1();
                             TaskData taskData = kv._2();
                             logger.debug("Received task " + taskID + "!");
@@ -190,9 +190,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                         tracklet.locationSequence.length - maxTrackletLength * increment;
                                 tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
                             }
-                            // Recognize attributes.
-                            Attributes attr = recognizerSingleton.getInst().recognize(tracklet);
+                            // Recognize attributes robustly.
+                            Attributes attr = new RobustExecutor<Tracklet, Attributes>(t -> {
+                                return recognizerSingleton.getInst().recognize(t);
+                            }).execute(tracklet);
+
                             logger.debug("Attributes retrieved for task " + taskID + "!");
+                            assert attr != null;
                             attr.trackletID = tracklet.id;
 
                             // Find current node.
@@ -204,7 +208,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
                             output(outputPorts, taskData.executionPlan, attr, taskID);
                         } catch (Exception e) {
-                            loggerSingleton.getInst().error("During processing attributes.", e);
+                            logger.error("During processing attributes.", e);
                         }
                     }));
         }

@@ -46,10 +46,11 @@ public abstract class Stream implements Serializable {
            TaskData.ExecutionPlan executionPlan,
            Serializable result,
            String taskID) throws Exception {
-        KafkaHelper.sendWithLog(taskID,
+        new RobustExecutor<Void, Void>(() -> KafkaHelper.sendWithLog(taskID,
                 new TaskData(outputPorts, executionPlan, result),
                 producerSingleton.getInst(),
-                loggerSingleton.getInst());
+                loggerSingleton.getInst())
+        ).execute();
     }
 
     protected JavaPairDStream<String, TaskData>

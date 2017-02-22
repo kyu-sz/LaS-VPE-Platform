@@ -167,26 +167,29 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
-                            // Recover data.
-                            final String taskID = kv._1();
-                            final TaskData taskData = kv._2();
-                            final LoginParam loginParam = (LoginParam) taskData.predecessorRes;
+                            // TODO(Ken Yu): Wrap less codes inside RobustExecutor.
+                            new RobustExecutor<Void, Void>(() -> {
+                                // Recover data.
+                                final String taskID = kv._1();
+                                final TaskData taskData = kv._2();
+                                final LoginParam loginParam = (LoginParam) taskData.predecessorRes;
 
-                            final WebCameraConnector cameraConnector;
-                            if (connectorPool.containsKey(loginParam.serverID)) {
-                                cameraConnector = connectorPool.get(loginParam.serverID).getInst();
-                            } else {
-                                final Singleton<WebCameraConnector> cameraConnectorSingleton =
-                                        new Singleton<>(new FakeWebCameraConnector
-                                                .FakeWebCameraConnectorFactory(loginParam));
-                                connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
-                                cameraConnector = cameraConnectorSingleton.getInst();
-                            }
+                                final WebCameraConnector cameraConnector;
+                                if (connectorPool.containsKey(loginParam.serverID)) {
+                                    cameraConnector = connectorPool.get(loginParam.serverID).getInst();
+                                } else {
+                                    final Singleton<WebCameraConnector> cameraConnectorSingleton =
+                                            new Singleton<>(new FakeWebCameraConnector
+                                                    .FakeWebCameraConnectorFactory(loginParam));
+                                    connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
+                                    cameraConnector = cameraConnectorSingleton.getInst();
+                                }
 
-                            // Connect to camera.
-                            final InputStream rtVideoStream = cameraConnector.getStream();
-                            // TODO(Ken Yu): Perform tracking on the real-time video stream.
-                            throw new NotImplementedException("Real-time video stream is under development");
+                                // Connect to camera.
+                                final InputStream rtVideoStream = cameraConnector.getStream();
+                                // TODO(Ken Yu): Perform tracking on the real-time video stream.
+                                throw new NotImplementedException("Real-time video stream is under development");
+                            }).execute();
                         } catch (Throwable t) {
                             logger.error("On processing real-time video stream", t);
                         }
@@ -271,7 +274,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                                 // Conduct tracking on video read from HDFS.
                                 logger.debug("Performing tracking on " + videoName);
-                                final Tracklet[] tracklets = tracker.track(videoStream);
+                                final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(() ->
+                                        tracker.track(videoStream)
+                                ).execute();
                                 logger.debug("Finished tracking on " + videoName);
 
                                 // Set video IDs and Send tracklets.
@@ -290,6 +295,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         public List<Port> getPorts() {
             return Collections.singletonList(VIDEO_URL_PORT);
         }
+
     }
 
     @Override

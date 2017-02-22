@@ -28,6 +28,7 @@ import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
 import org.cripac.isee.vpe.alg.PedestrianTrackingApp.HDFSVideoTrackingStream;
 import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.data.DataManagingApp;
@@ -151,7 +152,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             // TODO: After finishing real time processing function, implement here.
                             throw new NotImplementedException();
                         } else {
-                            handle(cmd, param, taskID);
+                            new RobustExecutor<Void, Void>(() -> handle(cmd, param, taskID)).execute();
                         }
                     } catch (Exception e) {
                         logger.error("During msg handling", e);

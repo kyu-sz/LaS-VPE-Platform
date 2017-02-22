@@ -25,6 +25,7 @@ import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
@@ -204,10 +205,12 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                         try {
                             String taskID = kv._1();
                             final TaskData taskData = kv._2();
-                            PedestrianInfo trackletWithAttr = (PedestrianInfo) taskData.predecessorRes;
+                            final PedestrianInfo trackletWithAttr = (PedestrianInfo) taskData.predecessorRes;
 
                             // Perform ReID.
-                            final int[] idRank = reidSingleton.getInst().reid(trackletWithAttr);
+                            final int[] idRank = new RobustExecutor<Void, int[]>(() ->
+                                    reidSingleton.getInst().reid(trackletWithAttr)
+                            ).execute();
 
                             // Find current node.
                             final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(getPorts());
