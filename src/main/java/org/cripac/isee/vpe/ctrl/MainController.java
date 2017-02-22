@@ -65,9 +65,14 @@ public class MainController {
                 }
                 consumer.subscribe(topicList);
                 while (running.get()) {
-                    ConsumerRecords<String, String> records = consumer.poll(propCenter.batchDuration);
-                    records.forEach(rec -> System.out.println(rec.value()));
-                    consumer.commitSync();
+                    try {
+                        ConsumerRecords<String, String> records = consumer.poll(propCenter.batchDuration);
+                        records.forEach(rec -> System.out.println(rec.value()));
+                        consumer.commitSync();
+                    } catch (Exception | NoClassDefFoundError e) {
+                        e.printStackTrace();
+                        // Do nothing and try again.
+                    }
                 }
             });
             listener.start();
