@@ -403,6 +403,20 @@ public class DataManagingApp extends SparkStreamingApp {
                     final String videoID = info._1();
                     final int numTracklets = info._2();
                     final String videoRoot = metadataDir + "/" + videoID;
+
+                    for (int i = 0; i < maxRetries; ++i) {
+                        try {
+                            if (hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
+                                // Packing has been finished in previous request in this batch.
+                                return;
+                            } else {
+                                break;
+                            }
+                        } catch (IOException e) {
+                            logger.error("On checking packing finishing status of " + videoID, e);
+                        }
+                    }
+
                     final String taskRoot = videoRoot + "/" + taskID;
 
                     // If all the tracklets from a task are saved,
@@ -565,8 +579,9 @@ public class DataManagingApp extends SparkStreamingApp {
                             final String taskRoot = videoRoot + "/" + taskID;
                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                             final Path storePath = new Path(storeDir);
-                            if (hdfs.exists(storePath)) {
-                                logger.error("Duplicated storing request for " + tracklet.id);
+                            if (hdfs.exists(storePath)
+                                    || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
+                                logger.warn("Duplicated storing request for " + tracklet.id);
                             } else {
                                 hdfs.mkdirs(new Path(storeDir));
                                 storeTracklet(storeDir, tracklet);

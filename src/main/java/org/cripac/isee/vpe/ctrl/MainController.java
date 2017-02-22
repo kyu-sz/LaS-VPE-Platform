@@ -111,6 +111,8 @@ public class MainController {
                         if (exited) {
                             System.out.println("[INFO]Process " + processWithName.name + "finished! Exit code: "
                                     + processWithName.process.exitValue());
+                            processWithName.process.getInputStream().close();
+                            processWithName.process.getErrorStream().close();
                             processesWithNames.remove(processWithName);
                             break;
                         }
