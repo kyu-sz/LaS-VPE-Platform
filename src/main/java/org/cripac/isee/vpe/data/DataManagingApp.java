@@ -109,6 +109,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private static final long serialVersionUID = -786439769732467646L;
 
         int maxFramePerFragment = 1000;
+        int maxRetries = 10;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
@@ -118,6 +119,9 @@ public class DataManagingApp extends SparkStreamingApp {
                 switch ((String) entry.getKey()) {
                     case "vpe.max.frame.per.fragment":
                         maxFramePerFragment = new Integer((String) entry.getValue());
+                        break;
+                    case "hdfs.max.retries":
+                        maxRetries = new Integer((String) entry.getValue());
                         break;
                 }
             }
@@ -359,10 +363,12 @@ public class DataManagingApp extends SparkStreamingApp {
         final Logger logger;
         private final AtomicReference<Boolean> running;
         final GraphDatabaseConnector databaseConnector;
+        final int maxRetries;
 
-        TrackletPackingThread(SystemPropertyCenter propCenter, AtomicReference<Boolean> running) {
+        TrackletPackingThread(AppPropertyCenter propCenter, AtomicReference<Boolean> running) {
             consumerProperties = propCenter.getKafkaConsumerProp("tracklet-packing", false);
             metadataDir = propCenter.metadataDir;
+            maxRetries = propCenter.maxRetries;
             logger = new SynthesizedLogger(APP_NAME, propCenter);
             this.running = running;
             databaseConnector = new FakeDatabaseConnector();
@@ -401,14 +407,18 @@ public class DataManagingApp extends SparkStreamingApp {
 
                     // If all the tracklets from a task are saved,
                     // it's time to pack them into a HAR!
-                    ContentSummary contentSummary;
-                    while (true) {
+                    ContentSummary contentSummary = null;
+                    for (int i = 0; i < maxRetries; ++i) {
                         try {
                             contentSummary = hdfs.getContentSummary(new Path(taskRoot));
                             break;
                         } catch (IOException e) {
                             logger.error("On getting summary of " + taskRoot, e);
                         }
+                    }
+                    if (contentSummary == null) {
+                        logger.error("Failed to get summary of " + taskRoot + "!");
+                        return;
                     }
                     final long dirCnt = contentSummary.getDirectoryCount();
                     // Decrease one for directory counter.
@@ -554,15 +564,20 @@ public class DataManagingApp extends SparkStreamingApp {
                             final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
                             final String taskRoot = videoRoot + "/" + taskID;
                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
-                            hdfs.mkdirs(new Path(storeDir));
+                            final Path storePath = new Path(storeDir);
+                            if (hdfs.exists(storePath)) {
+                                logger.error("Duplicated storing request for " + tracklet.id);
+                            } else {
+                                hdfs.mkdirs(new Path(storeDir));
+                                storeTracklet(storeDir, tracklet);
 
-                            storeTracklet(storeDir, tracklet);
-
-                            KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
-                                    taskID,
-                                    SerializationHelper.serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
-                                    packingJobProducerSingleton.getInst(),
-                                    logger);
+                                // Check packing.
+                                KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
+                                        taskID,
+                                        SerializationHelper.serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
+                                        packingJobProducerSingleton.getInst(),
+                                        logger);
+                            }
                         } catch (Exception e) {
                             logger.error("During storing tracklets.", e);
                         }
