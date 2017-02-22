@@ -18,7 +18,6 @@
 package org.cripac.isee.vpe.common;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import kafka.admin.AdminUtils;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -40,6 +39,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
@@ -105,19 +105,10 @@ public abstract class SparkStreamingApp implements Serializable {
         ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
 
         for (DataType type : dataTypes) {
-            if (!AdminUtils.topicExists(zkUtils, type.name())) {
-                // AdminUtils.createTopic(zkClient, topic,
-                // propCenter.kafkaNumPartitions,
-                // propCenter.kafkaReplFactor, new Properties());
-                logger.info("Creating topic: " + type);
-                kafka.admin.TopicCommand.main(
-                        new String[]{
-                                "--create",
-                                "--zookeeper", propCenter.zkConn,
-                                "--topic", type.name(),
-                                "--partitions", "" + propCenter.kafkaNumPartitions,
-                                "--replication-factor", "" + propCenter.kafkaReplFactor});
-            }
+            KafkaHelper.createTopicIfNotExists(zkUtils,
+                    type.name(),
+                    propCenter.kafkaNumPartitions,
+                    propCenter.kafkaReplFactor);
         }
 
         logger.info("Topics checked!");

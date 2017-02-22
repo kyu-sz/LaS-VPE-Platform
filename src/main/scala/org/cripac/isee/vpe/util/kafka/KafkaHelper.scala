@@ -16,9 +16,13 @@
  */
 package org.cripac.isee.vpe.util.kafka
 
+import java.util.Properties
 import java.{lang => jl, util => ju}
 import javax.annotation.{Nonnull, Nullable}
 
+import kafka.admin.{AdminUtils, RackAwareMode}
+import kafka.common.{Topic, TopicExistsException}
+import kafka.utils.ZkUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.cripac.isee.vpe.ctrl.TaskData
 import org.cripac.isee.vpe.util.SerializationHelper
@@ -28,7 +32,7 @@ import scala.language.postfixOps
 
 /**
   * The class KafkaHelper provides static basic methods for manipulating Kafka affairs.
-  * It is written in Scala because we cannot create KafkaCluster in some versions of Java and Scala.
+  * It is written in Scala because some Scala objects and classes are not accessible in Java.
   * This class is also an example of how to insert Scala codes in the Java project.
   *
   * @author Ken Yu
@@ -81,5 +85,33 @@ object KafkaHelper {
       SerializationHelper.serialize(taskData),
       producer,
       extLogger)
+  }
+
+  def createTopicIfNotExists(
+                              zkUtils: ZkUtils,
+                              topic: String,
+                              partitions: Int,
+                              replicas: Int
+                            ): Unit = {
+    createTopic(zkUtils, topic, partitions, replicas, ifNotExists = true)
+  }
+
+  def createTopic(
+                   zkUtils: ZkUtils,
+                   topic: String,
+                   partitions: Int,
+                   replicas: Int,
+                   ifNotExists: Boolean
+                 ) {
+    val configs = new Properties
+    if (Topic.hasCollisionChars(topic))
+      println("WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.")
+    try {
+      val rackAwareMode = RackAwareMode.Enforced
+      AdminUtils.createTopic(zkUtils, topic, partitions, replicas, configs, rackAwareMode)
+      println("Created topic \"%s\".".format(topic))
+    } catch {
+      case e: TopicExistsException => if (!ifNotExists) throw e
+    }
   }
 }

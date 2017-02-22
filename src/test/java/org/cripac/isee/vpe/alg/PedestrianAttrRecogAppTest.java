@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.alg;
 
-import kafka.admin.AdminUtils;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -32,6 +31,7 @@ import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.junit.Before;
@@ -96,19 +96,10 @@ public class PedestrianAttrRecogAppTest {
         ZkClient zkClient = new ZkClient(zkConn);
         logger.info("Checking topic: " + topic);
         ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
-        if (!AdminUtils.topicExists(zkUtils, topic)) {
-            // AdminUtils.createTopic(zkClient, topic,
-            // propCenter.kafkaNumPartitions,
-            // propCenter.kafkaReplFactor, new Properties());
-            logger.info("Creating topic: " + topic);
-            kafka.admin.TopicCommand.main(
-                    new String[]{
-                            "--create",
-                            "--zookeeper", propCenter.zkConn,
-                            "--topic", topic,
-                            "--partitions", "" + propCenter.kafkaNumPartitions,
-                            "--replication-factor", "" + propCenter.kafkaReplFactor});
-        }
+        KafkaHelper.createTopicIfNotExists(zkUtils,
+                topic,
+                propCenter.kafkaNumPartitions,
+                propCenter.kafkaReplFactor);
     }
 
     @Before
