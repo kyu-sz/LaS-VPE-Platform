@@ -79,7 +79,7 @@ public class SystemPropertyCenter implements Serializable {
     public String kafkaMaxRatePerPartition = "0";
     /* Spark properties */
     public String checkpointRootDir = "checkpoint";
-    public String metadataDir = "metadata";
+    public String metadataDir = "/metadata";
     public String sparkMaster = "local[*]";
     public String sparkDeployMode = "client";
     String[] appsToStart = null;
@@ -134,6 +134,10 @@ public class SystemPropertyCenter implements Serializable {
      */
     public SystemPropertyCenter() throws SAXException, ParserConfigurationException, URISyntaxException {
         this(new String[0]);
+    }
+
+    private void validateConfigurations() {
+        assert new Path(metadataDir).isAbsolute();
     }
 
     public SystemPropertyCenter(@Nonnull String[] args)
@@ -340,6 +344,8 @@ public class SystemPropertyCenter implements Serializable {
                     break;
             }
         }
+
+        validateConfigurations();
     }
 
     /**
