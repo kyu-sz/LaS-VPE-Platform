@@ -213,7 +213,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                             ).execute();
 
                             // Find current node.
-                            final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(getPorts());
+                            final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(getPorts());
                             // Get ports to output to.
                             final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                             // Mark the current node as executed in advance.

@@ -184,7 +184,8 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                 Frame[] fragments = new Frame[maxFramePerFragment];
                                 int cnt = 0;
-                                final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(VIDEO_URL_PORT);
+                                final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(VIDEO_URL_PORT);
+                                assert curNode != null;
                                 final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                                 curNode.markExecuted();
                                 while (true) {
@@ -272,7 +273,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                         ).execute();
 
                                         // Get ports to output to.
-                                        TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(RTRV_JOB_PORT);
+                                        TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(RTRV_JOB_PORT);
+                                        assert curNode != null;
                                         List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                                         // Mark the current node as executed.
                                         curNode.markExecuted();
@@ -339,7 +341,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                     ).execute();
 
                                     // Get ports to output to.
-                                    TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(RTRV_JOB_PORT);
+                                    TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(RTRV_JOB_PORT);
+                                    assert curNode != null;
                                     List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                                     // Mark the current node as executed.
                                     curNode.markExecuted();

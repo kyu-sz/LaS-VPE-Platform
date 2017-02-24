@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -232,61 +233,67 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                         hdfsSingleton.getInst(),
                                         loggerSingleton.getInst());
 
-                        rdd.foreach(kv -> {
+                        rdd.glom().foreach(kvList -> {
                             final Logger logger = loggerSingleton.getInst();
-                            try {
-                                final String taskID = kv._1();
-                                final TaskData taskData = kv._2();
+                            logger.info("Partition " + TaskContext.getPartitionId() + " got " + kvList.size()
+                                    + " videos in this batch.");
 
-                                final String videoURL = (String) taskData.predecessorRes;
-                                logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
+                            kvList.forEach(kv -> {
+                                try {
+                                    final String taskID = kv._1();
+                                    final TaskData taskData = kv._2();
 
-                                final Path videoPath = new Path(videoURL);
-                                final InputStream videoStream = hdfsSingleton.getInst().open(videoPath);
-                                String videoName = videoPath.getName();
-                                videoName = videoName.substring(0, videoName.lastIndexOf('.'));
+                                    final String videoURL = (String) taskData.predecessorRes;
+                                    logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
 
-                                // Find current node.
-                                final TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(VIDEO_URL_PORT);
-                                // Get tracking configuration for this execution.
-                                final String confFile = (String) curNode.getExecData();
-                                if (confFile == null) {
-                                    logger.error("Tracking configuration file is not specified for this node!");
-                                    return;
+                                    final Path videoPath = new Path(videoURL);
+                                    final InputStream videoStream = hdfsSingleton.getInst().open(videoPath);
+                                    String videoName = videoPath.getName();
+                                    videoName = videoName.substring(0, videoName.lastIndexOf('.'));
+
+                                    // Find current node.
+                                    final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(VIDEO_URL_PORT);
+                                    // Get tracking configuration for this execution.
+                                    assert curNode != null;
+                                    final String confFile = (String) curNode.getExecData();
+                                    if (confFile == null) {
+                                        logger.error("Tracking configuration file is not specified for this node!");
+                                        return;
+                                    }
+
+                                    // Get ports to output to.
+                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                    // Mark the current node as executed in advance.
+                                    curNode.markExecuted();
+
+                                    // Load tracking configuration to create a tracker.
+                                    if (!confPool.getValue().containsKey(confFile)) {
+                                        throw new FileNotFoundException("Couldn't find tracking config file " + confFile);
+                                    }
+                                    final byte[] confBytes = confPool.getValue().get(confFile);
+                                    if (confBytes == null) {
+                                        logger.fatal("confPool contains key " + confFile + " but value is null!");
+                                        return;
+                                    }
+                                    final Tracker tracker = new BasicTracker(confBytes, logger);
+                                    //Tracker tracker = new FakePedestrianTracker();
+
+                                    // Conduct tracking on video read from HDFS.
+                                    logger.debug("Performing tracking on " + videoName);
+                                    final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(() ->
+                                            tracker.track(videoStream)
+                                    ).execute();
+                                    logger.debug("Finished tracking on " + videoName);
+
+                                    // Set video IDs and Send tracklets.
+                                    for (Tracklet tracklet : tracklets) {
+                                        tracklet.id.videoID = videoName;
+                                        output(outputPorts, taskData.executionPlan, tracklet, taskID);
+                                    }
+                                } catch (Throwable e) {
+                                    logger.error("During tracking.", e);
                                 }
-
-                                // Get ports to output to.
-                                final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                                // Mark the current node as executed in advance.
-                                curNode.markExecuted();
-
-                                // Load tracking configuration to create a tracker.
-                                if (!confPool.getValue().containsKey(confFile)) {
-                                    throw new FileNotFoundException("Couldn't find tracking config file " + confFile);
-                                }
-                                final byte[] confBytes = confPool.getValue().get(confFile);
-                                if (confBytes == null) {
-                                    logger.fatal("confPool contains key " + confFile + " but value is null!");
-                                    return;
-                                }
-                                final Tracker tracker = new BasicTracker(confBytes, logger);
-                                //Tracker tracker = new FakePedestrianTracker();
-
-                                // Conduct tracking on video read from HDFS.
-                                logger.debug("Performing tracking on " + videoName);
-                                final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(() ->
-                                        tracker.track(videoStream)
-                                ).execute();
-                                logger.debug("Finished tracking on " + videoName);
-
-                                // Set video IDs and Send tracklets.
-                                for (Tracklet tracklet : tracklets) {
-                                    tracklet.id.videoID = videoName;
-                                    output(outputPorts, taskData.executionPlan, tracklet, taskID);
-                                }
-                            } catch (Throwable e) {
-                                logger.error("During tracking.", e);
-                            }
+                            });
                         });
                     });
         }

@@ -200,8 +200,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             attr.trackletID = tracklet.id;
 
                             // Find current node.
-                            TaskData.ExecutionPlan.Node curNode = taskData.getCurrentNode(TRACKLET_PORT);
+                            TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);
                             // Get ports to output to.
+                            assert curNode != null;
                             List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                             // Mark the current node as executed.
                             curNode.markExecuted();

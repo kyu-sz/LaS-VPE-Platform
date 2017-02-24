@@ -53,13 +53,29 @@ public class TaskData implements Serializable, Cloneable {
      */
     public final Serializable predecessorRes;
 
-    public ExecutionPlan.Node getCurrentNode(Stream.Port port) {
+    /**
+     * Get the destination node which contains the given port.
+     *
+     * @param port the port of the node which is one of the destination nodes in this {@link TaskData}
+     * @return the destination node which contains the given port, or null
+     * when the port is not in the destination ports.
+     */
+    @Nullable
+    public ExecutionPlan.Node getDestNode(Stream.Port port) {
         return destPorts.get(port).getNode();
     }
 
-    public ExecutionPlan.Node getCurrentNode(List<Stream.Port> possiblePorts) {
+    /**
+     * Get the destination node which contains the given ports.
+     *
+     * @param possiblePorts a list of ports of the node which contains at least
+     *                      one of the destination nodes in this {@link TaskData}
+     * @return the destination node which contains the given ports, or null
+     * when none of the possible ports are in the destination ports.
+     */
+    public ExecutionPlan.Node getDestNode(List<Stream.Port> possiblePorts) {
         for (Stream.Port port : possiblePorts) {
-            final ExecutionPlan.Node node = getCurrentNode(port);
+            final ExecutionPlan.Node node = getDestNode(port);
             if (node != null) {
                 return node;
             }
