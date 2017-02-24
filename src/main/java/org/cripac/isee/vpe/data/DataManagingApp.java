@@ -21,7 +21,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
-import it.unimi.dsi.fastutil.objects.ObjectAVLTreeSet;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -406,17 +406,14 @@ public class DataManagingApp extends SparkStreamingApp {
             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
             while (running.get()) {
                 ConsumerRecords<String, byte[]> records = jobListener.poll(1000);
-                Set<String> checkedTasks = new ObjectAVLTreeSet<>();
-                records.forEach(rec -> {
-                    final String taskID = rec.key();
-                    if (checkedTasks.contains(taskID)) {
-                        // Same taskID exist in the Kafka message batch.
-                        return;
-                    }
-                    checkedTasks.add(taskID);
+                Map<String, byte[]> taskMap = new Object2ObjectOpenHashMap<>();
+                records.forEach(rec -> taskMap.put(rec.key(), rec.value()));
 
+                logger.info("Packing stream received " + taskMap.keySet().size() + " jobs.");
+                taskMap.entrySet().forEach(rec -> {
                     try {
-                        final Tuple2<String, Integer> info = SerializationHelper.deserialize(rec.value());
+                        final String taskID = rec.getKey();
+                        final Tuple2<String, Integer> info = SerializationHelper.deserialize(rec.getValue());
                         final String videoID = info._1();
                         final int numTracklets = info._2();
                         final String videoRoot = metadataDir + "/" + videoID;
