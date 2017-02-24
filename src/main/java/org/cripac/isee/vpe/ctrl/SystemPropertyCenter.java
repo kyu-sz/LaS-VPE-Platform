@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
+ * along with LaS-VPE Platform.  If not, see <http:/*www.gnu.org/licenses/>.
  */
 
 package org.cripac.isee.vpe.ctrl;
@@ -58,13 +58,13 @@ import java.util.Properties;
 public class SystemPropertyCenter implements Serializable {
 
     private static final long serialVersionUID = -6642856932636724919L;
-    // Logger for parsing.
+    /* Logger for parsing */
     private transient Logger logger = new ConsoleLogger(Level.INFO);
 
-    // Zookeeper properties
+    /* Zookeeper properties */
     public String zkConn = "localhost:2181";
     public int sessionTimeoutMs = 10 * 10000;
-    // Kafka properties
+    /* Kafka properties */
     public String kafkaBootstrapServers = "localhost:9092";
     public int kafkaNumPartitions = 1;
     public int kafkaReplFactor = 1;
@@ -73,54 +73,42 @@ public class SystemPropertyCenter implements Serializable {
     private int kafkaRequestTimeoutMs = 60000;
     private int kafkaFetchTimeoutMs = 60000;
     public String kafkaLocationStrategy = "PreferBrokers";
-    // Spark properties
+    /* The maximum number of messages per second that each partition will
+     * accept in the direct Kafka input stream. 0 means not limited.
+     */
+    public String kafkaMaxRatePerPartition = "0";
+    /* Spark properties */
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "metadata";
     public String sparkMaster = "local[*]";
     public String sparkDeployMode = "client";
     String[] appsToStart = null;
-    // Caffe properties
+    /* Caffe properties */
     public int caffeGPU = -1;
-    /**
-     * Memory per executor (e.g. 1000M, 2G) (Default: 1G)
-     */
+    /* Memory per executor (e.g. 1000M, 2G) (Default: 1G) */
     private String executorMem = "1G";
-    /**
-     * Number of executors to run (Default: 2)
-     */
+    /* Number of executors to run (Default: 2) */
     private int numExecutors = 2;
-    /**
-     * Number of cores per executor (Default: 1)
-     */
+    /* Number of cores per executor (Default: 1) */
     private int executorCores = 1;
-    /**
-     * Total cores for all executors (Spark standalone and Mesos only).
-     */
+    /* Total cores for all executors (Spark standalone and Mesos only) */
     private int totalExecutorCores = 1;
-    /**
-     * Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb)
-     */
+    /* Memory for driver (e.g. 1000M, 2G) (Default: 1024 Mb) */
     private String driverMem = "1G";
-    /**
-     * Number of cores used by the driver (Default: 1)
-     */
+    /* Number of cores used by the driver (Default: 1) */
     private int driverCores = 1;
-    /**
-     * A YARN node label expression that restricts the set of nodes AM will be scheduled on.
+    /* A YARN node label expression that restricts the set of nodes AM will be scheduled on.
      * Only versions of YARN greater than or equal to 2.6 support node label expressions,
      * so when running against earlier versions, this property will be ignored.
      * <p>
      * To enable label-based scheduling,
-     * see https://hadoop.apache.org/docs/stable/hadoop-yarn/hadoop-yarn-site/NodeLabel.html
+     * see https:/*hadoop.apache.org/docs/stable/hadoop-yarn/hadoop-yarn-site/NodeLabel.html
      */
     private String yarnAmNodeLabelExpression = "";
-    /**
-     * The hadoop queue to use for allocation requests (Default: 'default')
-     */
+    /* The hadoop queue to use for allocation requests (Default: 'default') */
     private String hadoopQueue = "default";
     private String sysPropFilePath = "conf/system.properties";
-    /**
-     * Application-specific property file. Properties loaded from it
+    /* Application-specific property file. Properties loaded from it
      * will override those loaded from the system property file.
      * Leaving it as null will let the system automatically find
      * that in default places according to the application specified.
@@ -130,22 +118,14 @@ public class SystemPropertyCenter implements Serializable {
     private String log4jPropFilePath = ConfManager.CONF_DIR + "/log4j.properties";
     private String hdfsDefaultName = "localhost:9000";
     private String jarPath = "bin/vpe-platform.jar";
-    /**
-     * Duration for buffering results.
-     */
+    /* Duration for buffering results */
     public int bufDuration = 600000;
-    /**
-     * Duration of spark batches.
-     */
+    /* Duration of spark batches */
     public int batchDuration = 2000;
-    /**
-     * Whether to print verbose running information.
-     */
+    /* Whether to print verbose running information */
     public boolean verbose = false;
 
-    /**
-     * Subclasses can continue to analyze this property storage.
-     */
+    /* Subclasses can continue to analyze this property storage */
     protected Properties sysProps = new Properties();
 
     /**
@@ -213,11 +193,11 @@ public class SystemPropertyCenter implements Serializable {
             appPropFilePath = commandLine.getOptionValue("app-property-file");
         }
 
-        // Load properties from file.
+        /* Load properties from file. */
         BufferedInputStream propInputStream;
         try {
             if (sysPropFilePath.contains("hdfs:/")) {
-                // TODO: Check if can load property file from HDFS.
+                /* TODO: Check if can load property file from HDFS. */
                 logger.debug("Loading system-wise default properties using HDFS platform from "
                         + sysPropFilePath + "...");
                 final FileSystem hdfs = FileSystem.get(new URI(sysPropFilePath), HadoopHelper.getDefaultConf());
@@ -243,7 +223,7 @@ public class SystemPropertyCenter implements Serializable {
         if (appPropFilePath != null) {
             try {
                 if (appPropFilePath.contains("hdfs:/")) {
-                    // TODO: Check if can load property file from HDFS.
+                    /* TODO: Check if can load property file from HDFS. */
                     logger.debug("Loading application-specific properties"
                             + " using HDFS platform from "
                             + appPropFilePath + "...");
@@ -268,7 +248,7 @@ public class SystemPropertyCenter implements Serializable {
             }
         }
 
-        // Digest the settings.
+        /* Digest the settings. */
         for (Entry<Object, Object> entry : sysProps.entrySet()) {
             if (verbose) {
                 logger.debug("Read from property file: " + entry.getKey()
@@ -354,6 +334,9 @@ public class SystemPropertyCenter implements Serializable {
                     break;
                 case "caffe.gpu":
                     caffeGPU = new Integer((String) entry.getValue());
+                    break;
+                case "spark.streaming.kafka.maxRatePerPartition":
+                    kafkaMaxRatePerPartition = (String) entry.getValue();
                     break;
             }
         }

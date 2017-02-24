@@ -123,7 +123,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * array values from Kafka with direct stream.
      *
      * @param acceptingTypes Data types the stream accepts.
-     * @param toRepartition Whether to repartition the RDDs.
+     * @param toRepartition  Whether to repartition the RDDs.
      * @return A Kafka non-receiver input stream.
      */
     protected JavaPairDStream<DataType, Tuple2<String, byte[]>>
@@ -216,9 +216,12 @@ public abstract class SparkStreamingApp implements Serializable {
         String checkpointDir = propCenter.checkpointRootDir + "/" + appName;
         jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
             // Load default Spark configurations.
-            SparkConf sparkConf = new SparkConf(true);
-            // Register custom classes with Kryo.
-            sparkConf.registerKryoClasses(new Class[]{TaskData.class, DataType.class});
+            SparkConf sparkConf = new SparkConf(true)
+                    // Register custom classes with Kryo.
+                    .registerKryoClasses(new Class[]{TaskData.class, DataType.class})
+                    // Set maximum number of messages per second that each partition will accept
+                    // in the direct Kafka input stream.
+                    .set("spark.streaming.kafka.maxRatePerPartition", propCenter.kafkaMaxRatePerPartition);
             // Create contexts.
             JavaSparkContext sc = new JavaSparkContext(sparkConf);
             sc.setLocalProperty("spark.scheduler.pool", "vpe");
