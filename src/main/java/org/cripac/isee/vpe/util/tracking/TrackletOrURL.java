@@ -43,11 +43,22 @@ public class TrackletOrURL implements Serializable {
         return URL;
     }
 
+    /**
+     * Set the URL of the tracklet.
+     * If there already exists a URL, the old one will be replaced,
+     * and the tracklet retrieved from the old URL will be cleared.
+     *
+     * @param URL the URL of the tracklet.
+     */
     public void setURL(String URL) {
         if (this.URL != null && !this.URL.equals(URL)) {
             tracklet = null;
         }
         this.URL = URL;
+    }
+
+    public boolean isStored() {
+        return URL != null;
     }
 
     private String URL;

@@ -401,7 +401,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 Map<String, byte[]> taskMap = new Object2ObjectOpenHashMap<>();
                 records.forEach(rec -> taskMap.put(rec.key(), rec.value()));
 
-                logger.info("Packing stream received " + taskMap.keySet().size() + " jobs.");
+                logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
                 taskMap.entrySet().forEach(rec -> {
                     try {
                         final String taskID = rec.getKey();
@@ -509,40 +509,45 @@ public class DataManagingApp extends SparkStreamingApp {
                             final String taskID = kv._1();
                             final TaskData taskData = kv._2();
                             final TrackletOrURL trackletOrURL = (TrackletOrURL) taskData.predecessorRes;
-                            if (trackletOrURL.getURL() != null) {
-                                // The tracklet is already stored at HDFS.
-                                return;
-                            }
                             final Tracklet tracklet = trackletOrURL.getTracklet();
                             final int numTracklets = tracklet.numTracklets;
 
-                            // These two lines are used to solve the following problem:
-                            // RuntimeException: No native JavaCPP library
-                            // in memory. (Has Loader.load() been called?)
-                            Loader.load(opencv_core.class);
-                            Loader.load(opencv_imgproc.class);
+                            if (trackletOrURL.isStored()) {
+                                // The tracklet has already been stored at HDFS.
+                                logger.debug("Tracklet has already been stored at " + trackletOrURL.getURL()
+                                        + ". Skipping.");
+                                return;
+                            } else {
+                                // These two lines are used to solve the following problem:
+                                // RuntimeException: No native JavaCPP library
+                                // in memory. (Has Loader.load() been called?)
+                                Loader.load(opencv_core.class);
+                                Loader.load(opencv_imgproc.class);
 
-                            final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
-                            final String taskRoot = videoRoot + "/" + taskID;
-                            final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
-                            final Path storePath = new Path(storeDir);
-                            final FileSystem hdfs = hdfsSingleton.getInst();
-                            new RobustExecutor<Void, Void>(() -> {
-                                if (hdfs.exists(storePath)
-                                        || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
-                                    logger.warn("Duplicated storing request for " + tracklet.id);
-                                } else {
-                                    hdfs.mkdirs(new Path(storeDir));
-                                    HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
+                                final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                                final String taskRoot = videoRoot + "/" + taskID;
+                                final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                final Path storePath = new Path(storeDir);
+                                final FileSystem hdfs = hdfsSingleton.getInst();
+                                new RobustExecutor<Void, Void>(() -> {
+                                    if (hdfs.exists(storePath)
+                                            || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
+                                        logger.warn("Duplicated storing request for " + tracklet.id);
+                                    } else {
+                                        hdfs.mkdirs(new Path(storeDir));
+                                        HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
+                                    }
+                                }).execute();
+                            }
 
-                                    // Check packing.
+                            // Check packing.
+                            new RobustExecutor<Void, Void>(() ->
                                     KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
                                             taskID,
                                             serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
                                             packingJobProducerSingleton.getInst(),
-                                            logger);
-                                }
-                            }).execute();
+                                            logger)
+                            ).execute();
                         } catch (Exception e) {
                             logger.error("During storing tracklets.", e);
                         }

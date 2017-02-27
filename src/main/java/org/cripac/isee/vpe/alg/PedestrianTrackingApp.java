@@ -106,8 +106,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         // Max length of a tracklet to output to Kafka.
         // If a tracklet has length exceeding this limit, it will be stored to
         // HDFS first, then its URL is instead sent to Kafka.
-        // 0 means not limited.
-        int maxTrackletLengthToKafka = 0;
+        // 0 means all tracklets are passed through HDFS.
+        // -1 means not limited.
+        int maxTrackletLengthToKafka = -1;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws SAXException, ParserConfigurationException, URISyntaxException {
@@ -330,6 +331,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                             // It is not appropriate to send it to Kafka.
                                             // Here we first store it into HDFS,
                                             // then send its URL instead of the tracklet itself.
+                                            logger.debug("Tracklet " + tracklet.id
+                                                    + " is too long. Passing it through HDFS.");
                                             final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
                                             final String taskRoot = videoRoot + "/" + taskID;
                                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
