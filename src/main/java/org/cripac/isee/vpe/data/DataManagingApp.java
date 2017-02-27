@@ -501,25 +501,27 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
                         try {
-                            new RobustExecutor<Void, Void>(() -> {
-                                // These two lines are used to solve the following problem:
-                                // RuntimeException: No native JavaCPP library
-                                // in memory. (Has Loader.load() been called?)
-                                Loader.load(opencv_core.class);
-                                Loader.load(opencv_imgproc.class);
-                            }).execute();
-
-                            final FileSystem hdfs = hdfsSingleton.getInst();
-
                             final String taskID = kv._1();
                             final TaskData taskData = kv._2();
-                            final Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
+                            final TrackletOrURL trackletOrURL = (TrackletOrURL) taskData.predecessorRes;
+                            if (trackletOrURL.getURL() != null) {
+                                // The tracklet is already stored at HDFS.
+                                return;
+                            }
+                            final Tracklet tracklet = trackletOrURL.getTracklet();
                             final int numTracklets = tracklet.numTracklets;
+
+                            // These two lines are used to solve the following problem:
+                            // RuntimeException: No native JavaCPP library
+                            // in memory. (Has Loader.load() been called?)
+                            Loader.load(opencv_core.class);
+                            Loader.load(opencv_imgproc.class);
 
                             final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
                             final String taskRoot = videoRoot + "/" + taskID;
                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                             final Path storePath = new Path(storeDir);
+                            final FileSystem hdfs = hdfsSingleton.getInst();
                             new RobustExecutor<Void, Void>(() -> {
                                 if (hdfs.exists(storePath)
                                         || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {

@@ -36,6 +36,9 @@ public class TrackletOrURL implements Serializable {
     private static final long serialVersionUID = -1204135134550824273L;
     private Tracklet tracklet;
 
+    /**
+     * @return URL of the stored tracklet, or null if the tracklet is not stored yet.
+     */
     public String getURL() {
         return URL;
     }
