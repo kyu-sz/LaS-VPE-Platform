@@ -24,6 +24,7 @@ import kafka.admin.{AdminUtils, RackAwareMode}
 import kafka.common.{Topic, TopicExistsException}
 import kafka.utils.ZkUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.common.security.JaasUtils
 import org.cripac.isee.vpe.ctrl.TaskData
 import org.cripac.isee.vpe.util.SerializationHelper
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
@@ -94,6 +95,15 @@ object KafkaHelper {
                               replicas: Int
                             ): Unit = {
     createTopic(zkUtils, topic, partitions, replicas, ifNotExists = true)
+  }
+
+  def createZKUtils(
+                     zkServers: String,
+                     sessionTimeout: Int,
+                     connectionTimeout: Int
+                   ): ZkUtils = {
+    val (zkClient, zkConn) = ZkUtils.createZkClientAndConnection(zkServers, sessionTimeout, connectionTimeout)
+    new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled)
   }
 
   def createTopic(

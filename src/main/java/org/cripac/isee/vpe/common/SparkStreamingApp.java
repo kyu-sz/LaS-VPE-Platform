@@ -19,13 +19,10 @@ package org.cripac.isee.vpe.common;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import kafka.utils.ZkUtils;
-import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.security.JaasUtils;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkException;
@@ -101,9 +98,9 @@ public abstract class SparkStreamingApp implements Serializable {
                 .reduce("", (s1, s2) -> s1 + ", " + s2));
 
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
-        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.zkSessionTimeoutMs);
-        ZkClient zkClient = new ZkClient(zkConn, propCenter.zkConnectionTimeoutMS);
-        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled());
+        final ZkUtils zkUtils = KafkaHelper.createZKUtils(propCenter.zkConn,
+                propCenter.zkSessionTimeoutMs,
+                propCenter.zkConnectionTimeoutMS);
 
         for (DataType type : dataTypes) {
             KafkaHelper.createTopicIfNotExists(zkUtils,
