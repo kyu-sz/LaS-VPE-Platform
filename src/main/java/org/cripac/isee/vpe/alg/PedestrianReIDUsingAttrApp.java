@@ -23,7 +23,6 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
-import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
@@ -33,6 +32,7 @@ import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 import scala.Tuple2;
 
 import java.util.Arrays;
@@ -127,10 +127,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
-            final JavaPairDStream<String, TaskData> trackletDStream =
-                    filter(globalStreamMap, TRACKLET_PORT);
-            final JavaPairDStream<String, TaskData> attrDStream =
-                    filter(globalStreamMap, ATTR_PORT);
+            final JavaPairDStream<String, TaskData> trackletDStream = filter(globalStreamMap, TRACKLET_PORT);
+            final JavaPairDStream<String, TaskData> attrDStream = filter(globalStreamMap, ATTR_PORT);
             // Read track with attribute bytes in parallel from Kafka.
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
@@ -169,7 +167,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                             .filter(item -> (Boolean) (item._2()._1().isPresent()))
                             .mapValues(item -> new Tuple2<>(item._1().get(), item._2()));
 
-            final JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackJoinedDStream =
+            final JavaPairDStream<String, Tuple2<TaskData, TaskData>> lateTrackletJoinedDStream =
                     unjoinedTrackletDStream
                             .join(unsurelyJoinedAttrDStream
                                     .filter(item -> (Boolean) (!item._2()._1().isPresent()))
@@ -179,19 +177,19 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             // Union the three track and attribute streams and assemble
             // their TaskData.
             final JavaPairDStream<String, TaskData> asmTrackletAttrDStream =
-                    instantlyJoinedDStream.union(lateTrackJoinedDStream)
+                    instantlyJoinedDStream.union(lateTrackletJoinedDStream)
                             .union(lateAttrJoinedDStream)
                             .mapToPair(pack -> {
                                 String taskID = pack._1().split(":")[0];
-                                TaskData taskDataWithTrack = pack._2()._1();
+                                TaskData taskDataWithTracklet = pack._2()._1();
                                 TaskData taskDataWithAttr = pack._2()._2();
 
-                                taskDataWithTrack.executionPlan.combine(taskDataWithAttr.executionPlan);
+                                taskDataWithTracklet.executionPlan.combine(taskDataWithAttr.executionPlan);
                                 TaskData asmTaskData = new TaskData(
-                                        taskDataWithTrack.destPorts.values(),
-                                        taskDataWithTrack.executionPlan,
+                                        taskDataWithTracklet.destPorts.values(),
+                                        taskDataWithTracklet.executionPlan,
                                         new PedestrianInfo(
-                                                (Tracklet) taskDataWithTrack.predecessorRes,
+                                                ((TrackletOrURL) taskDataWithTracklet.predecessorRes).getTracklet(),
                                                 (Attributes) taskDataWithAttr.predecessorRes));
                                 loggerSingleton.getInst().debug(
                                         "Assembled track and attr of " + pack._1());

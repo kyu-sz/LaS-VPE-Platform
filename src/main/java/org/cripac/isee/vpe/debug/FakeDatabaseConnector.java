@@ -53,10 +53,8 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * java.lang.String, java.lang.String)
      */
     @Override
-    public String getTrackletSavingDir(@Nonnull String id) throws NoSuchElementException {
-        return "har:///user/labadmin/metadata/" +
-                "pedestrian-tracking-isee-basic-CAM01_0/" +
-                "fb7284a6-3064-4a49-aa93-a701368eec7b.har";
+    public String getTrackletSavingDir(@Nonnull String videoID) throws NoSuchElementException {
+        return "har:///user/labadmin/metadata/" + videoID;
     }
 
     /*
@@ -104,5 +102,4 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
     public Attributes getPedestrianAttributes(@Nonnull String id) throws NoSuchElementException {
         return new Attributes();
     }
-
 }

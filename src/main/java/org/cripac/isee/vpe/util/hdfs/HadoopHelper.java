@@ -17,36 +17,32 @@
 
 package org.cripac.isee.vpe.util.hdfs;
 
-import com.google.gson.Gson;
+import com.google.gson.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.HarFileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
-import org.apache.log4j.Level;
+import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.opencv_core;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.debug.FakePedestrianTracker;
-import org.cripac.isee.vpe.util.logging.ConsoleLogger;
-import org.cripac.isee.vpe.util.logging.Logger;
 import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
 import org.spark_project.guava.collect.Range;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imdecode;
+import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
 
 /**
  * The HadoopHelper class provides utilities for Hadoop usage.
@@ -78,59 +74,133 @@ public class HadoopHelper {
     }
 
     /**
-     * Retrieve a track from the HDFS.
+     * Retrieve a tracklet from the HDFS or HAR.
+     * Since a tracklet might be deleted from HDFS during reading,
+     * it is highly recommended to retry this function on failure,
+     * and the next time it will find the tracklet from HAR.
      *
-     * @param storeDir The directory storing the tracklets.
-     * @param id       The identifier of the track.
-     * @return The track retrieved.
+     * @param storeDir the directory storing the tracklet (including only data of this tracklet).
+     * @return the track retrieved.
+     * @throws IOException        on failure of retrieving the tracklet.
+     * @throws URISyntaxException on syntax error detected in the storeDir.
+     */
+    public static Tracklet retrieveTracklet(@Nonnull String storeDir) throws URISyntaxException, IOException {
+        return retrieveTracklet(storeDir, new HDFSFactory().produce());
+    }
+
+    /**
+     * Retrieve a tracklet from the HDFS or HAR.
+     * Since a tracklet might be deleted from HDFS during reading,
+     * it is highly recommended to retry this function on failure,
+     * and the next time it will find the tracklet from HAR.
+     *
+     * @param storeDir the directory storing the tracklet (including only data of this tracklet).
+     * @return the track retrieved.
+     * @throws IOException        on failure of retrieving the tracklet.
+     * @throws URISyntaxException on syntax error detected in the storeDir.
      */
     public static Tracklet retrieveTracklet(@Nonnull String storeDir,
-                                            @Nonnull Tracklet.Identifier id,
-                                            @Nullable Logger logger) {
-        if (logger == null) {
-            logger = new ConsoleLogger(Level.INFO);
-        }
-        try {
+                                            @Nonnull FileSystem hdfs) throws URISyntaxException, IOException {
+        final InputStreamReader infoReader;
+        final HarFileSystem harFileSystem;
+
+        if (hdfs.exists(new Path(storeDir))) {
+            infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
+            harFileSystem = null;
+        } else {
             // Open the Hadoop Archive of the task the track is generated in.
-            HarFileSystem harFileSystem = new HarFileSystem();
+            harFileSystem = new HarFileSystem();
             harFileSystem.initialize(new URI(storeDir), new Configuration());
-
-            // Read verbal informations of the track.
-            Gson gson = new Gson();
-            Tracklet tracklet = gson.fromJson(
-                    new InputStreamReader(harFileSystem.open(
-                            new Path(storeDir + "/" + id.serialNumber + "/info.txt"))),
-                    Tracklet.class);
-
-            // Read frames concurrently..
-            ContiguousSet.create(Range.closedOpen(0, tracklet.locationSequence.length), DiscreteDomain.integers())
-                    .parallelStream()
-                    .forEach(idx -> {
-                        Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
-                        FSDataInputStream imgInputStream = null;
-                        try {
-                            imgInputStream = harFileSystem
-                                    .open(new Path(storeDir + "/" + id.toString() + "/" + idx + ".jpg"));
-                            byte[] rawBytes = IOUtils.toByteArray(imgInputStream);
-                            imgInputStream.close();
-                            opencv_core.Mat img = imdecode(new opencv_core.Mat(rawBytes), CV_8UC3);
-                            bbox.patchData = new byte[img.rows() * img.cols() * img.channels()];
-                            img.data().get(bbox.patchData);
-                            img.release();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
-            harFileSystem.close();
-            return tracklet;
-        } catch (Exception e) {
-            try {
-                logger.error("Error when retrieving tracklets"
-                        + " from \"" + storeDir + "/" + id.serialNumber + "/info.txt\".", e);
-            } catch (Exception e1) {
-                e1.printStackTrace();
-            }
-            return new FakePedestrianTracker().track(null)[0];
+            infoReader = new InputStreamReader(harFileSystem.open(new Path(storeDir + "/info.txt")));
         }
+
+        // Read verbal informations of the track.
+        Gson gson = new Gson();
+        Tracklet tracklet = gson.fromJson(infoReader, Tracklet.class);
+
+        // Read frames concurrently..
+        ContiguousSet.create(Range.closedOpen(0, tracklet.locationSequence.length), DiscreteDomain.integers())
+                .parallelStream()
+                .forEach(idx -> {
+                    Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
+                    FSDataInputStream imgInputStream = null;
+                    final Path imgPath = new Path(storeDir + "/" + idx + ".jpg");
+                    try {
+                        imgInputStream = harFileSystem == null ? hdfs.open(imgPath) : harFileSystem.open(imgPath);
+                        byte[] rawBytes = IOUtils.toByteArray(imgInputStream);
+                        imgInputStream.close();
+                        opencv_core.Mat img = imdecode(new opencv_core.Mat(rawBytes), CV_8UC3);
+                        bbox.patchData = new byte[img.rows() * img.cols() * img.channels()];
+                        img.data().get(bbox.patchData);
+                        img.release();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+        if (harFileSystem != null) {
+            harFileSystem.close();
+        }
+        return tracklet;
+    }
+
+    /**
+     * Store a tracklet to the HDFS.
+     *
+     * @param storeDir the directory storing the tracklet.
+     * @param tracklet the tracklet to store.
+     * @throws IOException on failure creating and writing files in HDFS.
+     */
+    public static void storeTracklet(@Nonnull String storeDir,
+                                     @Nonnull Tracklet tracklet,
+                                     @Nonnull FileSystem hdfs) throws Exception {
+        // Write verbal informations with Json.
+        final FSDataOutputStream outputStream = hdfs.create(new Path(storeDir + "/info.txt"));
+
+        // Customize the serialization of bounding box in order to ignore patch data.
+        final GsonBuilder gsonBuilder = new GsonBuilder();
+        final JsonSerializer<Tracklet.BoundingBox> bboxSerializer = (box, typeOfBox, context) -> {
+            JsonObject result = new JsonObject();
+            result.add("x", new JsonPrimitive(box.x));
+            result.add("y", new JsonPrimitive(box.y));
+            result.add("width", new JsonPrimitive(box.width));
+            result.add("height", new JsonPrimitive(box.height));
+            return result;
+        };
+        gsonBuilder.registerTypeAdapter(Tracklet.BoundingBox.class, bboxSerializer);
+
+        // Write serialized basic information of the tracklet to HDFS.
+        outputStream.writeBytes(gsonBuilder.create().toJson(tracklet));
+        outputStream.close();
+
+        // Write frames concurrently.
+        ContiguousSet.create(Range.closedOpen(0, tracklet.locationSequence.length), DiscreteDomain.integers())
+                .parallelStream()
+                .forEach(idx -> {
+                    final Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
+
+                    // Use JavaCV to encode the image patch
+                    // into JPEG, stored in the memory.
+                    final BytePointer inputPointer = new BytePointer(bbox.patchData);
+                    final opencv_core.Mat image = new opencv_core.Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
+                    final BytePointer outputPointer = new BytePointer();
+                    imencode(".jpg", image, outputPointer);
+                    final byte[] bytes = new byte[(int) outputPointer.limit()];
+                    outputPointer.get(bytes);
+
+                    // Output the image patch to HDFS.
+                    final FSDataOutputStream imgOutputStream;
+                    try {
+                        imgOutputStream = hdfs.create(new Path(storeDir + "/" + idx + ".jpg"));
+                        imgOutputStream.write(bytes);
+                        imgOutputStream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    // Free resources.
+                    image.release();
+                    inputPointer.deallocate();
+                    outputPointer.deallocate();
+                });
     }
 }

@@ -138,7 +138,7 @@ public class FakeWebCameraConnector extends WebCameraConnector {
     /**
      * Get the real-time video raw-bit stream from the camera.
      * Subclasses are encouraged to ensure users from different threads
-     * can get correct video stream individually.
+     * can getTracklet correct video stream individually.
      *
      * @return Real-time video raw-bit stream from the connected web camera.
      */

@@ -165,7 +165,7 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
         final FloatPointer floatDataPointer = new FloatPointer(image.data());
 
 //        float[] origin = new float[numPixels];
-//        floatDataPointer.get(origin);
+//        floatDataPointer.getTracklet(origin);
 //        for (int i = 0; i < numPixels; ++i) {
 //            origin[i] = (origin[i] - 128) / 256;
 //        }

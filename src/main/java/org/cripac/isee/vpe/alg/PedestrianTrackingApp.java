@@ -39,11 +39,17 @@ import org.cripac.isee.vpe.data.WebCameraConnector;
 import org.cripac.isee.vpe.debug.FakeWebCameraConnector;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
+import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
+import org.xml.sax.SAXException;
 
+import javax.annotation.Nonnull;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -70,7 +76,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      * @param propCenter A class saving all the properties this application may need.
      * @throws Exception Any exception that might occur during execution.
      */
-    public PedestrianTrackingApp(SystemPropertyCenter propCenter) throws Exception {
+    public PedestrianTrackingApp(AppPropertyCenter propCenter) throws Exception {
         super(propCenter, APP_NAME);
 
         registerStreams(Arrays.asList(
@@ -84,13 +90,36 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
      */
     public static void main(String[] args) throws Exception {
         // Load system properties.
-        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
+        AppPropertyCenter propCenter = new AppPropertyCenter(args);
 
         // Start the pedestrian tracking application.
         SparkStreamingApp app = new PedestrianTrackingApp(propCenter);
         app.initialize();
         app.start();
         app.awaitTermination();
+    }
+
+    public static class AppPropertyCenter extends SystemPropertyCenter {
+
+        private static final long serialVersionUID = -786439769732467646L;
+        // Max length of a tracklet to output to Kafka.
+        // If a tracklet has length exceeding this limit, it will be stored to
+        // HDFS first, then its URL is instead sent to Kafka.
+        // 0 means not limited.
+        int maxTrackletLengthToKafka = 0;
+
+        public AppPropertyCenter(@Nonnull String[] args)
+                throws SAXException, ParserConfigurationException, URISyntaxException {
+            super(args);
+            // Digest the settings.
+            for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
+                switch ((String) entry.getKey()) {
+                    case "vpe.max.tracklet.length":
+                        maxTrackletLengthToKafka = new Integer((String) entry.getValue());
+                        break;
+                }
+            }
+        }
     }
 
     /**
@@ -156,7 +185,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         private final Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
 
-        public RTVideoStreamTrackingStream(SystemPropertyCenter propCenter) throws Exception {
+        public RTVideoStreamTrackingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
             connectorPool = new Object2ObjectOpenHashMap<>();
@@ -217,10 +246,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private static final long serialVersionUID = -6738652169567844016L;
 
         private final Singleton<FileSystem> hdfsSingleton;
+        private final int maxLengthTrackletToKafka;
+        private final String metadataDir;
 
-        public HDFSVideoTrackingStream(SystemPropertyCenter propCenter) throws Exception {
+        public HDFSVideoTrackingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
+            maxLengthTrackletToKafka = propCenter.maxTrackletLengthToKafka;
+            metadataDir = propCenter.metadataDir;
             hdfsSingleton = new Singleton<>(new HDFSFactory());
         }
 
@@ -288,7 +321,23 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     // Set video IDs and Send tracklets.
                                     for (Tracklet tracklet : tracklets) {
                                         tracklet.id.videoID = videoName;
-                                        output(outputPorts, taskData.executionPlan, tracklet, taskID);
+                                        if (tracklet.locationSequence.length > maxLengthTrackletToKafka) {
+                                            // The tracklet's length exceeds the limit.
+                                            // It is not appropriate to send it to Kafka.
+                                            // Here we first store it into HDFS,
+                                            // then send its URL instead of the tracklet itself.
+                                            final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                                            final String taskRoot = videoRoot + "/" + taskID;
+                                            final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                            HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
+                                            output(outputPorts,
+                                                    taskData.executionPlan,
+                                                    new TrackletOrURL(storeDir),
+                                                    taskID);
+                                        } else {
+                                            output(outputPorts, taskData.executionPlan,
+                                                    new TrackletOrURL(tracklet), taskID);
+                                        }
                                     }
                                 } catch (Throwable e) {
                                     logger.error("During tracking.", e);

@@ -17,14 +17,9 @@
 
 package org.cripac.isee.vpe.data;
 
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializer;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ContentSummary;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
@@ -32,10 +27,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.helper.opencv_core;
-import org.bytedeco.javacpp.opencv_core.Mat;
 import org.bytedeco.javacpp.opencv_imgproc;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
@@ -53,13 +46,12 @@ import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
+import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
-import org.spark_project.guava.collect.ContiguousSet;
-import org.spark_project.guava.collect.DiscreteDomain;
-import org.spark_project.guava.collect.Range;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 import org.xml.sax.SAXException;
 import scala.Tuple2;
 
@@ -71,8 +63,6 @@ import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
-import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
 
@@ -266,10 +256,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                         // Store the track to a task data (reused).
                                         final Tracklet tracklet = new RobustExecutor<Void, Tracklet>(() ->
                                                 retrieveTracklet(
-                                                        dbConnSingleton.getInst()
-                                                                .getTrackletSavingDir(trackletID.videoID),
-                                                        trackletID,
-                                                        loggerSingleton.getInst())
+                                                        dbConnSingleton.getInst().getTrackletSavingDir(trackletID.videoID)
+                                                                + "/" + trackletID.serialNumber)
                                         ).execute();
 
                                         // Get ports to output to.
@@ -324,15 +312,13 @@ public class DataManagingApp extends SparkStreamingApp {
                                     // Get parameters for the job.
                                     final Tracklet.Identifier trackletID =
                                             (Tracklet.Identifier) taskData.predecessorRes;
-                                    final String videoURL = trackletID.videoID;
 
                                     final PedestrianInfo info = new PedestrianInfo();
                                     // Retrieve the track from HDFS.
                                     info.tracklet = new RobustExecutor<Void, Tracklet>(() ->
                                             retrieveTracklet(
-                                                    dbConnSingleton.getInst().getTrackletSavingDir(videoURL),
-                                                    trackletID,
-                                                    logger)
+                                                    dbConnSingleton.getInst().getTrackletSavingDir(trackletID.videoID)
+                                                            + "/" + trackletID.serialNumber)
                                     ).execute();
                                     // Retrieve the attributes from database.
                                     info.attr = new RobustExecutor<Void, Attributes>(() ->
@@ -508,70 +494,9 @@ public class DataManagingApp extends SparkStreamingApp {
             );
         }
 
-        /**
-         * Store the track to the HDFS.
-         *
-         * @param storeDir The directory storing the track.
-         * @param tracklet The track to store.
-         * @throws IOException On failure creating and writing files in HDFS.
-         */
-        private void storeTracklet(@Nonnull String storeDir,
-                                   @Nonnull Tracklet tracklet) throws Exception {
-            final FileSystem hdfs = hdfsSingleton.getInst();
-
-            // Write verbal informations with Json.
-            final FSDataOutputStream outputStream = hdfs.create(new Path(storeDir + "/info.txt"));
-
-            // Customize the serialization of bounding box in order to ignore patch data.
-            final GsonBuilder gsonBuilder = new GsonBuilder();
-            final JsonSerializer<Tracklet.BoundingBox> bboxSerializer = (box, typeOfBox, context) -> {
-                JsonObject result = new JsonObject();
-                result.add("x", new JsonPrimitive(box.x));
-                result.add("y", new JsonPrimitive(box.y));
-                result.add("width", new JsonPrimitive(box.width));
-                result.add("height", new JsonPrimitive(box.height));
-                return result;
-            };
-            gsonBuilder.registerTypeAdapter(Tracklet.BoundingBox.class, bboxSerializer);
-
-            // Write serialized basic information of the tracklet to HDFS.
-            outputStream.writeBytes(gsonBuilder.create().toJson(tracklet));
-            outputStream.close();
-
-            // Write frames concurrently.
-            ContiguousSet.create(Range.closedOpen(0, tracklet.locationSequence.length), DiscreteDomain.integers())
-                    .parallelStream()
-                    .forEach(idx -> {
-                        final Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
-
-                        // Use JavaCV to encode the image patch
-                        // into JPEG, stored in the memory.
-                        final BytePointer inputPointer = new BytePointer(bbox.patchData);
-                        final Mat image = new Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
-                        final BytePointer outputPointer = new BytePointer();
-                        imencode(".jpg", image, outputPointer);
-                        final byte[] bytes = new byte[(int) outputPointer.limit()];
-                        outputPointer.get(bytes);
-
-                        // Output the image patch to HDFS.
-                        final FSDataOutputStream imgOutputStream;
-                        try {
-                            imgOutputStream = hdfs.create(new Path(storeDir + "/" + idx + ".jpg"));
-                            imgOutputStream.write(bytes);
-                            imgOutputStream.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
-                        // Free resources.
-                        image.release();
-                        inputPointer.deallocate();
-                        outputPointer.deallocate();
-                    });
-        }
-
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {// Save tracklets.
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
+            // Save tracklets.
             this.filter(globalStreamMap, PED_TRACKLET_SAVING_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         final Logger logger = loggerSingleton.getInst();
@@ -588,7 +513,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
                             final String taskID = kv._1();
                             final TaskData taskData = kv._2();
-                            final Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                            final Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
                             final int numTracklets = tracklet.numTracklets;
 
                             final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
@@ -601,7 +526,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                     logger.warn("Duplicated storing request for " + tracklet.id);
                                 } else {
                                     hdfs.mkdirs(new Path(storeDir));
-                                    storeTracklet(storeDir, tracklet);
+                                    HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
 
                                     // Check packing.
                                     KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,

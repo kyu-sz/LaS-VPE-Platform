@@ -32,6 +32,7 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
@@ -88,7 +89,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private static final long serialVersionUID = -786439769732467646L;
         InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         int externAttrRecogServerPort = 0;
-        // Max length of a tracklet to recignize attr from. 0 means not limiting.
+        // Max length of a tracklet to recognize attributes from.
+        // A tracklet with length greater than the limit will be truncated
+        // before performing attribute recognition.
+        // 0 means not limiting.
         int maxTrackletLength = 0;
         Algorithm algorithm = Algorithm.EXT;
 
@@ -104,7 +108,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     case "vpe.ped.attr.ext.port":
                         externAttrRecogServerPort = new Integer((String) entry.getValue());
                         break;
-                    case "vpe.ped.tracking.max.length":
+                    case "vpe.max.tracklet.length":
                         maxTrackletLength = new Integer((String) entry.getValue());
                         break;
                     case "vpe.ped.attr.alg":
@@ -180,7 +184,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             TaskData taskData = kv._2();
                             logger.debug("Received task " + taskID + "!");
 
-                            Tracklet tracklet = (Tracklet) taskData.predecessorRes;
+                            Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
                             logger.debug("To recognize attributes for task " + taskID + "!");
                             // Truncate and shrink the tracklet in case it is too large.
                             if (maxTrackletLength > 0
