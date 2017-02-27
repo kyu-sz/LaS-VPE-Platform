@@ -23,6 +23,7 @@ import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.security.JaasUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
@@ -61,9 +62,9 @@ public class SynthesizedLogger extends Logger {
     private void checkTopic(String topic, SystemPropertyCenter propCenter) {
         try {
             new RobustExecutor<Void, Void>(() -> {
-                ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
-                ZkClient zkClient = new ZkClient(zkConn);
-                ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
+                ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.zkSessionTimeoutMs);
+                ZkClient zkClient = new ZkClient(zkConn, propCenter.zkConnectionTimeoutMS);
+                ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled());
                 KafkaHelper.createTopicIfNotExists(zkUtils,
                         topic,
                         propCenter.kafkaNumPartitions,

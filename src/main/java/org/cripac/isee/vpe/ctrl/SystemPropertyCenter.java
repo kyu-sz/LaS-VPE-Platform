@@ -63,7 +63,8 @@ public class SystemPropertyCenter implements Serializable {
 
     /* Zookeeper properties */
     public String zkConn = "localhost:2181";
-    public int sessionTimeoutMs = 10 * 10000;
+    public int zkSessionTimeoutMs = 30000;
+    public int zkConnectionTimeoutMS = 30000;
     /* Kafka properties */
     public String kafkaBootstrapServers = "localhost:9092";
     public int kafkaNumPartitions = 1;
@@ -259,8 +260,14 @@ public class SystemPropertyCenter implements Serializable {
                         + "=" + entry.getValue());
             }
             switch ((String) entry.getKey()) {
-                case "zookeeper.connect":
+                case "zk.connect":
                     zkConn = (String) entry.getValue();
+                    break;
+                case "zk.session.timeout":
+                    zkSessionTimeoutMs = new Integer((String) entry.getValue());
+                    break;
+                case "zk.connection.timeout":
+                    zkConnectionTimeoutMS = new Integer((String) entry.getValue());
                     break;
                 case "kafka.bootstrap.servers":
                     kafkaBootstrapServers = (String) entry.getValue();

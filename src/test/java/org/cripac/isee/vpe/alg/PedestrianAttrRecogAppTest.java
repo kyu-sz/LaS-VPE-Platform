@@ -23,6 +23,7 @@ import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.security.JaasUtils;
 import org.apache.log4j.Level;
 import org.cripac.isee.pedestrian.attr.DeepMARTest;
 import org.cripac.isee.pedestrian.attr.ExternPedestrianAttrRecognizerTest;
@@ -92,10 +93,10 @@ public class PedestrianAttrRecogAppTest {
     private void checkTopic(String topic) {
         Logger logger = new ConsoleLogger(Level.DEBUG);
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
-        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
-        ZkClient zkClient = new ZkClient(zkConn);
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.zkSessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn, propCenter.zkConnectionTimeoutMS);
+        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled());
         logger.info("Checking topic: " + topic);
-        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
         KafkaHelper.createTopicIfNotExists(zkUtils,
                 topic,
                 propCenter.kafkaNumPartitions,

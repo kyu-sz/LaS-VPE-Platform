@@ -25,6 +25,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.security.JaasUtils;
 import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkException;
@@ -100,9 +101,9 @@ public abstract class SparkStreamingApp implements Serializable {
                 .reduce("", (s1, s2) -> s1 + ", " + s2));
 
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
-        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.sessionTimeoutMs);
-        ZkClient zkClient = new ZkClient(zkConn);
-        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, false);
+        ZkConnection zkConn = new ZkConnection(propCenter.zkConn, propCenter.zkSessionTimeoutMs);
+        ZkClient zkClient = new ZkClient(zkConn, propCenter.zkConnectionTimeoutMS);
+        ZkUtils zkUtils = new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled());
 
         for (DataType type : dataTypes) {
             KafkaHelper.createTopicIfNotExists(zkUtils,
