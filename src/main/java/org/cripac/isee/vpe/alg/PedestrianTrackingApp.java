@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
@@ -268,8 +269,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                         rdd.glom().foreach(kvList -> {
                             final Logger logger = loggerSingleton.getInst();
-                            logger.info("Partition " + TaskContext.getPartitionId() + " got " + kvList.size()
-                                    + " videos in this batch.");
+                            if (kvList.size() > 0) {
+                                logger.info("Partition " + TaskContext.getPartitionId()
+                                        + " got " + kvList.size()
+                                        + " videos in this batch.");
+                            }
 
                             kvList.forEach(kv -> {
                                 try {
@@ -313,8 +317,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                                     // Conduct tracking on video read from HDFS.
                                     logger.debug("Performing tracking on " + videoName);
-                                    final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(() ->
-                                            tracker.track(videoStream)
+                                    final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(
+                                            (Function0<Tracklet[]>) () -> tracker.track(videoStream)
                                     ).execute();
                                     logger.debug("Finished tracking on " + videoName);
 

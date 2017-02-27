@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.alg;
 
 import org.apache.commons.lang.NotImplementedException;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.pedestrian.attr.DeepMAR;
@@ -195,12 +196,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                 tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
                             }
                             // Recognize attributes robustly.
-                            Attributes attr = new RobustExecutor<Tracklet, Attributes>(t -> {
-                                return recognizerSingleton.getInst().recognize(t);
-                            }).execute(tracklet);
+                            Attributes attr = new RobustExecutor<>((Function<Tracklet, Attributes>) t ->
+                                    recognizerSingleton.getInst().recognize(t)
+                            ).execute(tracklet);
 
                             logger.debug("Attributes retrieved for task " + taskID + "!");
-                            assert attr != null;
                             attr.trackletID = tracklet.id;
 
                             // Find current node.

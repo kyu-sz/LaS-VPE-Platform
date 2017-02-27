@@ -20,8 +20,10 @@
 package org.cripac.isee.vpe.common;
 
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.api.java.function.VoidFunction;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.TimeUnit;
 
@@ -65,6 +67,19 @@ public class RobustExecutor<T, R> {
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
      * and may retry up to 9 times (totally executing 10 times).
+     * Note that be careful when simplifying the lambda expression for the function here,
+     * you may not get the correct function type as expected, resulting in null return value.
+     */
+    public RobustExecutor(Function0<R> onceFunction) {
+        this((Function<T, R>) ignored -> onceFunction.call());
+    }
+
+    /**
+     * Create a RobustExecutor specifying the retrying behaviour.
+     * The executor retries immediately after failure,
+     * and may retry up to 9 times (totally executing 10 times).
+     * Note that be careful when simplifying the lambda expression for the function here,
+     * you may not get the correct function type as expected, resulting in null return value.
      */
     public RobustExecutor(Function<T, R> function) {
         this(function, 9);
@@ -73,6 +88,8 @@ public class RobustExecutor<T, R> {
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure.
+     * Note that be careful when simplifying the lambda expression for the function here,
+     * you may not get the correct function type as expected, resulting in null return value.
      *
      * @param maxRetries max times of retrying.
      */
@@ -82,6 +99,8 @@ public class RobustExecutor<T, R> {
 
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
+     * Note that be careful when simplifying the lambda expression for the function here,
+     * you may not get the correct function type as expected, resulting in null return value.
      *
      * @param maxRetries    max times of retrying.
      * @param retryInterval interval (ms) between retries.
@@ -98,9 +117,12 @@ public class RobustExecutor<T, R> {
      * Execute the specified function with no parameter robustly.
      * When catching exceptions from the function, retry the execution.
      * When reaching the max retrying times, throw the exception to handle outside.
+     * Note that be careful when simplifying the lambda expression for the function here,
+     * you may not get the correct function type as expected, resulting in null return value.
      *
      * @throws Exception On failure that cannot be handled by retrying.
      */
+    @Nonnull
     public R execute() throws Exception {
         return execute(null);
     }
@@ -109,9 +131,12 @@ public class RobustExecutor<T, R> {
      * Execute the specified function robustly.
      * When catching exceptions from the function, retry the execution.
      * When reaching the max retrying times, throw the exception to handle outside.
+     * Note that be careful when simplifying the lambda expression for the function here,
+     * you may not get the correct function type as expected, resulting in null return value.
      *
      * @throws Exception On failure that cannot be handled by retrying.
      */
+    @Nonnull
     public R execute(@Nullable T param) throws Exception {
         int retryCnt = 0;
         while (true) {

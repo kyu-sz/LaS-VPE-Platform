@@ -26,6 +26,7 @@ import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.helper.opencv_core;
@@ -254,9 +255,10 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                         // Retrieve the track from HDFS.
                                         // Store the track to a task data (reused).
-                                        final Tracklet tracklet = new RobustExecutor<Void, Tracklet>(() ->
-                                                retrieveTracklet(
-                                                        dbConnSingleton.getInst().getTrackletSavingDir(trackletID.videoID)
+                                        final Tracklet tracklet = new RobustExecutor<Void, Tracklet>(
+                                                (Function0<Tracklet>) () -> retrieveTracklet(
+                                                        dbConnSingleton.getInst()
+                                                                .getTrackletSavingDir(trackletID.videoID)
                                                                 + "/" + trackletID.serialNumber)
                                         ).execute();
 
@@ -315,14 +317,15 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                     final PedestrianInfo info = new PedestrianInfo();
                                     // Retrieve the track from HDFS.
-                                    info.tracklet = new RobustExecutor<Void, Tracklet>(() ->
-                                            retrieveTracklet(
-                                                    dbConnSingleton.getInst().getTrackletSavingDir(trackletID.videoID)
+                                    info.tracklet = new RobustExecutor<Void, Tracklet>(
+                                            (Function0<Tracklet>) () -> retrieveTracklet(
+                                                    dbConnSingleton.getInst()
+                                                            .getTrackletSavingDir(trackletID.videoID)
                                                             + "/" + trackletID.serialNumber)
                                     ).execute();
                                     // Retrieve the attributes from database.
-                                    info.attr = new RobustExecutor<Void, Attributes>(() ->
-                                            dbConnSingleton.getInst()
+                                    info.attr = new RobustExecutor<Void, Attributes>(
+                                            (Function0<Attributes>) () -> dbConnSingleton.getInst()
                                                     .getPedestrianAttributes(trackletID.toString())
                                     ).execute();
 
@@ -408,13 +411,15 @@ public class DataManagingApp extends SparkStreamingApp {
                         final String videoRoot = metadataDir + "/" + videoID;
                         final String taskRoot = videoRoot + "/" + taskID;
 
-                        final boolean harExists = new RobustExecutor<Void, Boolean>(() ->
-                                hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))
+                        final boolean harExists = new RobustExecutor<Void, Boolean>(
+                                (Function0<Boolean>) () ->
+                                        hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))
                         ).execute();
                         if (harExists) {
                             // Packing has been finished in a previous request.
-                            final boolean taskRootExists = new RobustExecutor<Void, Boolean>(() ->
-                                    hdfs.exists(new Path(videoRoot + "/" + taskID))
+                            final boolean taskRootExists = new RobustExecutor<Void, Boolean>(
+                                    (Function0<Boolean>) () -> hdfs.exists(new Path(videoRoot + "/" + taskID)
+                                    )
                             ).execute();
                             if (taskRootExists) {
                                 // But seems to have failed to delete the task root.
@@ -428,8 +433,8 @@ public class DataManagingApp extends SparkStreamingApp {
 
                         // If all the tracklets from a task are saved,
                         // it's time to pack them into a HAR!
-                        final ContentSummary contentSummary = new RobustExecutor<Void, ContentSummary>(() ->
-                                hdfs.getContentSummary(new Path(taskRoot))
+                        final ContentSummary contentSummary = new RobustExecutor<Void, ContentSummary>(
+                                (Function0<ContentSummary>) () -> hdfs.getContentSummary(new Path(taskRoot))
                         ).execute();
                         final long dirCnt = contentSummary.getDirectoryCount();
                         // Decrease one for directory counter.

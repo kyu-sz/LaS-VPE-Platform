@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.alg;
 
 import org.apache.spark.api.java.Optional;
+import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.attr.Attributes;
@@ -206,8 +207,8 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                             final PedestrianInfo trackletWithAttr = (PedestrianInfo) taskData.predecessorRes;
 
                             // Perform ReID.
-                            final int[] idRank = new RobustExecutor<Void, int[]>(() ->
-                                    reidSingleton.getInst().reid(trackletWithAttr)
+                            final int[] idRank = new RobustExecutor<Void, int[]>(
+                                    (Function0<int[]>) () -> reidSingleton.getInst().reid(trackletWithAttr)
                             ).execute();
 
                             // Find current node.
