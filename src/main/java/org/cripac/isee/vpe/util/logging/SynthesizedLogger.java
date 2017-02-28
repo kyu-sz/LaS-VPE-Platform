@@ -59,7 +59,7 @@ public class SynthesizedLogger extends Logger {
     private void checkTopic(String topic, SystemPropertyCenter propCenter) {
         try {
             new RobustExecutor<Void, Void>(() -> {
-                final ZkUtils zkUtils = KafkaHelper.createZKUtils(propCenter.zkConn,
+                final ZkUtils zkUtils = KafkaHelper.createZkUtils(propCenter.zkConn,
                         propCenter.zkSessionTimeoutMs,
                         propCenter.zkConnectionTimeoutMS);
                 KafkaHelper.createTopicIfNotExists(zkUtils,

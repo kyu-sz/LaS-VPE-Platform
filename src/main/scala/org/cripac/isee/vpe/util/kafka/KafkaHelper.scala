@@ -42,13 +42,13 @@ object KafkaHelper {
   /**
     * Send a message to Kafka with provided producer. Debug info is output to given logger.
     *
-    * @param topic     The Kafka topic to send to.
-    * @param key       Key of the message.
-    * @param value     Value of the message.
-    * @param producer  The Kafka producer to use to send the message.
-    * @param extLogger The logger to output debug info.
-    * @tparam K Type of the key.
-    * @tparam V Type of the value.
+    * @param topic     the Kafka topic to send to.
+    * @param key       key of the message.
+    * @param value     value of the message.
+    * @param producer  the Kafka producer to use to send the message.
+    * @param extLogger the logger to output debug info.
+    * @tparam K type of the key.
+    * @tparam V type of the value.
     */
   def sendWithLog[K, V](
                          @Nonnull topic: String,
@@ -75,6 +75,15 @@ object KafkaHelper {
     }
   }
 
+  /**
+    * Send a TaskData to Kafka with provided producer. Debug info is output to given logger.
+    *
+    * @param key       key of the Kafka message.
+    * @param taskData  the TaskData object to send.
+    * @param producer  Kafka producer used to send the message.
+    * @param extLogger logger for outputting debug info.
+    * @tparam K type of key.
+    */
   def sendWithLog[K](
                       @Nonnull key: K,
                       @Nonnull taskData: TaskData,
@@ -88,6 +97,27 @@ object KafkaHelper {
       extLogger)
   }
 
+  def createZkUtils(
+                     zkServers: String,
+                     sessionTimeout: Int,
+                     connectionTimeout: Int
+                   ): ZkUtils = {
+    val (zkClient, zkConn) = ZkUtils.createZkClientAndConnection(zkServers, sessionTimeout, connectionTimeout)
+    new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled)
+  }
+
+  def createTopicIfNotExists(
+                              zkServers: String,
+                              sessionTimeout: Int,
+                              connectionTimeout: Int,
+                              topic: String,
+                              partitions: Int,
+                              replicas: Int
+                            ): Unit = {
+    createTopicIfNotExists(createZkUtils(zkServers, sessionTimeout, connectionTimeout),
+      topic, partitions, replicas)
+  }
+
   def createTopicIfNotExists(
                               zkUtils: ZkUtils,
                               topic: String,
@@ -97,13 +127,17 @@ object KafkaHelper {
     createTopic(zkUtils, topic, partitions, replicas, ifNotExists = true)
   }
 
-  def createZKUtils(
-                     zkServers: String,
-                     sessionTimeout: Int,
-                     connectionTimeout: Int
-                   ): ZkUtils = {
-    val (zkClient, zkConn) = ZkUtils.createZkClientAndConnection(zkServers, sessionTimeout, connectionTimeout)
-    new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled)
+  def createTopic(
+                   zkServers: String,
+                   sessionTimeout: Int,
+                   connectionTimeout: Int,
+                   topic: String,
+                   partitions: Int,
+                   replicas: Int,
+                   ifNotExists: Boolean
+                 ): Unit = {
+    createTopic(createZkUtils(zkServers, sessionTimeout, connectionTimeout),
+      topic, partitions, replicas, ifNotExists)
   }
 
   def createTopic(

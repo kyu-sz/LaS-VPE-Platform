@@ -90,7 +90,7 @@ public class PedestrianAttrRecogAppTest {
     private void checkTopic(String topic) {
         Logger logger = new ConsoleLogger(Level.DEBUG);
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
-        final ZkUtils zkUtils = KafkaHelper.createZKUtils(propCenter.zkConn,
+        final ZkUtils zkUtils = KafkaHelper.createZkUtils(propCenter.zkConn,
                 propCenter.zkSessionTimeoutMs,
                 propCenter.zkConnectionTimeoutMS);
         logger.info("Checking topic: " + topic);

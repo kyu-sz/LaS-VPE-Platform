@@ -15,7 +15,10 @@ package org.cripac.isee.vpe.common;/*
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import kafka.common.FailedToSendMessageException;
+import kafka.common.MessageSizeTooLargeException;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.KafkaException;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
@@ -27,10 +30,7 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one type of data.
@@ -46,10 +46,14 @@ public abstract class Stream implements Serializable {
            TaskData.ExecutionPlan executionPlan,
            Serializable result,
            String taskID) throws Exception {
-        new RobustExecutor<Void, Void>(() -> KafkaHelper.sendWithLog(taskID,
-                new TaskData(outputPorts, executionPlan, result),
-                producerSingleton.getInst(),
-                loggerSingleton.getInst())
+        new RobustExecutor<Void, Void>(
+                () -> KafkaHelper.sendWithLog(taskID,
+                        new TaskData(outputPorts, executionPlan, result),
+                        producerSingleton.getInst(),
+                        loggerSingleton.getInst()),
+                Arrays.asList(MessageSizeTooLargeException.class,
+                        KafkaException.class,
+                        FailedToSendMessageException.class)
         ).execute();
     }
 

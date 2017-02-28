@@ -70,7 +70,7 @@ public class SystemPropertyCenter implements Serializable {
     public int kafkaNumPartitions = 1;
     public int kafkaReplFactor = 1;
     private int kafkaMsgMaxBytes = 100000000;
-    private int kafkaSendMaxSize = 100000000;
+    public int kafkaSendMaxSize = 100000000;
     private int kafkaRequestTimeoutMs = 60000;
     private int kafkaFetchTimeoutMs = 60000;
     public String kafkaLocationStrategy = "PreferBrokers";

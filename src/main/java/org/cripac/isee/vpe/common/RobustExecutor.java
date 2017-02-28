@@ -25,6 +25,8 @@ import org.apache.spark.api.java.function.VoidFunction;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,6 +39,7 @@ public class RobustExecutor<T, R> {
     private final int maxRetries;
     private final int retryInterval;
     private Function<T, R> onceFunction;
+    private List<Class<?>> noRetryThrowables;
 
     public interface VoidFunction0 {
         void call() throws Exception;
@@ -46,19 +49,23 @@ public class RobustExecutor<T, R> {
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
      * and may retry up to 9 times (totally executing 10 times).
+     *
+     * @param onceFunction function to be executed each time.
      */
-    public RobustExecutor(VoidFunction0 voidFunction0) {
-        this((VoidFunction<T>) t -> voidFunction0.call());
+    public RobustExecutor(VoidFunction0 onceFunction) {
+        this((VoidFunction<T>) t -> onceFunction.call());
     }
 
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
      * and may retry up to 9 times (totally executing 10 times).
+     *
+     * @param onceFunction function to be executed each time.
      */
-    public RobustExecutor(VoidFunction<T> voidFunction) {
+    public RobustExecutor(VoidFunction<T> onceFunction) {
         this((Function<T, R>) param -> {
-            voidFunction.call(param);
+            onceFunction.call(param);
             return null;
         }, 9);
     }
@@ -69,6 +76,8 @@ public class RobustExecutor<T, R> {
      * and may retry up to 9 times (totally executing 10 times).
      * Note that be careful when simplifying the lambda expression for the function here,
      * you may not get the correct function type as expected, resulting in null return value.
+     *
+     * @param onceFunction function to be executed each time.
      */
     public RobustExecutor(Function0<R> onceFunction) {
         this((Function<T, R>) ignored -> onceFunction.call());
@@ -80,9 +89,11 @@ public class RobustExecutor<T, R> {
      * and may retry up to 9 times (totally executing 10 times).
      * Note that be careful when simplifying the lambda expression for the function here,
      * you may not get the correct function type as expected, resulting in null return value.
+     *
+     * @param onceFunction function to be executed each time.
      */
-    public RobustExecutor(Function<T, R> function) {
-        this(function, 9);
+    public RobustExecutor(Function<T, R> onceFunction) {
+        this(onceFunction, 9);
     }
 
     /**
@@ -91,7 +102,8 @@ public class RobustExecutor<T, R> {
      * Note that be careful when simplifying the lambda expression for the function here,
      * you may not get the correct function type as expected, resulting in null return value.
      *
-     * @param maxRetries max times of retrying.
+     * @param onceFunction function to be executed each time.
+     * @param maxRetries   max times of retrying.
      */
     public RobustExecutor(Function<T, R> onceFunction, int maxRetries) {
         this(onceFunction, maxRetries, 0);
@@ -102,15 +114,72 @@ public class RobustExecutor<T, R> {
      * Note that be careful when simplifying the lambda expression for the function here,
      * you may not get the correct function type as expected, resulting in null return value.
      *
+     * @param onceFunction  function to be executed each time.
      * @param maxRetries    max times of retrying.
      * @param retryInterval interval (ms) between retries.
      */
     public RobustExecutor(Function<T, R> onceFunction, int maxRetries, int retryInterval) {
+        this(onceFunction, maxRetries, retryInterval, Collections.emptyList());
+    }
+
+    /**
+     * Create a RobustExecutor specifying the retrying behaviour.
+     * The executor retries immediately after failure,
+     * and may retry up to 9 times (totally executing 10 times).
+     *
+     * @param onceFunction      function to be executed each time.
+     * @param noRetryThrowables exceptions that are not able to be solved by retrying.
+     */
+    public RobustExecutor(VoidFunction0 onceFunction, List<Class<?>> noRetryThrowables) {
+        this((VoidFunction<T>) param -> onceFunction.call(), noRetryThrowables);
+    }
+
+    /**
+     * Create a RobustExecutor specifying the retrying behaviour.
+     * The executor retries immediately after failure,
+     * and may retry up to 9 times (totally executing 10 times).
+     *
+     * @param onceFunction      function to be executed each time.
+     * @param noRetryThrowables exceptions that are not able to be solved by retrying.
+     */
+    public RobustExecutor(VoidFunction<T> onceFunction, List<Class<?>> noRetryThrowables) {
+        this((Function<T, R>) param -> {
+            onceFunction.call(param);
+            return null;
+        }, noRetryThrowables);
+    }
+
+    /**
+     * Create a RobustExecutor specifying the retrying behaviour.
+     * The executor retries immediately after failure,
+     * and may retry up to 9 times (totally executing 10 times).
+     *
+     * @param onceFunction      function to be executed each time.
+     * @param noRetryThrowables exceptions that are not able to be solved by retrying.
+     */
+    public RobustExecutor(Function<T, R> onceFunction, List<Class<?>> noRetryThrowables) {
+        this(onceFunction, 9, 0, noRetryThrowables);
+    }
+
+    /**
+     * Create a RobustExecutor specifying the retrying behaviour.
+     * Note that be careful when simplifying the lambda expression for the function here,
+     * you may not get the correct function type as expected, resulting in null return value.
+     *
+     * @param maxRetries        max times of retrying.
+     * @param retryInterval     interval (ms) between retries.
+     * @param noRetryThrowables exceptions that are not able to be solved by retrying.
+     */
+    public RobustExecutor(Function<T, R> onceFunction,
+                          int maxRetries,
+                          int retryInterval,
+                          List<Class<?>> noRetryThrowables) {
         assert maxRetries >= 0;
         assert retryInterval >= 0;
         this.onceFunction = onceFunction;
         this.maxRetries = maxRetries;
         this.retryInterval = retryInterval;
+        this.noRetryThrowables = noRetryThrowables;
     }
 
     /**
@@ -143,6 +212,11 @@ public class RobustExecutor<T, R> {
             try {
                 return onceFunction.call(param);
             } catch (Throwable t) {
+                for (Class<?> throwableClass : noRetryThrowables) {
+                    if (throwableClass.isInstance(t)) {
+                        throw t;
+                    }
+                }
                 if (retryCnt >= maxRetries) {
                     throw t;
                 }

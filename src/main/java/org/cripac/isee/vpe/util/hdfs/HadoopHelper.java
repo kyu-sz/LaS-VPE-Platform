@@ -23,7 +23,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.bytedeco.javacpp.BytePointer;
+import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.opencv_core;
+import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
@@ -50,6 +52,14 @@ import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
  * @author Ken Yu, CRIPAC, 2016
  */
 public class HadoopHelper {
+
+    static {
+        // These two lines are used to solve the following problem:
+        // RuntimeException: No native JavaCPP library
+        // in memory. (Has Loader.load() been called?)
+        Loader.load(org.bytedeco.javacpp.helper.opencv_core.class);
+        Loader.load(opencv_imgproc.class);
+    }
 
     public static Configuration getDefaultConf()
             throws ParserConfigurationException, SAXException, IOException {

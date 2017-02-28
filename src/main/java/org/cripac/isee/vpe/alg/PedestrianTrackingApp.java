@@ -18,6 +18,8 @@
 package org.cripac.isee.vpe.alg;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import kafka.common.FailedToSendMessageException;
+import kafka.common.MessageSizeTooLargeException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.conf.Configuration;
@@ -25,6 +27,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.kafka.common.KafkaException;
 import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function0;
@@ -103,12 +106,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     public static class AppPropertyCenter extends SystemPropertyCenter {
 
         private static final long serialVersionUID = -786439769732467646L;
-        // Max length of a tracklet to output to Kafka.
-        // If a tracklet has length exceeding this limit, it will be stored to
-        // HDFS first, then its URL is instead sent to Kafka.
-        // 0 means all tracklets are passed through HDFS.
-        // -1 means not limited.
-        int maxTrackletLengthToKafka = -1;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws SAXException, ParserConfigurationException, URISyntaxException {
@@ -116,9 +113,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
             // Digest the settings.
             for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
                 switch ((String) entry.getKey()) {
-                    case "vpe.max.tracklet.length":
-                        maxTrackletLengthToKafka = new Integer((String) entry.getValue());
-                        break;
                 }
             }
         }
@@ -248,13 +242,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private static final long serialVersionUID = -6738652169567844016L;
 
         private final Singleton<FileSystem> hdfsSingleton;
-        private final int maxLengthTrackletToKafka;
+        private final int maxSendSize;
         private final String metadataDir;
 
         public HDFSVideoTrackingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
-            maxLengthTrackletToKafka = propCenter.maxTrackletLengthToKafka;
+            maxSendSize = propCenter.kafkaSendMaxSize;
             metadataDir = propCenter.metadataDir;
             hdfsSingleton = new Singleton<>(new HDFSFactory());
         }
@@ -326,9 +320,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     // Set video IDs and Send tracklets.
                                     for (Tracklet tracklet : tracklets) {
                                         tracklet.id.videoID = videoName;
-                                        if (tracklet.locationSequence.length > maxLengthTrackletToKafka) {
-                                            // The tracklet's length exceeds the limit.
-                                            // It is not appropriate to send it to Kafka.
+                                        try {
+                                            output(outputPorts, taskData.executionPlan,
+                                                    new TrackletOrURL(tracklet), taskID);
+                                        } catch (MessageSizeTooLargeException
+                                                | KafkaException
+                                                | FailedToSendMessageException e) {
+                                            // The tracklet's size exceeds the limit.
                                             // Here we first store it into HDFS,
                                             // then send its URL instead of the tracklet itself.
                                             logger.debug("Tracklet " + tracklet.id
@@ -341,9 +339,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                                     taskData.executionPlan,
                                                     new TrackletOrURL(storeDir),
                                                     taskID);
-                                        } else {
-                                            output(outputPorts, taskData.executionPlan,
-                                                    new TrackletOrURL(tracklet), taskID);
                                         }
                                     }
                                 } catch (Throwable e) {

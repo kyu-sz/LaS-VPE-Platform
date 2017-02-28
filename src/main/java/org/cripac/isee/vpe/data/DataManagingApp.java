@@ -28,9 +28,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.bytedeco.javacpp.Loader;
-import org.bytedeco.javacpp.helper.opencv_core;
-import org.bytedeco.javacpp.opencv_imgproc;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.cripac.isee.pedestrian.attr.Attributes;
@@ -518,12 +515,6 @@ public class DataManagingApp extends SparkStreamingApp {
                                         + ". Skipping.");
                                 return;
                             } else {
-                                // These two lines are used to solve the following problem:
-                                // RuntimeException: No native JavaCPP library
-                                // in memory. (Has Loader.load() been called?)
-                                Loader.load(opencv_core.class);
-                                Loader.load(opencv_imgproc.class);
-
                                 final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
                                 final String taskRoot = videoRoot + "/" + taskID;
                                 final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;

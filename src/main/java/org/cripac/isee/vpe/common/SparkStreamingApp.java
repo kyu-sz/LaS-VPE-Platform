@@ -98,7 +98,7 @@ public abstract class SparkStreamingApp implements Serializable {
                 .reduce("", (s1, s2) -> s1 + ", " + s2));
 
         logger.info("Connecting to zookeeper: " + propCenter.zkConn);
-        final ZkUtils zkUtils = KafkaHelper.createZKUtils(propCenter.zkConn,
+        final ZkUtils zkUtils = KafkaHelper.createZkUtils(propCenter.zkConn,
                 propCenter.zkSessionTimeoutMs,
                 propCenter.zkConnectionTimeoutMS);
 
