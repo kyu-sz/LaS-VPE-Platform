@@ -168,7 +168,7 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
      */
     @Override
     public float compare(@Nonnull PedestrianInfo personA,
-                         @Nonnull PedestrianInfo personB) throws IOException {
+                         @Nonnull PedestrianInfo personB) throws Exception {
         // Create a new message consisting the comparation task.
         RequestMessage message = new RequestMessage(personA, personB);
 
@@ -223,7 +223,7 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
          */
         private void getBytesFromPedestrianInfo(@Nonnull PedestrianInfo pedestrianInfo,
                                                 @Nonnull OutputStream outputStream)
-                throws IOException {
+                throws Exception {
             ByteBuffer byteBuffer;
 
             if (pedestrianInfo.feature != null || enableFeatureOnly) {
@@ -237,7 +237,7 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
                 outputStream.write(0);
 
                 // Tracklet.
-                Tracklet tracklet = pedestrianInfo.tracklet;
+                Tracklet tracklet = pedestrianInfo.trackletOrURL.getTracklet();
                 // 4 bytes - Tracklet length (number of bounding boxes).
                 byteBuffer = ByteBuffer.allocate(Integer.BYTES);
                 byteBuffer.putInt(tracklet.locationSequence.length);
@@ -271,7 +271,7 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
          * @param outputStream The output stream to write to.
          * @throws IOException
          */
-        public void getBytes(@Nonnull OutputStream outputStream) throws IOException {
+        public void getBytes(@Nonnull OutputStream outputStream) throws Exception {
             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream);
 
             // 16 bytes - Request UUID.

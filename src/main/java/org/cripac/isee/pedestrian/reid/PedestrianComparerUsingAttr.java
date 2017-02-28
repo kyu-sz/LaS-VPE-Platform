@@ -38,5 +38,5 @@ public abstract class PedestrianComparerUsingAttr {
      * @throws IOException
      */
     public abstract float compare(@Nonnull PedestrianInfo personA,
-                                  @Nonnull PedestrianInfo personB) throws IOException;
+                                  @Nonnull PedestrianInfo personB) throws Exception;
 }

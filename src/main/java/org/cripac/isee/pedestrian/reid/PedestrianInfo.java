@@ -18,7 +18,7 @@
 package org.cripac.isee.pedestrian.reid;
 
 import org.cripac.isee.pedestrian.attr.Attributes;
-import org.cripac.isee.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 
 import javax.annotation.Nullable;
 import java.io.Serializable;
@@ -34,44 +34,77 @@ public class PedestrianInfo implements Serializable, Cloneable {
 
     private static final long serialVersionUID = 5845993089063557863L;
 
-    public Tracklet tracklet = null;
-    public Attributes attr = null;
+    public final TrackletOrURL trackletOrURL;
+    public final Attributes attr;
 
     /**
-     * The IDRANK of the pedestrian. If not decided yet, it is left as -1.
+     * The IDRANK of the pedestrian. -1 means not available.
      */
-    public int id = -1;
+    public final int id;
 
     /**
      * Extracted feature for comparison, if applicable.
      */
-    public Feature1024 feature = null;
+    public final Feature feature;
+
+    /**
+     * Constructor with track and attributes specified at the beginning.
+     *  @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
+     * @param attr          attributes recognized from the pedestrian.
+     * @param id
+     */
+    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL,
+                          @Nullable Attributes attr,
+                          int id) {
+        this(trackletOrURL, attr, id, null);
+    }
 
     /**
      * Constructor with track and attributes specified at the beginning.
      *
-     * @param tracklet The track of the pedestrian.
-     * @param attr     Attributes recognized from the pedestrian.
+     * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
+     * @param attr          attributes recognized from the pedestrian.
+     * @param feature
      */
-    public PedestrianInfo(@Nullable Tracklet tracklet,
-                          @Nullable Attributes attr) {
-        this.tracklet = tracklet;
-        this.attr = attr;
+    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL,
+                          @Nullable Attributes attr,
+                          @Nullable Feature feature) {
+        this(trackletOrURL, attr, -1, feature);
     }
 
     /**
-     * Empty constructor.
+     * Constructor with track and attributes specified at the beginning.
+     *
+     * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
      */
-    public PedestrianInfo() {
+    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL) {
+        this(trackletOrURL, null);
     }
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Constructor with track and attributes specified at the beginning.
      *
-     * @see java.lang.Object#toString()
+     * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
+     * @param attr          attributes recognized from the pedestrian.
      */
-    @Override
-    public String toString() {
-        return "|" + tracklet + "|" + attr + "|";
+    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL,
+                          @Nullable Attributes attr) {
+        this(trackletOrURL, attr, -1, null);
+    }
+
+    /**
+     * Constructor with track and attributes specified at the beginning.
+     *
+     * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
+     * @param attr          attributes recognized from the pedestrian.
+     */
+    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL,
+                          @Nullable Attributes attr,
+                          int id,
+                          @Nullable Feature feature) {
+        this.trackletOrURL = trackletOrURL;
+        this.attr = attr;
+        this.id = id;
+        this.feature = feature;
     }
 }

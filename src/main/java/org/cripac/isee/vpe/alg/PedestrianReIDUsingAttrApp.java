@@ -190,7 +190,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                                         taskDataWithTracklet.destPorts.values(),
                                         taskDataWithTracklet.executionPlan,
                                         new PedestrianInfo(
-                                                ((TrackletOrURL) taskDataWithTracklet.predecessorRes).getTracklet(),
+                                                (TrackletOrURL) taskDataWithTracklet.predecessorRes,
                                                 (Attributes) taskDataWithAttr.predecessorRes));
                                 loggerSingleton.getInst().debug(
                                         "Assembled track and attr of " + pack._1());

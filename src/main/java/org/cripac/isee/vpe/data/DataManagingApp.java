@@ -31,7 +31,6 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.cripac.isee.pedestrian.attr.Attributes;
-import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.RobustExecutor;
@@ -62,7 +61,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
-import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.retrieveTracklet;
 
 /**
  * The DataManagingApp class combines two functions: meta data saving and data
@@ -87,8 +85,6 @@ public class DataManagingApp extends SparkStreamingApp {
         super(propCenter, APP_NAME);
 
         registerStreams(Arrays.asList(
-                new PedestrainTrackletRetrievingStream(propCenter),
-                new PedestrainTrackletAttrRetrievingStream(propCenter),
                 new TrackletSavingStream(propCenter),
                 new AttrSavingStream(propCenter),
                 new IDRankSavingStream(propCenter),
@@ -214,137 +210,6 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public List<Port> getPorts() {
             return Collections.singletonList(VIDEO_URL_PORT);
-        }
-    }
-
-    public static class PedestrainTrackletRetrievingStream extends Stream {
-
-        public static final String NAME = "pedestrian-tracklet-rtrv";
-        public static final DataType OUTPUT_TYPE = DataType.TRACKLET;
-        public static final Port RTRV_JOB_PORT =
-                new Port("pedestrian-tracklet-rtrv-job", DataType.TRACKLET_ID);
-        private static final long serialVersionUID = -3588633503578388408L;
-        // Create KafkaSink for Spark Streaming to output to Kafka.
-        private final Singleton<GraphDatabaseConnector> dbConnSingleton;
-
-        public PedestrainTrackletRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(APP_NAME, propCenter);
-
-            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
-        }
-
-        @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
-            // Read track retrieving jobs in parallel from Kafka.
-            // URL of a video is given.
-            // The directory storing the tracklets of the video is stored in the database.
-            this.filter(globalStreamMap, RTRV_JOB_PORT)
-                    // Retrieve and deliver tracklets.
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
-                                final Logger logger = loggerSingleton.getInst();
-
-                                try {
-                                    new RobustExecutor<Void, Void>(() -> {
-                                        // Recover task data.
-                                        final TaskData taskData = kv._2();
-                                        final Tracklet.Identifier trackletID =
-                                                (Tracklet.Identifier) taskData.predecessorRes;
-
-                                        // Retrieve the track from HDFS.
-                                        // Store the track to a task data (reused).
-                                        final Tracklet tracklet = new RobustExecutor<Void, Tracklet>(
-                                                (Function0<Tracklet>) () -> retrieveTracklet(
-                                                        dbConnSingleton.getInst()
-                                                                .getTrackletSavingDir(trackletID.videoID)
-                                                                + "/" + trackletID.serialNumber)
-                                        ).execute();
-
-                                        // Get ports to output to.
-                                        TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(RTRV_JOB_PORT);
-                                        assert curNode != null;
-                                        List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                                        // Mark the current node as executed.
-                                        curNode.markExecuted();
-
-                                        // Send to all the successor nodes.
-                                        final String taskID = kv._1();
-                                        output(outputPorts, taskData.executionPlan, tracklet, taskID);
-                                    }).execute();
-                                } catch (Exception e) {
-                                    logger.error("During retrieving tracklets", e);
-                                }
-                            })
-                    );
-        }
-
-        @Override
-        public List<Port> getPorts() {
-            return Collections.singletonList(RTRV_JOB_PORT);
-        }
-    }
-
-    public static class PedestrainTrackletAttrRetrievingStream extends Stream {
-        public static final String NAME = "pedestrian-tracklet-attr-rtrv";
-        public static final DataType OUTPUT_TYPE = DataType.TRACKLET_ATTR;
-        public static final Port RTRV_JOB_PORT =
-                new Port("pedestrian-tracklet-attr-rtrv-job", DataType.TRACKLET_ID);
-        private static final long serialVersionUID = -8876416114616771091L;
-        private final Singleton<GraphDatabaseConnector> dbConnSingleton;
-
-        public PedestrainTrackletAttrRetrievingStream(SystemPropertyCenter propCenter) throws Exception {
-            super(APP_NAME, propCenter);
-
-            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
-        }
-
-        @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
-            // Read track with attributes retrieving jobs in parallel from Kafka.
-            this.filter(globalStreamMap, RTRV_JOB_PORT)
-                    // Retrieve and deliver tracklets with attributes.
-                    .foreachRDD(rdd -> rdd.foreach(job -> {
-                                final Logger logger = loggerSingleton.getInst();
-                                try {
-                                    final String taskID = job._1();
-                                    // Recover task data.
-                                    final TaskData taskData = job._2();
-                                    // Get parameters for the job.
-                                    final Tracklet.Identifier trackletID =
-                                            (Tracklet.Identifier) taskData.predecessorRes;
-
-                                    final PedestrianInfo info = new PedestrianInfo();
-                                    // Retrieve the track from HDFS.
-                                    info.tracklet = new RobustExecutor<Void, Tracklet>(
-                                            (Function0<Tracklet>) () -> retrieveTracklet(
-                                                    dbConnSingleton.getInst()
-                                                            .getTrackletSavingDir(trackletID.videoID)
-                                                            + "/" + trackletID.serialNumber)
-                                    ).execute();
-                                    // Retrieve the attributes from database.
-                                    info.attr = new RobustExecutor<Void, Attributes>(
-                                            (Function0<Attributes>) () -> dbConnSingleton.getInst()
-                                                    .getPedestrianAttributes(trackletID.toString())
-                                    ).execute();
-
-                                    // Get ports to output to.
-                                    TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(RTRV_JOB_PORT);
-                                    assert curNode != null;
-                                    List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                                    // Mark the current node as executed.
-                                    curNode.markExecuted();
-
-                                    // Send to all the successor nodes.
-                                    output(outputPorts, taskData.executionPlan, info, taskID);
-                                } catch (Exception e) {
-                                    logger.error("During retrieving tracklet and attributes", e);
-                                }
-                            })
-                    );
-        }
-
-        @Override
-        public List<Port> getPorts() {
-            return Collections.singletonList(RTRV_JOB_PORT);
         }
     }
 

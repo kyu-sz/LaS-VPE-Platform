@@ -22,6 +22,9 @@ import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.SparkException;
+import org.apache.spark.api.java.function.Function0;
+import org.cripac.isee.pedestrian.attr.Attributes;
+import org.cripac.isee.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
 import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
@@ -32,12 +35,13 @@ import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.data.DataManagingApp;
-import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletAttrRetrievingStream;
-import org.cripac.isee.vpe.data.DataManagingApp.PedestrainTrackletRetrievingStream;
+import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 import org.cripac.isee.vpe.data.HDFSReader;
+import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 
 import java.io.Serializable;
 import java.util.*;
@@ -174,13 +178,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 ExecutionPlan.Node trackingNode = plan.addNode(
                         HDFSVideoTrackingStream.OUTPUT_TYPE,
                         param.get(Parameter.TRACKING_CONF_FILE));
-                ExecutionPlan.Node trackletSavingNode = plan.addNode(
-                        DataManagingApp.TrackletSavingStream.OUTPUT_TYPE
-                );
+                ExecutionPlan.Node trackletSavingNode = plan.addNode(DataManagingApp.TrackletSavingStream.OUTPUT_TYPE);
+
                 // The letNodeOutputTo method will automatically add the DataManagingApp node.
-                trackingNode.outputTo(
-                        trackletSavingNode.createInputPort(
-                                DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT));
+                trackingNode.outputTo(trackletSavingNode.createInputPort(
+                        DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT));
+
                 videoPaths.forEach(path -> {
                     final TaskData taskData = new TaskData(
                             trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
@@ -195,21 +198,17 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 ExecutionPlan.Node trackingNode = plan.addNode(
                         PedestrianTrackingApp.HDFSVideoTrackingStream.OUTPUT_TYPE,
                         param.get(Parameter.TRACKING_CONF_FILE));
-                ExecutionPlan.Node attrRecogNode = plan.addNode(
-                        PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node trackletSavingNode = plan.addNode(
-                        DataManagingApp.TrackletSavingStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node attrSavingNode = plan.addNode(
-                        DataManagingApp.AttrSavingStream.OUTPUT_TYPE
-                );
+                ExecutionPlan.Node attrRecogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
+                ExecutionPlan.Node trackletSavingNode = plan.addNode(DataManagingApp.TrackletSavingStream.OUTPUT_TYPE);
+                ExecutionPlan.Node attrSavingNode = plan.addNode(DataManagingApp.AttrSavingStream.OUTPUT_TYPE);
+
                 trackingNode.outputTo(attrRecogNode.createInputPort(
                         PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT));
                 trackingNode.outputTo(trackletSavingNode.createInputPort(
                         DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT));
                 attrRecogNode.outputTo(attrSavingNode.createInputPort(
                         DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
+
                 videoPaths.forEach(path -> {
                     final TaskData taskData = new TaskData(
                             trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
@@ -223,21 +222,12 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 ExecutionPlan.Node trackingNode = plan.addNode(
                         HDFSVideoTrackingStream.OUTPUT_TYPE,
                         param.get(Parameter.TRACKING_CONF_FILE));
-                ExecutionPlan.Node attrRecogNode = plan.addNode(
-                        PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node reidNode = plan.addNode(
-                        PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node trackletSavingNode = plan.addNode(
-                        DataManagingApp.TrackletSavingStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node attrSavingNode = plan.addNode(
-                        DataManagingApp.AttrSavingStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node idRankSavingNode = plan.addNode(
-                        DataManagingApp.IDRankSavingStream.OUTPUT_TYPE
-                );
+                ExecutionPlan.Node attrRecogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
+                ExecutionPlan.Node reidNode = plan.addNode(PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE);
+                ExecutionPlan.Node trackletSavingNode = plan.addNode(DataManagingApp.TrackletSavingStream.OUTPUT_TYPE);
+                ExecutionPlan.Node attrSavingNode = plan.addNode(DataManagingApp.AttrSavingStream.OUTPUT_TYPE);
+                ExecutionPlan.Node idRankSavingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
+
                 trackingNode.outputTo(attrRecogNode.createInputPort(
                         PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT));
                 trackingNode.outputTo(reidNode.createInputPort(
@@ -250,6 +240,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                         DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
                 reidNode.outputTo(idRankSavingNode.createInputPort(
                         DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_PORT));
+
                 videoPaths.forEach(path -> {
                     final TaskData taskData = new TaskData(
                             trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
@@ -260,68 +251,55 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 break;
             }
             case CommandType.ATTRRECOG_ONLY: {
-                // Retrieve track data, then feed it to attr recog module.
-                ExecutionPlan.Node trackletDataNode = plan.addNode(
-                        PedestrainTrackletRetrievingStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node attrRecogNode = plan.addNode(
-                        PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node attrSavingNode = plan.addNode(
-                        DataManagingApp.AttrSavingStream.OUTPUT_TYPE
-                );
-                trackletDataNode.outputTo(trackletDataNode.createInputPort(
-                        PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT));
+                ExecutionPlan.Node attrRecogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
+                ExecutionPlan.Node attrSavingNode = plan.addNode(DataManagingApp.AttrSavingStream.OUTPUT_TYPE);
+
                 attrRecogNode.outputTo(attrSavingNode.createInputPort(
                         DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
+
                 String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
+                final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
                             path.toString(),
                             Integer.valueOf(trackletIdx));
+                    final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
+                            + "/" + id.serialNumber);
                     final TaskData taskData = new TaskData(
-                            trackletDataNode.createInputPort(PedestrainTrackletRetrievingStream.RTRV_JOB_PORT),
+                            attrRecogNode.createInputPort(PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT),
                             plan,
-                            id);
+                            url);
                     sendWithLog(taskID, taskData, producer, logger);
                 });
                 break;
             }
             case CommandType.ATTRRECOG_REID: {
-                ExecutionPlan.Node trackletDataNode = plan.addNode(
-                        PedestrainTrackletRetrievingStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node attrRecogNode = plan.addNode(
-                        PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node reidNode = plan.addNode(
-                        PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node attrSavingNode = plan.addNode(
-                        DataManagingApp.AttrSavingStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node idRankSavingNode = plan.addNode(
-                        DataManagingApp.IDRankSavingStream.OUTPUT_TYPE
-                );
-                trackletDataNode.outputTo(attrRecogNode.createInputPort(
-                        PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT));
-                trackletDataNode.outputTo(reidNode.createInputPort(
-                        PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_PORT));
+                ExecutionPlan.Node attrRecogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
+                ExecutionPlan.Node reidNode = plan.addNode(PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE);
+                ExecutionPlan.Node attrSavingNode = plan.addNode(DataManagingApp.AttrSavingStream.OUTPUT_TYPE);
+                ExecutionPlan.Node idRankSavingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
+
                 attrRecogNode.outputTo(reidNode.createInputPort(
                         PedestrianReIDUsingAttrApp.ReIDStream.ATTR_PORT));
                 attrRecogNode.outputTo(attrSavingNode.createInputPort(
                         DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
                 reidNode.outputTo(idRankSavingNode.createInputPort(
                         DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_PORT));
+
                 String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
+                final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
                             path.toString(),
                             Integer.valueOf(trackletIdx));
+                    final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
+                            + "/" + id.serialNumber);
                     final TaskData taskData = new TaskData(
-                            trackletDataNode.createInputPort(PedestrainTrackletRetrievingStream.RTRV_JOB_PORT),
+                            Arrays.asList(
+                                    attrRecogNode.createInputPort(PedestrianAttrRecogApp.RecogStream.TRACKLET_PORT),
+                                    reidNode.createInputPort(PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_PORT)),
                             plan,
-                            id);
+                            url);
                     sendWithLog(taskID, taskData, producer, logger);
                 });
                 break;
@@ -329,29 +307,34 @@ public class MessageHandlingApp extends SparkStreamingApp {
             case CommandType.REID_ONLY: {
                 // Retrieve track and attr data integrally, then feed them to ReID
                 // module.
-                ExecutionPlan.Node trackWithAttrDataNode = plan.addNode(
-                        PedestrainTrackletAttrRetrievingStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node reidNode = plan.addNode(
-                        PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE
-                );
-                ExecutionPlan.Node idRankSavingNode = plan.addNode(
-                        DataManagingApp.IDRankSavingStream.OUTPUT_TYPE
-                );
-                trackWithAttrDataNode.outputTo(reidNode.createInputPort(
-                        PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_ATTR_PORT));
+                ExecutionPlan.Node reidNode = plan.addNode(PedestrianReIDUsingAttrApp.ReIDStream.OUTPUT_TYPE);
+                ExecutionPlan.Node idRankSavingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
+
                 reidNode.outputTo(idRankSavingNode.createInputPort(
                         DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_PORT));
+
                 String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
+                final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
                             path.toString(),
                             Integer.valueOf(trackletIdx));
+                    final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
+                            + "/" + id.serialNumber);
+                    final Attributes attr;
+                    try {
+                        attr = new RobustExecutor<Void, Attributes>((Function0<Attributes>) () ->
+                                dbConnector.getPedestrianAttributes(id.toString())
+                        ).execute();
+                    } catch (Exception e) {
+                        logger.error("During retrieving attributes", e);
+                        return;
+                    }
+                    final PedestrianInfo info = new PedestrianInfo(url, attr);
                     final TaskData taskData = new TaskData(
-                            trackWithAttrDataNode.createInputPort(
-                                    PedestrainTrackletAttrRetrievingStream.RTRV_JOB_PORT),
+                            reidNode.createInputPort(PedestrianReIDUsingAttrApp.ReIDStream.TRACKLET_ATTR_PORT),
                             plan,
-                            id);
+                            info);
                     sendWithLog(taskID, taskData, producer, logger);
                 });
                 break;
