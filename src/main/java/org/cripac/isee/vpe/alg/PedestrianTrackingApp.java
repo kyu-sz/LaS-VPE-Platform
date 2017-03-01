@@ -107,12 +107,17 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
         private static final long serialVersionUID = -786439769732467646L;
 
+        int numSamplesPerTracklet = -1;
+
         public AppPropertyCenter(@Nonnull String[] args)
                 throws SAXException, ParserConfigurationException, URISyntaxException {
             super(args);
             // Digest the settings.
             for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
                 switch ((String) entry.getKey()) {
+                    case "vpe.num.sample.per.tracklet":
+                        numSamplesPerTracklet = Integer.valueOf((String) entry.getValue());
+                        break;
                 }
             }
         }
@@ -175,8 +180,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
          * Port for inputting from Kafka the IPs of cameras.
          */
         public static final Port LOGIN_PARAM_PORT =
-                new Port("cam-address-for-pedestrian-tracking",
-                        DataType.WEBCAM_LOGIN_PARAM);
+                new Port("cam-addr-for-pedestrian-tracking", DataType.WEBCAM_LOGIN_PARAM);
         private static final long serialVersionUID = -278417583644937040L;
 
         private final Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
@@ -242,13 +246,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private static final long serialVersionUID = -6738652169567844016L;
 
         private final Singleton<FileSystem> hdfsSingleton;
-        private final int maxSendSize;
+        private final int numSamplesPerTracklet;
         private final String metadataDir;
 
         public HDFSVideoTrackingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
-            maxSendSize = propCenter.kafkaSendMaxSize;
+            numSamplesPerTracklet = propCenter.numSamplesPerTracklet;
             metadataDir = propCenter.metadataDir;
             hdfsSingleton = new Singleton<>(new HDFSFactory());
         }
@@ -319,6 +323,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                                     // Set video IDs and Send tracklets.
                                     for (Tracklet tracklet : tracklets) {
+                                        // Conduct sampling on the tracklets to save memory.
+                                        tracklet.sample(numSamplesPerTracklet);
                                         tracklet.id.videoID = videoName;
                                         try {
                                             output(outputPorts, taskData.executionPlan,

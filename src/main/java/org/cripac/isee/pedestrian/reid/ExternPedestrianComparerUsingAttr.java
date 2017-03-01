@@ -30,6 +30,7 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 
@@ -118,18 +119,18 @@ import java.util.UUID;
  */
 public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAttr {
 
-    protected Socket socket;
+    private final Socket socket;
     private Thread resListeningThread = null;
-    private Map<UUID, Float> resultPool = new Object2ObjectOpenHashMap<>();
+    private final Map<UUID, Float> resultPool = new Object2ObjectOpenHashMap<>();
     private boolean enableFeatureOnly = true;
 
     /**
      * Constructor of ExternPedestrianComparerWithAttr specifying extern
      * solver's address and listening port.
      *
-     * @param solverAddress The address of the solver.
-     * @param port          The port the solver is listening to.
-     * @throws IOException
+     * @param solverAddress the address of the solver.
+     * @param port          the port the solver is listening to.
+     * @throws IOException if an I/O error occurs when creating the socket.
      */
     public ExternPedestrianComparerUsingAttr(@Nonnull InetAddress solverAddress,
                                              int port) throws IOException {
@@ -142,10 +143,10 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
      * Constructor of ExternPedestrianComparerWithAttr specifying extern
      * solver's address and listening port.
      *
-     * @param solverAddress     The address of the solver.
-     * @param port              The port the solver is listening to.
-     * @param enableFeatureOnly Enable to compare pedestrians with feature only.
-     * @throws IOException
+     * @param solverAddress     the address of the solver.
+     * @param port              the port the solver is listening to.
+     * @param enableFeatureOnly whether to enable comparing pedestrians with feature only.
+     * @throws IOException if an I/O error occurs when creating the socket.
      */
     public ExternPedestrianComparerUsingAttr(@Nonnull InetAddress solverAddress,
                                              int port,
@@ -204,8 +205,8 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
         private static final long serialVersionUID = -2921106573399450286L;
 
         public UUID id = UUID.randomUUID();
-        public PedestrianInfo personA = null;
-        public PedestrianInfo personB = null;
+        PedestrianInfo personA = null;
+        PedestrianInfo personB = null;
 
         public RequestMessage(@Nonnull PedestrianInfo personA,
                               @Nonnull PedestrianInfo personB) {
@@ -219,14 +220,14 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
          *
          * @param pedestrianInfo Information of a pedestrian.
          * @param outputStream   The stream to output the byte array to.
-         * @throws IOException
+         * @throws Exception on failure of getting tracklet from HDFS.
          */
         private void getBytesFromPedestrianInfo(@Nonnull PedestrianInfo pedestrianInfo,
                                                 @Nonnull OutputStream outputStream)
                 throws Exception {
             ByteBuffer byteBuffer;
 
-            if (pedestrianInfo.feature != null || enableFeatureOnly) {
+            if (pedestrianInfo.feature != null && enableFeatureOnly) {
                 // 1 byte - 0: Full data; 1: Feature only
                 outputStream.write(1);
 
@@ -236,14 +237,15 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
                 // 1 byte - 0: Full data; 1: Feature only
                 outputStream.write(0);
 
-                // Tracklet.
+                // Tracklet samples.
                 Tracklet tracklet = pedestrianInfo.trackletOrURL.getTracklet();
-                // 4 bytes - Tracklet length (number of bounding boxes).
+                Collection<BoundingBox> samples = tracklet.getSamples();
+                // 4 bytes - number of samples in the tracklet.
                 byteBuffer = ByteBuffer.allocate(Integer.BYTES);
-                byteBuffer.putInt(tracklet.locationSequence.length);
+                byteBuffer.putInt(samples.size());
                 outputStream.write(byteBuffer.array());
                 // Each bounding box.
-                for (BoundingBox bbox : tracklet.locationSequence) {
+                for (BoundingBox bbox : samples) {
                     // 16 bytes - Bounding box data.
                     // width * height * 3 bytes - Image data.
                     outputStream.write(bbox.toBytes());
@@ -269,9 +271,9 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
          * stream as a byte array in a specialized form.
          *
          * @param outputStream The output stream to write to.
-         * @throws IOException
+         * @throws Exception on failure of getting tracklet from HDFS.
          */
-        public void getBytes(@Nonnull OutputStream outputStream) throws Exception {
+        void getBytes(@Nonnull OutputStream outputStream) throws Exception {
             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream);
 
             // 16 bytes - Request UUID.
@@ -305,9 +307,8 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
          * Construct a listener listening to the socket.
          *
          * @param inputStream Input stream from the socket.
-         * @throws IOException
          */
-        public ResultListener(@Nonnull InputStream inputStream) {
+        ResultListener(@Nonnull InputStream inputStream) {
             this.inputStream = inputStream;
         }
 
@@ -329,18 +330,19 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
             while (true) {
                 // Receive data from socket.
                 try {
-                    int ret = 0;
+                    int ret;
                     // 8 * 2 bytes - Request UUID.
                     ret = inputStream.read(idMSBBuf, 0, idMSBBuf.length);
-                    assert (idMSBBuf.length == ret);
+                    assert idMSBBuf.length == ret;
                     ret = inputStream.read(idLSBBuf, 0, idLSBBuf.length);
-                    assert (idLSBBuf.length == ret);
+                    assert idLSBBuf.length == ret;
                     // 4 bytes - Similarity.
                     ret = inputStream.read(similarityBuf, 0, similarityBuf.length);
-                    assert (similarityBuf.length == ret);
+                    assert similarityBuf.length == ret;
                     // 1 byte - Whether returning the feature vector of the
                     // first pedestrian.
-                    inputStream.read(hasFeatVecBufA);
+                    ret = inputStream.read(hasFeatVecBufA);
+                    assert ret == 1;
                     if (hasFeatVecBufA[0] != 0) {
                         // Feature.LENGTH bytes (Optional) - The feature vector
                         // of the first pedestrian.
@@ -349,7 +351,8 @@ public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAt
                     }
                     // 1 byte - Whether returning the feature vector of the
                     // second pedestrian.
-                    inputStream.read(hasFeatVecBufB);
+                    ret = inputStream.read(hasFeatVecBufB);
+                    assert ret == 1;
                     if (hasFeatVecBufB[0] != 0) {
                         // Feature.LENGTH bytes (Optional) - The feature vector
                         // of the second pedestrian.

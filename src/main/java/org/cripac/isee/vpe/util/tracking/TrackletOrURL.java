@@ -24,6 +24,7 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 
+import javax.annotation.Nonnull;
 import java.io.Serializable;
 
 /**
@@ -76,6 +77,7 @@ public class TrackletOrURL implements Serializable {
         this.URL = URL;
     }
 
+    @Nonnull
     public Tracklet getTracklet() throws Exception {
         return tracklet != null ? tracklet : (tracklet =
                 new RobustExecutor<>((Function<String, Tracklet>) HadoopHelper::retrieveTracklet).execute(URL));

@@ -23,6 +23,9 @@ import com.google.gson.annotations.SerializedName;
 import javax.annotation.Nonnull;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * The Tracklet class stores a sequence of bounding boxes, representing the
@@ -32,7 +35,7 @@ import java.nio.ByteBuffer;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class Tracklet implements Serializable {
+public class Tracklet implements Serializable, Cloneable {
 
     private static final long serialVersionUID = -6133927313545472821L;
     /**
@@ -63,10 +66,10 @@ public class Tracklet implements Serializable {
     @SerializedName("bounding-boxes")
     public BoundingBox[] locationSequence = null;
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Transform this tracklet to Json string.
      *
-     * @see java.lang.Object#toString()
+     * @return a json string of this tracklet.
      */
     @Override
     public String toString() {
@@ -132,33 +135,44 @@ public class Tracklet implements Serializable {
     }
 
     /**
-     * Truncate and shrink the tracklet into a new one.
+     * Select some bounding boxes as the appearance samples of the pedestrian.
+     * Only these bounding boxes retain the patch data, and patch data in other
+     * bounding boxes will be cleared, so as the tracklet consumes less memory.
      *
-     * @param start     Index in the original sequence (counting from 0)
-     *                  of the first bounding box in the truncated sequence.
-     * @param length    Length of the truncated tracklet.
-     *                  Mark it as negative means truncate to the end of the original sequence.
-     * @param increment Increment of index when picking bounding boxes between start and end.
-     * @return The truncated and shrunk tracklet.
+     * @param numSamples number of samples to be selected.
      */
-    public Tracklet truncateAndShrink(int start, int length, int increment) {
-        if (length < 0) {
-            length = this.locationSequence.length;
+    public void sample(int numSamples) {
+        switch (numSamples) {
+            case -1:
+                // Do not perform sampling.
+                break;
+            case 0:
+                // Clear all patch data.
+                for (BoundingBox box : locationSequence) {
+                    box.patchData = null;
+                }
+                break;
+            default:
+                // Perform even sampling.
+                final int interval = locationSequence.length / (numSamples + 1);
+                final int start = (locationSequence.length - (numSamples - 1) * interval) / 2;
+                for (int i = 0; i < locationSequence.length; ++i) {
+                    if (((i - start) % interval) != 0) {
+                        locationSequence[i].patchData = null;
+                    }
+                }
+                break;
         }
-        if (start + length * increment > this.locationSequence.length) {
-            length = (this.locationSequence.length - start) / increment;
-        }
-        Tracklet tracklet = new Tracklet();
-        tracklet.numTracklets = this.numTracklets;
-        tracklet.id = this.id;
-        tracklet.startFrameIndex = this.startFrameIndex + start;
+    }
 
-        tracklet.locationSequence = new BoundingBox[length];
-        int offset = start;
-        for (int i = 0; i < length; ++i) {
-            tracklet.locationSequence[i] = this.locationSequence[offset++];
+    public Collection<BoundingBox> getSamples() {
+        List<BoundingBox> samples = new ArrayList<>();
+        for (BoundingBox box : locationSequence) {
+            if (box.patchData != null) {
+                samples.add(box);
+            }
         }
-        return tracklet;
+        return samples;
     }
 
     /**
@@ -194,8 +208,8 @@ public class Tracklet implements Serializable {
         public int height = 0;
 
         /**
-         * The RGB data of the patch croped by the bounding box. If it is not
-         * availble, it should be set to null. Otherwise, it should follow the
+         * The RGB data of the patch croped by the bounding box. If not
+         * available, it should be set to null. Otherwise, it should follow the
          * format of the 'data' field of OpenCV 2.x's Mat class. When
          * reconstructing a OpenCV's Mat with this bounding box, first allocate
          * a Mat with width and height same to this bounding box and format as
@@ -207,6 +221,7 @@ public class Tracklet implements Serializable {
         /**
          * Transform the bounding box to a Json string.
          * The string contains location information only (no pixel data).
+         *
          * @return A Json string representing the location information of the bounding box.
          */
         @Override
@@ -221,12 +236,15 @@ public class Tracklet implements Serializable {
          * then width * height * 3 bytes representing the pixels in the patch.
          */
         public byte[] toBytes() {
-            ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES * 4 + patchData.length);
+            ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES * 4
+                    + (patchData == null ? 0 : patchData.length));
             buf.putInt(x);
             buf.putInt(y);
             buf.putInt(width);
             buf.putInt(height);
-            buf.put(patchData);
+            if (patchData != null) {
+                buf.put(patchData);
+            }
             return buf.array();
         }
     }

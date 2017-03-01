@@ -38,6 +38,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Collection;
 
 /**
  * The class ExternPedestrianAttrRecognizer is a recognizer of pedestrian
@@ -78,7 +79,6 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
      *
      * @param solverAddress The address of the solver.
      * @param port          The port the solver is listening to.
-     * @throws IOException
      */
     public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,
                                           int port,
@@ -197,7 +197,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
 
         private static final long serialVersionUID = -2921106573399450286L;
 
-        public Tracklet tracklet = null;
+        final Collection<BoundingBox> samples;
 
         /**
          * Create a message requesting attribute recognition on a track.
@@ -205,7 +205,7 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
          * @param tracklet The track to recognize attributes from.
          */
         public RequestMessage(@Nonnull Tracklet tracklet) {
-            this.tracklet = tracklet;
+            this.samples = tracklet.getSamples();
         }
 
         /**
@@ -218,12 +218,12 @@ public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
         void getBytes(@Nonnull OutputStream outputStream) throws IOException {
             BufferedOutputStream bufferedStream = new BufferedOutputStream(outputStream);
 
-            // 4 bytes - Tracklet length (number of bounding boxes).
+            // 4 bytes - number of samples.
             ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
-            buf.putInt(tracklet.locationSequence.length);
+            buf.putInt(samples.size());
             bufferedStream.write(buf.array());
-            // Each bounding box.
-            for (BoundingBox bbox : tracklet.locationSequence) {
+            // Each sample.
+            for (BoundingBox bbox : samples) {
                 // 16 bytes - Bounding box data.
                 // width * height * 3 bytes - Image data.
                 bufferedStream.write(bbox.toBytes());

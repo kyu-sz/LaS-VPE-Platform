@@ -90,11 +90,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private static final long serialVersionUID = -786439769732467646L;
         InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         int externAttrRecogServerPort = 0;
-        // Max length of a tracklet to recognize attributes from.
-        // A tracklet with length greater than the limit will be truncated
-        // before performing attribute recognition.
-        // 0 means not limiting.
-        int maxTrackletLength = 0;
         Algorithm algorithm = Algorithm.EXT;
 
         public AppPropertyCenter(@Nonnull String[] args)
@@ -108,9 +103,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         break;
                     case "vpe.ped.attr.ext.port":
                         externAttrRecogServerPort = new Integer((String) entry.getValue());
-                        break;
-                    case "vpe.max.tracklet.length":
-                        maxTrackletLength = new Integer((String) entry.getValue());
                         break;
                     case "vpe.ped.attr.alg":
                         algorithm = Algorithm.valueOf((String) entry.getValue());
@@ -148,13 +140,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private static final long serialVersionUID = -4672941060404428484L;
 
         private final Singleton<PedestrianAttrRecognizer> recognizerSingleton;
-        // Max length of the resulting tracklet. 0 means not limiting.
-        private final int maxTrackletLength;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
-
-            this.maxTrackletLength = propCenter.maxTrackletLength;
 
             loggerSingleton.getInst().debug("Using Kafka brokers: " + propCenter.kafkaBootstrapServers);
 
@@ -187,14 +175,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
                             Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
                             logger.debug("To recognize attributes for task " + taskID + "!");
-                            // Truncate and shrink the tracklet in case it is too large.
-                            if (maxTrackletLength > 0
-                                    && tracklet.locationSequence.length > maxTrackletLength) {
-                                final int increment = tracklet.locationSequence.length / maxTrackletLength;
-                                final int start =
-                                        tracklet.locationSequence.length - maxTrackletLength * increment;
-                                tracklet = tracklet.truncateAndShrink(start, maxTrackletLength, increment);
-                            }
                             // Recognize attributes robustly.
                             Attributes attr = new RobustExecutor<>((Function<Tracklet, Attributes>) t ->
                                     recognizerSingleton.getInst().recognize(t)

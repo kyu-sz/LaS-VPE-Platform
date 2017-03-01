@@ -443,4 +443,35 @@ public class Attributes implements Serializable {
             return super.equals(o);
         }
     }
+
+    public static Attributes add(Attributes attr1, Attributes attr2) {
+        Attributes res = new Attributes();
+        for (Field field : Attributes.class.getFields()) {
+            if (field.getType() == float.class) {
+                try {
+                    final float v1 = (float) field.get(attr1);
+                    final float v2 = (float) field.get(attr2);
+                    field.set(field, v1 + v2);
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return res;
+    }
+
+    public static Attributes div(Attributes attr, int divisor) {
+        Attributes res = new Attributes();
+        for (Field field : Attributes.class.getFields()) {
+            if (field.getType() == float.class) {
+                try {
+                    final float v = (float) field.get(attr);
+                    field.set(field, v / divisor);
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return res;
+    }
 }

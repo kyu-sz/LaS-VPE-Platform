@@ -19,12 +19,11 @@ package org.cripac.isee.vpe.util.hdfs;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocalFileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.cripac.isee.vpe.util.Factory;
+import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 
 /**
@@ -41,13 +40,8 @@ public class HDFSFactory implements Factory<FileSystem> {
      */
     @Nonnull
     @Override
-    public FileSystem produce() throws IOException {
-        Configuration hdfsConf = new Configuration();
-        hdfsConf.addResource(new Path(System.getenv("HADOOP_HOME") + "/etc/hadoop/core-site.xml"));
-        hdfsConf.setBoolean("dfs.support.append", true);
-        hdfsConf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
-        hdfsConf.set("fs.file.impl", LocalFileSystem.class.getName());
-        System.out.println("Connecting to " + hdfsConf.getRaw("fs.default.name"));
+    public FileSystem produce() throws IOException, ParserConfigurationException, SAXException {
+        Configuration hdfsConf = HadoopHelper.getDefaultConf();
         return FileSystem.get(hdfsConf);
     }
 }

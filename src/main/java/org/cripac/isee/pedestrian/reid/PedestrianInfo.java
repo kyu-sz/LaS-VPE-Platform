@@ -20,6 +20,7 @@ package org.cripac.isee.pedestrian.reid;
 import org.cripac.isee.pedestrian.attr.Attributes;
 import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
 
@@ -49,11 +50,12 @@ public class PedestrianInfo implements Serializable, Cloneable {
 
     /**
      * Constructor with track and attributes specified at the beginning.
-     *  @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
+     *
+     * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
      * @param attr          attributes recognized from the pedestrian.
-     * @param id
+     * @param id            ID of the pedestrian
      */
-    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL,
+    public PedestrianInfo(@Nonnull TrackletOrURL trackletOrURL,
                           @Nullable Attributes attr,
                           int id) {
         this(trackletOrURL, attr, id, null);
@@ -64,9 +66,9 @@ public class PedestrianInfo implements Serializable, Cloneable {
      *
      * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
      * @param attr          attributes recognized from the pedestrian.
-     * @param feature
+     * @param feature       feature of the pedestrian appearance
      */
-    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL,
+    public PedestrianInfo(@Nonnull TrackletOrURL trackletOrURL,
                           @Nullable Attributes attr,
                           @Nullable Feature feature) {
         this(trackletOrURL, attr, -1, feature);
@@ -77,7 +79,7 @@ public class PedestrianInfo implements Serializable, Cloneable {
      *
      * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
      */
-    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL) {
+    public PedestrianInfo(@Nonnull TrackletOrURL trackletOrURL) {
         this(trackletOrURL, null);
     }
 
@@ -87,7 +89,7 @@ public class PedestrianInfo implements Serializable, Cloneable {
      * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
      * @param attr          attributes recognized from the pedestrian.
      */
-    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL,
+    public PedestrianInfo(@Nonnull TrackletOrURL trackletOrURL,
                           @Nullable Attributes attr) {
         this(trackletOrURL, attr, -1, null);
     }
@@ -97,8 +99,10 @@ public class PedestrianInfo implements Serializable, Cloneable {
      *
      * @param trackletOrURL the tracklet of the pedestrian or the URL of the tracklet.
      * @param attr          attributes recognized from the pedestrian.
+     * @param id            ID of the pedestrian
+     * @param feature       feature of the pedestrian appearance
      */
-    public PedestrianInfo(@Nullable TrackletOrURL trackletOrURL,
+    public PedestrianInfo(@Nonnull TrackletOrURL trackletOrURL,
                           @Nullable Attributes attr,
                           int id,
                           @Nullable Feature feature) {

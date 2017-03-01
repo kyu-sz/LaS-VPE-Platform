@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collection;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.bytedeco.javacpp.caffe.TEST;
@@ -117,9 +118,8 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
     /**
      * Create an instance of DeepMAR. The protocol and weights are retrieved from the JAR.
      *
-     * @param gpu
-     * @param logger
-     * @throws IOException
+     * @param gpu    id of GPU to use.
+     * @param logger logger for outputting debug info.
      */
     public DeepMAR(int gpu,
                    @Nullable Logger logger) throws IOException {
@@ -150,10 +150,20 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
      * @return The attributes of the pedestrian specified by the track.
      * @throws IOException Exception that might occur during recognition.
      */
+    @Nonnull
     @Override
     public Attributes recognize(@Nonnull Tracklet tracklet) throws IOException {
+        Collection<Tracklet.BoundingBox> samples = tracklet.getSamples();
+        assert samples.size() >= 1;
+        //noinspection OptionalGetWithoutIsPresent
+        return Attributes.div(
+                samples.stream().map(this::recognize).reduce(Attributes::add).get(),
+                samples.size());
+    }
+
+    @Nonnull
+    public Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
         // Process image.
-        final Tracklet.BoundingBox bbox = tracklet.locationSequence[tracklet.locationSequence.length >> 1];
         opencv_core.Mat image = new opencv_core.Mat(bbox.height, bbox.width, CV_8UC3);
         image.data(new BytePointer(bbox.patchData));
         image.convertTo(image, CV_32FC3);
@@ -205,7 +215,8 @@ public final class DeepMAR extends PedestrianAttrRecognizer {
         return fillAttributes(net.blob_by_name("fc8"));
     }
 
-    private Attributes fillAttributes(caffe.FloatBlob outputBlob) {
+    @Nonnull
+    private Attributes fillAttributes(@Nonnull caffe.FloatBlob outputBlob) {
         final float[] outputArray = new float[outputBlob.count()];
         outputBlob.cpu_data().get(outputArray);
 

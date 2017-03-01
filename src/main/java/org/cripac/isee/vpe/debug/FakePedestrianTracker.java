@@ -59,6 +59,7 @@ public class FakePedestrianTracker extends Tracker {
             Tracklet tracklet = generateRandomTracklet();
             tracklet.id.serialNumber = i;
             tracklet.numTracklets = numTracks;
+            tracklet.sample(5);
             tracklets[i] = tracklet;
         }
 
