@@ -154,11 +154,13 @@ public class Tracklet implements Serializable, Cloneable {
                 break;
             default:
                 // Perform even sampling.
-                final int interval = locationSequence.length / (numSamples + 1);
-                final int start = (locationSequence.length - (numSamples - 1) * interval) / 2;
-                for (int i = 0; i < locationSequence.length; ++i) {
-                    if (((i - start) % interval) != 0) {
-                        locationSequence[i].patchData = null;
+                if (locationSequence.length > numSamples) {
+                    final int interval = locationSequence.length / (numSamples + 1);
+                    final int start = (locationSequence.length - (numSamples - 1) * interval) / 2;
+                    for (int i = 0; i < locationSequence.length; ++i) {
+                        if (((i - start) % interval) != 0) {
+                            locationSequence[i].patchData = null;
+                        }
                     }
                 }
                 break;
