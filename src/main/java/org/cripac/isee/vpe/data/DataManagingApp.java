@@ -250,119 +250,121 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void run() {
-            try {
-                KafkaConsumer<String, byte[]> jobListener = new KafkaConsumer<>(consumerProperties);
-                final FileSystem hdfs;
-                FileSystem tmpHDFS;
-                while (true) {
-                    try {
-                        tmpHDFS = new HDFSFactory().produce();
-                        break;
-                    } catch (IOException | SAXException | ParserConfigurationException e) {
-                        logger.error("On connecting HDFS", e);
-                    }
-                }
-                hdfs = tmpHDFS;
-                jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
-                while (running.get()) {
-                    ConsumerRecords<String, byte[]> records = jobListener.poll(1000);
-                    Map<String, byte[]> taskMap = new Object2ObjectOpenHashMap<>();
-                    records.forEach(rec -> taskMap.put(rec.key(), rec.value()));
-
-                    final long start = System.currentTimeMillis();
-                    logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
-                    taskMap.entrySet().forEach(rec -> {
+            while (running.get()) {
+                try {
+                    KafkaConsumer<String, byte[]> jobListener = new KafkaConsumer<>(consumerProperties);
+                    final FileSystem hdfs;
+                    FileSystem tmpHDFS;
+                    while (true) {
                         try {
-                            final String taskID = rec.getKey();
-                            final Tuple2<String, Integer> info = SerializationHelper.deserialize(rec.getValue());
-                            final String videoID = info._1();
-                            final int numTracklets = info._2();
-                            final String videoRoot = metadataDir + "/" + videoID;
-                            final String taskRoot = videoRoot + "/" + taskID;
+                            tmpHDFS = new HDFSFactory().produce();
+                            break;
+                        } catch (IOException | SAXException | ParserConfigurationException e) {
+                            logger.error("On connecting HDFS", e);
+                        }
+                    }
+                    hdfs = tmpHDFS;
+                    jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
+                    while (running.get()) {
+                        ConsumerRecords<String, byte[]> records = jobListener.poll(1000);
+                        Map<String, byte[]> taskMap = new Object2ObjectOpenHashMap<>();
+                        records.forEach(rec -> taskMap.put(rec.key(), rec.value()));
 
-                            final boolean harExists = new RobustExecutor<Void, Boolean>(
-                                    (Function0<Boolean>) () ->
-                                            hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))
-                            ).execute();
-                            if (harExists) {
-                                // Packing has been finished in a previous request.
-                                final boolean taskRootExists = new RobustExecutor<Void, Boolean>(
-                                        (Function0<Boolean>) () -> hdfs.exists(new Path(videoRoot + "/" + taskID)
-                                        )
+                        final long start = System.currentTimeMillis();
+                        logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
+                        taskMap.entrySet().forEach(rec -> {
+                            try {
+                                final String taskID = rec.getKey();
+                                final Tuple2<String, Integer> info = SerializationHelper.deserialize(rec.getValue());
+                                final String videoID = info._1();
+                                final int numTracklets = info._2();
+                                final String videoRoot = metadataDir + "/" + videoID;
+                                final String taskRoot = videoRoot + "/" + taskID;
+
+                                final boolean harExists = new RobustExecutor<Void, Boolean>(
+                                        (Function0<Boolean>) () ->
+                                                hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))
                                 ).execute();
-                                if (taskRootExists) {
-                                    // But seems to have failed to delete the task root.
-                                    // Now do it again.
+                                if (harExists) {
+                                    // Packing has been finished in a previous request.
+                                    final boolean taskRootExists = new RobustExecutor<Void, Boolean>(
+                                            (Function0<Boolean>) () -> hdfs.exists(new Path(videoRoot + "/" + taskID)
+                                            )
+                                    ).execute();
+                                    if (taskRootExists) {
+                                        // But seems to have failed to delete the task root.
+                                        // Now do it again.
+                                        new RobustExecutor<Void, Void>(() ->
+                                                new HDFSFactory().produce().delete(new Path(taskRoot), true)
+                                        ).execute();
+                                    }
+                                    return;
+                                }
+
+                                // If all the tracklets from a task are saved,
+                                // it's time to pack them into a HAR!
+                                final ContentSummary contentSummary = new RobustExecutor<Void, ContentSummary>(
+                                        (Function0<ContentSummary>) () -> hdfs.getContentSummary(new Path(taskRoot))
+                                ).execute();
+                                final long dirCnt = contentSummary.getDirectoryCount();
+                                // Decrease one for directory counter.
+                                if (dirCnt - 1 == numTracklets) {
+                                    logger.info("Starting to pack metadata for Task " + taskID
+                                            + "(" + videoID + ")! The directory consumes "
+                                            + contentSummary.getSpaceConsumed() + " bytes.");
+
+                                    new RobustExecutor<Void, Void>(() -> {
+                                        final HadoopArchives arch = new HadoopArchives(new Configuration());
+                                        final ArrayList<String> harPackingOptions = new ArrayList<>();
+                                        harPackingOptions.add("-archiveName");
+                                        harPackingOptions.add(taskID + ".har");
+                                        harPackingOptions.add("-p");
+                                        harPackingOptions.add(taskRoot);
+                                        harPackingOptions.add(videoRoot);
+                                        arch.run(Arrays.copyOf(harPackingOptions.toArray(),
+                                                harPackingOptions.size(), String[].class));
+                                    }).execute();
+
+                                    logger.info("Task " + taskID + "(" + videoID + ") packed!");
+
+                                    new RobustExecutor<Void, Void>(() ->
+                                            databaseConnector.setTrackSavingPath(videoID,
+                                                    videoRoot + "/" + taskID + ".har")
+                                    ).execute();
+
+                                    // Delete the original folder recursively.
                                     new RobustExecutor<Void, Void>(() ->
                                             new HDFSFactory().produce().delete(new Path(taskRoot), true)
                                     ).execute();
+                                } else {
+                                    logger.info("Task " + taskID + "(" + videoID + ") need "
+                                            + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
                                 }
-                                return;
+                            } catch (Exception e) {
+                                logger.error("On trying to pack tracklets", e);
                             }
+                        });
+                        final long end = System.currentTimeMillis();
 
-                            // If all the tracklets from a task are saved,
-                            // it's time to pack them into a HAR!
-                            final ContentSummary contentSummary = new RobustExecutor<Void, ContentSummary>(
-                                    (Function0<ContentSummary>) () -> hdfs.getContentSummary(new Path(taskRoot))
-                            ).execute();
-                            final long dirCnt = contentSummary.getDirectoryCount();
-                            // Decrease one for directory counter.
-                            if (dirCnt - 1 == numTracklets) {
-                                logger.info("Starting to pack metadata for Task " + taskID
-                                        + "(" + videoID + ")! The directory consumes "
-                                        + contentSummary.getSpaceConsumed() + " bytes.");
-
-                                new RobustExecutor<Void, Void>(() -> {
-                                    final HadoopArchives arch = new HadoopArchives(new Configuration());
-                                    final ArrayList<String> harPackingOptions = new ArrayList<>();
-                                    harPackingOptions.add("-archiveName");
-                                    harPackingOptions.add(taskID + ".har");
-                                    harPackingOptions.add("-p");
-                                    harPackingOptions.add(taskRoot);
-                                    harPackingOptions.add(videoRoot);
-                                    arch.run(Arrays.copyOf(harPackingOptions.toArray(),
-                                            harPackingOptions.size(), String[].class));
-                                }).execute();
-
-                                logger.info("Task " + taskID + "(" + videoID + ") packed!");
-
-                                new RobustExecutor<Void, Void>(() ->
-                                        databaseConnector.setTrackSavingPath(videoID,
-                                                videoRoot + "/" + taskID + ".har")
-                                ).execute();
-
-                                // Delete the original folder recursively.
-                                new RobustExecutor<Void, Void>(() ->
-                                        new HDFSFactory().produce().delete(new Path(taskRoot), true)
-                                ).execute();
-                            } else {
-                                logger.info("Task " + taskID + "(" + videoID + ") need "
-                                        + (numTracklets - dirCnt + 1) + "/" + numTracklets + " more tracklets!");
+                        try {
+                            jobListener.commitSync();
+                            if (records.count() >= maxPollRecords && end - start < MAX_POLL_INTERVAL_MS) {
+                                // Can poll more records once, and there are many records in Kafka waiting to be processed.
+                                maxPollRecords = maxPollRecords * 3 / 2;
+                                consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
+                                jobListener = new KafkaConsumer<>(consumerProperties);
                             }
-                        } catch (Exception e) {
-                            logger.error("On trying to pack tracklets", e);
-                        }
-                    });
-                    final long end = System.currentTimeMillis();
-
-                    try {
-                        jobListener.commitSync();
-                        if (records.count() >= maxPollRecords && end - start < MAX_POLL_INTERVAL_MS) {
-                            // Can poll more records once, and there are many records in Kafka waiting to be processed.
-                            maxPollRecords = maxPollRecords * 3 / 2;
+                        } catch (CommitFailedException e) {
+                            // Processing time is longer than poll interval.
+                            // Poll fewer records once.
+                            maxPollRecords /= 2;
                             consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
                             jobListener = new KafkaConsumer<>(consumerProperties);
                         }
-                    } catch (CommitFailedException e) {
-                        // Processing time is longer than poll interval.
-                        // Poll fewer records once.
-                        maxPollRecords /= 2;
-                        consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
-                        jobListener = new KafkaConsumer<>(consumerProperties);
                     }
+                } catch (Exception e) {
+                    logger.error("In packing thread", e);
                 }
-            } catch (Exception e) {
-                logger.error("In packing thread", e);
             }
         }
     }
