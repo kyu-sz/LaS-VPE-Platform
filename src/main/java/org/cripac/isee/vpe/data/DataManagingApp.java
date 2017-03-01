@@ -18,7 +18,6 @@
 package org.cripac.isee.vpe.data;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -314,15 +313,18 @@ public class DataManagingApp extends SparkStreamingApp {
                                             + contentSummary.getSpaceConsumed() + " bytes.");
 
                                     new RobustExecutor<Void, Void>(() -> {
-                                        final HadoopArchives arch = new HadoopArchives(new Configuration());
+                                        final HadoopArchives arch = new HadoopArchives(HadoopHelper.getDefaultConf());
                                         final ArrayList<String> harPackingOptions = new ArrayList<>();
                                         harPackingOptions.add("-archiveName");
                                         harPackingOptions.add(taskID + ".har");
                                         harPackingOptions.add("-p");
                                         harPackingOptions.add(taskRoot);
                                         harPackingOptions.add(videoRoot);
-                                        arch.run(Arrays.copyOf(harPackingOptions.toArray(),
+                                        int ret = arch.run(Arrays.copyOf(harPackingOptions.toArray(),
                                                 harPackingOptions.size(), String[].class));
+                                        if (ret < 0) {
+                                            throw new IOException("Archiving failed.");
+                                        }
                                     }).execute();
 
                                     logger.info("Task " + taskID + "(" + videoID + ") packed!");
