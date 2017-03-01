@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
+import org.apache.kafka.clients.consumer.CommitFailedException;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -233,9 +234,13 @@ public class DataManagingApp extends SparkStreamingApp {
         private final AtomicReference<Boolean> running;
         final GraphDatabaseConnector databaseConnector;
         final int maxRetries;
+        private final static int MAX_POLL_INTERVAL_MS = 300000;
+        private int maxPollRecords = 500;
 
         TrackletPackingThread(AppPropertyCenter propCenter, AtomicReference<Boolean> running) {
             consumerProperties = propCenter.getKafkaConsumerProp("tracklet-packing", false);
+            consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
+            consumerProperties.setProperty("max.poll.interval.ms", "" + MAX_POLL_INTERVAL_MS);
             metadataDir = propCenter.metadataDir;
             maxRetries = propCenter.maxRetries;
             logger = new SynthesizedLogger(APP_NAME, propCenter);
@@ -245,7 +250,7 @@ public class DataManagingApp extends SparkStreamingApp {
 
         @Override
         public void run() {
-            final KafkaConsumer<String, byte[]> jobListener = new KafkaConsumer<>(consumerProperties);
+            KafkaConsumer<String, byte[]> jobListener = new KafkaConsumer<>(consumerProperties);
             final FileSystem hdfs;
             FileSystem tmpHDFS;
             while (true) {
@@ -263,6 +268,7 @@ public class DataManagingApp extends SparkStreamingApp {
                 Map<String, byte[]> taskMap = new Object2ObjectOpenHashMap<>();
                 records.forEach(rec -> taskMap.put(rec.key(), rec.value()));
 
+                final long start = System.currentTimeMillis();
                 logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
                 taskMap.entrySet().forEach(rec -> {
                     try {
@@ -336,7 +342,23 @@ public class DataManagingApp extends SparkStreamingApp {
                         logger.error("On trying to pack tracklets", e);
                     }
                 });
-                jobListener.commitSync();
+                final long end = System.currentTimeMillis();
+
+                try {
+                    jobListener.commitSync();
+                    if (records.count() >= maxPollRecords && end - start < MAX_POLL_INTERVAL_MS) {
+                        // Can poll more records once, and there are many records in Kafka waiting to be processed.
+                        maxPollRecords = maxPollRecords * 3 / 2;
+                        consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
+                        jobListener = new KafkaConsumer<>(consumerProperties);
+                    }
+                } catch (CommitFailedException e) {
+                    // Processing time is longer than poll interval.
+                    // Poll fewer records once.
+                    maxPollRecords /= 2;
+                    consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
+                    jobListener = new KafkaConsumer<>(consumerProperties);
+                }
             }
         }
     }
