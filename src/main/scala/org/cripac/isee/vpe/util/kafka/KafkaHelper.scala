@@ -17,6 +17,7 @@
 package org.cripac.isee.vpe.util.kafka
 
 import java.util.Properties
+import java.util.concurrent.{CancellationException, ExecutionException}
 import java.{lang => jl, util => ju}
 import javax.annotation.{Nonnull, Nullable}
 
@@ -61,17 +62,19 @@ object KafkaHelper {
     val logger = if (extLogger == null) new ConsoleLogger() else extLogger
     // Send the message.
     logger debug ("Sending to Kafka <" + topic + ">\t" + key)
-    val future = producer send new ProducerRecord[K, V](topic, key, value)
     // Retrieve sending report.
     try {
+      val future = producer send new ProducerRecord[K, V](topic, key, value)
       val recMeta = future get;
       logger debug ("Sent to Kafka" + " <"
         + recMeta.topic + "-"
         + recMeta.partition + "-"
         + recMeta.offset + ">\t" + key)
     } catch {
-      case e: InterruptedException =>
-        logger error("Interrupted when retrieving Kafka sending result.", e)
+      case ie: InterruptedException =>
+        logger error("Interrupted when retrieving Kafka sending result.", ie)
+      case e @ (_ : ExecutionException | _ : CancellationException) =>
+        throw if (e.getCause != null) e.getCause else e
     }
   }
 
