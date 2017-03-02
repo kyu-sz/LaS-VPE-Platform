@@ -355,6 +355,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 maxPollRecords = maxPollRecords * 3 / 2;
                                 consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
                                 jobListener = new KafkaConsumer<>(consumerProperties);
+                                jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
                             }
                         } catch (CommitFailedException e) {
                             // Processing time is longer than poll interval.
@@ -362,6 +363,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             maxPollRecords /= 2;
                             consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
                             jobListener = new KafkaConsumer<>(consumerProperties);
+                            jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
                         }
                     }
                 } catch (Exception e) {
