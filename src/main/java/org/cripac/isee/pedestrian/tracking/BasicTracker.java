@@ -44,7 +44,7 @@ import static org.bytedeco.javacpp.avutil.av_log_set_level;
 public class BasicTracker extends Tracker {
 
     private static int instanceCnt = 0;
-    private Lock instCntLock = new ReentrantLock();
+    private static Lock instCntLock = new ReentrantLock();
 
     static {
         System.out.println("Loading native libraries for BasicTracker from "
@@ -89,20 +89,13 @@ public class BasicTracker extends Tracker {
             instCntLock.lock();
             if (instanceCnt < 5) {
                 ++instanceCnt;
-                try {
-                    logger.info("Tracker instance count: " + instanceCnt);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                logger.info("Tracker instance count: " + instanceCnt);
                 break;
             }
             instCntLock.unlock();
-            logger.debug("Current tracker instance number is " + instanceCnt
-                    + ". Waiting for previous tasks to finish...");
             try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.sleep(200);
+            } catch (InterruptedException ignored) {
             }
         }
 
