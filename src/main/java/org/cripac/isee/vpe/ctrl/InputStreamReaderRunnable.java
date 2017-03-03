@@ -72,6 +72,7 @@ public class InputStreamReaderRunnable implements Runnable {
                 line = reader.readLine();
             }
             reader.close();
+            System.out.println("[INFO]" + name + " stream exiting.");
         } catch (IOException e) {
             e.printStackTrace();
         }

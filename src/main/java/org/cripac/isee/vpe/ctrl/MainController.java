@@ -114,7 +114,7 @@ public class MainController {
                     try {
                         boolean exited = processWithName.process.waitFor(100, TimeUnit.MILLISECONDS);
                         if (exited) {
-                            System.out.println("[INFO]Process " + processWithName.name + "finished! Exit code: "
+                            System.out.println("[INFO]Process " + processWithName.name + " finished! Exit code: "
                                     + processWithName.process.exitValue());
                             processWithName.process.getInputStream().close();
                             processWithName.process.getErrorStream().close();
