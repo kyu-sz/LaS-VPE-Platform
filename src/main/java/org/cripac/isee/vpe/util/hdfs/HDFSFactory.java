@@ -20,10 +20,8 @@ package org.cripac.isee.vpe.util.hdfs;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.cripac.isee.vpe.util.Factory;
-import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
-import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 
 /**
@@ -40,7 +38,7 @@ public class HDFSFactory implements Factory<FileSystem> {
      */
     @Nonnull
     @Override
-    public FileSystem produce() throws IOException, ParserConfigurationException, SAXException {
+    public FileSystem produce() throws IOException {
         Configuration hdfsConf = HadoopHelper.getDefaultConf();
         return FileSystem.get(hdfsConf);
     }

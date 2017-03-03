@@ -30,10 +30,8 @@ import org.cripac.isee.pedestrian.tracking.Tracklet;
 import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
 import org.spark_project.guava.collect.Range;
-import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
-import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -58,8 +56,7 @@ public class HadoopHelper {
         Loader.load(opencv_imgproc.class);
     }
 
-    public static Configuration getDefaultConf()
-            throws ParserConfigurationException, SAXException, IOException {
+    public static Configuration getDefaultConf() {
         // Load Hadoop configuration from XML files.
         Configuration hadoopConf = new Configuration();
         String hadoopHome = System.getenv("HADOOP_HOME");
@@ -83,7 +80,7 @@ public class HadoopHelper {
      * @throws URISyntaxException on syntax error detected in the storeDir.
      */
     @Nonnull
-    public static Tracklet retrieveTracklet(@Nonnull String storeDir) throws URISyntaxException, IOException, ParserConfigurationException, SAXException {
+    public static Tracklet retrieveTracklet(@Nonnull String storeDir) throws IOException, URISyntaxException {
         return retrieveTracklet(storeDir, new HDFSFactory().produce());
     }
 
