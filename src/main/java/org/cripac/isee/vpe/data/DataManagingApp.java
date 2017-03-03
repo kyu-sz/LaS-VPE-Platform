@@ -258,7 +258,7 @@ public class DataManagingApp extends SparkStreamingApp {
                         try {
                             tmpHDFS = new HDFSFactory().produce();
                             break;
-                        } catch (IOException | SAXException | ParserConfigurationException e) {
+                        } catch (IOException e) {
                             logger.error("On connecting HDFS", e);
                         }
                     }
