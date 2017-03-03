@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.tools.HadoopArchives;
 import org.apache.kafka.clients.consumer.CommitFailedException;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -96,7 +97,6 @@ public class DataManagingApp extends SparkStreamingApp {
         private static final long serialVersionUID = -786439769732467646L;
 
         int maxFramePerFragment = 1000;
-        int maxRetries = 10;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
@@ -106,9 +106,6 @@ public class DataManagingApp extends SparkStreamingApp {
                 switch ((String) entry.getKey()) {
                     case "vpe.max.frame.per.fragment":
                         maxFramePerFragment = new Integer((String) entry.getValue());
-                        break;
-                    case "hdfs.max.retries":
-                        maxRetries = new Integer((String) entry.getValue());
                         break;
                 }
             }
@@ -232,16 +229,14 @@ public class DataManagingApp extends SparkStreamingApp {
         final Logger logger;
         private final AtomicReference<Boolean> running;
         final GraphDatabaseConnector databaseConnector;
-        final int maxRetries;
         private final static int MAX_POLL_INTERVAL_MS = 300000;
         private int maxPollRecords = 500;
 
         TrackletPackingThread(AppPropertyCenter propCenter, AtomicReference<Boolean> running) {
             consumerProperties = propCenter.getKafkaConsumerProp("tracklet-packing", false);
-            consumerProperties.setProperty("max.poll.records", "" + maxPollRecords);
-            consumerProperties.setProperty("max.poll.interval.ms", "" + MAX_POLL_INTERVAL_MS);
+            consumerProperties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "" + maxPollRecords);
+            consumerProperties.setProperty(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, "" + MAX_POLL_INTERVAL_MS);
             metadataDir = propCenter.metadataDir;
-            maxRetries = propCenter.maxRetries;
             logger = new SynthesizedLogger(APP_NAME, propCenter);
             this.running = running;
             databaseConnector = new FakeDatabaseConnector();
@@ -287,14 +282,14 @@ public class DataManagingApp extends SparkStreamingApp {
                                 if (harExists) {
                                     // Packing has been finished in a previous request.
                                     final boolean taskRootExists = new RobustExecutor<Void, Boolean>(
-                                            (Function0<Boolean>) () -> hdfs.exists(new Path(videoRoot + "/" + taskID)
-                                            )
+                                            (Function0<Boolean>) () ->
+                                                    hdfs.exists(new Path(videoRoot + "/" + taskID))
                                     ).execute();
                                     if (taskRootExists) {
                                         // But seems to have failed to delete the task root.
                                         // Now do it again.
                                         new RobustExecutor<Void, Void>(() ->
-                                                new HDFSFactory().produce().delete(new Path(taskRoot), true)
+                                                hdfs.delete(new Path(taskRoot), true)
                                         ).execute();
                                     }
                                     return;
