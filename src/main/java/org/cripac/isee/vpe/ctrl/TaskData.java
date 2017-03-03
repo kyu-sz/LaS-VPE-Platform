@@ -220,6 +220,13 @@ public class TaskData implements Serializable, Cloneable {
             return node;
         }
 
+        @Override
+        protected void finalize() throws Throwable {
+            // In case the nodes form a loop and cause memory leak.
+            nodes.values().forEach(Node::markExecuted);
+            super.finalize();
+        }
+
         /**
          * Each node represents a flow of DStreams in an application.
          * Each node should produce only one kind of output.
@@ -227,16 +234,14 @@ public class TaskData implements Serializable, Cloneable {
          *
          * @author Ken Yu, CRIPAC, 2016
          */
-        public class Node implements Serializable, Cloneable {
+        public static class Node implements Serializable, Cloneable {
 
             private static final long serialVersionUID = 4538251384004287468L;
 
-            private ExecutionPlan getPlan() {
-                return ExecutionPlan.this;
-            }
-
             public void outputTo(@Nonnull Port port) {
-                assert this.getPlan() == port.getNode().getPlan();
+                // Make sure this port does not belong to this node. Otherwise, dead loop and memory leak will occur.
+                assert port.getNode() != this;
+                // Make sure the output type of this node matches the input type of the port.
                 assert this.outputType == port.prototype.inputType;
                 outputPorts.add(port);
             }
