@@ -235,7 +235,7 @@ public class TaskData implements Serializable, Cloneable {
                 return ExecutionPlan.this;
             }
 
-            public void outputTo(Port port) {
+            public void outputTo(@Nonnull Port port) {
                 assert this.getPlan() == port.getNode().getPlan();
                 assert this.outputType == port.prototype.inputType;
                 outputPorts.add(port);
@@ -257,7 +257,7 @@ public class TaskData implements Serializable, Cloneable {
                     return prototype.name;
                 }
 
-                private Port(Stream.Port prototype) {
+                private Port(@Nonnull Stream.Port prototype) {
                     this.prototype = prototype;
                 }
             }
@@ -286,7 +286,7 @@ public class TaskData implements Serializable, Cloneable {
              * @param execData The data for execution, which is a serializable
              */
             private Node(int id,
-                         DataType outputType,
+                         @Nonnull DataType outputType,
                          @Nullable Serializable execData) {
                 this.id = id;
                 this.outputType = outputType;
