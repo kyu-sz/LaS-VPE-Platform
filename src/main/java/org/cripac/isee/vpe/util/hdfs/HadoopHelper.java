@@ -101,16 +101,19 @@ public class HadoopHelper {
         final InputStreamReader infoReader;
         final HarFileSystem harFS;
         final FileSystem fs;
+        final String revisedStoreDir;
 
         if (hdfs.exists(new Path(storeDir))) {
             infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
             fs = hdfs;
+            revisedStoreDir = storeDir;
             harFS = null;
         } else {
             // Open the Hadoop Archive of the task the track is generated in.
+            revisedStoreDir = storeDir + ".har";
             harFS = new HarFileSystem();
-            harFS.initialize(new URI(storeDir), new Configuration());
-            infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
+            harFS.initialize(new URI(revisedStoreDir), new Configuration());
+            infoReader = new InputStreamReader(hdfs.open(new Path(revisedStoreDir + "/info.txt")));
             fs = harFS;
         }
 
@@ -124,7 +127,7 @@ public class HadoopHelper {
                 .forEach(idx -> {
                     Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
                     FSDataInputStream imgInputStream;
-                    final Path imgPath = new Path(storeDir + "/" + idx + ".jpg");
+                    final Path imgPath = new Path(revisedStoreDir + "/" + idx + ".jpg");
                     boolean isSample = false;
                     try {
                         isSample = fs.exists(imgPath);
