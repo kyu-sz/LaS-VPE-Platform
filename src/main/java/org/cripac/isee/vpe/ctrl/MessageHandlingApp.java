@@ -261,7 +261,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
-                            path.toString(),
+                            path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));
                     final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
                             + "/" + id.serialNumber);
@@ -290,7 +290,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
-                            path.toString(),
+                            path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));
                     final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
                             + "/" + id.serialNumber);
@@ -317,7 +317,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
-                            path.toString(),
+                            path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));
                     final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
                             + "/" + id.serialNumber);

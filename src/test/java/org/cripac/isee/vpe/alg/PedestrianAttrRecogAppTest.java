@@ -33,6 +33,7 @@ import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.junit.Before;
+import org.junit.Test;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -139,6 +140,7 @@ public class PedestrianAttrRecogAppTest {
         }
     }
 
+    @Test
     public void testDeepMAR() throws Exception {
         if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
             logger.info("Using DeepMAR for pedestrian attribute recognition.");

@@ -335,11 +335,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                             // The tracklet's size exceeds the limit.
                                             // Here we first store it into HDFS,
                                             // then send its URL instead of the tracklet itself.
-                                            logger.debug("Tracklet " + tracklet.id
-                                                    + " is too long. Passing it through HDFS.");
                                             final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
                                             final String taskRoot = videoRoot + "/" + taskID;
                                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                            logger.debug("Tracklet " + tracklet.id
+                                                    + " is too long. Passing it through HDFS at \"" + storeDir + "\".");
                                             HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
                                             output(outputPorts,
                                                     taskData.executionPlan,
