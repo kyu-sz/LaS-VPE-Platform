@@ -35,7 +35,18 @@ LaS-VPE Platform is released under the GPL License.
 	sudo apt-get install maven
 	```
 	
-2. Deploy Kafka(>=0.10.2.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2)
+2. Increase open files limit in Linux.
+
+    Paste following towards end of _/etc/security/limits.conf_:
+    
+    ```
+       *       hard    nofile  500000
+       *       soft    nofile  500000
+       root    hard    nofile  500000
+       root    soft    nofile  500000
+    ```
+	
+3. Deploy Kafka(>=0.10.2.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2)
 properly on your cluster.
 
     * Configure the "max.request.size" to a large number, e.g. 157286400 before
@@ -46,7 +57,7 @@ properly on your cluster.
       [Job-Scheduling](https://spark.apache.org/docs/1.2.0/job-scheduling.html)
       and configure your environment.
 
-3. If you choose to run algorithms based on Caffe locally, no matter the
+4. If you choose to run algorithms based on Caffe locally, no matter the
  algorithms use CPU-only or GPUs, you must have Cuda 8.0 installed on every
  node in your cluster.
 
