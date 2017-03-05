@@ -97,13 +97,18 @@ public class HadoopHelper {
      */
     @Nonnull
     public static Tracklet retrieveTracklet(@Nonnull String storeDir,
-                                            @Nonnull FileSystem hdfs) throws URISyntaxException, IOException {
+                                            @Nonnull FileSystem hdfs) throws IOException, URISyntaxException {
         final InputStreamReader infoReader;
         final HarFileSystem harFS;
         final FileSystem fs;
         final String revisedStoreDir;
 
-        if (hdfs.exists(new Path(storeDir))) {
+        boolean onHDFS = false;
+        try {
+            onHDFS = hdfs.exists(new Path(storeDir));
+        } catch (IOException ignored) {
+        }
+        if (onHDFS) {
             infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
             fs = hdfs;
             revisedStoreDir = storeDir;
