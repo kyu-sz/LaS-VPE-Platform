@@ -41,7 +41,7 @@ import static org.bytedeco.javacpp.avutil.av_log_set_level;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class BasicTracker extends Tracker {
+public class BasicTracker implements Tracker {
 
     private static int instanceCnt = 0;
     private static Lock instCntLock = new ReentrantLock();

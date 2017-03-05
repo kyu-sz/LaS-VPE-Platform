@@ -66,7 +66,7 @@ import java.util.Collection;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class ExternPedestrianAttrRecognizer extends PedestrianAttrRecognizer {
+public class ExternPedestrianAttrRecognizer implements PedestrianAttrRecognizer {
 
     private Logger logger;
     private Socket socket = null;

@@ -29,7 +29,7 @@ import java.io.InputStream;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public abstract class Tracker {
+public interface Tracker {
 
     /**
      * Read a video from a URL, and perform pedestrian tracking on it.
@@ -38,5 +38,5 @@ public abstract class Tracker {
      * @return A set of tracklets of pedestrians.
      */
     @Nonnull
-    public abstract Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception;
+    Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception;
 }

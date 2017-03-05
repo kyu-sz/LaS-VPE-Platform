@@ -43,7 +43,7 @@ import static org.bytedeco.javacpp.opencv_core.*;
  * <p>
  * Created by ken.yu on 17-1-10.
  */
-public final class DeepMAR extends PedestrianAttrRecognizer {
+public final class DeepMAR implements PedestrianAttrRecognizer {
     private final static FloatPointer pMean;
     private final static FloatPointer pRegCoeff;
     private final static DoublePointer pScale;

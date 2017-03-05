@@ -26,7 +26,7 @@ import java.io.IOException;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public abstract class PedestrianReIDer {
+public interface PedestrianReIDer {
 
     /**
      * Perform ReID with a target pedestrian.
@@ -35,5 +35,5 @@ public abstract class PedestrianReIDer {
      * @return A rank of possible IDs of the pedestrian.
      * @throws IOException On error conducting ReID.
      */
-    public abstract int[] reid(@Nonnull PedestrianInfo pedestrian) throws IOException;
+    int[] reid(@Nonnull PedestrianInfo pedestrian) throws IOException;
 }

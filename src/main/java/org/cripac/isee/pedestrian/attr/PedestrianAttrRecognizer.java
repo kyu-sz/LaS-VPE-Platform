@@ -29,7 +29,7 @@ import java.io.IOException;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public abstract class PedestrianAttrRecognizer {
+public interface PedestrianAttrRecognizer {
 
     /**
      * Recognize attributes from a track of pedestrian.
@@ -38,5 +38,6 @@ public abstract class PedestrianAttrRecognizer {
      * @return The attributes of the pedestrian specified by the track.
      * @throws IOException Exception that might occur during recognition.
      */
-    public abstract Attributes recognize(@Nonnull Tracklet tracklet) throws IOException;
+    @Nonnull
+    Attributes recognize(@Nonnull Tracklet tracklet) throws IOException;
 }

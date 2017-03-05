@@ -25,7 +25,7 @@ import javax.annotation.Nonnull;
 import java.io.InputStream;
 import java.util.Random;
 
-public class FakePedestrianTracker extends Tracker {
+public class FakePedestrianTracker implements Tracker {
 
     private Random random = new Random();
 

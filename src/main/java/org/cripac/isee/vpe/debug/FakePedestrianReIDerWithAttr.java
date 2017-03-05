@@ -27,7 +27,7 @@ import java.util.Random;
 /**
  * @author Ken Yu, CRIPAC, 2016
  */
-public class FakePedestrianReIDerWithAttr extends PedestrianReIDer {
+public class FakePedestrianReIDerWithAttr implements PedestrianReIDer {
 
     private Random rand = new Random();
 

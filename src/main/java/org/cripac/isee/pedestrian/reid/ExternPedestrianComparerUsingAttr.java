@@ -117,7 +117,7 @@ import java.util.UUID;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class ExternPedestrianComparerUsingAttr extends PedestrianComparerUsingAttr {
+public class ExternPedestrianComparerUsingAttr implements PedestrianComparerUsingAttr {
 
     private final Socket socket;
     private Thread resListeningThread = null;

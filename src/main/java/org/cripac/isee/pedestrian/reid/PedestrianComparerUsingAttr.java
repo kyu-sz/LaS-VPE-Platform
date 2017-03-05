@@ -27,7 +27,7 @@ import java.io.IOException;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public abstract class PedestrianComparerUsingAttr {
+public interface PedestrianComparerUsingAttr {
 
     /**
      * Compare two pedestrians each given in a track with attributes.
@@ -37,6 +37,6 @@ public abstract class PedestrianComparerUsingAttr {
      * @return The similarity between them.
      * @throws IOException
      */
-    public abstract float compare(@Nonnull PedestrianInfo personA,
-                                  @Nonnull PedestrianInfo personB) throws Exception;
+    float compare(@Nonnull PedestrianInfo personA,
+                  @Nonnull PedestrianInfo personB) throws Exception;
 }
