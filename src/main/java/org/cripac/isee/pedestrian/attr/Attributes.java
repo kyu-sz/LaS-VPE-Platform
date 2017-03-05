@@ -451,7 +451,7 @@ public class Attributes implements Serializable {
                 try {
                     final float v1 = (float) field.get(attr1);
                     final float v2 = (float) field.get(attr2);
-                    field.set(field, v1 + v2);
+                    field.set(res, v1 + v2);
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 }
@@ -466,7 +466,7 @@ public class Attributes implements Serializable {
             if (field.getType() == float.class) {
                 try {
                     final float v = (float) field.get(attr);
-                    field.set(field, v / divisor);
+                    field.set(res, v / divisor);
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 }
