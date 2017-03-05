@@ -115,7 +115,11 @@ public class HadoopHelper {
             harFS = null;
         } else {
             // Open the Hadoop Archive of the task the track is generated in.
-            revisedStoreDir = storeDir + ".har";
+            while (storeDir.endsWith("/")) {
+                storeDir = storeDir.substring(0, storeDir.length() - 1);
+            }
+            final int splitter = storeDir.lastIndexOf("/");
+            revisedStoreDir = storeDir.substring(0, splitter) + ".har" + storeDir.substring(splitter);
             harFS = new HarFileSystem();
             harFS.initialize(new URI(revisedStoreDir), new Configuration());
             infoReader = new InputStreamReader(hdfs.open(new Path(revisedStoreDir + "/info.txt")));
