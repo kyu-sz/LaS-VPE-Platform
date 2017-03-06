@@ -103,7 +103,9 @@ public class PedestrianAttrRecogAppTest {
 
     @Before
     public void init() throws Exception {
-        init(new String[0]);
+        init(new String[]{"-a", PedestrianAttrRecogApp.APP_NAME,
+                "--system-property-file", "conf/system.properties",
+                "--app-property-file", "conf/" + PedestrianAttrRecogApp.APP_NAME + "/app.properties"});
     }
 
     private void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
@@ -112,6 +114,33 @@ public class PedestrianAttrRecogAppTest {
         propCenter = new PedestrianAttrRecogApp.AppPropertyCenter(args);
         externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
         externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
+    }
+
+//    @Test
+    public void testExternAttrReognizer() throws Exception {
+        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.EXT) {
+            logger.info("Using external pedestrian attribute recognizer.");
+
+            ExternPedestrianAttrRecognizerTest test = new ExternPedestrianAttrRecognizerTest();
+            test.setUp();
+            test.recognize();
+        }
+    }
+
+//    @Test
+    public void testDeepMAR() throws Exception {
+        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
+            logger.info("Using DeepMAR for pedestrian attribute recognition.");
+
+            DeepMARTest test = new DeepMARTest();
+            test.setUp();
+            test.recognize();
+        }
+    }
+
+    //    @Test
+    public void testAttrRecogApp() throws Exception {
+        logger.info("Testing attr recogn app.");
 
         checkTopic(TEST_PED_ATTR_RECV_PORT.inputType.name());
 
@@ -127,33 +156,7 @@ public class PedestrianAttrRecogAppTest {
             logger.info("App test is disabled.");
             toTestApp = false;
         }
-    }
 
-    //    @Test
-    public void testExternAttrReognizer() throws Exception {
-        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.EXT) {
-            logger.info("Using external pedestrian attribute recognizer.");
-
-            ExternPedestrianAttrRecognizerTest test = new ExternPedestrianAttrRecognizerTest();
-            test.setUp();
-            test.recognize();
-        }
-    }
-
-    @Test
-    public void testDeepMAR() throws Exception {
-        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
-            logger.info("Using DeepMAR for pedestrian attribute recognition.");
-
-            DeepMARTest test = new DeepMARTest();
-            test.setUp();
-            test.recognize();
-        }
-    }
-
-    //    @Test
-    public void testAttrRecogApp() throws Exception {
-        logger.info("Testing attr recogn app.");
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node recogNode = plan.addNode(PedestrianAttrRecogApp.RecogStream.OUTPUT_TYPE);
         TaskData.ExecutionPlan.Node attrSavingNode = plan.addNode(DataType.NONE);

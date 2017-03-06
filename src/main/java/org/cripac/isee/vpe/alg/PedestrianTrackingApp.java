@@ -22,16 +22,11 @@ import kafka.common.FailedToSendMessageException;
 import kafka.common.MessageSizeTooLargeException;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.kafka.common.KafkaException;
 import org.apache.spark.TaskContext;
-import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function0;
-import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.pedestrian.tracking.Tracker;
@@ -50,8 +45,6 @@ import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -120,50 +113,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         break;
                 }
             }
-        }
-    }
-
-    /**
-     * The class ConfigPool wraps a broadcast of a pool of bytes of
-     * tracking configuration files.
-     */
-    private static class ConfigPool {
-
-        private static volatile Broadcast<Map<String, byte[]>> inst = null;
-
-        /**
-         * Get an instance of the pool broadcast.
-         *
-         * @param jsc    The JavaSparkContext the driver is running on.
-         * @param hdfs   HDFS to read files from.
-         * @param logger Logger.
-         * @return An instance of the pool broadcast.
-         * @throws IOException On failure of accessing HDFS for uploaded files.
-         */
-        public static Broadcast<Map<String, byte[]>> getInst(JavaSparkContext jsc,
-                                                             FileSystem hdfs,
-                                                             Logger logger) throws IOException {
-            if (inst == null) {
-                logger.debug("Creating instance of ConfigPool...");
-                Map<String, byte[]> pool = new Object2ObjectOpenHashMap<>();
-                FileSystem stagingDir = FileSystem.get(new Configuration());
-                RemoteIterator<LocatedFileStatus> files =
-                        stagingDir.listFiles(new Path(System.getenv("SPARK_YARN_STAGING_DIR")), false);
-                while (files.hasNext()) {
-                    Path path = files.next().getPath();
-                    if (path.getName().contains(".conf")) {
-                        try {
-                            logger.debug("Reading " + path.getName() + "...");
-                            pool.put(path.getName(), IOUtils.toByteArray(hdfs.open(path)));
-                            logger.debug("Added " + path.getName() + " to tracking configuration pool.");
-                        } catch (IOException e) {
-                            logger.error("Error when reading file " + path.getName(), e);
-                        }
-                    }
-                }
-                inst = jsc.broadcast(pool);
-            }
-            return inst;
         }
     }
 
@@ -245,6 +194,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 new Port("hdfs-video-url-for-pedestrian-tracking", DataType.URL);
         private static final long serialVersionUID = -6738652169567844016L;
 
+        private final Singleton<Map<String, byte[]>> confBuffer;
         private final Singleton<FileSystem> hdfsSingleton;
         private final int numSamplesPerTracklet;
         private final String metadataDir;
@@ -255,17 +205,13 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
             numSamplesPerTracklet = propCenter.numSamplesPerTracklet;
             metadataDir = propCenter.metadataDir;
             hdfsSingleton = new Singleton<>(new HDFSFactory());
+            confBuffer = new Singleton<>(Object2ObjectOpenHashMap::new);
         }
 
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, VIDEO_URL_PORT)
                     .foreachRDD(rdd -> {
-                        final Broadcast<Map<String, byte[]>> confPool =
-                                ConfigPool.getInst(new JavaSparkContext(rdd.context()),
-                                        hdfsSingleton.getInst(),
-                                        loggerSingleton.getInst());
-
                         rdd.glom().foreach(kvList -> {
                             final Logger logger = loggerSingleton.getInst();
                             if (kvList.size() > 0) {
@@ -303,10 +249,12 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     curNode.markExecuted();
 
                                     // Load tracking configuration to create a tracker.
-                                    if (!confPool.getValue().containsKey(confFile)) {
-                                        throw new FileNotFoundException("Couldn't find tracking config file " + confFile);
+                                    if (!confBuffer.getInst().containsKey(confFile)) {
+                                        confBuffer.getInst().put(confFile,
+                                                IOUtils.toByteArray(getClass().getResourceAsStream(
+                                                        "/conf/" + APP_NAME + "/" + confFile)));
                                     }
-                                    final byte[] confBytes = confPool.getValue().get(confFile);
+                                    final byte[] confBytes = confBuffer.getInst().get(confFile);
                                     if (confBytes == null) {
                                         logger.fatal("confPool contains key " + confFile + " but value is null!");
                                         return;
