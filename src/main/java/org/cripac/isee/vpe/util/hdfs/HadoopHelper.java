@@ -106,7 +106,7 @@ public class HadoopHelper {
         boolean onHDFS = false;
         try {
             onHDFS = hdfs.exists(new Path(storeDir));
-        } catch (IOException ignored) {
+        } catch (IOException | IllegalArgumentException ignored) {
         }
         if (onHDFS) {
             infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
@@ -118,8 +118,12 @@ public class HadoopHelper {
             while (storeDir.endsWith("/")) {
                 storeDir = storeDir.substring(0, storeDir.length() - 1);
             }
-            final int splitter = storeDir.lastIndexOf("/");
-            revisedStoreDir = storeDir.substring(0, splitter) + ".har" + storeDir.substring(splitter);
+            if (storeDir.contains(".har")) {
+                revisedStoreDir = storeDir;
+            } else {
+                final int splitter = storeDir.lastIndexOf("/");
+                revisedStoreDir = storeDir.substring(0, splitter) + ".har" + storeDir.substring(splitter);
+            }
             harFS = new HarFileSystem();
             harFS.initialize(new URI(revisedStoreDir), new Configuration());
             infoReader = new InputStreamReader(hdfs.open(new Path(revisedStoreDir + "/info.txt")));
