@@ -19,12 +19,12 @@
 
 package org.cripac.isee.vpe.util;
 
-import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.alg.pedestrian.attr.PedestrianAttrRecogApp;
+import org.cripac.isee.vpe.alg.pedestrian.tracking.TrackletOrURL;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
-import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 import org.junit.Test;
 
 import java.io.FileInputStream;

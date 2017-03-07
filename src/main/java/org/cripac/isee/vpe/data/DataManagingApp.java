@@ -31,8 +31,9 @@ import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
-import org.cripac.isee.pedestrian.attr.Attributes;
-import org.cripac.isee.pedestrian.tracking.Tracklet;
+import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.alg.pedestrian.tracking.TrackletOrURL;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
@@ -49,7 +50,6 @@ import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
-import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 import org.xml.sax.SAXException;
 import scala.Tuple2;
 
@@ -105,7 +105,7 @@ public class DataManagingApp extends SparkStreamingApp {
             for (Map.Entry<Object, Object> entry : sysProps.entrySet()) {
                 switch ((String) entry.getKey()) {
                     case "vpe.max.frame.per.fragment":
-                        maxFramePerFragment = new Integer((String) entry.getValue());
+                        maxFramePerFragment = Integer.parseInt((String) entry.getValue());
                         break;
                 }
             }

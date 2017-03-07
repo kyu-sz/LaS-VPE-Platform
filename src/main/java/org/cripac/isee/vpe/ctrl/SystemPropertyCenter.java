@@ -148,6 +148,7 @@ public class SystemPropertyCenter implements Serializable {
         options.addOption("h", "help", false, "Print this help message.");
         options.addOption("v", "verbose", false, "Display debug information.");
         options.addOption("a", "application", true, "Application specified to run.");
+        options.addOption("g", "gpu", true, "Indices of GPU for Caffe.");
         options.addOption(null, "spark-property-file", true, "Path of the spark property file.");
         options.addOption(null, "system-property-file", true, "Path of the system property file.");
         options.addOption(null, "app-property-file", true,
@@ -290,22 +291,22 @@ public class SystemPropertyCenter implements Serializable {
                     zkConn = (String) entry.getValue();
                     break;
                 case "zk.session.timeout":
-                    zkSessionTimeoutMs = new Integer((String) entry.getValue());
+                    zkSessionTimeoutMs = Integer.parseInt((String) entry.getValue());
                     break;
                 case "zk.connection.timeout":
-                    zkConnectionTimeoutMS = new Integer((String) entry.getValue());
+                    zkConnectionTimeoutMS = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.bootstrap.servers":
                     kafkaBootstrapServers = (String) entry.getValue();
                     break;
                 case "kafka.partitions":
-                    kafkaNumPartitions = new Integer((String) entry.getValue());
+                    kafkaNumPartitions = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.replication.factor":
-                    kafkaReplFactor = new Integer((String) entry.getValue());
+                    kafkaReplFactor = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.fetch.max.size":
-                    kafkaMsgMaxBytes = new Integer((String) entry.getValue());
+                    kafkaMsgMaxBytes = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.location.strategy":
                     kafkaLocationStrategy = (String) entry.getValue();
@@ -332,22 +333,22 @@ public class SystemPropertyCenter implements Serializable {
                     hdfsDefaultName = (String) entry.getValue();
                     break;
                 case "executor.num":
-                    numExecutors = new Integer((String) entry.getValue());
+                    numExecutors = Integer.parseInt((String) entry.getValue());
                     break;
                 case "executor.memory":
                     executorMem = (String) entry.getValue();
                     break;
                 case "executor.cores":
-                    executorCores = new Integer((String) entry.getValue());
+                    executorCores = Integer.parseInt((String) entry.getValue());
                     break;
                 case "total.executor.cores":
-                    totalExecutorCores = new Integer((String) entry.getValue());
+                    totalExecutorCores = Integer.parseInt((String) entry.getValue());
                     break;
                 case "driver.memory":
                     driverMem = (String) entry.getValue();
                     break;
                 case "driver.cores":
-                    driverCores = new Integer((String) entry.getValue());
+                    driverCores = Integer.parseInt((String) entry.getValue());
                     break;
                 case "hadoop.queue":
                     hadoopQueue = (String) entry.getValue();
@@ -355,27 +356,31 @@ public class SystemPropertyCenter implements Serializable {
                 case "vpe.recv.parallel":
                     break;
                 case "vpe.buf.duration":
-                    bufDuration = new Integer((String) entry.getValue());
+                    bufDuration = Integer.parseInt((String) entry.getValue());
                     break;
                 case "vpe.batch.duration":
-                    batchDuration = new Integer((String) entry.getValue());
+                    batchDuration = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.send.max.size":
-                    kafkaSendMaxSize = new Integer((String) entry.getValue());
+                    kafkaSendMaxSize = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.request.timeout.ms":
-                    kafkaRequestTimeoutMs = new Integer((String) entry.getValue());
+                    kafkaRequestTimeoutMs = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.fetch.timeout.ms":
-                    kafkaFetchTimeoutMs = new Integer((String) entry.getValue());
+                    kafkaFetchTimeoutMs = Integer.parseInt((String) entry.getValue());
                     break;
                 case "caffe.gpu":
-                    caffeGPU = new Integer((String) entry.getValue());
+                    caffeGPU = Integer.parseInt((String) entry.getValue());
                     break;
                 case "spark.streaming.kafka.maxRatePerPartition":
                     kafkaMaxRatePerPartition = (String) entry.getValue();
                     break;
             }
+        }
+
+        if (commandLine.hasOption('g')) {
+            caffeGPU = Integer.parseInt(commandLine.getOptionValue('g'));
         }
 
         validateConfigurations();

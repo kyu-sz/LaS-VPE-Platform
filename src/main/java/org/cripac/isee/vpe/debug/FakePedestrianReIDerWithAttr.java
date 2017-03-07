@@ -17,8 +17,8 @@
 
 package org.cripac.isee.vpe.debug;
 
-import org.cripac.isee.pedestrian.reid.PedestrianInfo;
-import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
+import org.cripac.isee.alg.pedestrian.reid.PedestrianInfo;
+import org.cripac.isee.alg.pedestrian.reid.PedestrianReIDer;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;

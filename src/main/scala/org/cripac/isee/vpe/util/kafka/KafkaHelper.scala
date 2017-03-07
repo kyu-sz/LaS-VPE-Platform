@@ -22,9 +22,10 @@ import java.{lang => jl, util => ju}
 import javax.annotation.{Nonnull, Nullable}
 
 import kafka.admin.{AdminUtils, RackAwareMode}
-import kafka.common.{Topic, TopicExistsException}
+import kafka.common.Topic
 import kafka.utils.ZkUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.common.errors.TopicExistsException
 import org.apache.kafka.common.security.JaasUtils
 import org.cripac.isee.vpe.ctrl.TaskData
 import org.cripac.isee.vpe.util.SerializationHelper
@@ -73,7 +74,7 @@ object KafkaHelper {
     } catch {
       case ie: InterruptedException =>
         logger error("Interrupted when retrieving Kafka sending result.", ie)
-      case e @ (_ : ExecutionException | _ : CancellationException) =>
+      case e@(_: ExecutionException | _: CancellationException) =>
         throw if (e.getCause != null) e.getCause else e
     }
   }

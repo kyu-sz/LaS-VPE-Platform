@@ -18,9 +18,9 @@
 package org.cripac.isee.vpe.ctrl;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
-import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
-import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
+import org.cripac.isee.vpe.alg.pedestrian.attr.PedestrianAttrRecogApp;
+import org.cripac.isee.vpe.alg.pedestrian.reid.PedestrianReIDUsingAttrApp;
+import org.cripac.isee.vpe.alg.pedestrian.tracking.PedestrianTrackingApp;
 import org.cripac.isee.vpe.data.DataManagingApp;
 
 import javax.annotation.Nonnull;
