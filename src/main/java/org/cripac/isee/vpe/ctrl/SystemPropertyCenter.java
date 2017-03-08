@@ -32,6 +32,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.apache.spark.launcher.SparkLauncher;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
+import org.cripac.isee.vpe.util.kafka.EvenlyDistributingPartitioner;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
@@ -470,6 +471,7 @@ public class SystemPropertyCenter implements Serializable {
         producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, kafkaSendMaxSize);
         producerProp.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaRequestTimeoutMs);
         producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+        producerProp.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, EvenlyDistributingPartitioner.class);
         return producerProp;
     }
 
