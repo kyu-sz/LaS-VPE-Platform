@@ -124,6 +124,10 @@ public class SystemPropertyCenter implements Serializable {
     public int bufDuration = 600000;
     /* Duration of spark batches */
     public int batchDuration = 2000;
+    /* Number of partitions when doing repartition.
+     * -1 means do not do repartition. 0 means using default parallelism of Spark.
+     */
+    public int repartition = -1;
     /* Whether to print verbose running information */
     public boolean verbose = false;
 
@@ -376,6 +380,9 @@ public class SystemPropertyCenter implements Serializable {
                     break;
                 case "spark.streaming.kafka.maxRatePerPartition":
                     kafkaMaxRatePerPartition = (String) entry.getValue();
+                    break;
+                case "vpe.repartition":
+                    repartition = Integer.parseInt((String) entry.getValue());
                     break;
             }
         }

@@ -121,12 +121,13 @@ public abstract class SparkStreamingApp implements Serializable {
      * array values from Kafka with direct stream.
      *
      * @param acceptingTypes Data types the stream accepts.
-     * @param toRepartition  Whether to repartition the RDDs.
+     * @param repartition    Number of partitions when repartitioning the RDDs.
+     *                       -1 means do not do repartition. 0 means using default parallelism of Spark.
      * @return A Kafka non-receiver input stream.
      */
     protected JavaPairDStream<DataType, Tuple2<String, byte[]>>
     buildDirectStream(@Nonnull Collection<DataType> acceptingTypes,
-                      boolean toRepartition) throws SparkException {
+                      int repartition) throws SparkException {
         final JavaInputDStream<ConsumerRecord<String, byte[]>> inputDStream =
                 KafkaUtils.createDirectStream(jssc,
                         propCenter.kafkaLocationStrategy.equals("PreferBrokers") ?
@@ -171,9 +172,9 @@ public abstract class SparkStreamingApp implements Serializable {
                 .mapToPair(rec -> new Tuple2<>(DataType.valueOf(rec.topic()),
                         new Tuple2<>(rec.key(), rec.value())));
 
-        if (toRepartition) {
+        if (repartition >= 0) {
             // Repartition the records.
-            stream = stream.repartition(jssc.sparkContext().defaultParallelism());
+            stream = stream.repartition(repartition == 0 ? jssc.sparkContext().defaultParallelism() : repartition);
         }
 
         return stream;
@@ -188,7 +189,7 @@ public abstract class SparkStreamingApp implements Serializable {
      */
     protected JavaPairDStream<DataType, Tuple2<String, byte[]>>
     buildDirectStream(@Nonnull Collection<DataType> acceptingTypes) throws SparkException {
-        return buildDirectStream(acceptingTypes, true);
+        return buildDirectStream(acceptingTypes, propCenter.repartition);
     }
 
     /**
