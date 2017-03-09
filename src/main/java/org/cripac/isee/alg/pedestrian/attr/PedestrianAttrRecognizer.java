@@ -20,7 +20,6 @@ package org.cripac.isee.alg.pedestrian.attr;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
 import javax.annotation.Nonnull;
-import java.io.IOException;
 
 /**
  * The PedestrianAttrRecognizer class is the base class of all pedestrian
@@ -36,8 +35,7 @@ public interface PedestrianAttrRecognizer {
      *
      * @param tracklet A pedestrian track.
      * @return The attributes of the pedestrian specified by the track.
-     * @throws IOException Exception that might occur during recognition.
      */
     @Nonnull
-    Attributes recognize(@Nonnull Tracklet tracklet) throws IOException;
+    Attributes recognize(@Nonnull Tracklet tracklet);
 }
