@@ -40,6 +40,6 @@ public class HDFSFactory implements Factory<FileSystem> {
     @Override
     public FileSystem produce() throws IOException {
         Configuration hdfsConf = HadoopHelper.getDefaultConf();
-        return FileSystem.get(hdfsConf);
+        return FileSystem.newInstance(hdfsConf);
     }
 }

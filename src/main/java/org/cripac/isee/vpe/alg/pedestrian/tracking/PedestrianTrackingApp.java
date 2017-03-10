@@ -21,7 +21,6 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import kafka.common.FailedToSendMessageException;
 import kafka.common.MessageSizeTooLargeException;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.common.KafkaException;
@@ -31,11 +30,13 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.alg.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.alg.pedestrian.tracking.Tracker;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.*;
+import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.RobustExecutor;
+import org.cripac.isee.vpe.common.SparkStreamingApp;
+import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.data.WebCameraConnector;
-import org.cripac.isee.vpe.debug.FakeWebCameraConnector;
+import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
@@ -46,7 +47,6 @@ import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -75,9 +75,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
     public PedestrianTrackingApp(AppPropertyCenter propCenter) throws Exception {
         super(propCenter, APP_NAME);
 
-        registerStreams(Arrays.asList(
-                new HDFSVideoTrackingStream(propCenter),
-                new RTVideoStreamTrackingStream(propCenter)));
+        registerStreams(Collections.singletonList(new HDFSVideoTrackingStream(propCenter)));
     }
 
     /**
@@ -115,72 +113,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
     }
 
-    /**
-     * The RTVideoStreamTrackingStream receives web-camera IPs
-     * and perform pedestrian tracking on real-time video bit
-     * stream from these cameras.
-     */
-    public static class RTVideoStreamTrackingStream extends Stream {
-        public static final String NAME = "rt-video-tracking";
-        public static final DataType OUTPUT_TYPE = DataType.TRACKLET;
-
-        /**
-         * Port for inputting from Kafka the IPs of cameras.
-         */
-        public static final Port LOGIN_PARAM_PORT =
-                new Port("cam-addr-for-pedestrian-tracking", DataType.WEBCAM_LOGIN_PARAM);
-        private static final long serialVersionUID = -278417583644937040L;
-
-        private final Map<ServerID, Singleton<WebCameraConnector>> connectorPool;
-
-        public RTVideoStreamTrackingStream(AppPropertyCenter propCenter) throws Exception {
-            super(APP_NAME, propCenter);
-
-            connectorPool = new Object2ObjectOpenHashMap<>();
-        }
-
-        @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
-            this.filter(globalStreamMap, LOGIN_PARAM_PORT)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            // TODO(Ken Yu): Wrap less codes inside RobustExecutor.
-                            new RobustExecutor<Void, Void>(() -> {
-                                // Recover data.
-                                final String taskID = kv._1();
-                                final TaskData taskData = kv._2();
-                                final LoginParam loginParam = (LoginParam) taskData.predecessorRes;
-
-                                final WebCameraConnector cameraConnector;
-                                if (connectorPool.containsKey(loginParam.serverID)) {
-                                    cameraConnector = connectorPool.get(loginParam.serverID).getInst();
-                                } else {
-                                    final Singleton<WebCameraConnector> cameraConnectorSingleton =
-                                            new Singleton<>(new FakeWebCameraConnector
-                                                    .FakeWebCameraConnectorFactory(loginParam));
-                                    connectorPool.put(loginParam.serverID, cameraConnectorSingleton);
-                                    cameraConnector = cameraConnectorSingleton.getInst();
-                                }
-
-                                // Connect to camera.
-                                final InputStream rtVideoStream = cameraConnector.getStream();
-                                // TODO(Ken Yu): Perform tracking on the real-time video stream.
-                                throw new NotImplementedException("Real-time video stream is under development");
-                            }).execute();
-                        } catch (Throwable t) {
-                            logger.error("On processing real-time video stream", t);
-                        }
-                            })
-                    );
-        }
-
-        @Override
-        public List<Port> getPorts() {
-            return Collections.singletonList(LOGIN_PARAM_PORT);
-        }
-    }
-
     public static class HDFSVideoTrackingStream extends Stream {
 
         public static final String NAME = "hdfs-video-tracking";
@@ -210,16 +142,16 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, VIDEO_URL_PORT)
-                    .foreachRDD(rdd -> {
-                        rdd.glom().foreach(kvList -> {
-                            final Logger logger = loggerSingleton.getInst();
-                            if (kvList.size() > 0) {
-                                logger.info("Partition " + TaskContext.getPartitionId()
-                                        + " got " + kvList.size()
-                                        + " videos in this batch.");
-                            }
+                    .foreachRDD(rdd -> rdd.glom().foreach(kvList -> {
+                        final Logger logger = loggerSingleton.getInst();
+                        if (kvList.size() > 0) {
+                            logger.info("Partition " + TaskContext.getPartitionId()
+                                    + " got " + kvList.size()
+                                    + " videos in this batch.");
+                        }
 
-                            kvList.forEach(kv -> {
+                        synchronized (HDFSVideoTrackingStream.class) {
+                            kvList.parallelStream().forEach(kv -> {
                                 try {
                                     final String taskID = kv._1();
                                     final TaskData taskData = kv._2();
@@ -228,30 +160,33 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
 
                                     final Path videoPath = new Path(videoURL);
-                                    final InputStream videoStream = hdfsSingleton.getInst().open(videoPath);
                                     String videoName = videoPath.getName();
                                     videoName = videoName.substring(0, videoName.lastIndexOf('.'));
 
                                     // Find current node.
-                                    final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(VIDEO_URL_PORT);
+                                    final ExecutionPlan.Node curNode = taskData.getDestNode(VIDEO_URL_PORT);
                                     // Get tracking configuration for this execution.
                                     assert curNode != null;
                                     final String confFile = (String) curNode.getExecData();
                                     if (confFile == null) {
-                                        logger.error("Tracking configuration file is not specified for this node!");
-                                        return;
+                                        throw new IllegalArgumentException(
+                                                "Tracking configuration file is not specified for this node!");
                                     }
 
                                     // Get ports to output to.
-                                    final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                    final List<ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                                     // Mark the current node as executed in advance.
                                     curNode.markExecuted();
 
                                     // Load tracking configuration to create a tracker.
                                     if (!confBuffer.getInst().containsKey(confFile)) {
-                                        confBuffer.getInst().put(confFile,
-                                                IOUtils.toByteArray(getClass().getResourceAsStream(
-                                                        "/conf/" + APP_NAME + "/" + confFile)));
+                                        InputStream confStream = getClass().getResourceAsStream(
+                                                "/conf/" + APP_NAME + "/" + confFile);
+                                        if (confStream == null) {
+                                            throw new IllegalArgumentException(
+                                                    "Tracking configuration file not found in JAR!");
+                                        }
+                                        confBuffer.getInst().put(confFile, IOUtils.toByteArray(confStream));
                                     }
                                     final byte[] confBytes = confBuffer.getInst().get(confFile);
                                     if (confBytes == null) {
@@ -264,7 +199,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     // Conduct tracking on video read from HDFS.
                                     logger.debug("Performing tracking on " + videoName);
                                     final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(
-                                            (Function0<Tracklet[]>) () -> tracker.track(videoStream)
+                                            (Function0<Tracklet[]>) () -> {
+                                                final InputStream videoStream = hdfsSingleton.getInst().open(videoPath);
+                                                return tracker.track(videoStream);
+                                            }
                                     ).execute();
                                     logger.debug("Finished tracking on " + videoName);
 
@@ -298,8 +236,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     logger.error("During tracking.", e);
                                 }
                             });
-                        });
-                    });
+                        }
+                    }));
         }
 
         @Override

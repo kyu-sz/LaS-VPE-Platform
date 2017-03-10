@@ -89,8 +89,6 @@ public class SystemPropertyCenter implements Serializable {
     public int caffeGPU = -1;
     /* Memory per executor (e.g. 1000M, 2G) (Default: 1G) */
     private String executorMem = "1G";
-    /* Number of executors to run (Default: 2) */
-    private int numExecutors = 2;
     /* Number of cores per executor (Default: 1) */
     private int executorCores = 1;
     /* Total cores for all executors (Spark standalone and Mesos only) */
@@ -337,9 +335,6 @@ public class SystemPropertyCenter implements Serializable {
                 case "hdfs.default.name":
                     hdfsDefaultName = (String) entry.getValue();
                     break;
-                case "executor.num":
-                    numExecutors = Integer.parseInt((String) entry.getValue());
-                    break;
                 case "executor.memory":
                     executorMem = (String) entry.getValue();
                     break;
@@ -447,7 +442,6 @@ public class SystemPropertyCenter implements Serializable {
                 .setConf("spark.executor.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
                 .setConf("spark.yarn.am.nodeLabelExpression", yarnAmNodeLabelExpression)
                 .addSparkArg("--driver-cores", "" + driverCores)
-                .addSparkArg("--num-executors", "" + numExecutors)
                 .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
                 .addSparkArg("--queue", hadoopQueue)
                 .addAppArgs(getArgs(appName));

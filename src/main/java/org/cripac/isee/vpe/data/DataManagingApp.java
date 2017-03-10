@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.data;
 
+import com.google.common.collect.Lists;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FileSystem;
@@ -40,6 +41,7 @@ import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.SerializationHelper;
@@ -152,54 +154,58 @@ public class DataManagingApp extends SparkStreamingApp {
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, VIDEO_URL_PORT)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            new RobustExecutor<Void, Void>(() -> {
-                                final String taskID = kv._1();
-                                final TaskData taskData = kv._2();
+                    .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
+                        synchronized (VideoCuttingStream.class) {
+                            final Logger logger = loggerSingleton.getInst();
+                            Lists.newArrayList(kvIter).parallelStream().forEach(kv -> {
+                                try {
+                                    new RobustExecutor<Void, Void>(() -> {
+                                        final String taskID = kv._1();
+                                        final TaskData taskData = kv._2();
 
-                                FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(
-                                        hdfsSingleton.getInst().open(new Path((String) taskData.predecessorRes))
-                                );
+                                        FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(
+                                                hdfsSingleton.getInst().open(new Path((String) taskData.predecessorRes))
+                                        );
 
-                                Frame[] fragments = new Frame[maxFramePerFragment];
-                                int cnt = 0;
-                                final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(VIDEO_URL_PORT);
-                                assert curNode != null;
-                                final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                                curNode.markExecuted();
-                                while (true) {
-                                    Frame frame;
-                                    try {
-                                        frame = frameGrabber.grabImage();
-                                    } catch (FrameGrabber.Exception e) {
-                                        logger.error("On grabImage: " + e);
-                                        if (cnt > 0) {
-                                            Frame[] lastFragments = new Frame[cnt];
-                                            System.arraycopy(fragments, 0, lastFragments, 0, cnt);
-                                            output(outputPorts, taskData.executionPlan, lastFragments, taskID);
+                                        Frame[] fragments = new Frame[maxFramePerFragment];
+                                        int cnt = 0;
+                                        final ExecutionPlan.Node curNode = taskData.getDestNode(VIDEO_URL_PORT);
+                                        assert curNode != null;
+                                        final List<ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                        curNode.markExecuted();
+                                        while (true) {
+                                            Frame frame;
+                                            try {
+                                                frame = frameGrabber.grabImage();
+                                            } catch (FrameGrabber.Exception e) {
+                                                logger.error("On grabImage: " + e);
+                                                if (cnt > 0) {
+                                                    Frame[] lastFragments = new Frame[cnt];
+                                                    System.arraycopy(fragments, 0, lastFragments, 0, cnt);
+                                                    output(outputPorts, taskData.executionPlan, lastFragments, taskID);
+                                                }
+                                                break;
+                                            }
+                                            if (frame == null) {
+                                                if (cnt > 0) {
+                                                    Frame[] lastFragments = new Frame[cnt];
+                                                    System.arraycopy(fragments, 0, lastFragments, 0, cnt);
+                                                    output(outputPorts, taskData.executionPlan, lastFragments, taskID);
+                                                }
+                                                break;
+                                            }
+
+                                            fragments[cnt++] = frame;
+                                            if (cnt >= maxFramePerFragment) {
+                                                output(outputPorts, taskData.executionPlan, fragments, taskID);
+                                                cnt = 0;
+                                            }
                                         }
-                                        break;
-                                    }
-                                    if (frame == null) {
-                                        if (cnt > 0) {
-                                            Frame[] lastFragments = new Frame[cnt];
-                                            System.arraycopy(fragments, 0, lastFragments, 0, cnt);
-                                            output(outputPorts, taskData.executionPlan, lastFragments, taskID);
-                                        }
-                                        break;
-                                    }
-
-                                    fragments[cnt++] = frame;
-                                    if (cnt >= maxFramePerFragment) {
-                                        output(outputPorts, taskData.executionPlan, fragments, taskID);
-                                        cnt = 0;
-                                    }
+                                    }).execute();
+                                } catch (Throwable t) {
+                                    logger.error("On cutting video", t);
                                 }
-                            }).execute();
-                        } catch (Throwable t) {
-                            logger.error("On cutting video", t);
+                            });
                         }
                     }));
         }
@@ -392,47 +398,51 @@ public class DataManagingApp extends SparkStreamingApp {
         public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
             // Save tracklets.
             this.filter(globalStreamMap, PED_TRACKLET_SAVING_PORT)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            final String taskID = kv._1();
-                            final TaskData taskData = kv._2();
-                            final TrackletOrURL trackletOrURL = (TrackletOrURL) taskData.predecessorRes;
-                            final Tracklet tracklet = trackletOrURL.getTracklet();
-                            final int numTracklets = tracklet.numTracklets;
+                    .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
+                        synchronized (TrackletSavingStream.class) {
+                            final Logger logger = loggerSingleton.getInst();
+                            Lists.newArrayList(kvIter).parallelStream().forEach(kv -> {
+                                try {
+                                    final String taskID = kv._1();
+                                    final TaskData taskData = kv._2();
+                                    final TrackletOrURL trackletOrURL = (TrackletOrURL) taskData.predecessorRes;
+                                    final Tracklet tracklet = trackletOrURL.getTracklet();
+                                    final int numTracklets = tracklet.numTracklets;
 
-                            if (trackletOrURL.isStored()) {
-                                // The tracklet has already been stored at HDFS.
-                                logger.debug("Tracklet has already been stored at " + trackletOrURL.getURL()
-                                        + ". Skipping.");
-                                return;
-                            } else {
-                                final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
-                                final String taskRoot = videoRoot + "/" + taskID;
-                                final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
-                                final Path storePath = new Path(storeDir);
-                                final FileSystem hdfs = hdfsSingleton.getInst();
-                                new RobustExecutor<Void, Void>(() -> {
-                                    if (hdfs.exists(storePath)
-                                            || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
-                                        logger.warn("Duplicated storing request for " + tracklet.id);
+                                    if (trackletOrURL.isStored()) {
+                                        // The tracklet has already been stored at HDFS.
+                                        logger.debug("Tracklet has already been stored at " + trackletOrURL.getURL()
+                                                + ". Skipping.");
+                                        return;
                                     } else {
-                                        hdfs.mkdirs(new Path(storeDir));
-                                        HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
+                                        final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                                        final String taskRoot = videoRoot + "/" + taskID;
+                                        final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                        final Path storePath = new Path(storeDir);
+                                        final FileSystem hdfs = hdfsSingleton.getInst();
+                                        new RobustExecutor<Void, Void>(() -> {
+                                            if (hdfs.exists(storePath)
+                                                    || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
+                                                logger.warn("Duplicated storing request for " + tracklet.id);
+                                            } else {
+                                                hdfs.mkdirs(new Path(storeDir));
+                                                HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
+                                            }
+                                        }).execute();
                                     }
-                                }).execute();
-                            }
 
-                            // Check packing.
-                            new RobustExecutor<Void, Void>(() ->
-                                    KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
-                                            taskID,
-                                            serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
-                                            packingJobProducerSingleton.getInst(),
-                                            logger)
-                            ).execute();
-                        } catch (Exception e) {
-                            logger.error("During storing tracklets.", e);
+                                    // Check packing.
+                                    new RobustExecutor<Void, Void>(() ->
+                                            KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
+                                                    taskID,
+                                                    serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
+                                                    packingJobProducerSingleton.getInst(),
+                                                    logger)
+                                    ).execute();
+                                } catch (Exception e) {
+                                    logger.error("During storing tracklets.", e);
+                                }
+                            });
                         }
                     }));
         }
@@ -462,21 +472,25 @@ public class DataManagingApp extends SparkStreamingApp {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
             this.filter(globalStreamMap, PED_ATTR_SAVING_PORT)
-                    .foreachRDD(rdd -> rdd.foreach(res -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            final TaskData taskData = res._2();
-                            final Attributes attr = (Attributes) taskData.predecessorRes;
+                    .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
+                        synchronized (AttrSavingStream.class) {
+                            final Logger logger = loggerSingleton.getInst();
+                            Lists.newArrayList(kvIter).parallelStream().forEach(res -> {
+                                try {
+                                    final TaskData taskData = res._2();
+                                    final Attributes attr = (Attributes) taskData.predecessorRes;
 
-                            logger.debug("Received " + res._1() + ": " + attr);
+                                    logger.debug("Received " + res._1() + ": " + attr);
 
-                            new RobustExecutor<Void, Void>(() ->
-                                    dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr)
-                            ).execute();
+                                    new RobustExecutor<Void, Void>(() ->
+                                            dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr)
+                                    ).execute();
 
-                            logger.debug("Saved " + res._1() + ": " + attr);
-                        } catch (Exception e) {
-                            logger.error("When decompressing attributes", e);
+                                    logger.debug("Saved " + res._1() + ": " + attr);
+                                } catch (Exception e) {
+                                    logger.error("When decompressing attributes", e);
+                                }
+                            });
                         }
                     }));
         }
@@ -503,20 +517,24 @@ public class DataManagingApp extends SparkStreamingApp {
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
             this.filter(globalStreamMap, PED_IDRANK_SAVING_PORT)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
-                        final Logger logger = loggerSingleton.getInst();
-                        try {
-                            final TaskData taskData = kv._2();
-                            final int[] idRank = (int[]) taskData.predecessorRes;
-                            String rankStr = "";
-                            for (int id : idRank) {
-                                rankStr = rankStr + id + " ";
-                            }
-                            logger.info("Metadata saver received: " + kv._1()
-                                    + ": Pedestrian IDRANK rank: " + rankStr);
-                            //TODO(Ken Yu): Save IDs to database.
-                        } catch (Exception e) {
-                            logger.error("When decompressing IDRANK", e);
+                    .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
+                        synchronized (IDRankSavingStream.class) {
+                            final Logger logger = loggerSingleton.getInst();
+                            Lists.newArrayList(kvIter).parallelStream().forEach(kv -> {
+                                try {
+                                    final TaskData taskData = kv._2();
+                                    final int[] idRank = (int[]) taskData.predecessorRes;
+                                    String rankStr = "";
+                                    for (int id : idRank) {
+                                        rankStr = rankStr + id + " ";
+                                    }
+                                    logger.info("Metadata saver received: " + kv._1()
+                                            + ": Pedestrian IDRANK rank: " + rankStr);
+                                    //TODO(Ken Yu): Save IDs to database.
+                                } catch (Exception e) {
+                                    logger.error("When decompressing IDRANK", e);
+                                }
+                            });
                         }
                     }));
         }

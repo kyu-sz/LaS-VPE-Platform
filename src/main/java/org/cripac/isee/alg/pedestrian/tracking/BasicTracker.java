@@ -28,8 +28,6 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.InputStream;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static org.bytedeco.javacpp.avutil.AV_LOG_QUIET;
 import static org.bytedeco.javacpp.avutil.av_log_set_level;
@@ -42,9 +40,6 @@ import static org.bytedeco.javacpp.avutil.av_log_set_level;
  * @author Ken Yu, CRIPAC, 2016
  */
 public class BasicTracker implements Tracker {
-
-    private static int instanceCnt = 0;
-    private static Lock instCntLock = new ReentrantLock();
 
     static {
         System.out.println("Loading native libraries for BasicTracker from "
@@ -84,21 +79,6 @@ public class BasicTracker implements Tracker {
     @Nonnull
     @Override
     public Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception {
-        // Limit instances on a single node.
-        while (true) {
-            instCntLock.lock();
-            if (instanceCnt < 5) {
-                ++instanceCnt;
-                logger.info("Tracker instance count: " + instanceCnt);
-                break;
-            }
-            instCntLock.unlock();
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException ignored) {
-            }
-        }
-
         FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(videoStream);
         av_log_set_level(AV_LOG_QUIET);
         frameGrabber.start();
@@ -145,17 +125,7 @@ public class BasicTracker implements Tracker {
             targets[i].id.serialNumber = i;
         }
 
-        instCntLock.lock();
-        --instanceCnt;
-        try {
-            logger.info("Tracker instance count: " + instanceCnt);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        instCntLock.unlock();
-
         return targets;
-//        return new FakePedestrianTracker().track(videoBytes);
     }
 
     /**
