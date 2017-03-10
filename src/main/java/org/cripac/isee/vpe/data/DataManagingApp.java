@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.data;
 
-import com.google.common.collect.Lists;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FileSystem;
@@ -35,10 +34,7 @@ import org.bytedeco.javacv.FrameGrabber;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.pedestrian.tracking.TrackletOrURL;
-import org.cripac.isee.vpe.common.DataType;
-import org.cripac.isee.vpe.common.RobustExecutor;
-import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
+import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
@@ -155,7 +151,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
                         synchronized (VideoCuttingStream.class) {
                             final Logger logger = loggerSingleton.getInst();
-                            Lists.newArrayList(kvIter).parallelStream().forEach(kv -> {
+                            ParallelExecutor.execute(kvIter, kv -> {
                                 try {
                                     new RobustExecutor<Void, Void>(() -> {
                                         final String taskID = kv._1();
@@ -398,7 +394,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
                         synchronized (TrackletSavingStream.class) {
                             final Logger logger = loggerSingleton.getInst();
-                            Lists.newArrayList(kvIter).parallelStream().forEach(kv -> {
+                            ParallelExecutor.execute(kvIter, kv -> {
                                 try {
                                     final FileSystem hdfs = HDFSFactory.newInstance();
                                     final String taskID = kv._1();
@@ -472,7 +468,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
                         synchronized (AttrSavingStream.class) {
                             final Logger logger = loggerSingleton.getInst();
-                            Lists.newArrayList(kvIter).parallelStream().forEach(res -> {
+                            ParallelExecutor.execute(kvIter, res -> {
                                 try {
                                     final TaskData taskData = res._2();
                                     final Attributes attr = (Attributes) taskData.predecessorRes;
@@ -517,7 +513,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
                         synchronized (IDRankSavingStream.class) {
                             final Logger logger = loggerSingleton.getInst();
-                            Lists.newArrayList(kvIter).parallelStream().forEach(kv -> {
+                            ParallelExecutor.execute(kvIter, kv -> {
                                 try {
                                     final TaskData taskData = kv._2();
                                     final int[] idRank = (int[]) taskData.predecessorRes;

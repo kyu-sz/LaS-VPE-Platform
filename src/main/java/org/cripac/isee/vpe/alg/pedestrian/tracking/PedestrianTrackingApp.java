@@ -30,10 +30,7 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.alg.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.alg.pedestrian.tracking.Tracker;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.DataType;
-import org.cripac.isee.vpe.common.RobustExecutor;
-import org.cripac.isee.vpe.common.SparkStreamingApp;
-import org.cripac.isee.vpe.common.Stream;
+import org.cripac.isee.vpe.common.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
@@ -149,7 +146,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         }
 
                         synchronized (HDFSVideoTrackingStream.class) {
-                            kvList.parallelStream().forEach(kv -> {
+                            ParallelExecutor.execute(kvList.iterator(), kv -> {
                                 try {
                                     final String taskID = kv._1();
                                     final TaskData taskData = kv._2();
