@@ -135,7 +135,6 @@ public class DataManagingApp extends SparkStreamingApp {
         public final static Port VIDEO_URL_PORT = new Port("video-url-for-cutting", DataType.URL);
         private static final long serialVersionUID = -6187153660239066646L;
         public static final DataType OUTPUT_TYPE = DataType.FRAME_ARRAY;
-        private final Singleton<FileSystem> hdfsSingleton;
 
         int maxFramePerFragment;
 
@@ -147,7 +146,6 @@ public class DataManagingApp extends SparkStreamingApp {
          */
         public VideoCuttingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
-            hdfsSingleton = new Singleton<>(new HDFSFactory());
             maxFramePerFragment = propCenter.maxFramePerFragment;
         }
 
@@ -163,8 +161,9 @@ public class DataManagingApp extends SparkStreamingApp {
                                         final String taskID = kv._1();
                                         final TaskData taskData = kv._2();
 
+                                        final FileSystem hdfs = HDFSFactory.newInstance();
                                         FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(
-                                                hdfsSingleton.getInst().open(new Path((String) taskData.predecessorRes))
+                                                hdfs.open(new Path((String) taskData.predecessorRes))
                                         );
 
                                         Frame[] fragments = new Frame[maxFramePerFragment];
@@ -380,14 +379,12 @@ public class DataManagingApp extends SparkStreamingApp {
         public static final Port PED_TRACKLET_SAVING_PORT =
                 new Port("pedestrian-tracklet-saving", DataType.TRACKLET);
         private static final long serialVersionUID = 2820895755662980265L;
-        private final Singleton<FileSystem> hdfsSingleton;
         private final String metadataDir;
         private final Singleton<KafkaProducer<String, byte[]>> packingJobProducerSingleton;
 
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
-            hdfsSingleton = new Singleton<>(new HDFSFactory());
             metadataDir = propCenter.metadataDir;
             packingJobProducerSingleton = new Singleton<>(
                     new KafkaProducerFactory<>(propCenter.getKafkaProducerProp(false))
@@ -403,6 +400,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             final Logger logger = loggerSingleton.getInst();
                             Lists.newArrayList(kvIter).parallelStream().forEach(kv -> {
                                 try {
+                                    final FileSystem hdfs = HDFSFactory.newInstance();
                                     final String taskID = kv._1();
                                     final TaskData taskData = kv._2();
                                     final TrackletOrURL trackletOrURL = (TrackletOrURL) taskData.predecessorRes;
@@ -419,14 +417,13 @@ public class DataManagingApp extends SparkStreamingApp {
                                         final String taskRoot = videoRoot + "/" + taskID;
                                         final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                                         final Path storePath = new Path(storeDir);
-                                        final FileSystem hdfs = hdfsSingleton.getInst();
                                         new RobustExecutor<Void, Void>(() -> {
                                             if (hdfs.exists(storePath)
                                                     || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
                                                 logger.warn("Duplicated storing request for " + tracklet.id);
                                             } else {
                                                 hdfs.mkdirs(new Path(storeDir));
-                                                HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
+                                                HadoopHelper.storeTracklet(storeDir, tracklet, hdfs);
                                             }
                                         }).execute();
                                     }

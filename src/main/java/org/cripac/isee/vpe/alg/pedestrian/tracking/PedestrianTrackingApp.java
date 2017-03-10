@@ -126,7 +126,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private static final long serialVersionUID = -6738652169567844016L;
 
         private final Singleton<Map<String, byte[]>> confBuffer;
-        private final Singleton<FileSystem> hdfsSingleton;
         private final int numSamplesPerTracklet;
         private final String metadataDir;
 
@@ -135,7 +134,6 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
             numSamplesPerTracklet = propCenter.numSamplesPerTracklet;
             metadataDir = propCenter.metadataDir;
-            hdfsSingleton = new Singleton<>(new HDFSFactory());
             confBuffer = new Singleton<>(Object2ObjectOpenHashMap::new);
         }
 
@@ -194,13 +192,14 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                         return;
                                     }
                                     final Tracker tracker = new BasicTracker(confBytes, logger);
-                                    //Tracker tracker = new FakePedestrianTracker();
+
+                                    final FileSystem hdfs = HDFSFactory.newInstance();
 
                                     // Conduct tracking on video read from HDFS.
                                     logger.debug("Performing tracking on " + videoName);
                                     final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(
                                             (Function0<Tracklet[]>) () -> {
-                                                final InputStream videoStream = hdfsSingleton.getInst().open(videoPath);
+                                                final InputStream videoStream = hdfs.open(videoPath);
                                                 return tracker.track(videoStream);
                                             }
                                     ).execute();
@@ -225,7 +224,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                                             logger.debug("Tracklet " + tracklet.id
                                                     + " is too long. Passing it through HDFS at \"" + storeDir + "\".");
-                                            HadoopHelper.storeTracklet(storeDir, tracklet, hdfsSingleton.getInst());
+                                            HadoopHelper.storeTracklet(storeDir, tracklet, hdfs);
                                             output(outputPorts,
                                                     taskData.executionPlan,
                                                     new TrackletOrURL(storeDir),
