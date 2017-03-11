@@ -445,6 +445,13 @@ public class SystemPropertyCenter implements Serializable {
                 .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
                 .addSparkArg("--queue", hadoopQueue)
                 .addAppArgs(getArgs(appName));
+        if (sysPropFilePath != null) {
+            if (new File(sysPropFilePath).exists()) {
+                launcher = launcher.setPropertiesFile(sysPropFilePath);
+            } else {
+                logger.warn("System property file " + sysPropFilePath + " does not exist!");
+            }
+        }
         if (sparkConfFilePath != null) {
             if (new File(sparkConfFilePath).exists()) {
                 launcher = launcher.setPropertiesFile(sparkConfFilePath);
