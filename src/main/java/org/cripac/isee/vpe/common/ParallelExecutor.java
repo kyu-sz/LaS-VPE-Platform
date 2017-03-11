@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.common;/*
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 public class ParallelExecutor {
@@ -39,7 +40,7 @@ public class ParallelExecutor {
             for (int i = 0; i < parallelism; ++i) {
                 dataBuf.set(i, items.hasNext() ? items.next() : null);
             }
-            dataBuf.parallelStream().forEach(consumer);
+            dataBuf.parallelStream().filter(Objects::nonNull).forEach(consumer);
         }
     }
 }

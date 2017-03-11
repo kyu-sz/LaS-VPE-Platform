@@ -304,7 +304,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 final long dirCnt = contentSummary.getDirectoryCount();
                                 // Decrease one for directory counter.
                                 if (dirCnt - 1 == numTracklets) {
-                                    logger.info("Starting to pack metadata for Task " + taskID
+                                    logger.info("Starting to pack tracklets for task " + taskID
                                             + "(" + videoID + ")! The directory consumes "
                                             + contentSummary.getSpaceConsumed() + " bytes.");
 
@@ -319,7 +319,8 @@ public class DataManagingApp extends SparkStreamingApp {
                                         int ret = arch.run(Arrays.copyOf(harPackingOptions.toArray(),
                                                 harPackingOptions.size(), String[].class));
                                         if (ret < 0) {
-                                            throw new IOException("Archiving failed.");
+                                            throw new IOException("Packing tracklets for task "
+                                                    + taskID + "(" + videoID + ") failed.");
                                         }
                                     }).execute();
 
