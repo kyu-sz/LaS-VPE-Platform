@@ -18,6 +18,7 @@ import static org.bytedeco.javacpp.caffe.TEST;
 public class Caffe {
     static {
         Loader.load(opencv_core.class);
+        Loader.load(caffe.class);
     }
 
     /**

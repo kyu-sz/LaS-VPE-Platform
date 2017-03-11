@@ -452,6 +452,13 @@ public class SystemPropertyCenter implements Serializable {
                 logger.warn("System property file " + sysPropFilePath + " does not exist!");
             }
         }
+        if (appPropFilePath != null) {
+            if (new File(appPropFilePath).exists()) {
+                launcher = launcher.setPropertiesFile(appPropFilePath);
+            } else {
+                logger.warn("Application property file " + appPropFilePath + " does not exist!");
+            }
+        }
         if (sparkConfFilePath != null) {
             if (new File(sparkConfFilePath).exists()) {
                 launcher = launcher.setPropertiesFile(sparkConfFilePath);
