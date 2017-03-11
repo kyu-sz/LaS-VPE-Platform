@@ -29,6 +29,12 @@ public class ParallelExecutor {
     public static <T> void execute(Iterator<T> items, int parallelism, Consumer<T> consumer) {
         assert parallelism >= 1;
         ArrayList<T> dataBuf = new ArrayList<>(parallelism);
+        if (items.hasNext()) {
+            for (int i = 0; i < parallelism && items.hasNext(); ++i) {
+                dataBuf.add(items.next());
+            }
+            dataBuf.parallelStream().forEach(consumer);
+        }
         while (items.hasNext()) {
             for (int i = 0; i < parallelism; ++i) {
                 dataBuf.set(i, items.hasNext() ? items.next() : null);

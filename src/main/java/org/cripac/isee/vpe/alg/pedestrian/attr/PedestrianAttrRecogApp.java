@@ -154,7 +154,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             loggerSingleton.getInst()));
                     break;
                 case DeepMAR:
-                    recognizerSingleton = new Singleton<>(() -> new DeepMAR(propCenter.caffeGPU, loggerSingleton.getInst()));
+                    recognizerSingleton = new Singleton<>(() ->
+                            new DeepMAR(propCenter.caffeGPU, loggerSingleton.getInst()));
                     break;
                 default:
                     throw new NotImplementedException("Recognizer singleton construction for "
