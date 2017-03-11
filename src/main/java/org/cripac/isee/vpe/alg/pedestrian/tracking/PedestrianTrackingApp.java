@@ -42,6 +42,7 @@ import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
+import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -196,7 +197,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     logger.debug("Performing tracking on " + videoName);
                                     final Tracklet[] tracklets = new RobustExecutor<Void, Tracklet[]>(
                                             (Function0<Tracklet[]>) () -> {
-                                                final InputStream videoStream = hdfs.open(videoPath);
+                                                // This value is set according to resolution of DCI 4K.
+                                                final int BUFFER_SIZE = 4096 * 2160 * 3;
+                                                final InputStream videoStream =
+                                                        new BufferedInputStream(hdfs.open(videoPath), BUFFER_SIZE);
                                                 return tracker.track(videoStream);
                                             }
                                     ).execute();
@@ -228,6 +232,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                                     taskID);
                                         }
                                     }
+
+                                    hdfs.close();
                                 } catch (Throwable e) {
                                     logger.error("During tracking.", e);
                                 }

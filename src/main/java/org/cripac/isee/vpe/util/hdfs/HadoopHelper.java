@@ -63,8 +63,8 @@ public class HadoopHelper {
         hadoopConf.addResource(new Path(hadoopHome + "/etc/hadoop/core-site.xml"));
         hadoopConf.addResource(new Path(hadoopHome + "/etc/hadoop/yarn-site.xml"));
         hadoopConf.setBoolean("dfs.support.append", true);
-        hadoopConf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
-        hadoopConf.set("fs.file.impl", LocalFileSystem.class.getName());
+        hadoopConf.set("fs.hdfs.impl", DistributedFileSystem.class.getName(), "LaS-VPE Platform");
+        hadoopConf.set("fs.file.impl", LocalFileSystem.class.getName(), "LaS-VPE Platform");
         return hadoopConf;
     }
 

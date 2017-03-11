@@ -362,6 +362,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
                         }
                     }
+                    hdfs.close();
                 } catch (Exception e) {
                     logger.error("In packing thread", e);
                 }
@@ -432,6 +433,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                                     packingJobProducerSingleton.getInst(),
                                                     logger)
                                     ).execute();
+                                    hdfs.close();
                                 } catch (Exception e) {
                                     logger.error("During storing tracklets.", e);
                                 }
