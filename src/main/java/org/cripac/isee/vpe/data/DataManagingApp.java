@@ -146,7 +146,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, VIDEO_URL_PORT)
                     .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
                         synchronized (VideoCuttingStream.class) {
@@ -154,7 +154,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             ParallelExecutor.execute(kvIter, kv -> {
                                 try {
                                     new RobustExecutor<Void, Void>(() -> {
-                                        final String taskID = kv._1();
+                                        final UUID taskID = kv._1();
                                         final TaskData taskData = kv._2();
 
                                         final FileSystem hdfs = HDFSFactory.newInstance();
@@ -390,7 +390,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             // Save tracklets.
             this.filter(globalStreamMap, PED_TRACKLET_SAVING_PORT)
                     .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
@@ -399,7 +399,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             ParallelExecutor.execute(kvIter, kv -> {
                                 try {
                                     final FileSystem hdfs = HDFSFactory.newInstance();
-                                    final String taskID = kv._1();
+                                    final UUID taskID = kv._1();
                                     final TaskData taskData = kv._2();
                                     final TrackletOrURL trackletOrURL = (TrackletOrURL) taskData.predecessorRes;
                                     final Tracklet tracklet = trackletOrURL.getTracklet();
@@ -429,7 +429,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                     // Check packing.
                                     new RobustExecutor<Void, Void>(() ->
                                             KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
-                                                    taskID,
+                                                    taskID.toString(),
                                                     serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
                                                     packingJobProducerSingleton.getInst(),
                                                     logger)
@@ -464,7 +464,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             // Display the attributes.
             // TODO Modify the streaming steps from here to store the meta data.
             this.filter(globalStreamMap, PED_ATTR_SAVING_PORT)
@@ -509,7 +509,7 @@ public class DataManagingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             // Display the id ranks.
             // TODO Modify the streaming steps from here to store the meta data.
             this.filter(globalStreamMap, PED_IDRANK_SAVING_PORT)

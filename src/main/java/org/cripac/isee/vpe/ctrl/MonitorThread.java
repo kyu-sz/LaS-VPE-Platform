@@ -30,6 +30,7 @@ public class MonitorThread extends Thread {
 
     @Override
     public void run() {
+        logger.debug("Starting monitoring!");
         final Runtime runtime = Runtime.getRuntime();
         //noinspection InfiniteLoopStatement
         while (true) {

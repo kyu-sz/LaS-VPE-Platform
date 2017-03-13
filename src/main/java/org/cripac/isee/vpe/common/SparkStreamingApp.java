@@ -255,9 +255,10 @@ public abstract class SparkStreamingApp implements Serializable {
             addToContext();
 
             if (!acceptingTypes.isEmpty()) {
-                final JavaPairDStream<DataType, Tuple2<String, byte[]>> inputStream =
-                        buildDirectStream(acceptingTypes);
-                Map<DataType, JavaPairDStream<String, TaskData>> streamMap = new Object2ObjectOpenHashMap<>();
+                final JavaPairDStream<DataType, Tuple2<UUID, byte[]>> inputStream =
+                        buildDirectStream(acceptingTypes)
+                                .mapValues(tuple -> new Tuple2<>(UUID.fromString(tuple._1()), tuple._2()));
+                Map<DataType, JavaPairDStream<UUID, TaskData>> streamMap = new Object2ObjectOpenHashMap<>();
                 acceptingTypes.forEach(type -> streamMap.put(type, inputStream
                         .filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))
                         .mapToPair(rec -> new Tuple2<>(rec._2()._1(), deserialize(rec._2()._2())))));

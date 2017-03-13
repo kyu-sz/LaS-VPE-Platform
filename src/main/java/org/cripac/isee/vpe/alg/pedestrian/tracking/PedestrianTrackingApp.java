@@ -48,6 +48,7 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * The PedestrianTrackingApp class takes in video URLs from Kafka, then process
@@ -136,7 +137,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, VIDEO_URL_PORT)
                     .foreachRDD(rdd -> rdd.glom().foreach(kvList -> {
                         final Logger logger = loggerSingleton.getInst();
@@ -149,7 +150,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         synchronized (HDFSVideoTrackingStream.class) {
                             ParallelExecutor.execute(kvList.iterator(), kv -> {
                                 try {
-                                    final String taskID = kv._1();
+                                    final UUID taskID = kv._1();
                                     final TaskData taskData = kv._2();
 
                                     final String videoURL = (String) taskData.predecessorRes;

@@ -44,6 +44,7 @@ import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * The PedestrianAttrRecogApp class is a Spark Streaming application which
@@ -164,13 +165,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         }
 
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap) {// Extract tracklets from the data.
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {// Extract tracklets from the data.
             // Recognize attributes from the tracklets.
             this.filter(globalStreamMap, TRACKLET_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         Logger logger = loggerSingleton.getInst();
                         try {
-                            String taskID = kv._1();
+                            UUID taskID = kv._1();
                             TaskData taskData = kv._2();
                             logger.debug("Received task " + taskID + "!");
 
