@@ -28,7 +28,7 @@ public abstract class Logger {
 
     protected Level level;
 
-    protected String localName;
+    String localName;
 
     public Logger(Level level) {
         setLevel(level);
