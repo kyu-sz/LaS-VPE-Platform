@@ -32,11 +32,13 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.apache.spark.launcher.SparkLauncher;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
+import org.cripac.isee.vpe.util.kafka.EvenlyDistributingPartitioner;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.net.URI;
@@ -75,9 +77,10 @@ public class SystemPropertyCenter implements Serializable {
     private int kafkaFetchTimeoutMs = 60000;
     public String kafkaLocationStrategy = "PreferBrokers";
     /* The maximum number of messages per second that each partition will
-     * accept in the direct Kafka input stream. 0 means not limited.
+     * accept in the direct Kafka input stream. 0 or null means not limited.
      */
-    public String kafkaMaxRatePerPartition = "0";
+    @Nullable
+    public String kafkaMaxRatePerPartition = null;
     /* Spark properties */
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "/metadata";
@@ -86,10 +89,10 @@ public class SystemPropertyCenter implements Serializable {
     String[] appsToStart = null;
     /* Caffe properties */
     public int caffeGPU = -1;
+    /* Number of executor instances. */
+    public int numExecutors = 2;
     /* Memory per executor (e.g. 1000M, 2G) (Default: 1G) */
-    private String executorMem = "1G";
-    /* Number of executors to run (Default: 2) */
-    private int numExecutors = 2;
+    public String executorMem = "1G";
     /* Number of cores per executor (Default: 1) */
     private int executorCores = 1;
     /* Total cores for all executors (Spark standalone and Mesos only) */
@@ -108,21 +111,25 @@ public class SystemPropertyCenter implements Serializable {
     private String yarnAmNodeLabelExpression = "";
     /* The hadoop queue to use for allocation requests (Default: 'default') */
     private String hadoopQueue = "default";
-    private String sysPropFilePath = "conf/system.properties";
+    private String sysPropFilePath = null;
     /* Application-specific property file. Properties loaded from it
      * will override those loaded from the system property file.
      * Leaving it as null will let the system automatically find
      * that in default places according to the application specified.
      */
     private String appPropFilePath = null;
-    private String sparkConfFilePath = ConfManager.CONF_DIR + "/spark-defaults.conf";
-    private String log4jPropFilePath = ConfManager.CONF_DIR + "/log4j.properties";
+    private String sparkConfFilePath = "conf/spark-defaults.conf";
+    private String log4jPropFilePath = "conf/log4j.properties";
     private String hdfsDefaultName = "localhost:9000";
     private String jarPath = "bin/vpe-platform.jar";
     /* Duration for buffering results */
     public int bufDuration = 600000;
     /* Duration of spark batches */
     public int batchDuration = 2000;
+    /* Number of partitions when doing repartition.
+     * -1 means do not do repartition. 0 means using default parallelism of Spark.
+     */
+    public int repartition = -1;
     /* Whether to print verbose running information */
     public boolean verbose = false;
 
@@ -141,16 +148,19 @@ public class SystemPropertyCenter implements Serializable {
         assert new Path(metadataDir).isAbsolute();
     }
 
-    public SystemPropertyCenter(@Nonnull String[] args)
+    public SystemPropertyCenter(@Nonnull String... args)
             throws URISyntaxException, ParserConfigurationException, SAXException {
         CommandLineParser parser = new BasicParser();
         Options options = new Options();
         options.addOption("h", "help", false, "Print this help message.");
         options.addOption("v", "verbose", false, "Display debug information.");
         options.addOption("a", "application", true, "Application specified to run.");
+        options.addOption("g", "gpu", true, "Indices of GPU for Caffe.");
         options.addOption(null, "spark-property-file", true, "Path of the spark property file.");
         options.addOption(null, "system-property-file", true, "Path of the system property file.");
-        options.addOption(null, "app-property-file", true, "Path of the application-specific system property file.");
+        options.addOption(null, "app-property-file", true,
+                "Path of the application-specific system property file."
+                        + " If not specified, use ${APP_NAME}/app.properties, if exists.");
         options.addOption(null, "log4j-property-file", true, "Path of the log4j property file.");
         options.addOption(null, "report-listening-addr", true, "Address of runtime report listener.");
         options.addOption(null, "report-listening-topic", true, "Port of runtime report listener.");
@@ -183,6 +193,8 @@ public class SystemPropertyCenter implements Serializable {
             for (String app : appsToStart) {
                 logger.debug("\t\t" + app);
             }
+        } else {
+            throw new IllegalArgumentException("No application specified to run.");
         }
 
         if (commandLine.hasOption("system-property-file")) {
@@ -200,32 +212,56 @@ public class SystemPropertyCenter implements Serializable {
 
         /* Load properties from file. */
         BufferedInputStream propInputStream;
-        try {
-            if (sysPropFilePath.contains("hdfs:/")) {
-                /* TODO: Check if can load property file from HDFS. */
-                logger.debug("Loading system-wise default properties using HDFS platform from "
-                        + sysPropFilePath + "...");
-                final FileSystem hdfs = FileSystem.get(new URI(sysPropFilePath), HadoopHelper.getDefaultConf());
-                final FSDataInputStream hdfsInputStream = hdfs.open(new Path(sysPropFilePath));
-                propInputStream = new BufferedInputStream(hdfsInputStream);
-            } else {
-                final File propFile = new File(sysPropFilePath);
-                logger.debug("Loading system-wise default properties locally from "
-                        + propFile.getAbsolutePath() + "...");
-                propInputStream = new BufferedInputStream(new FileInputStream(propFile));
+        if (sysPropFilePath == null) {
+            InputStream is = getClass().getResourceAsStream("/conf/system.properties");
+            assert (is != null);
+            try {
+                sysProps.load(is);
+            } catch (IOException e) {
+                logger.error("Error on loading system properties file from JAR file", e);
+                System.exit(0);
             }
-            sysProps.load(propInputStream);
-            propInputStream.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-            logger.error("Couldn't find system-wise default property file at specified path: \""
-                    + sysPropFilePath + "\"!\n");
-            logger.error("Try use '-h' for more information.");
-            System.exit(0);
-            return;
+        } else {
+            try {
+                if (sysPropFilePath.contains("hdfs:/")) {
+                /* TODO: Check if can load property file from HDFS. */
+                    logger.debug("Loading system-wise default properties using HDFS platform from "
+                            + sysPropFilePath + "...");
+                    final FileSystem hdfs = FileSystem.get(new URI(sysPropFilePath), HadoopHelper.getDefaultConf());
+                    final FSDataInputStream hdfsInputStream = hdfs.open(new Path(sysPropFilePath));
+                    propInputStream = new BufferedInputStream(hdfsInputStream);
+                } else {
+                    final File propFile = new File(sysPropFilePath);
+                    logger.debug("Loading system-wise default properties locally from "
+                            + propFile.getAbsolutePath() + "...");
+                    propInputStream = new BufferedInputStream(new FileInputStream(propFile));
+                }
+                sysProps.load(propInputStream);
+                propInputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+                logger.error("Couldn't find system-wise default property file at specified path: \""
+                        + sysPropFilePath + "\"!\n");
+                logger.error("Try use '-h' for more information.");
+                System.exit(0);
+                return;
+            }
         }
 
-        if (appPropFilePath != null) {
+        if (appPropFilePath == null) {
+            for (String appName : appsToStart) {
+                InputStream is = getClass().getResourceAsStream("/conf/" + appName + "/app.properties");
+                if (is != null) {
+                    try {
+                        sysProps.load(is);
+                    } catch (IOException e) {
+                        logger.error("Error on loading application properties file for " + appName
+                                + " from JAR file", e);
+                        System.exit(0);
+                    }
+                }
+            }
+        } else {
             try {
                 if (appPropFilePath.contains("hdfs:/")) {
                     /* TODO: Check if can load property file from HDFS. */
@@ -244,12 +280,10 @@ public class SystemPropertyCenter implements Serializable {
                 sysProps.load(propInputStream);
                 propInputStream.close();
             } catch (IOException e) {
-                e.printStackTrace();
-                logger.error("Couldn't find application-specific property file at specified path: \""
-                        + appPropFilePath + "\"!\n");
+                logger.error("Couldn't load application-specific property file at specified path: \""
+                        + appPropFilePath + "\"!\n", e);
                 logger.error("Try use '-h' for more information.");
                 System.exit(0);
-                return;
             }
         }
 
@@ -264,22 +298,22 @@ public class SystemPropertyCenter implements Serializable {
                     zkConn = (String) entry.getValue();
                     break;
                 case "zk.session.timeout":
-                    zkSessionTimeoutMs = new Integer((String) entry.getValue());
+                    zkSessionTimeoutMs = Integer.parseInt((String) entry.getValue());
                     break;
                 case "zk.connection.timeout":
-                    zkConnectionTimeoutMS = new Integer((String) entry.getValue());
+                    zkConnectionTimeoutMS = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.bootstrap.servers":
                     kafkaBootstrapServers = (String) entry.getValue();
                     break;
                 case "kafka.partitions":
-                    kafkaNumPartitions = new Integer((String) entry.getValue());
+                    kafkaNumPartitions = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.replication.factor":
-                    kafkaReplFactor = new Integer((String) entry.getValue());
+                    kafkaReplFactor = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.fetch.max.size":
-                    kafkaMsgMaxBytes = new Integer((String) entry.getValue());
+                    kafkaMsgMaxBytes = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.location.strategy":
                     kafkaLocationStrategy = (String) entry.getValue();
@@ -305,23 +339,23 @@ public class SystemPropertyCenter implements Serializable {
                 case "hdfs.default.name":
                     hdfsDefaultName = (String) entry.getValue();
                     break;
-                case "executor.num":
-                    numExecutors = new Integer((String) entry.getValue());
+                case "num.executors":
+                    numExecutors = Integer.parseInt((String) entry.getValue());
                     break;
                 case "executor.memory":
                     executorMem = (String) entry.getValue();
                     break;
                 case "executor.cores":
-                    executorCores = new Integer((String) entry.getValue());
+                    executorCores = Integer.parseInt((String) entry.getValue());
                     break;
                 case "total.executor.cores":
-                    totalExecutorCores = new Integer((String) entry.getValue());
+                    totalExecutorCores = Integer.parseInt((String) entry.getValue());
                     break;
                 case "driver.memory":
                     driverMem = (String) entry.getValue();
                     break;
                 case "driver.cores":
-                    driverCores = new Integer((String) entry.getValue());
+                    driverCores = Integer.parseInt((String) entry.getValue());
                     break;
                 case "hadoop.queue":
                     hadoopQueue = (String) entry.getValue();
@@ -329,27 +363,34 @@ public class SystemPropertyCenter implements Serializable {
                 case "vpe.recv.parallel":
                     break;
                 case "vpe.buf.duration":
-                    bufDuration = new Integer((String) entry.getValue());
+                    bufDuration = Integer.parseInt((String) entry.getValue());
                     break;
                 case "vpe.batch.duration":
-                    batchDuration = new Integer((String) entry.getValue());
+                    batchDuration = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.send.max.size":
-                    kafkaSendMaxSize = new Integer((String) entry.getValue());
+                    kafkaSendMaxSize = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.request.timeout.ms":
-                    kafkaRequestTimeoutMs = new Integer((String) entry.getValue());
+                    kafkaRequestTimeoutMs = Integer.parseInt((String) entry.getValue());
                     break;
                 case "kafka.fetch.timeout.ms":
-                    kafkaFetchTimeoutMs = new Integer((String) entry.getValue());
+                    kafkaFetchTimeoutMs = Integer.parseInt((String) entry.getValue());
                     break;
                 case "caffe.gpu":
-                    caffeGPU = new Integer((String) entry.getValue());
+                    caffeGPU = Integer.parseInt((String) entry.getValue());
                     break;
                 case "spark.streaming.kafka.maxRatePerPartition":
                     kafkaMaxRatePerPartition = (String) entry.getValue();
                     break;
+                case "vpe.repartition":
+                    repartition = Integer.parseInt((String) entry.getValue());
+                    break;
             }
+        }
+
+        if (commandLine.hasOption('g')) {
+            caffeGPU = Integer.parseInt(commandLine.getOptionValue('g'));
         }
 
         validateConfigurations();
@@ -361,20 +402,25 @@ public class SystemPropertyCenter implements Serializable {
      *
      * @return An array of string with format required by SparkSubmit client.
      */
-    private String[] getArgs() {
+    private String[] getArgs(String appName) {
         ArrayList<String> optList = new ArrayList<>();
 
         if (verbose) {
             optList.add("-v");
         }
 
-        if (appPropFilePath != null && new File(appPropFilePath).exists()) {
+        if (appPropFilePath != null) {
             optList.add("--app-property-file");
             optList.add(new File(appPropFilePath).getName());
         }
 
-        optList.add("--system-property-file");
-        optList.add(new File(sysPropFilePath).getName());
+        if (sysPropFilePath != null) {
+            optList.add("--system-property-file");
+            optList.add(new File(sysPropFilePath).getName());
+        }
+
+        optList.add("-a");
+        optList.add(appName);
 
         optList.add("--log4j-property-file");
         if (sparkMaster.toLowerCase().contains("yarn")) {
@@ -382,33 +428,47 @@ public class SystemPropertyCenter implements Serializable {
         } else if (sparkMaster.toLowerCase().contains("local")) {
             optList.add(log4jPropFilePath);
         } else {
-            throw new NotImplementedException(
-                    "System is currently not supporting deploy mode: " + sparkMaster);
+            throw new NotImplementedException("System is currently not supporting deploy mode: " + sparkMaster);
         }
 
         return Arrays.copyOf(optList.toArray(), optList.size(), String[].class);
     }
 
-    SparkLauncher GetSparkLauncher(String appName) throws IOException, NoAppSpecifiedException {
+    SparkLauncher GetSparkLauncher(String appName) throws IOException {
         SparkLauncher launcher = new SparkLauncher()
                 .setAppResource(jarPath)
                 .setMainClass(AppManager.getMainClassName(appName))
                 .setMaster(sparkMaster)
                 .setAppName(appName)
                 .setVerbose(verbose)
-                .addFile(ConfManager.getConcatCfgFilePathList(","))
                 .setConf(SparkLauncher.DRIVER_MEMORY, driverMem)
                 .setConf(SparkLauncher.EXECUTOR_MEMORY, executorMem)
-                .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
                 .setConf(SparkLauncher.EXECUTOR_CORES, "" + executorCores)
+                .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
+                .setConf("spark.executor.instances", "" + numExecutors)
+                .setConf("spark.executor.memory", executorMem)
                 .setConf("spark.driver.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
                 .setConf("spark.executor.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
                 .setConf("spark.yarn.am.nodeLabelExpression", yarnAmNodeLabelExpression)
-                .addSparkArg("--driver-cores", "" + driverCores)
                 .addSparkArg("--num-executors", "" + numExecutors)
+                .addSparkArg("--driver-cores", "" + driverCores)
                 .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
                 .addSparkArg("--queue", hadoopQueue)
-                .addAppArgs(getArgs());
+                .addAppArgs(getArgs(appName));
+        if (sysPropFilePath != null) {
+            if (new File(sysPropFilePath).exists()) {
+                launcher = launcher.setPropertiesFile(sysPropFilePath);
+            } else {
+                logger.warn("System property file " + sysPropFilePath + " does not exist!");
+            }
+        }
+        if (appPropFilePath != null) {
+            if (new File(appPropFilePath).exists()) {
+                launcher = launcher.setPropertiesFile(appPropFilePath);
+            } else {
+                logger.warn("Application property file " + appPropFilePath + " does not exist!");
+            }
+        }
         if (sparkConfFilePath != null) {
             if (new File(sparkConfFilePath).exists()) {
                 launcher = launcher.setPropertiesFile(sparkConfFilePath);
@@ -423,35 +483,7 @@ public class SystemPropertyCenter implements Serializable {
                 logger.warn("Loj4j configuration file " + log4jPropFilePath + " does not exist!");
             }
         }
-        if (sysPropFilePath != null) {
-            if (new File(sysPropFilePath).exists()) {
-                launcher = launcher.addFile(sysPropFilePath);
-            } else {
-                logger.warn("System configuration file " + sysPropFilePath + " does not exist!");
-            }
-            launcher = launcher.addFile(sysPropFilePath);
-        }
-        if (appPropFilePath != null) {
-            if (new File(appPropFilePath).exists()) {
-                launcher = launcher.addFile(appPropFilePath);
-            } else {
-                logger.warn("App configuration file " + appPropFilePath + " does not exist!");
-            }
-        }
         return launcher;
-    }
-
-    /**
-     * Thrown when no application is specified in any possible property sources.
-     *
-     * @author Ken Yu, CRIPAC, 2016
-     */
-    public static class NoAppSpecifiedException extends Exception {
-        private static final long serialVersionUID = -8356206863229009557L;
-
-        public NoAppSpecifiedException(String message) {
-            super(message);
-        }
     }
 
     public Properties getKafkaProducerProp(boolean isStringValue) {
@@ -464,6 +496,7 @@ public class SystemPropertyCenter implements Serializable {
         producerProp.put(ProducerConfig.BUFFER_MEMORY_CONFIG, kafkaSendMaxSize);
         producerProp.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaRequestTimeoutMs);
         producerProp.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+        producerProp.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, EvenlyDistributingPartitioner.class);
         return producerProp;
     }
 

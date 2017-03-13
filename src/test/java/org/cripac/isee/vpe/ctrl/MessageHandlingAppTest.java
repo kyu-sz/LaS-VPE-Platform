@@ -28,6 +28,9 @@ import org.junit.Before;
 
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 
 import static org.apache.commons.lang3.SerializationUtils.serialize;
@@ -53,16 +56,18 @@ public class MessageHandlingAppTest implements Serializable {
 
     @Before
     public void init() throws Exception {
-        init(new String[0]);
+        init(new String[]{"-a", MessageHandlingApp.APP_NAME,
+                "--system-property-file", "conf/system.properties",
+                "--app-property-file", "conf/" + MessageHandlingApp.APP_NAME + "/app.properties"});
     }
 
     private void init(String[] args) throws Exception {
-        SystemPropertyCenter propCenter;
-        if (args.length > 0) {
-            propCenter = new SystemPropertyCenter(args);
-        } else {
-            propCenter = new SystemPropertyCenter();
-        }
+        List<String> argList = new ArrayList<>(Arrays.asList(args));
+        argList.add("-a");
+        argList.add(MessageHandlingApp.APP_NAME);
+        args = new String[argList.size()];
+        argList.toArray(args);
+        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
         Properties producerProp = propCenter.getKafkaProducerProp(false);
         producer = new KafkaProducer<>(producerProp);
@@ -157,7 +162,7 @@ public class MessageHandlingAppTest implements Serializable {
 
         Object2ObjectOpenHashMap<String, Serializable> param = new Object2ObjectOpenHashMap<>();
         param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
-                "pedestrian-tracking-isee-basic-CAM01_0.conf");
+                "isee-basic/CAM01_0.conf");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
                 new Gson().toJson(new LoginParam(InetAddress.getLocalHost(), 0,
                         "Ken Yu", "I love Shenzhen!")));

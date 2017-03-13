@@ -17,7 +17,7 @@
 
 package org.cripac.isee.vpe.data;
 
-import org.cripac.isee.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.Attributes;
 
 import javax.annotation.Nonnull;
 import java.util.NoSuchElementException;

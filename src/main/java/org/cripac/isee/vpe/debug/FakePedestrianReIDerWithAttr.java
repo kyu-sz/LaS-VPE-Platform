@@ -17,8 +17,8 @@
 
 package org.cripac.isee.vpe.debug;
 
-import org.cripac.isee.pedestrian.reid.PedestrianInfo;
-import org.cripac.isee.pedestrian.reid.PedestrianReIDer;
+import org.cripac.isee.alg.pedestrian.reid.PedestrianInfo;
+import org.cripac.isee.alg.pedestrian.reid.PedestrianReIDer;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -27,7 +27,7 @@ import java.util.Random;
 /**
  * @author Ken Yu, CRIPAC, 2016
  */
-public class FakePedestrianReIDerWithAttr extends PedestrianReIDer {
+public class FakePedestrianReIDerWithAttr implements PedestrianReIDer {
 
     private Random rand = new Random();
 

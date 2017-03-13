@@ -45,9 +45,9 @@ public abstract class Stream implements Serializable {
     output(Collection<TaskData.ExecutionPlan.Node.Port> outputPorts,
            TaskData.ExecutionPlan executionPlan,
            Serializable result,
-           String taskID) throws Exception {
+           UUID taskID) throws Exception {
         new RobustExecutor<Void, Void>(
-                () -> KafkaHelper.sendWithLog(taskID,
+                () -> KafkaHelper.sendWithLog(taskID.toString(),
                         new TaskData(outputPorts, executionPlan, result),
                         producerSingleton.getInst(),
                         loggerSingleton.getInst()),
@@ -57,8 +57,8 @@ public abstract class Stream implements Serializable {
         ).execute();
     }
 
-    protected JavaPairDStream<String, TaskData>
-    filter(Map<DataType, JavaPairDStream<String, TaskData>> streamMap, Port port) {
+    protected JavaPairDStream<UUID, TaskData>
+    filter(Map<DataType, JavaPairDStream<UUID, TaskData>> streamMap, Port port) {
         return streamMap.get(port.inputType)
                 .filter(rec -> (Boolean) rec._2().destPorts.containsKey(port));
     }
@@ -87,7 +87,7 @@ public abstract class Stream implements Serializable {
      *                        which must be one of the {@link DataType}.
      *                        The value is a filtered stream.
      */
-    public abstract void addToGlobalStream(Map<DataType, JavaPairDStream<String, TaskData>> globalStreamMap);
+    public abstract void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap);
 
     /**
      * Get input ports of the stream.

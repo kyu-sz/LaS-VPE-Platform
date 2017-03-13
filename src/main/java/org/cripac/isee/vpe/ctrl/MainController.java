@@ -21,7 +21,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.spark.launcher.SparkLauncher;
 import org.apache.zookeeper.KeeperException.UnimplementedException;
-import org.cripac.isee.vpe.ctrl.SystemPropertyCenter.NoAppSpecifiedException;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -104,7 +103,7 @@ public class MainController {
                             "LogStreamReader error");
                     infoThread.start();
                     errorThread.start();
-                } catch (NoAppSpecifiedException e) {
+                } catch (IllegalArgumentException e) {
                     e.printStackTrace();
                 }
             }

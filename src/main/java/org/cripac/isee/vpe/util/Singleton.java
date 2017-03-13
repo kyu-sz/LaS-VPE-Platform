@@ -35,7 +35,7 @@ public class Singleton<T> implements Serializable {
     /**
      * Lazy-evaluated instance pool of all the classes.
      */
-    private static volatile Map<char[], Object> instancePool = null;
+    private static volatile Map<Class<?>, Object> instancePool = null;
 
     /**
      * Factory for creating a new instance if there is not instance in the pool
@@ -44,9 +44,9 @@ public class Singleton<T> implements Serializable {
     private final Factory<T> objFactory;
 
     /**
-     * Name of class T.
+     * Class T.
      */
-    private final char[] typeParameterClass;
+    private final Class<T> type;
 
     /**
      * Create a singleton of specified class T, and do not update the instance
@@ -72,12 +72,13 @@ public class Singleton<T> implements Serializable {
     public Singleton(Factory<T> objFactory, boolean toUpdateInstance) throws Exception {
         this.objFactory = objFactory;
         T inst = objFactory.produce();
-        this.typeParameterClass = inst.getClass().getName().toCharArray();
+        //noinspection unchecked
+        this.type = (Class<T>) inst.getClass();
 
         if (toUpdateInstance) {
             checkPool();
             synchronized (Singleton.class) {
-                instancePool.put(typeParameterClass, inst);
+                instancePool.put(type, inst);
             }
         }
     }
@@ -104,15 +105,16 @@ public class Singleton<T> implements Serializable {
     public T getInst() throws Exception {
         checkPool();
 
-        if (!instancePool.containsKey(typeParameterClass)) {
+        if (!instancePool.containsKey(type)) {
             synchronized (Singleton.class) {
-                if (!instancePool.containsKey(typeParameterClass)) {
-                    instancePool.put(typeParameterClass, objFactory.produce());
+                if (!instancePool.containsKey(type)) {
+                    System.out.println("Reinitializing instance of " + type.getName());
+                    instancePool.put(type, objFactory.produce());
                 }
             }
         }
 
         //noinspection unchecked
-        return (T) instancePool.get(typeParameterClass);
+        return (T) instancePool.get(type);
     }
 }

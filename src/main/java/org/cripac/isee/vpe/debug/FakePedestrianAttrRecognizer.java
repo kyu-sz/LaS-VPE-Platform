@@ -17,14 +17,15 @@
 
 package org.cripac.isee.vpe.debug;
 
-import org.cripac.isee.pedestrian.attr.Attributes;
-import org.cripac.isee.pedestrian.attr.PedestrianAttrRecognizer;
-import org.cripac.isee.pedestrian.tracking.Tracklet;
+import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.PedestrianAttrRecognizer;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
 import javax.annotation.Nonnull;
 
-public class FakePedestrianAttrRecognizer extends PedestrianAttrRecognizer {
+public class FakePedestrianAttrRecognizer implements PedestrianAttrRecognizer {
 
+    @Nonnull
     @Override
     public Attributes recognize(@Nonnull Tracklet tracklet) {
         return new Attributes();

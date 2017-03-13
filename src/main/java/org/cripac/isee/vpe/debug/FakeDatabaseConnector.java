@@ -17,7 +17,7 @@
 
 package org.cripac.isee.vpe.debug;
 
-import org.cripac.isee.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 
 import javax.annotation.Nonnull;

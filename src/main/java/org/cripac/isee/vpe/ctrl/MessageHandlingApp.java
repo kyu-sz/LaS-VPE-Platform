@@ -23,13 +23,14 @@ import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.function.Function0;
-import org.cripac.isee.pedestrian.attr.Attributes;
-import org.cripac.isee.pedestrian.reid.PedestrianInfo;
-import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.alg.PedestrianAttrRecogApp;
-import org.cripac.isee.vpe.alg.PedestrianReIDUsingAttrApp;
-import org.cripac.isee.vpe.alg.PedestrianTrackingApp;
-import org.cripac.isee.vpe.alg.PedestrianTrackingApp.HDFSVideoTrackingStream;
+import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.reid.PedestrianInfo;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.alg.pedestrian.attr.PedestrianAttrRecogApp;
+import org.cripac.isee.vpe.alg.pedestrian.reid.PedestrianReIDUsingAttrApp;
+import org.cripac.isee.vpe.alg.pedestrian.tracking.PedestrianTrackingApp;
+import org.cripac.isee.vpe.alg.pedestrian.tracking.PedestrianTrackingApp.HDFSVideoTrackingStream;
+import org.cripac.isee.vpe.alg.pedestrian.tracking.TrackletOrURL;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.common.SparkStreamingApp;
@@ -41,7 +42,6 @@ import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.tracking.TrackletOrURL;
 
 import java.io.Serializable;
 import java.util.*;
@@ -261,7 +261,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
-                            path.toString(),
+                            path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));
                     final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
                             + "/" + id.serialNumber);
@@ -290,7 +290,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
-                            path.toString(),
+                            path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));
                     final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
                             + "/" + id.serialNumber);
@@ -317,7 +317,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
                     final Tracklet.Identifier id = new Tracklet.Identifier(
-                            path.toString(),
+                            path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));
                     final TrackletOrURL url = new TrackletOrURL(dbConnector.getTrackletSavingDir(id.videoID)
                             + "/" + id.serialNumber);

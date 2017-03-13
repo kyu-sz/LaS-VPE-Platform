@@ -1,4 +1,3 @@
 #!/usr/bin/env bash
 java -classpath bin/las-vpe-platform-0.0.1-full.jar:bin/las-vpe-platform-0.0.1-tests.jar \
-    org.cripac.isee.vpe.alg.PedestrianAttrRecogAppTest \
-    --app-property-file conf/pedestrian-attr-recog/app.properties
+    org.cripac.isee.vpe.alg.PedestrianAttrRecogAppTest

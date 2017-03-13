@@ -48,7 +48,7 @@ public class RobustExecutor<T, R> {
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
-     * and may retry up to 9 times (totally executing 10 times).
+     * and may retry up to 2 times (totally executing 3 times).
      *
      * @param onceFunction function to be executed each time.
      */
@@ -59,7 +59,7 @@ public class RobustExecutor<T, R> {
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
-     * and may retry up to 9 times (totally executing 10 times).
+     * and may retry up to 2 times (totally executing 3 times).
      *
      * @param onceFunction function to be executed each time.
      */
@@ -67,13 +67,13 @@ public class RobustExecutor<T, R> {
         this((Function<T, R>) param -> {
             onceFunction.call(param);
             return null;
-        }, 9);
+        }, 2);
     }
 
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
-     * and may retry up to 9 times (totally executing 10 times).
+     * and may retry up to 2 times (totally executing 3 times).
      * Note that be careful when simplifying the lambda expression for the function here,
      * you may not get the correct function type as expected, resulting in null return value.
      *
@@ -86,14 +86,14 @@ public class RobustExecutor<T, R> {
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
-     * and may retry up to 9 times (totally executing 10 times).
+     * and may retry up to 2 times (totally executing 3 times).
      * Note that be careful when simplifying the lambda expression for the function here,
      * you may not get the correct function type as expected, resulting in null return value.
      *
      * @param onceFunction function to be executed each time.
      */
     public RobustExecutor(Function<T, R> onceFunction) {
-        this(onceFunction, 9);
+        this(onceFunction, 2);
     }
 
     /**
@@ -125,7 +125,7 @@ public class RobustExecutor<T, R> {
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
-     * and may retry up to 9 times (totally executing 10 times).
+     * and may retry up to 2 times (totally executing 3 times).
      *
      * @param onceFunction      function to be executed each time.
      * @param noRetryThrowables exceptions that are not able to be solved by retrying.
@@ -137,7 +137,7 @@ public class RobustExecutor<T, R> {
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
-     * and may retry up to 9 times (totally executing 10 times).
+     * and may retry up to 2 times (totally executing 3 times).
      *
      * @param onceFunction      function to be executed each time.
      * @param noRetryThrowables exceptions that are not able to be solved by retrying.
@@ -152,13 +152,13 @@ public class RobustExecutor<T, R> {
     /**
      * Create a RobustExecutor specifying the retrying behaviour.
      * The executor retries immediately after failure,
-     * and may retry up to 9 times (totally executing 10 times).
+     * and may retry up to 2 times (totally executing 3 times).
      *
      * @param onceFunction      function to be executed each time.
      * @param noRetryThrowables exceptions that are not able to be solved by retrying.
      */
     public RobustExecutor(Function<T, R> onceFunction, List<Class<?>> noRetryThrowables) {
-        this(onceFunction, 9, 0, noRetryThrowables);
+        this(onceFunction, 2, 0, noRetryThrowables);
     }
 
     /**
@@ -220,6 +220,8 @@ public class RobustExecutor<T, R> {
                 if (retryCnt >= maxRetries) {
                     throw t;
                 }
+                t.printStackTrace();
+                System.err.println("RobustExecutor retry: " + retryCnt + "/" + maxRetries);
                 TimeUnit.MILLISECONDS.sleep(retryInterval);
                 ++retryCnt;
             }

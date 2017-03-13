@@ -17,15 +17,15 @@
 
 package org.cripac.isee.vpe.debug;
 
-import org.cripac.isee.pedestrian.tracking.Tracker;
-import org.cripac.isee.pedestrian.tracking.Tracklet;
-import org.cripac.isee.pedestrian.tracking.Tracklet.BoundingBox;
+import org.cripac.isee.alg.pedestrian.tracking.Tracker;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet.BoundingBox;
 
 import javax.annotation.Nonnull;
 import java.io.InputStream;
 import java.util.Random;
 
-public class FakePedestrianTracker extends Tracker {
+public class FakePedestrianTracker implements Tracker {
 
     private Random random = new Random();
 

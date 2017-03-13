@@ -26,7 +26,7 @@ import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.opencv_core;
 import org.bytedeco.javacpp.opencv_imgproc;
-import org.cripac.isee.pedestrian.tracking.Tracklet;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
 import org.spark_project.guava.collect.Range;
@@ -63,8 +63,8 @@ public class HadoopHelper {
         hadoopConf.addResource(new Path(hadoopHome + "/etc/hadoop/core-site.xml"));
         hadoopConf.addResource(new Path(hadoopHome + "/etc/hadoop/yarn-site.xml"));
         hadoopConf.setBoolean("dfs.support.append", true);
-        hadoopConf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
-        hadoopConf.set("fs.file.impl", LocalFileSystem.class.getName());
+        hadoopConf.set("fs.hdfs.impl", DistributedFileSystem.class.getName(), "LaS-VPE Platform");
+        hadoopConf.set("fs.file.impl", LocalFileSystem.class.getName(), "LaS-VPE Platform");
         return hadoopConf;
     }
 
@@ -97,20 +97,36 @@ public class HadoopHelper {
      */
     @Nonnull
     public static Tracklet retrieveTracklet(@Nonnull String storeDir,
-                                            @Nonnull FileSystem hdfs) throws URISyntaxException, IOException {
+                                            @Nonnull FileSystem hdfs) throws IOException, URISyntaxException {
         final InputStreamReader infoReader;
         final HarFileSystem harFS;
         final FileSystem fs;
+        final String revisedStoreDir;
 
-        if (hdfs.exists(new Path(storeDir))) {
+        boolean onHDFS = false;
+        try {
+            onHDFS = hdfs.exists(new Path(storeDir));
+        } catch (IOException | IllegalArgumentException ignored) {
+        }
+        if (onHDFS) {
             infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
             fs = hdfs;
+            revisedStoreDir = storeDir;
             harFS = null;
         } else {
             // Open the Hadoop Archive of the task the track is generated in.
+            while (storeDir.endsWith("/")) {
+                storeDir = storeDir.substring(0, storeDir.length() - 1);
+            }
+            if (storeDir.contains(".har")) {
+                revisedStoreDir = storeDir;
+            } else {
+                final int splitter = storeDir.lastIndexOf("/");
+                revisedStoreDir = storeDir.substring(0, splitter) + ".har" + storeDir.substring(splitter);
+            }
             harFS = new HarFileSystem();
-            harFS.initialize(new URI(storeDir), new Configuration());
-            infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
+            harFS.initialize(new URI(revisedStoreDir), new Configuration());
+            infoReader = new InputStreamReader(hdfs.open(new Path(revisedStoreDir + "/info.txt")));
             fs = harFS;
         }
 
@@ -124,7 +140,7 @@ public class HadoopHelper {
                 .forEach(idx -> {
                     Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
                     FSDataInputStream imgInputStream;
-                    final Path imgPath = new Path(storeDir + "/" + idx + ".jpg");
+                    final Path imgPath = new Path(revisedStoreDir + "/" + idx + ".jpg");
                     boolean isSample = false;
                     try {
                         isSample = fs.exists(imgPath);
