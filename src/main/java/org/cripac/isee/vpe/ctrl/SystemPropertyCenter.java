@@ -38,6 +38,7 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.net.URI;
@@ -76,9 +77,10 @@ public class SystemPropertyCenter implements Serializable {
     private int kafkaFetchTimeoutMs = 60000;
     public String kafkaLocationStrategy = "PreferBrokers";
     /* The maximum number of messages per second that each partition will
-     * accept in the direct Kafka input stream. 0 means not limited.
+     * accept in the direct Kafka input stream. 0 or null means not limited.
      */
-    public int kafkaMaxRatePerPartition = 0;
+    @Nullable
+    public String kafkaMaxRatePerPartition = null;
     /* Spark properties */
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "/metadata";
@@ -379,7 +381,7 @@ public class SystemPropertyCenter implements Serializable {
                     caffeGPU = Integer.parseInt((String) entry.getValue());
                     break;
                 case "spark.streaming.kafka.maxRatePerPartition":
-                    kafkaMaxRatePerPartition = Integer.parseInt((String) entry.getValue());
+                    kafkaMaxRatePerPartition = (String) entry.getValue();
                     break;
                 case "vpe.repartition":
                     repartition = Integer.parseInt((String) entry.getValue());

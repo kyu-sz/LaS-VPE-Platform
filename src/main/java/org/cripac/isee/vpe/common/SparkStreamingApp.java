@@ -33,6 +33,7 @@ import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.*;
+import org.cripac.isee.vpe.ctrl.MonitorThread;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
@@ -79,7 +80,12 @@ public abstract class SparkStreamingApp implements Serializable {
         this.propCenter = propCenter;
         this.appName = appName;
         this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
-        kafkaParams = propCenter.getKafkaParams(appName);
+        this.monitorSingleton = new Singleton<>(() -> {
+            MonitorThread monitorThread = new MonitorThread(loggerSingleton.getInst());
+            monitorThread.start();
+            return monitorThread;
+        });
+        this.kafkaParams = propCenter.getKafkaParams(appName);
     }
 
     /**
@@ -92,6 +98,9 @@ public abstract class SparkStreamingApp implements Serializable {
 
     @Nonnull
     private final List<Stream> streams = new ArrayList<>();
+
+    @Nonnull
+    private final Singleton<MonitorThread> monitorSingleton;
 
     protected void checkTopics(Collection<DataType> dataTypes) {
         Logger logger;
@@ -149,6 +158,7 @@ public abstract class SparkStreamingApp implements Serializable {
                 // Manipulate offsets.
                 .transform(rdd -> {
                     final Logger logger = loggerSingleton.getInst();
+                    assert monitorSingleton.getInst().isAlive();
 
                     // Store offsets.
                     final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
@@ -159,6 +169,7 @@ public abstract class SparkStreamingApp implements Serializable {
                     // Find offsets which indicate new messages have been received.
                     rdd.foreachPartition(consumerRecords -> {
                         final Logger executorLogger = loggerSingleton.getInst();
+                        assert monitorSingleton.getInst().isAlive();
                         final OffsetRange o = offsetRanges[TaskContext.getPartitionId()];
                         if (o.fromOffset() < o.untilOffset()) {
                             executorLogger.debug("Received {topic=" + o.topic()
@@ -166,10 +177,6 @@ public abstract class SparkStreamingApp implements Serializable {
                                     + ", fromOffset=" + o.fromOffset()
                                     + ", untilOffset=" + o.untilOffset() + "}");
                         }
-                        // By the way, output memory cost of each partition.
-                        final Runtime runtime = Runtime.getRuntime();
-                        executorLogger.info("Executor free memory: "
-                                + runtime.freeMemory() + "/" + runtime.totalMemory() + "/" + runtime.maxMemory());
                     });
                     int numNewMessages = 0;
                     for (OffsetRange o : offsetRanges) {
@@ -180,9 +187,6 @@ public abstract class SparkStreamingApp implements Serializable {
                     } else {
                         logger.debug("Received " + numNewMessages + " messages totally.");
                     }
-                    final Runtime runtime = Runtime.getRuntime();
-                    logger.info("Driver free memory: "
-                            + runtime.freeMemory() + "/" + runtime.totalMemory() + "/" + runtime.maxMemory());
                     return rdd;
                 })
                 .mapToPair(rec -> new Tuple2<>(DataType.valueOf(rec.topic()),
@@ -233,13 +237,16 @@ public abstract class SparkStreamingApp implements Serializable {
         jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
             // Load default Spark configurations.
             SparkConf sparkConf = new SparkConf(true)
-                    // Register custom classes with Kryo.
-                    .registerKryoClasses(new Class[]{TaskData.class, DataType.class})
-                    // Set maximum number of messages per second that each partition will accept
-                    // in the direct Kafka input stream.
-                    .set("spark.streaming.kafka.maxRatePerPartition", "" + propCenter.kafkaMaxRatePerPartition)
                     .set("spark.executor.memory", propCenter.executorMem)
-                    .set("spark.executor.instances", "" + propCenter.numExecutors);
+                    .set("spark.executor.instances", "" + propCenter.numExecutors)
+                    // Register custom classes with Kryo.
+                    .registerKryoClasses(new Class[]{TaskData.class, DataType.class});
+            if (propCenter.kafkaMaxRatePerPartition != null) {
+                // Set maximum number of messages per second that each partition will accept
+                // in the direct Kafka input stream.
+                sparkConf = sparkConf
+                        .set("spark.streaming.kafka.maxRatePerPartition", "" + propCenter.kafkaMaxRatePerPartition);
+            }
             // Create contexts.
             JavaSparkContext jsc = new JavaSparkContext(sparkConf);
             jsc.setLocalProperty("spark.scheduler.pool", "vpe");

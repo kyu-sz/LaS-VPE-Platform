@@ -24,6 +24,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.PropertyConfigurator;
+import org.apache.spark.TaskContext;
 import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
@@ -53,7 +54,9 @@ public class SynthesizedLogger extends Logger {
     private final static SimpleDateFormat ft = new SimpleDateFormat("yy.MM.dd HH:mm:ss");
 
     private String wrapMsg(Object msg) {
-        return ft.format(new Date()) + "\t" + localName + "\t" + username + ":\t" + msg;
+        int partitionID = TaskContext.getPartitionId();
+        String identity = partitionID == 0 ? "Driver" : "Executor " + partitionID;
+        return ft.format(new Date()) + " (" + identity + ")\t" + localName + "\t" + username + ":\t" + msg;
     }
 
     private void checkTopic(String topic, SystemPropertyCenter propCenter) {
