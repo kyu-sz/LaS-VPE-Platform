@@ -54,9 +54,9 @@ public class SynthesizedLogger extends Logger {
     private final static SimpleDateFormat ft = new SimpleDateFormat("yy.MM.dd HH:mm:ss");
 
     private String wrapMsg(Object msg) {
-        final String executorID = SparkEnv.get().executorId();
+        final String executorID = SparkEnv.get() == null ? "driver" : SparkEnv.get().executorId();
         final String identity = executorID.equals("driver") ? "Driver" : "Executor " + executorID;
-        return ft.format(new Date()) + "\t" + localName + "\t" + username + "\t(" + identity + "):\t" + msg;
+        return ft.format(new Date()) + " " + localName + "\t" + username + " (" + identity + "):\t" + msg;
     }
 
     private void checkTopic(String topic, SystemPropertyCenter propCenter) {

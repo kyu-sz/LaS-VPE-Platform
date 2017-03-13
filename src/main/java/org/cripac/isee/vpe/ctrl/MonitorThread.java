@@ -34,9 +34,8 @@ public class MonitorThread extends Thread {
         final Runtime runtime = Runtime.getRuntime();
         //noinspection InfiniteLoopStatement
         while (true) {
-            logger.info("Free memory: "
-                    + (runtime.freeMemory() / (1024 * 1024)) + "/"
-                    + (runtime.totalMemory() / (1024 * 1024)) + "/"
+            logger.info("Used memory: "
+                    + ((runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)) + "/"
                     + (runtime.maxMemory() / (1024 * 1024)) + "M");
             try {
                 sleep(10000);
