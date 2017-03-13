@@ -17,6 +17,8 @@
 
 package org.cripac.isee.vpe.ctrl;
 
+import org.apache.log4j.Logger;
+
 import javax.annotation.Nonnull;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -31,9 +33,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author Ken Yu, CRIPAC, 2016
  */
 public class InputStreamReaderRunnable implements Runnable {
-
+    @Nonnull
+    private final Logger logger;
+    @Nonnull
     private BufferedReader reader;
-
+    @Nonnull
     private String name;
     private boolean isErrStream = false;
     @Nonnull
@@ -45,9 +49,11 @@ public class InputStreamReaderRunnable implements Runnable {
      * @param is   The input stream to read.
      * @param name The NAME of the stream.
      */
-    public InputStreamReaderRunnable(@Nonnull InputStream is,
+    public InputStreamReaderRunnable(@Nonnull Logger logger,
+                                     @Nonnull InputStream is,
                                      @Nonnull String name,
                                      @Nonnull AtomicReference<Boolean> running) {
+        this.logger = logger;
         this.reader = new BufferedReader(new InputStreamReader(is));
         this.name = name;
         isErrStream = name.toLowerCase().contains("error");
@@ -65,16 +71,16 @@ public class InputStreamReaderRunnable implements Runnable {
             String line = reader.readLine();
             while (running.get() && line != null) {
                 if (isErrStream) {
-                    System.err.println("[" + name + "]" + line);
+                    logger.error(line);
                 } else {
-                    System.out.println("[" + name + "]" + line);
+                    logger.info(line);
                 }
                 line = reader.readLine();
             }
             reader.close();
-            System.out.println("[INFO]" + name + " stream exiting.");
+            logger.info(name + " stream exiting.");
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error(name + " stream encountered exception", e);
         }
     }
 
