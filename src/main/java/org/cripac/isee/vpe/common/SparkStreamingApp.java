@@ -169,7 +169,8 @@ public abstract class SparkStreamingApp implements Serializable {
                     // Find offsets which indicate new messages have been received.
                     rdd.foreachPartition(consumerRecords -> {
                         final Logger executorLogger = loggerSingleton.getInst();
-                        assert monitorSingleton.getInst().isAlive();
+                        executorLogger.debug(monitorSingleton.getInst().isAlive()
+                                ? "Monitor running!" : "Monitor is dead!");
                         final OffsetRange o = offsetRanges[TaskContext.getPartitionId()];
                         if (o.fromOffset() < o.untilOffset()) {
                             executorLogger.debug("Received {topic=" + o.topic()
