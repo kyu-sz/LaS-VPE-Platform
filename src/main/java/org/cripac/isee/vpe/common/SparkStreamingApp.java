@@ -35,7 +35,6 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.*;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -50,6 +49,8 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,
  * including driver code and executor code. After initialized, it can be used
@@ -61,16 +62,20 @@ import java.util.stream.Collectors;
 public abstract class SparkStreamingApp implements Serializable {
 
     private static final long serialVersionUID = 3098753124157119358L;
+    @Nonnull
     private SystemPropertyCenter propCenter;
+    @Nonnull
     private final String appName;
 
     /**
      * Kafka parameters for creating input streams pulling messages from Kafka
      * Brokers.
      */
+    @Nonnull
     private final Map<String, Object> kafkaParams;
 
-    public SparkStreamingApp(SystemPropertyCenter propCenter, String appName) throws Exception {
+    public SparkStreamingApp(@Nonnull SystemPropertyCenter propCenter,
+                             @Nonnull String appName) throws Exception {
         this.propCenter = propCenter;
         this.appName = appName;
         this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
@@ -82,8 +87,10 @@ public abstract class SparkStreamingApp implements Serializable {
      */
     private transient JavaStreamingContext jssc = null;
 
+    @Nonnull
     protected final Singleton<Logger> loggerSingleton;
 
+    @Nonnull
     private final List<Stream> streams = new ArrayList<>();
 
     protected void checkTopics(Collection<DataType> dataTypes) {
@@ -125,6 +132,7 @@ public abstract class SparkStreamingApp implements Serializable {
      *                       -1 means do not do repartition. 0 means using default parallelism of Spark.
      * @return A Kafka non-receiver input stream.
      */
+    @Nonnull
     protected JavaPairDStream<DataType, Tuple2<String, byte[]>>
     buildDirectStream(@Nonnull Collection<DataType> acceptingTypes,
                       int repartition) throws SparkException {
@@ -150,13 +158,18 @@ public abstract class SparkStreamingApp implements Serializable {
 
                     // Find offsets which indicate new messages have been received.
                     rdd.foreachPartition(consumerRecords -> {
-                        OffsetRange o = offsetRanges[TaskContext.getPartitionId()];
+                        final Logger executorLogger = loggerSingleton.getInst();
+                        final OffsetRange o = offsetRanges[TaskContext.getPartitionId()];
                         if (o.fromOffset() < o.untilOffset()) {
-                            loggerSingleton.getInst().debug("Received {topic=" + o.topic()
+                            executorLogger.debug("Received {topic=" + o.topic()
                                     + ", partition=" + o.partition()
                                     + ", fromOffset=" + o.fromOffset()
                                     + ", untilOffset=" + o.untilOffset() + "}");
                         }
+                        // By the way, output memory cost of each partition.
+                        final Runtime runtime = Runtime.getRuntime();
+                        executorLogger.info("Executor free memory: "
+                                + runtime.freeMemory() + "/" + runtime.totalMemory() + "/" + runtime.maxMemory());
                     });
                     int numNewMessages = 0;
                     for (OffsetRange o : offsetRanges) {
@@ -167,6 +180,9 @@ public abstract class SparkStreamingApp implements Serializable {
                     } else {
                         logger.debug("Received " + numNewMessages + " messages totally.");
                     }
+                    final Runtime runtime = Runtime.getRuntime();
+                    logger.info("Driver free memory: "
+                            + runtime.freeMemory() + "/" + runtime.totalMemory() + "/" + runtime.maxMemory());
                     return rdd;
                 })
                 .mapToPair(rec -> new Tuple2<>(DataType.valueOf(rec.topic()),
@@ -187,6 +203,7 @@ public abstract class SparkStreamingApp implements Serializable {
      * @param acceptingTypes Data types the stream accepts.
      * @return A Kafka non-receiver input stream.
      */
+    @Nonnull
     protected JavaPairDStream<DataType, Tuple2<String, byte[]>>
     buildDirectStream(@Nonnull Collection<DataType> acceptingTypes) throws SparkException {
         return buildDirectStream(acceptingTypes, propCenter.repartition);
@@ -220,11 +237,13 @@ public abstract class SparkStreamingApp implements Serializable {
                     .registerKryoClasses(new Class[]{TaskData.class, DataType.class})
                     // Set maximum number of messages per second that each partition will accept
                     // in the direct Kafka input stream.
-                    .set("spark.streaming.kafka.maxRatePerPartition", propCenter.kafkaMaxRatePerPartition);
+                    .set("spark.streaming.kafka.maxRatePerPartition", "" + propCenter.kafkaMaxRatePerPartition)
+                    .set("spark.executor.memory", propCenter.executorMem)
+                    .set("spark.executor.instances", "" + propCenter.numExecutors);
             // Create contexts.
-            JavaSparkContext sc = new JavaSparkContext(sparkConf);
-            sc.setLocalProperty("spark.scheduler.pool", "vpe");
-            jssc = new JavaStreamingContext(sc, Durations.milliseconds(propCenter.batchDuration));
+            JavaSparkContext jsc = new JavaSparkContext(sparkConf);
+            jsc.setLocalProperty("spark.scheduler.pool", "vpe");
+            jssc = new JavaStreamingContext(jsc, Durations.milliseconds(propCenter.batchDuration));
 
             addToContext();
 
@@ -234,8 +253,7 @@ public abstract class SparkStreamingApp implements Serializable {
                 Map<DataType, JavaPairDStream<String, TaskData>> streamMap = new Object2ObjectOpenHashMap<>();
                 acceptingTypes.forEach(type -> streamMap.put(type, inputStream
                         .filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))
-                        .mapToPair(rec ->
-                                new Tuple2<>(rec._2()._1(), SerializationHelper.deserialize(rec._2()._2())))));
+                        .mapToPair(rec -> new Tuple2<>(rec._2()._1(), deserialize(rec._2()._2())))));
                 streams.forEach(stream -> stream.addToGlobalStream(streamMap));
             }
 

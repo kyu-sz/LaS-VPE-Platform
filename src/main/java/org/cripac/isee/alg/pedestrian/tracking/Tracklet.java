@@ -238,8 +238,7 @@ public class Tracklet implements Serializable, Cloneable {
          * then width * height * 3 bytes representing the pixels in the patch.
          */
         public byte[] toBytes() {
-            ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES * 4
-                    + (patchData == null ? 0 : patchData.length));
+            ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES * 4 + (patchData == null ? 0 : patchData.length));
             buf.putInt(x);
             buf.putInt(y);
             buf.putInt(width);

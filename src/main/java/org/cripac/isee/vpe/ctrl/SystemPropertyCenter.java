@@ -78,7 +78,7 @@ public class SystemPropertyCenter implements Serializable {
     /* The maximum number of messages per second that each partition will
      * accept in the direct Kafka input stream. 0 means not limited.
      */
-    public String kafkaMaxRatePerPartition = "0";
+    public int kafkaMaxRatePerPartition = 0;
     /* Spark properties */
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "/metadata";
@@ -87,8 +87,10 @@ public class SystemPropertyCenter implements Serializable {
     String[] appsToStart = null;
     /* Caffe properties */
     public int caffeGPU = -1;
+    /* Number of executor instances. */
+    public int numExecutors = 2;
     /* Memory per executor (e.g. 1000M, 2G) (Default: 1G) */
-    private String executorMem = "1G";
+    public String executorMem = "1G";
     /* Number of cores per executor (Default: 1) */
     private int executorCores = 1;
     /* Total cores for all executors (Spark standalone and Mesos only) */
@@ -335,6 +337,9 @@ public class SystemPropertyCenter implements Serializable {
                 case "hdfs.default.name":
                     hdfsDefaultName = (String) entry.getValue();
                     break;
+                case "num.executors":
+                    numExecutors = Integer.parseInt((String) entry.getValue());
+                    break;
                 case "executor.memory":
                     executorMem = (String) entry.getValue();
                     break;
@@ -374,7 +379,7 @@ public class SystemPropertyCenter implements Serializable {
                     caffeGPU = Integer.parseInt((String) entry.getValue());
                     break;
                 case "spark.streaming.kafka.maxRatePerPartition":
-                    kafkaMaxRatePerPartition = (String) entry.getValue();
+                    kafkaMaxRatePerPartition = Integer.parseInt((String) entry.getValue());
                     break;
                 case "vpe.repartition":
                     repartition = Integer.parseInt((String) entry.getValue());
@@ -436,11 +441,14 @@ public class SystemPropertyCenter implements Serializable {
                 .setVerbose(verbose)
                 .setConf(SparkLauncher.DRIVER_MEMORY, driverMem)
                 .setConf(SparkLauncher.EXECUTOR_MEMORY, executorMem)
-                .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
                 .setConf(SparkLauncher.EXECUTOR_CORES, "" + executorCores)
+                .setConf(SparkLauncher.CHILD_PROCESS_LOGGER_NAME, appName)
+                .setConf("spark.executor.instances", "" + numExecutors)
+                .setConf("spark.executor.memory", executorMem)
                 .setConf("spark.driver.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
                 .setConf("spark.executor.extraJavaOptions", "-Dlog4j.configuration=log4j.properties")
                 .setConf("spark.yarn.am.nodeLabelExpression", yarnAmNodeLabelExpression)
+                .addSparkArg("--num-executors", "" + numExecutors)
                 .addSparkArg("--driver-cores", "" + driverCores)
                 .addSparkArg("--total-executor-cores", "" + totalExecutorCores)
                 .addSparkArg("--queue", hadoopQueue)
