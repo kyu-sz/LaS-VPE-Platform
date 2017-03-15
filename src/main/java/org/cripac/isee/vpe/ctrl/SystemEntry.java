@@ -28,17 +28,20 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * The MainController class provides an entrance to run any spark
+ * The SystemEntry class provides an entrance to run any spark
  * streaming applications, and listen to their reports.
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class MainController {
+public class SystemEntry {
 
     public static void main(String[] args)
             throws URISyntaxException, IOException, ParserConfigurationException, SAXException, UnimplementedException {
@@ -49,7 +52,7 @@ public class MainController {
         final AtomicReference<Boolean> running = new AtomicReference<>();
         running.set(true);
 
-        PropertyConfigurator.configure(MainController.class.getResourceAsStream("/conf/log4j_local.properties"));
+        PropertyConfigurator.configure(SystemEntry.class.getResourceAsStream("/conf/log4j_local.properties"));
         final Logger logger = Logger.getLogger("");
 
         // Prepare system configuration.

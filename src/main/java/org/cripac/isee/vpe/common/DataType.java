@@ -20,7 +20,7 @@ package org.cripac.isee.vpe.common;
 /**
  * Enumeration of data types that can be outputted or accepted by applications.
  * In current version, each data type correspond to one Kafka topic.
- *
+ * <p>
  * Created by ken.yu on 16-10-27.
  */
 public enum DataType {
@@ -38,5 +38,9 @@ public enum DataType {
      * @see LoginParam
      */
     WEBCAM_LOGIN_PARAM,
+    /**
+     * A terminal signal is a task UUID sent to the TERM_SIG topic.
+     */
+    TERM_SIG,
     NONE
 }

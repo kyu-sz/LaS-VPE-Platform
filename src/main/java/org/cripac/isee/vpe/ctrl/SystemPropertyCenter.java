@@ -80,7 +80,7 @@ public class SystemPropertyCenter implements Serializable {
      * accept in the direct Kafka input stream. 0 or null means not limited.
      */
     @Nullable
-    public String kafkaMaxRatePerPartition = null;
+    public String maxRatePerPartition = null;
     /* Spark properties */
     public String checkpointRootDir = "checkpoint";
     public String metadataDir = "/metadata";
@@ -381,7 +381,7 @@ public class SystemPropertyCenter implements Serializable {
                     caffeGPU = Integer.parseInt((String) entry.getValue());
                     break;
                 case "spark.streaming.kafka.maxRatePerPartition":
-                    kafkaMaxRatePerPartition = (String) entry.getValue();
+                    maxRatePerPartition = (String) entry.getValue();
                     break;
                 case "vpe.repartition":
                     repartition = Integer.parseInt((String) entry.getValue());
@@ -504,6 +504,7 @@ public class SystemPropertyCenter implements Serializable {
         Properties consumerProp = new Properties();
         consumerProp.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         consumerProp.put(ConsumerConfig.GROUP_ID_CONFIG, group);
+        consumerProp.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
         consumerProp.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         consumerProp.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerProp.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,

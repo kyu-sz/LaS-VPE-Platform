@@ -18,12 +18,10 @@
 package org.cripac.isee.vpe.common;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import kafka.utils.ZkUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.log4j.Level;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkException;
 import org.apache.spark.TaskContext;
@@ -35,10 +33,10 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.*;
 import org.cripac.isee.vpe.ctrl.MonitorThread;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
+import org.cripac.isee.vpe.ctrl.TaskController;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
-import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
@@ -79,13 +77,18 @@ public abstract class SparkStreamingApp implements Serializable {
                              @Nonnull String appName) throws Exception {
         this.propCenter = propCenter;
         this.appName = appName;
+        this.kafkaParams = propCenter.getKafkaParams(appName);
         this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
         this.monitorSingleton = new Singleton<>(() -> {
             MonitorThread monitorThread = new MonitorThread(loggerSingleton.getInst());
             monitorThread.start();
             return monitorThread;
         });
-        this.kafkaParams = propCenter.getKafkaParams(appName);
+        this.taskController = new Singleton<>(() -> {
+            TaskController taskController = new TaskController(propCenter, loggerSingleton.getInst());
+            taskController.start();
+            return taskController;
+        });
     }
 
     /**
@@ -102,31 +105,8 @@ public abstract class SparkStreamingApp implements Serializable {
     @Nonnull
     private final Singleton<MonitorThread> monitorSingleton;
 
-    protected void checkTopics(Collection<DataType> dataTypes) {
-        Logger logger;
-        try {
-            logger = loggerSingleton.getInst();
-        } catch (Exception e) {
-            e.printStackTrace();
-            logger = new ConsoleLogger(Level.DEBUG);
-        }
-        logger.info("Checking topics: " + dataTypes.stream().map(Enum::name)
-                .reduce("", (s1, s2) -> s1 + ", " + s2));
-
-        logger.info("Connecting to zookeeper: " + propCenter.zkConn);
-        final ZkUtils zkUtils = KafkaHelper.createZkUtils(propCenter.zkConn,
-                propCenter.zkSessionTimeoutMs,
-                propCenter.zkConnectionTimeoutMS);
-
-        for (DataType type : dataTypes) {
-            KafkaHelper.createTopicIfNotExists(zkUtils,
-                    type.name(),
-                    propCenter.kafkaNumPartitions,
-                    propCenter.kafkaReplFactor);
-        }
-
-        logger.info("Topics checked!");
-    }
+    @Nonnull
+    private final Singleton<TaskController> taskController;
 
     protected void registerStreams(Collection<Stream> streams) {
         this.streams.addAll(streams);
@@ -221,7 +201,6 @@ public abstract class SparkStreamingApp implements Serializable {
      * Actions that take {@link TaskData} as input should be implemented in the
      * {@link Stream#addToGlobalStream(Map)}, in order to save time of deserialization.
      * Note that existence of Kafka topics used in this method is not automatically checked.
-     * Remember to call {@link #checkTopics(Collection)} to check this.
      */
     public abstract void addToContext() throws Exception;
 
@@ -229,11 +208,15 @@ public abstract class SparkStreamingApp implements Serializable {
      * Initialize the application.
      */
     public void initialize() {
+        KafkaHelper.checkTopics(propCenter.zkConn,
+                propCenter.zkSessionTimeoutMs,
+                propCenter.zkConnectionTimeoutMS,
+                propCenter.kafkaNumPartitions,
+                propCenter.kafkaReplFactor);
+
         final Collection<DataType> acceptingTypes = streams.stream()
                 .flatMap(stream -> stream.getPorts().stream().map(port -> port.inputType))
                 .collect(Collectors.toList());
-
-        checkTopics(acceptingTypes);
 
         String checkpointDir = propCenter.checkpointRootDir + "/" + appName;
         jssc = JavaStreamingContext.getOrCreate(checkpointDir, () -> {
@@ -243,11 +226,11 @@ public abstract class SparkStreamingApp implements Serializable {
                     .set("spark.executor.instances", "" + propCenter.numExecutors)
                     // Register custom classes with Kryo.
                     .registerKryoClasses(new Class[]{TaskData.class, DataType.class});
-            if (propCenter.kafkaMaxRatePerPartition != null) {
+            if (propCenter.maxRatePerPartition != null) {
                 // Set maximum number of messages per second that each partition will accept
                 // in the direct Kafka input stream.
                 sparkConf = sparkConf
-                        .set("spark.streaming.kafka.maxRatePerPartition", "" + propCenter.kafkaMaxRatePerPartition);
+                        .set("spark.streaming.kafka.maxRatePerPartition", "" + propCenter.maxRatePerPartition);
             }
             // Create contexts.
             JavaSparkContext jsc = new JavaSparkContext(sparkConf);
@@ -259,7 +242,8 @@ public abstract class SparkStreamingApp implements Serializable {
             if (!acceptingTypes.isEmpty()) {
                 final JavaPairDStream<DataType, Tuple2<UUID, byte[]>> inputStream =
                         buildDirectStream(acceptingTypes)
-                                .mapValues(tuple -> new Tuple2<>(UUID.fromString(tuple._1()), tuple._2()));
+                                .mapValues(tuple -> new Tuple2<>(UUID.fromString(tuple._1()), tuple._2()))
+                                .filter(kv -> (Boolean) !taskController.getInst().termSigPool.contains(kv._2()._1()));
                 Map<DataType, JavaPairDStream<UUID, TaskData>> streamMap = new Object2ObjectOpenHashMap<>();
                 acceptingTypes.forEach(type -> streamMap.put(type, inputStream
                         .filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))

@@ -27,6 +27,7 @@ import kafka.utils.ZkUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.errors.TopicExistsException
 import org.apache.kafka.common.security.JaasUtils
+import org.cripac.isee.vpe.common.DataType
 import org.cripac.isee.vpe.ctrl.TaskData
 import org.cripac.isee.vpe.util.SerializationHelper
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
@@ -108,6 +109,17 @@ object KafkaHelper {
                    ): ZkUtils = {
     val (zkClient, zkConn) = ZkUtils.createZkClientAndConnection(zkServers, sessionTimeout, connectionTimeout)
     new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled)
+  }
+
+  def checkTopics(
+                   zkServers: String,
+                   sessionTimeout: Int,
+                   connectionTimeout: Int,
+                   partitions: Int,
+                   replicas: Int
+                 ): Unit = {
+    DataType.values().foreach(dataType =>
+      createTopicIfNotExists(zkServers, sessionTimeout, connectionTimeout, dataType.name(), partitions, replicas))
   }
 
   def createTopicIfNotExists(
