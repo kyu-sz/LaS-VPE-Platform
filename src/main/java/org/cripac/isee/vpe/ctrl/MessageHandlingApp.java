@@ -135,8 +135,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
 
     @Override
     public void addToContext() throws SparkException {
-        checkTopics(Collections.singleton(DataType.COMMAND));
-
         buildDirectStream(Collections.singleton(DataType.COMMAND))
                 .foreachRDD(rdd -> rdd.foreach(rec -> {
                     final Logger logger = loggerSingleton.getInst();

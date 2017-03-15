@@ -19,6 +19,8 @@ package org.cripac.isee.vpe.ctrl;
 
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
 import org.apache.spark.launcher.SparkLauncher;
 import org.apache.zookeeper.KeeperException.UnimplementedException;
 import org.xml.sax.SAXException;
@@ -34,12 +36,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * The MainController class provides an entrance to run any spark
+ * The SystemEntry class provides an entrance to run any spark
  * streaming applications, and listen to their reports.
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class MainController {
+public class SystemEntry {
 
     public static void main(String[] args)
             throws URISyntaxException, IOException, ParserConfigurationException, SAXException, UnimplementedException {
@@ -49,6 +51,9 @@ public class MainController {
 
         final AtomicReference<Boolean> running = new AtomicReference<>();
         running.set(true);
+
+        PropertyConfigurator.configure(SystemEntry.class.getResourceAsStream("/conf/log4j_local.properties"));
+        final Logger logger = Logger.getLogger("");
 
         // Prepare system configuration.
         if (propCenter.sparkMaster.toLowerCase().contains("yarn")) {
@@ -66,7 +71,7 @@ public class MainController {
                 while (running.get()) {
                     try {
                         ConsumerRecords<String, String> records = consumer.poll(propCenter.batchDuration);
-                        records.forEach(rec -> System.out.println(rec.value()));
+                        records.forEach(rec -> logger.info(rec.value()));
                         consumer.commitSync();
                     } catch (Exception | NoClassDefFoundError e) {
                         e.printStackTrace();
@@ -96,10 +101,12 @@ public class MainController {
 
                     // Create threads listening to output of the launcher process.
                     Thread infoThread = new Thread(
-                            new InputStreamReaderRunnable(launcherProcess.getInputStream(), "INFO", running),
+                            new InputStreamReaderRunnable(logger,
+                                    launcherProcess.getInputStream(), "INFO", running),
                             "LogStreamReader info");
                     Thread errorThread = new Thread(
-                            new InputStreamReaderRunnable(launcherProcess.getErrorStream(), "ERROR", running),
+                            new InputStreamReaderRunnable(logger,
+                                    launcherProcess.getErrorStream(), "ERROR", running),
                             "LogStreamReader error");
                     infoThread.start();
                     errorThread.start();
