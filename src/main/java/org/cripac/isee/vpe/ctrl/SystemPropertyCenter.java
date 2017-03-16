@@ -293,7 +293,7 @@ public class SystemPropertyCenter implements Serializable {
                 logger.debug("Read from property file: " + entry.getKey()
                         + "=" + entry.getValue());
             }
-            switch ((String) entry.getKey()) {
+            switch (((String) entry.getKey()).toLowerCase()) {
                 case "zk.connect":
                     zkConn = (String) entry.getValue();
                     break;

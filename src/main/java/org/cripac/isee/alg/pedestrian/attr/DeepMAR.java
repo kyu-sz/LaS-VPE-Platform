@@ -58,15 +58,15 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
         try {
             tempProtocolFile = File.createTempFile("DeepMAR", ".prototxt");
             tempWeightsFile = File.createTempFile("DeepMAR", ".caffemodel");
+            tempProtocolFile.deleteOnExit();
+            tempWeightsFile.deleteOnExit();
             Files.copy(DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.prototxt"),
                     tempProtocolFile.toPath(),
                     REPLACE_EXISTING);
             Files.copy(DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.caffemodel"),
                     tempWeightsFile.toPath(),
                     REPLACE_EXISTING);
-            tempProtocolFile.deleteOnExit();
-            tempWeightsFile.deleteOnExit();
-        } catch (IOException e) {
+        } catch (IOException | NullPointerException e) {
             tempWeightsFile = null;
             tempProtocolFile = null;
         }

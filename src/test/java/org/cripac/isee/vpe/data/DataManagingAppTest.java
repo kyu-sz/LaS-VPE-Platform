@@ -73,7 +73,8 @@ public class DataManagingAppTest {
     public void init() throws Exception {
         init(new String[]{"-a", DataManagingApp.APP_NAME,
                 "--system-property-file", "conf/system.properties",
-                "--app-property-file", "conf/" + DataManagingApp.APP_NAME + "/app.properties"});
+                "--app-property-file", "conf/" + DataManagingApp.APP_NAME + "/app.properties",
+                "-v"});
     }
 
     public void init(String[] args) throws Exception {

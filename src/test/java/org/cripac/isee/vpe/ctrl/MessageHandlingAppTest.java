@@ -58,7 +58,8 @@ public class MessageHandlingAppTest implements Serializable {
     public void init() throws Exception {
         init(new String[]{"-a", MessageHandlingApp.APP_NAME,
                 "--system-property-file", "conf/system.properties",
-                "--app-property-file", "conf/" + MessageHandlingApp.APP_NAME + "/app.properties"});
+                "--app-property-file", "conf/" + MessageHandlingApp.APP_NAME + "/app.properties",
+                "-v"});
     }
 
     private void init(String[] args) throws Exception {

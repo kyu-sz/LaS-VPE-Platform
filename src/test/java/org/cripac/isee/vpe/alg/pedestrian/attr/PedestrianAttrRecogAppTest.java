@@ -104,7 +104,8 @@ public class PedestrianAttrRecogAppTest {
     public void init() throws Exception {
         init(new String[]{"-a", PedestrianAttrRecogApp.APP_NAME,
                 "--system-property-file", "conf/system.properties",
-                "--app-property-file", "conf/" + PedestrianAttrRecogApp.APP_NAME + "/app.properties"});
+                "--app-property-file", "conf/" + PedestrianAttrRecogApp.APP_NAME + "/app.properties",
+                "-v"});
     }
 
     private void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
@@ -115,7 +116,7 @@ public class PedestrianAttrRecogAppTest {
         externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
     }
 
-//    @Test
+    //    @Test
     public void testExternAttrReognizer() throws Exception {
         if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.EXT) {
             logger.info("Using external pedestrian attribute recognizer.");
@@ -126,7 +127,7 @@ public class PedestrianAttrRecogAppTest {
         }
     }
 
-//    @Test
+    //    @Test
     public void testDeepMAR() throws Exception {
         if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
             logger.info("Using DeepMAR for pedestrian attribute recognition.");
