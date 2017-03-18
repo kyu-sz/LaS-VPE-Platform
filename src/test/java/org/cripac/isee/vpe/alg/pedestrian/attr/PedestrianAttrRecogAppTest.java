@@ -132,7 +132,7 @@ public class PedestrianAttrRecogAppTest {
         if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
             logger.info("Using DeepMAR for pedestrian attribute recognition.");
 
-            DeepMARTest test = new DeepMARTest();
+            DeepMARTest test = new DeepMARTest(propCenter.caffeGPU);
             test.setUp();
             test.recognize();
         }
