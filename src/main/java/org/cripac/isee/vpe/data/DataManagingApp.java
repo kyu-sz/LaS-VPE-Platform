@@ -26,7 +26,6 @@ import org.apache.kafka.clients.consumer.CommitFailedException;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.bytedeco.javacv.Frame;
@@ -44,8 +43,9 @@ import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.xml.sax.SAXException;
@@ -378,15 +378,15 @@ public class DataManagingApp extends SparkStreamingApp {
                 new Port("pedestrian-tracklet-saving", DataType.TRACKLET);
         private static final long serialVersionUID = 2820895755662980265L;
         private final String metadataDir;
-        private final Singleton<KafkaProducer<String, byte[]>> packingJobProducerSingleton;
+        private final Singleton<ByteArrayProducer> packingJobProducerSingleton;
 
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
             metadataDir = propCenter.metadataDir;
             packingJobProducerSingleton = new Singleton<>(
-                    new KafkaProducerFactory<>(propCenter.getKafkaProducerProp(false))
-            );
+                    new ByteArrayProducerFactory(propCenter.getKafkaProducerProp(false)),
+                    ByteArrayProducer.class);
         }
 
         @Override
@@ -460,7 +460,7 @@ public class DataManagingApp extends SparkStreamingApp {
         AttrSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
-            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
+            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new, FakeDatabaseConnector.class);
         }
 
         @Override

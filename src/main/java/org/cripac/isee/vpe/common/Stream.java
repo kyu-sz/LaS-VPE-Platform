@@ -17,15 +17,16 @@ package org.cripac.isee.vpe.common;/*
 
 import kafka.common.FailedToSendMessageException;
 import kafka.common.MessageSizeTooLargeException;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.KafkaException;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 
 import javax.annotation.Nonnull;
@@ -39,7 +40,7 @@ import java.util.*;
  */
 public abstract class Stream implements Serializable {
     private static final long serialVersionUID = 7965952554107861881L;
-    private final Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+    private final Singleton<ByteArrayProducer> producerSingleton;
 
     protected void
     output(Collection<TaskData.ExecutionPlan.Node.Port> outputPorts,
@@ -73,10 +74,10 @@ public abstract class Stream implements Serializable {
      * @throws Exception On failure creating singleton.
      */
     public Stream(String appName, SystemPropertyCenter propCenter) throws Exception {
-        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
+        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter), SynthesizedLogger.class);
 
         Properties producerProp = propCenter.getKafkaProducerProp(false);
-        producerSingleton = new Singleton<>(new KafkaProducerFactory<String, byte[]>(producerProp));
+        producerSingleton = new Singleton<>(new ByteArrayProducerFactory(producerProp), ByteArrayProducer.class);
     }
 
     /**

@@ -69,6 +69,7 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
         } catch (IOException | NullPointerException e) {
             tempWeightsFile = null;
             tempProtocolFile = null;
+            System.out.println("Cannot find DeepMAR models in the JAR file.");
         }
 
         final float[] meanBuf = new float[1];

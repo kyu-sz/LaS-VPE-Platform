@@ -40,7 +40,8 @@ import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 import org.cripac.isee.vpe.data.HDFSReader;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 
 import java.io.Serializable;
@@ -63,7 +64,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     public static final String APP_NAME = "message-handling";
     private static final long serialVersionUID = 4894389080346176479L;
 
-    private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+    private Singleton<ByteArrayProducer> producerSingleton;
     private Singleton<HDFSReader> hdfsReaderSingleton;
 
     /**
@@ -77,9 +78,9 @@ public class MessageHandlingApp extends SparkStreamingApp {
         super(propCenter, APP_NAME);
 
         Properties producerProp = propCenter.getKafkaProducerProp(false);
-        producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
+        producerSingleton = new Singleton<>(new ByteArrayProducerFactory(producerProp), ByteArrayProducer.class);
 
-        hdfsReaderSingleton = new Singleton<>(HDFSReader::new);
+        hdfsReaderSingleton = new Singleton<>(HDFSReader::new, HDFSReader.class);
     }
 
     public static void main(String[] args) throws Exception {

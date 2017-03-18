@@ -124,7 +124,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 new Port("hdfs-video-url-for-pedestrian-tracking", DataType.URL);
         private static final long serialVersionUID = -6738652169567844016L;
 
-        private final Singleton<Map<String, byte[]>> confBuffer;
+        private class ConfCache extends Object2ObjectOpenHashMap<String, byte[]> {
+            private static final long serialVersionUID = -1243878282849738861L;
+        }
+
+        private final Singleton<ConfCache> confCacheSingleton;
         private final int numSamplesPerTracklet;
         private final String metadataDir;
 
@@ -133,7 +137,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
             numSamplesPerTracklet = propCenter.numSamplesPerTracklet;
             metadataDir = propCenter.metadataDir;
-            confBuffer = new Singleton<>(Object2ObjectOpenHashMap::new);
+            confCacheSingleton = new Singleton<>(ConfCache::new, ConfCache.class);
         }
 
         @Override
@@ -176,16 +180,16 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     curNode.markExecuted();
 
                                     // Load tracking configuration to create a tracker.
-                                    if (!confBuffer.getInst().containsKey(confFile)) {
+                                    if (!confCacheSingleton.getInst().containsKey(confFile)) {
                                         InputStream confStream = getClass().getResourceAsStream(
                                                 "/conf/" + APP_NAME + "/" + confFile);
                                         if (confStream == null) {
                                             throw new IllegalArgumentException(
                                                     "Tracking configuration file not found in JAR!");
                                         }
-                                        confBuffer.getInst().put(confFile, IOUtils.toByteArray(confStream));
+                                        confCacheSingleton.getInst().put(confFile, IOUtils.toByteArray(confStream));
                                     }
-                                    final byte[] confBytes = confBuffer.getInst().get(confFile);
+                                    final byte[] confBytes = confCacheSingleton.getInst().get(confFile);
                                     if (confBytes == null) {
                                         logger.fatal("confPool contains key " + confFile + " but value is null!");
                                         return;

@@ -41,46 +41,23 @@ public class Singleton<T> implements Serializable {
      * Factory for creating a new instance if there is not instance in the pool
      * of class T.
      */
-    private final Factory<T> objFactory;
+    private final Factory<? extends T> objFactory;
 
     /**
      * Class T.
      */
-    private final Class<T> type;
-
-    /**
-     * Create a singleton of specified class T, and do not update the instance
-     * by default.
-     *
-     * @param objFactory Factory to create new instance of class T when instance of it
-     *                   does not exist.
-     * @throws Exception On failure creating a new instance.
-     */
-    public Singleton(Factory<T> objFactory) throws Exception {
-        this(objFactory, false);
-    }
+    private final Class<? extends T> type;
 
     /**
      * Create a singleton manager of specified class T.
      *
      * @param objFactory       Factory to create new instance of class T when instance of it
      *                         does not exist.
-     * @param toUpdateInstance Whether to update the instance in the pool on create of this
-     *                         singleton object.
      * @throws Exception On failure creating a new instance.
      */
-    public Singleton(Factory<T> objFactory, boolean toUpdateInstance) throws Exception {
+    public Singleton(Factory<? extends T> objFactory, Class<? extends T> type) throws Exception {
         this.objFactory = objFactory;
-        T inst = objFactory.produce();
-        //noinspection unchecked
-        this.type = (Class<T>) inst.getClass();
-
-        if (toUpdateInstance) {
-            checkPool();
-            synchronized (Singleton.class) {
-                instancePool.put(type, inst);
-            }
-        }
+        this.type = type;
     }
 
     /**

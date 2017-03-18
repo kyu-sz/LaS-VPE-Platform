@@ -37,6 +37,7 @@ public class Caffe {
             this.logger.info("Use CPU.");
             caffe.Caffe.set_mode(caffe.Caffe.CPU);
         }
+        this.logger.debug("Caffe mode and device set!");
     }
 
     private void initialize(@Nonnull String protocolPath,

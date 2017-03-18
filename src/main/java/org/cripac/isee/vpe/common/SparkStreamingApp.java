@@ -38,6 +38,7 @@ import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
 
@@ -78,17 +79,19 @@ public abstract class SparkStreamingApp implements Serializable {
         this.propCenter = propCenter;
         this.appName = appName;
         this.kafkaParams = propCenter.getKafkaParams(appName);
-        this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter));
+        this.loggerSingleton = new Singleton<>(
+                new SynthesizedLoggerFactory(appName, propCenter),
+                SynthesizedLogger.class);
         this.monitorSingleton = new Singleton<>(() -> {
             MonitorThread monitorThread = new MonitorThread(loggerSingleton.getInst());
             monitorThread.start();
             return monitorThread;
-        });
+        }, MonitorThread.class);
         this.taskController = new Singleton<>(() -> {
             TaskController taskController = new TaskController(propCenter, loggerSingleton.getInst());
             taskController.start();
             return taskController;
-        });
+        }, TaskController.class);
     }
 
     /**
