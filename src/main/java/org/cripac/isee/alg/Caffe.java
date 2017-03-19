@@ -1,5 +1,8 @@
 package org.cripac.isee.alg;
 
+import jcuda.Pointer;
+import jcuda.Sizeof;
+import jcuda.jcublas.JCublas;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.caffe;
 import org.bytedeco.javacpp.opencv_core;
@@ -11,24 +14,54 @@ import javax.annotation.Nullable;
 import java.io.File;
 
 import static org.bytedeco.javacpp.caffe.TEST;
+import static org.bytedeco.javacpp.caffe.caffe_cpu_gemm_float;
 
 /**
- * Created by 铠 on 2017/3/7.
+ * Base class of classes using Caffe.
+ * Created by Ken Yu on 2017/3/7.
  */
 public class Caffe {
-    static {
-        Loader.load(opencv_core.class);
-        Loader.load(caffe.class);
-    }
-
     /**
-     * Instance of Cafre.
+     * Instance of Caffe.
      */
     protected caffe.FloatNet net = null;
 
     protected Logger logger;
 
-    private void setupCaffe(int gpu) {
+    /**
+     * Initialize Caffe with protocol and weights.
+     *
+     * @param protocolPath path to caffe protocol.
+     * @param weightsPath  path to caffemodel.
+     */
+    protected void initialize(@Nonnull String protocolPath,
+                              @Nonnull String weightsPath) {
+        logger.info("Loading Caffe protocol from " + new File(protocolPath).getAbsolutePath());
+        net = new caffe.FloatNet(protocolPath, TEST);
+        logger.info("Loading Caffe weights from " + new File(weightsPath).getAbsolutePath());
+        net.CopyTrainedLayersFrom(weightsPath);
+        this.logger.debug("Caffe initialized!");
+    }
+
+    /**
+     * Create an instance of DeepMAR.
+     *
+     * @param gpu    index of GPU to use.
+     * @param logger logger for outputting debug info.
+     */
+    protected Caffe(int gpu,
+                    @Nullable Logger logger) {
+        Loader.load(opencv_core.class);
+        Loader.load(caffe.class);
+
+        if (logger == null) {
+            this.logger = new ConsoleLogger();
+        } else {
+            this.logger = logger;
+        }
+
+        testCuBLAS(gpu);
+
         if (gpu >= 0) {
             this.logger.info("Use GPU with device ID " + gpu);
             caffe.Caffe.SetDevice(gpu);
@@ -40,34 +73,87 @@ public class Caffe {
         this.logger.debug("Caffe mode and device set!");
     }
 
-    private void initialize(@Nonnull String protocolPath,
-                            @Nonnull String weightsPath) {
-        logger.info("Loading Caffe protocol from " + new File(protocolPath).getAbsolutePath());
-        net = new caffe.FloatNet(protocolPath, TEST);
-        logger.info("Loading Caffe weights from " + new File(weightsPath).getAbsolutePath());
-        net.CopyTrainedLayersFrom(weightsPath);
-        this.logger.debug("Caffe initialized!");
-    }
+    /* Matrix size */
+    private static final int N = 275;
 
-    /**
-     * Create an instance of DeepMAR. The protocol and weights are directly loaded from local files.
-     *
-     * @param gpu          The GPU to use.
-     * @param protocolPath Path of the DeepMAR protocol file.
-     * @param weightsPath  Path of the binary weights model of DeepMAR.
-     * @param logger       An external logger.
-     */
-    protected Caffe(int gpu,
-                    @Nonnull String protocolPath,
-                    @Nonnull String weightsPath,
-                    @Nullable Logger logger) {
-        if (logger == null) {
-            this.logger = new ConsoleLogger();
-        } else {
-            this.logger = logger;
+    private void testCuBLAS(int gpu) {
+        if (gpu >= 0) {
+            logger.info("Starting CuBLAS test!");
+
+            float h_A[];
+            float h_B[];
+            float h_C[];
+            Pointer d_A = new Pointer();
+            Pointer d_B = new Pointer();
+            Pointer d_C = new Pointer();
+            float alpha = 1.0f;
+            float beta = 0.0f;
+            int n2 = N * N;
+
+        /* Initialize JCublas */
+            JCublas.cublasInit();
+
+            logger.info("CuBLAS initialized!");
+
+        /* Allocate host memory for the matrices */
+            h_A = new float[n2];
+            h_B = new float[n2];
+            h_C = new float[n2];
+
+        /* Fill the matrices with test data */
+            for (int i = 0; i < n2; i++) {
+                h_A[i] = (float) Math.random();
+                h_B[i] = (float) Math.random();
+                h_C[i] = (float) Math.random();
+            }
+
+        /* Allocate device memory for the matrices */
+            JCublas.cublasAlloc(n2, Sizeof.FLOAT, d_A);
+            JCublas.cublasAlloc(n2, Sizeof.FLOAT, d_B);
+            JCublas.cublasAlloc(n2, Sizeof.FLOAT, d_C);
+
+            logger.info("Device memory allocated!");
+
+        /* Initialize the device matrices with the host matrices */
+            JCublas.cublasSetVector(n2, Sizeof.FLOAT, Pointer.to(h_A), 1, d_A, 1);
+            JCublas.cublasSetVector(n2, Sizeof.FLOAT, Pointer.to(h_B), 1, d_B, 1);
+            JCublas.cublasSetVector(n2, Sizeof.FLOAT, Pointer.to(h_C), 1, d_C, 1);
+
+            logger.info("Device data set!");
+
+        /* Performs operation using JCublas */
+            JCublas.cublasSgemm('n', 'n', N, N, N, alpha,
+                    d_A, N, d_B, N, beta, d_C, N);
+
+            logger.info("SGEMM performed!");
+
+        /* Read the result back */
+            JCublas.cublasGetVector(n2, Sizeof.FLOAT, d_C, 1, Pointer.to(h_C), 1);
+
+            logger.info("Results retrieved!");
+
+        /* Memory clean up */
+
+        /* Check result */
+            float[] res = new float[n2];
+            caffe_cpu_gemm_float(111, 111, N, N, N, 1, h_A, h_B, 0, res);
+            for (int i = 0; i < n2; ++i) {
+                if (h_C[i] != res[i]) {
+                    logger.error("Result different!");
+                    break;
+                }
+            }
+
+            JCublas.cublasFree(d_A);
+            JCublas.cublasFree(d_B);
+            JCublas.cublasFree(d_C);
+
+            logger.info("Device memory freed!");
+
+        /* Shutdown */
+            JCublas.cublasShutdown();
+
+            logger.info("CuBLAS test finished!");
         }
-
-        setupCaffe(gpu);
-        initialize(protocolPath, weightsPath);
     }
 }
