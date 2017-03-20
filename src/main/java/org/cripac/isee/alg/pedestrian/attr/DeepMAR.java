@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.util.Collection;
 
@@ -65,7 +66,7 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
     public DeepMAR(int gpu,
                    @Nonnull File protocol,
                    @Nonnull File model,
-                   @Nullable Logger logger) throws FileNotFoundException {
+                   @Nullable Logger logger) throws FileNotFoundException, AccessDeniedException {
         super(gpu, logger);
         initialize(protocol, model);
 

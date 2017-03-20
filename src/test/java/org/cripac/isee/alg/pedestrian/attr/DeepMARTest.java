@@ -26,6 +26,7 @@ import org.junit.Before;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.nio.file.AccessDeniedException;
 
 import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
 import static org.junit.Assert.assertEquals;
@@ -49,7 +50,7 @@ public class DeepMARTest {
     }
 
     @Before
-    public void setUp() throws FileNotFoundException {
+    public void setUp() throws FileNotFoundException, AccessDeniedException {
         recognizer = new DeepMAR(caffeGPU, protocol, model, logger);
         testImage = "src/test/resources/" +
                 "CAM01_2014-02-15_20140215161032-20140215162620_tarid0_frame218_line1.png";

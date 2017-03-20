@@ -13,6 +13,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.nio.file.AccessDeniedException;
 
 import static org.bytedeco.javacpp.caffe.TEST;
 import static org.bytedeco.javacpp.caffe.caffe_cpu_gemm_float;
@@ -36,17 +37,25 @@ public class Caffe {
      * @param model    Caffe model file.
      */
     protected void initialize(@Nonnull File protobuf,
-                              @Nonnull File model) throws FileNotFoundException {
+                              @Nonnull File model) throws FileNotFoundException, AccessDeniedException {
         if (!protobuf.exists()) {
             throw new FileNotFoundException("Cannot find Caffe protocol from " + protobuf.getAbsolutePath());
         }
-        logger.info("Loading Caffe protocol from " + protobuf.getAbsolutePath());
+        if (!protobuf.canRead()) {
+            throw new AccessDeniedException("Cannot read Caffe protocol from " + protobuf.getAbsolutePath());
+        }
+        logger.info("Loading Caffe protocol from " + protobuf.getAbsolutePath()
+                + " (" + (protobuf.length() / 1024) + "kb)");
         net = new caffe.FloatNet(protobuf.getAbsolutePath(), TEST);
 
         if (!model.exists()) {
             throw new FileNotFoundException("Cannot find Caffe model from " + model.getAbsolutePath());
         }
-        logger.info("Loading Caffe weights from " + model.getAbsolutePath());
+        if (!model.canRead()) {
+            throw new AccessDeniedException("Cannot read Caffe model from " + model.getAbsolutePath());
+        }
+        logger.info("Loading Caffe weights from " + model.getAbsolutePath()
+                + " (" + (model.length() / 1024) + "kb)");
         net.CopyTrainedLayersFrom(model.getAbsolutePath());
 
         this.logger.debug("Caffe initialized!");
@@ -83,7 +92,7 @@ public class Caffe {
     }
 
     private void testCuBLAS(int gpu) {
-        final int N = 275;
+        final int N = 2;
         if (gpu >= 0) {
             logger.info("Starting CuBLAS test!");
 
@@ -109,9 +118,9 @@ public class Caffe {
 
         /* Fill the matrices with test data */
             for (int i = 0; i < n2; i++) {
-                h_A[i] = (float) Math.random();
-                h_B[i] = (float) Math.random();
-                h_C[i] = (float) Math.random();
+                h_A[i] = i + 1;
+                h_B[i] = n2 - i;
+                h_C[i] = 0;
             }
 
         /* Allocate device memory for the matrices */
@@ -146,7 +155,23 @@ public class Caffe {
             caffe_cpu_gemm_float(111, 111, N, N, N, alpha, h_A, h_B, beta, res);
             for (int i = 0; i < n2; ++i) {
                 if (Math.abs(h_C[i] - res[i]) > 1e-5) {
-                    logger.error("Result different at i: " + h_C[i] + " vs " + res[i]);
+                    StringBuilder s = new StringBuilder();
+                    for (int j = 0; j < N; ++j) {
+                        for (int k = 0; k < N; ++k) {
+                            s.append(h_C[j * N + k]).append(" ");
+                        }
+                        s.append("\n");
+                    }
+                    logger.info("h_C:\n" + s.toString());
+
+                    s = new StringBuilder();
+                    for (int j = 0; j < N; ++j) {
+                        for (int k = 0; k < N; ++k) {
+                            s.append(res[j * N + k]).append(" ");
+                        }
+                        s.append("\n");
+                    }
+                    logger.info("res:\n" + s.toString());
                     break;
                 }
             }
