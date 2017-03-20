@@ -18,8 +18,6 @@
  */
 package org.cripac.isee.vpe.ctrl;
 
-import it.unimi.dsi.fastutil.objects.ObjectAVLTreeSet;
-import it.unimi.dsi.fastutil.objects.ObjectArrayFIFOQueue;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
@@ -27,7 +25,6 @@ import org.cripac.isee.vpe.util.logging.Logger;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.cripac.isee.vpe.common.DataType.TERM_SIG;
 
@@ -38,8 +35,8 @@ import static org.cripac.isee.vpe.common.DataType.TERM_SIG;
  */
 public class TaskController extends Thread {
 
-    public final Set<UUID> termSigPool = new ObjectAVLTreeSet<>();
-    private final ObjectArrayFIFOQueue<UUID> termSigQueue = new ObjectArrayFIFOQueue<>(100);
+    public final Set<UUID> termSigPool = new HashSet<>();
+    private final LinkedList<UUID> termSigQueue = new LinkedList<>();
     private final KafkaConsumer<String, byte[]> consumer;
     private final Logger logger;
 
@@ -75,11 +72,11 @@ public class TaskController extends Thread {
                 sigs.forEach(rec -> {
                     UUID taskID = UUID.fromString(rec.key());
                     termSigPool.add(taskID);
-                    termSigQueue.enqueue(taskID);
+                    termSigQueue.add(taskID);
                     logger.info("Received term sig for task " + taskID);
                 });
                 while (termSigQueue.size() > 100) {
-                    termSigPool.remove(termSigQueue.dequeue());
+                    termSigPool.remove(termSigQueue.pollFirst());
                 }
                 consumer.commitSync();
             } catch (Exception e) {
