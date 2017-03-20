@@ -12,6 +12,7 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
+import java.io.FileNotFoundException;
 
 import static org.bytedeco.javacpp.caffe.TEST;
 import static org.bytedeco.javacpp.caffe.caffe_cpu_gemm_float;
@@ -29,19 +30,25 @@ public class Caffe {
     protected Logger logger;
 
     /**
-     * Initialize Caffe with protocol and weights.
+     * Initialize Caffe with protocol and pre-trained model.
      *
-     * @param protocolPath path to caffe protocol.
-     * @param weightsPath  path to caffemodel.
+     * @param protobuf Caffe protocol buffer file.
+     * @param model    Caffe model file.
      */
-    protected void initialize(@Nonnull String protocolPath,
-                              @Nonnull String weightsPath) {
-        final String absoluteProtocolPath = new File(protocolPath).getAbsolutePath();
-        final String absoluteWeightsPath = new File(weightsPath).getAbsolutePath();
-        logger.info("Loading Caffe protocol from " + absoluteProtocolPath);
-        net = new caffe.FloatNet(absoluteProtocolPath, TEST);
-        logger.info("Loading Caffe weights from " + absoluteWeightsPath);
-        net.CopyTrainedLayersFrom(absoluteWeightsPath);
+    protected void initialize(@Nonnull File protobuf,
+                              @Nonnull File model) throws FileNotFoundException {
+        if (!protobuf.exists()) {
+            throw new FileNotFoundException("Cannot find Caffe protocol from " + protobuf.getAbsolutePath());
+        }
+        logger.info("Loading Caffe protocol from " + protobuf.getAbsolutePath());
+        net = new caffe.FloatNet(protobuf.getAbsolutePath(), TEST);
+
+        if (!model.exists()) {
+            throw new FileNotFoundException("Cannot find Caffe model from " + model.getAbsolutePath());
+        }
+        logger.info("Loading Caffe weights from " + model.getAbsolutePath());
+        net.CopyTrainedLayersFrom(model.getAbsolutePath());
+
         this.logger.debug("Caffe initialized!");
     }
 
@@ -75,10 +82,8 @@ public class Caffe {
         this.logger.debug("Caffe mode and device set!");
     }
 
-    /* Matrix size */
-    private static final int N = 275;
-
     private void testCuBLAS(int gpu) {
+        final int N = 275;
         if (gpu >= 0) {
             logger.info("Starting CuBLAS test!");
 
@@ -137,7 +142,7 @@ public class Caffe {
         /* Memory clean up */
 
         /* Check result */
-            float[] res = new float[n2];
+            float[] res = h_C.clone();
             caffe_cpu_gemm_float(111, 111, N, N, N, alpha, h_A, h_B, beta, res);
             for (int i = 0; i < n2; ++i) {
                 if (Math.abs(h_C[i] - res[i]) > 1e-5) {

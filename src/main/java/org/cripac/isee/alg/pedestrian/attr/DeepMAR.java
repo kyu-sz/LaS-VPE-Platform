@@ -58,16 +58,16 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
      * Create an instance of DeepMAR. The protocol and weights are directly loaded from local files.
      *
      * @param gpu          the GPU to use.
-     * @param protocolPath path of the DeepMAR protocol file.
-     * @param weightsPath  path of the binary weights model of DeepMAR.
+     * @param protocol DeepMAR protocol file.
+     * @param model  binary model of DeepMAR.
      * @param logger       an external logger.
      */
     public DeepMAR(int gpu,
-                   @Nonnull String protocolPath,
-                   @Nonnull String weightsPath,
-                   @Nullable Logger logger) {
+                   @Nonnull File protocol,
+                   @Nonnull File model,
+                   @Nullable Logger logger) throws FileNotFoundException {
         super(gpu, logger);
-        initialize(protocolPath, weightsPath);
+        initialize(protocol, model);
 
         final float[] meanBuf = new float[1];
         final float[] regBuf = new float[1];
@@ -88,10 +88,10 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
      */
     public DeepMAR(int gpu,
                    @Nullable Logger logger) throws IOException {
-        this(gpu, getProtocolFilePath(), getWeightsFilePath(), logger);
+        this(gpu, getProtobuf(), getModel(), logger);
     }
 
-    private static String getProtocolFilePath() throws FileNotFoundException {
+    private static File getProtobuf() throws FileNotFoundException {
         // Retrieve the file from JAR and store to temporary files.
         try {
             File tempFile = File.createTempFile("DeepMAR", ".prototxt");
@@ -99,13 +99,13 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
             Files.copy(DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.prototxt"),
                     tempFile.toPath(),
                     REPLACE_EXISTING);
-            return tempFile.getPath();
+            return tempFile;
         } catch (IOException | NullPointerException e) {
-            throw new FileNotFoundException("Cannot found default Caffe protocol file in the JAR package.");
+            throw new FileNotFoundException("Cannot found default Caffe protocol buffer in the JAR package.");
         }
     }
 
-    private static String getWeightsFilePath() throws FileNotFoundException {
+    private static File getModel() throws FileNotFoundException {
         // Retrieve the file from JAR and store to temporary files.
         try {
             File tempFile = File.createTempFile("DeepMAR", ".caffemodel");
@@ -113,9 +113,9 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
             Files.copy(DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.caffemodel"),
                     tempFile.toPath(),
                     REPLACE_EXISTING);
-            return tempFile.getPath();
+            return tempFile;
         } catch (IOException | NullPointerException e) {
-            throw new FileNotFoundException("Cannot found default Caffe weights file in the JAR package.");
+            throw new FileNotFoundException("Cannot found default Caffe model in the JAR package.");
         }
     }
 
