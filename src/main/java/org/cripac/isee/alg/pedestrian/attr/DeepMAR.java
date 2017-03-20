@@ -100,7 +100,7 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
                     REPLACE_EXISTING);
             return tempFile;
         } catch (IOException | NullPointerException e) {
-            throw new FileNotFoundException("Cannot found default Caffe protocol buffer in the JAR package.");
+            throw new FileNotFoundException("Cannot find default Caffe protocol buffer in the JAR package.");
         }
     }
 
@@ -114,7 +114,7 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
                     REPLACE_EXISTING);
             return tempFile;
         } catch (IOException | NullPointerException e) {
-            throw new FileNotFoundException("Cannot found default Caffe model in the JAR package.");
+            throw new FileNotFoundException("Cannot find default Caffe model in the JAR package.");
         }
     }
 
