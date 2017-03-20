@@ -36,10 +36,12 @@ public class Caffe {
      */
     protected void initialize(@Nonnull String protocolPath,
                               @Nonnull String weightsPath) {
-        logger.info("Loading Caffe protocol from " + new File(protocolPath).getAbsolutePath());
-        net = new caffe.FloatNet(protocolPath, TEST);
-        logger.info("Loading Caffe weights from " + new File(weightsPath).getAbsolutePath());
-        net.CopyTrainedLayersFrom(weightsPath);
+        final String absoluteProtocolPath = new File(protocolPath).getAbsolutePath();
+        final String absoluteWeightsPath = new File(weightsPath).getAbsolutePath();
+        logger.info("Loading Caffe protocol from " + absoluteProtocolPath);
+        net = new caffe.FloatNet(absoluteProtocolPath, TEST);
+        logger.info("Loading Caffe weights from " + absoluteWeightsPath);
+        net.CopyTrainedLayersFrom(absoluteWeightsPath);
         this.logger.debug("Caffe initialized!");
     }
 
@@ -136,10 +138,10 @@ public class Caffe {
 
         /* Check result */
             float[] res = new float[n2];
-            caffe_cpu_gemm_float(111, 111, N, N, N, 1, h_A, h_B, 0, res);
+            caffe_cpu_gemm_float(111, 111, N, N, N, alpha, h_A, h_B, beta, res);
             for (int i = 0; i < n2; ++i) {
-                if (h_C[i] != res[i]) {
-                    logger.error("Result different!");
+                if (Math.abs(h_C[i] - res[i]) > 1e-5) {
+                    logger.error("Result different at i: " + h_C[i] + " vs " + res[i]);
                     break;
                 }
             }

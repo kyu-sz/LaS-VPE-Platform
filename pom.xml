@@ -163,6 +163,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.bytedeco.javacpp-presets</groupId>
+            <artifactId>tensorflow-platform</artifactId>
+            <version>LATEST</version>
+        </dependency>
+        <dependency>
             <groupId>org.jcuda</groupId>
             <artifactId>jcuda</artifactId>
             <version>LATEST</version>
