@@ -165,6 +165,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                 case Fake:
                     recognizerSingleton = new Singleton<>(FakePedestrianAttrRecognizer::new,
                             FakePedestrianAttrRecognizer.class);
+                    break;
                 default:
                     throw new NotImplementedException("Attribute recognition algorithm "
                             + propCenter.algorithm + " not implemented.");
