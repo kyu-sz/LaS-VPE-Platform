@@ -32,6 +32,7 @@ import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
@@ -65,7 +66,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public enum Algorithm {
         EXT,
-        DeepMAR
+        DeepMAR,
+        Fake
     }
 
     /**
@@ -91,7 +93,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private static final long serialVersionUID = -786439769732467646L;
         public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         public int externAttrRecogServerPort = 0;
-        public Algorithm algorithm = Algorithm.EXT;
+        public Algorithm algorithm = Algorithm.Fake;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
@@ -160,9 +162,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             new DeepMAR(propCenter.caffeGPU, loggerSingleton.getInst()),
                             DeepMAR.class);
                     break;
+                case Fake:
+                    recognizerSingleton = new Singleton<>(FakePedestrianAttrRecognizer::new,
+                            FakePedestrianAttrRecognizer.class);
                 default:
-                    throw new NotImplementedException("Recognizer singleton construction for "
-                            + propCenter.algorithm + " not realized.");
+                    throw new NotImplementedException("Attribute recognition algorithm "
+                            + propCenter.algorithm + " not implemented.");
             }
         }
 

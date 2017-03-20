@@ -92,9 +92,10 @@ public class Caffe {
     }
 
     private void testCuBLAS(int gpu) {
-        final int N = 2;
         if (gpu >= 0) {
             logger.info("Starting CuBLAS test!");
+
+            final int N = 2;
 
             float h_A[];
             float h_B[];
@@ -152,7 +153,7 @@ public class Caffe {
 
         /* Check result */
             float[] res = h_C.clone();
-            caffe_cpu_gemm_float(112, 112, N, N, N, alpha, h_B, h_A, beta, res);
+            caffe_cpu_gemm_float(111, 111, N, N, N, alpha, h_B, h_A, beta, res);
             for (int i = 0; i < n2; ++i) {
                 if (Math.abs(h_C[i] - res[i]) > 1e-5) {
                     StringBuilder s = new StringBuilder();

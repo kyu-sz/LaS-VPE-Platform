@@ -70,15 +70,13 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
         super(gpu, logger);
         initialize(protocol, model);
 
-        final float[] meanBuf = new float[1];
-        final float[] regBuf = new float[1];
-        final double[] scaleBuf = new double[1];
-        meanBuf[0] = MEAN_PIXEL;
-        regBuf[0] = REG_COEFF;
-        scaleBuf[0] = 1;
-        pMean = new FloatPointer(meanBuf);
-        pRegCoeff = new FloatPointer(regBuf);
-        pScale = new DoublePointer(scaleBuf);
+        pMean = new FloatPointer(1);
+        pRegCoeff = new FloatPointer(1);
+        pScale = new DoublePointer(1);
+
+        pMean.put(MEAN_PIXEL);
+        pRegCoeff.put(REG_COEFF);
+        pScale.put(1);
     }
 
     /**
@@ -338,5 +336,13 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
                 "weight_very_fat",
                 "action_calling",
                 "occlusion_other"};
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        Pointer.free(pScale);
+        Pointer.free(pMean);
+        Pointer.free(pRegCoeff);
+        super.finalize();
     }
 }

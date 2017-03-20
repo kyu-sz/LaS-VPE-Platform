@@ -24,11 +24,9 @@ import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import javax.annotation.Nonnull;
 
 public class FakePedestrianAttrRecognizer implements PedestrianAttrRecognizer {
-
     @Nonnull
     @Override
     public Attributes recognize(@Nonnull Tracklet tracklet) {
         return new Attributes();
     }
-
 }

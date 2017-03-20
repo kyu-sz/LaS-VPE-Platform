@@ -248,9 +248,10 @@ public abstract class SparkStreamingApp implements Serializable {
                                 .mapValues(tuple -> new Tuple2<>(UUID.fromString(tuple._1()), tuple._2()))
                                 .filter(kv -> (Boolean) !taskController.getInst().termSigPool.contains(kv._2()._1()));
                 Map<DataType, JavaPairDStream<UUID, TaskData>> streamMap = new Object2ObjectOpenHashMap<>();
-                acceptingTypes.forEach(type -> streamMap.put(type, inputStream
-                        .filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))
-                        .mapToPair(rec -> new Tuple2<>(rec._2()._1(), deserialize(rec._2()._2())))));
+                acceptingTypes.forEach(type ->
+                        streamMap.put(type,
+                                inputStream.filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))
+                                        .mapToPair(rec -> new Tuple2<>(rec._2()._1(), deserialize(rec._2()._2())))));
                 streams.forEach(stream -> stream.addToGlobalStream(streamMap));
             }
 
