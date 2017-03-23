@@ -295,7 +295,7 @@ public class SystemPropertyCenter implements Serializable {
                 logger.debug("Read from property file: " + entry.getKey()
                         + "=" + entry.getValue());
             }
-            switch (((String) entry.getKey()).toLowerCase()) {
+            switch ((String) entry.getKey()) {
                 case "zk.connect":
                     zkConn = (String) entry.getValue();
                     break;
@@ -390,6 +390,9 @@ public class SystemPropertyCenter implements Serializable {
                     break;
                 case "vpe.task.controller.enable":
                     taskControllerEnable = Boolean.parseBoolean((String) entry.getValue());
+                    break;
+                default:
+                    logger.error("Unrecognized option: " + entry.getValue());
                     break;
             }
         }

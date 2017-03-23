@@ -55,7 +55,7 @@ public class Singleton<T> implements Serializable {
      *                         does not exist.
      * @throws Exception On failure creating a new instance.
      */
-    public Singleton(Factory<? extends T> objFactory, Class<? extends T> type) throws Exception {
+    public <U extends T> Singleton(Factory<U> objFactory, Class<U> type) throws Exception {
         this.objFactory = objFactory;
         this.type = type;
     }

@@ -144,7 +144,9 @@ public abstract class SparkStreamingApp implements Serializable {
                 // Manipulate offsets.
                 .transform(rdd -> {
                     final Logger logger = loggerSingleton.getInst();
-                    assert monitorSingleton.getInst().isAlive();
+                    if (!monitorSingleton.getInst().isAlive()) {
+                        logger.error("Monitor is dead!");
+                    }
 
                     // Store offsets.
                     final OffsetRange[] offsetRanges = ((HasOffsetRanges) rdd.rdd()).offsetRanges();
