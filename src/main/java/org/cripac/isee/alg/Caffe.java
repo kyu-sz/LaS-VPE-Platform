@@ -64,6 +64,15 @@ public class Caffe {
     /**
      * Create an instance of DeepMAR.
      *
+     * @param gpu index of GPU to use.
+     */
+    protected Caffe(int gpu) {
+        this(gpu, null);
+    }
+
+    /**
+     * Create an instance of DeepMAR.
+     *
      * @param gpu    index of GPU to use.
      * @param logger logger for outputting debug info.
      */

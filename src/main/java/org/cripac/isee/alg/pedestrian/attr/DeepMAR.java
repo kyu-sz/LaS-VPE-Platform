@@ -18,6 +18,7 @@
 package org.cripac.isee.alg.pedestrian.attr;
 
 import com.google.gson.Gson;
+import org.apache.commons.io.IOUtils;
 import org.bytedeco.javacpp.*;
 import org.cripac.isee.alg.Caffe;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
@@ -25,14 +26,10 @@ import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.AccessDeniedException;
-import java.nio.file.Files;
 import java.util.Collection;
 
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.bytedeco.javacpp.opencv_core.*;
 
 /**
@@ -58,10 +55,10 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
     /**
      * Create an instance of DeepMAR. The protocol and weights are directly loaded from local files.
      *
-     * @param gpu          the GPU to use.
+     * @param gpu      index of GPU to use.
      * @param protocol DeepMAR protocol file.
-     * @param model  binary model of DeepMAR.
-     * @param logger       an external logger.
+     * @param model    DeepMAR binary model file.
+     * @param logger   external logger.
      */
     public DeepMAR(int gpu,
                    @Nonnull File protocol,
@@ -92,29 +89,39 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
 
     private static File getDefaultProtobuf() throws IOException {
         // Retrieve the file from JAR and store to temporary files.
+        InputStream in = DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.prototxt");
+        if (in == null) {
+            throw new FileNotFoundException("Cannot find default Caffe protocol buffer in the JAR package.");
+        }
+
         try {
             File tempFile = File.createTempFile("DeepMAR", ".prototxt");
             tempFile.deleteOnExit();
-            Files.copy(DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.prototxt"),
-                    tempFile.toPath(),
-                    REPLACE_EXISTING);
-            return tempFile;
-        } catch (NullPointerException e) {
-            throw new FileNotFoundException("Cannot find default Caffe protocol buffer in the JAR package.");
+            try (OutputStream out = new FileOutputStream(tempFile)) {
+                IOUtils.copy(in, out);
+                return tempFile;
+            }
+        } finally {
+            in.close();
         }
     }
 
     private static File getDefaultModel() throws IOException {
         // Retrieve the file from JAR and store to temporary files.
+        InputStream in = DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.caffemodel");
+        if (in == null) {
+            throw new FileNotFoundException("Cannot find default Caffe model in the JAR package.");
+        }
+
         try {
             File tempFile = File.createTempFile("DeepMAR", ".caffemodel");
             tempFile.deleteOnExit();
-            Files.copy(DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.caffemodel"),
-                    tempFile.toPath(),
-                    REPLACE_EXISTING);
-            return tempFile;
-        } catch (NullPointerException e) {
-            throw new FileNotFoundException("Cannot find default Caffe model in the JAR package.");
+            try (OutputStream out = new FileOutputStream(tempFile)) {
+                IOUtils.copy(in, out);
+                return tempFile;
+            }
+        } finally {
+            in.close();
         }
     }
 

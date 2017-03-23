@@ -77,8 +77,8 @@ public class ExternPedestrianAttrRecognizer implements PedestrianAttrRecognizer 
      * Constructor of ExternPedestrianAttrRecognizer specifying external solver's
      * address and listening port.
      *
-     * @param solverAddress The address of the solver.
-     * @param port          The port the solver is listening to.
+     * @param solverAddress the address of the solver.
+     * @param port          the port the solver is listening to.
      */
     public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,
                                           int port,
