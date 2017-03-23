@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.common;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -255,7 +254,7 @@ public abstract class SparkStreamingApp implements Serializable {
                     inputStream = inputStream.filter(kv ->
                             (Boolean) !taskController.getInst().termSigPool.contains(kv._2()._1()));
                 }
-                Map<DataType, JavaPairDStream<UUID, TaskData>> streamMap = new Object2ObjectOpenHashMap<>();
+                Map<DataType, JavaPairDStream<UUID, TaskData>> streamMap = new HashMap<>();
                 for (DataType type : acceptingTypes) {
                     streamMap.put(type,
                             inputStream.filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))

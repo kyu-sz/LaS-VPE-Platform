@@ -46,6 +46,8 @@ import java.util.UUID;
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
+//import org.junit.Test;
+
 /**
  * This is a JUnit test for the DataManagingApp.
  * Different from usual JUnit tests, this test does not initiate a DataManagingApp.

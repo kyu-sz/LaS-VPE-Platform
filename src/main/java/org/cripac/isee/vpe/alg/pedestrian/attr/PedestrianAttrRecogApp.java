@@ -111,7 +111,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         algorithm = Algorithm.valueOf((String) entry.getValue());
                         break;
                     default:
-                        logger.error("Unrecognized option: " + entry.getValue());
+                        logger.warn("Unrecognized option: " + entry.getKey());
                         break;
                 }
             }
@@ -171,12 +171,13 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     break;
                 default:
                     throw new NotImplementedException("Attribute recognition algorithm "
-                            + propCenter.algorithm + " not implemented.");
+                            + propCenter.algorithm + " is not implemented.");
             }
         }
 
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {// Extract tracklets from the data.
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
+            // Extract tracklets from the data.
             // Recognize attributes from the tracklets.
             this.filter(globalStreamMap, TRACKLET_PORT)
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
@@ -186,15 +187,15 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             final TaskData taskData = kv._2();
                             logger.debug("Received task " + taskID + "!");
 
-                            final Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
                             logger.debug("To recognize attributes for task " + taskID + "!");
                             // Recognize attributes robustly.
-                            Attributes attr = new RobustExecutor<>((Function<Tracklet, Attributes>) t ->
-                                    recognizerSingleton.getInst().recognize(t)
-                            ).execute(tracklet);
-
+                            final Attributes attr = new RobustExecutor<>((Function<TrackletOrURL, Attributes>) tou -> {
+                                final Tracklet t = tou.getTracklet();
+                                final Attributes a = recognizerSingleton.getInst().recognize(t);
+                                a.trackletID = t.id;
+                                return a;
+                            }).execute((TrackletOrURL) taskData.predecessorRes);
                             logger.debug("Attributes retrieved for task " + taskID + "!");
-                            attr.trackletID = tracklet.id;
 
                             // Find current node.
                             final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);

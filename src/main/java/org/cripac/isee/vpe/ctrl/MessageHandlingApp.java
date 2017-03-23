@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.ctrl;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -84,12 +83,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     }
 
     public static void main(String[] args) throws Exception {
-        SystemPropertyCenter propCenter;
-        if (args.length > 0) {
-            propCenter = new SystemPropertyCenter(args);
-        } else {
-            propCenter = new SystemPropertyCenter();
-        }
+        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
         SparkStreamingApp app = new MessageHandlingApp(propCenter);
         app.initialize();
@@ -148,7 +142,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                         final String cmd = rec._2()._1();
                         logger.debug("Received command: " + cmd);
 
-                        final Object2ObjectOpenHashMap<String, Serializable> param = deserialize(rec._2()._2());
+                        final HashMap<String, Serializable> param = deserialize(rec._2()._2());
 
                         if (cmd.equals(CommandType.RT_TRACK_ONLY)
                                 || cmd.equals(CommandType.RT_TRACK_ATTRRECOG_REID)) {

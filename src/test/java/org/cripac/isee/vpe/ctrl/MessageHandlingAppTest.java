@@ -18,7 +18,6 @@
 package org.cripac.isee.vpe.ctrl;
 
 import com.google.gson.Gson;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
 import org.cripac.isee.vpe.common.DataType;
@@ -28,10 +27,7 @@ import org.junit.Before;
 
 import java.io.Serializable;
 import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 
 import static org.apache.commons.lang3.SerializationUtils.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
@@ -161,7 +157,7 @@ public class MessageHandlingAppTest implements Serializable {
                 "source_data/video/CAM01/2013-12-23/20131223175916-20131223180508.h264",
         };
 
-        Object2ObjectOpenHashMap<String, Serializable> param = new Object2ObjectOpenHashMap<>();
+        HashMap<String, Serializable> param = new HashMap<>();
         param.put(MessageHandlingApp.Parameter.TRACKING_CONF_FILE,
                 "isee-basic/CAM01_0.conf");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
