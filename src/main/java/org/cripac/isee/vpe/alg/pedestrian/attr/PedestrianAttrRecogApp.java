@@ -110,6 +110,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     case "vpe.ped.attr.alg":
                         algorithm = Algorithm.valueOf((String) entry.getValue());
                         break;
+                    default:
+                        logger.error("Unrecognized option: " + entry.getValue());
+                        break;
                 }
             }
         }

@@ -79,7 +79,7 @@ public class TrackletOrURL implements Serializable {
 
     @Nonnull
     public Tracklet getTracklet() throws Exception {
-        return tracklet != null ? tracklet : (tracklet =
-                new RobustExecutor<>((Function<String, Tracklet>) HadoopHelper::retrieveTracklet).execute(URL));
+        return tracklet != null ? tracklet :
+                new RobustExecutor<>((Function<String, Tracklet>) HadoopHelper::retrieveTracklet).execute(URL);
     }
 }

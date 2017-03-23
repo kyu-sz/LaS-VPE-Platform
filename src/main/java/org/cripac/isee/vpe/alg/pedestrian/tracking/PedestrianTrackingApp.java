@@ -107,6 +107,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     case "vpe.num.sample.per.tracklet":
                         numSamplesPerTracklet = Integer.valueOf((String) entry.getValue());
                         break;
+                    default:
+                        logger.error("Unrecognized option: " + entry.getValue());
+                        break;
                 }
             }
         }

@@ -61,7 +61,7 @@ public class SystemPropertyCenter implements Serializable {
 
     private static final long serialVersionUID = -6642856932636724919L;
     /* Logger for parsing */
-    private transient Logger logger = new ConsoleLogger(Level.INFO);
+    protected transient Logger logger = new ConsoleLogger(Level.INFO);
 
     /* Zookeeper properties */
     public String zkConn = "localhost:2181";

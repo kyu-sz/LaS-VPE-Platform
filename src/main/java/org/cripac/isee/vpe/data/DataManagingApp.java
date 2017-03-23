@@ -105,6 +105,9 @@ public class DataManagingApp extends SparkStreamingApp {
                     case "vpe.max.frame.per.fragment":
                         maxFramePerFragment = Integer.parseInt((String) entry.getValue());
                         break;
+                    default:
+                        logger.error("Unrecognized option: " + entry.getValue());
+                        break;
                 }
             }
         }
