@@ -55,8 +55,7 @@ public class Caffe {
         if (!model.canRead()) {
             throw new AccessDeniedException("Cannot read Caffe model from " + model.getAbsolutePath());
         }
-        logger.info("Loading Caffe weights from " + model.getAbsolutePath()
-                + " (" + (model.length() / 1024) + "kb)");
+        logger.info("Loading Caffe model from " + model.getAbsolutePath() + " (" + (model.length() / 1024) + "kb)");
         net.CopyTrainedLayersFrom(model.getAbsolutePath());
 
         this.logger.debug("Caffe initialized!");

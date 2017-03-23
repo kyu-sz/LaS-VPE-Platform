@@ -43,6 +43,7 @@ import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
 import scala.Tuple2;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -87,11 +88,13 @@ public abstract class SparkStreamingApp implements Serializable {
             monitorThread.start();
             return monitorThread;
         }, MonitorThread.class);
-        this.taskController = new Singleton<>(() -> {
-            TaskController taskController = new TaskController(propCenter, loggerSingleton.getInst());
-            taskController.start();
-            return taskController;
-        }, TaskController.class);
+        if (propCenter.taskControllerEnable) {
+            this.taskController = new Singleton<>(() -> {
+                TaskController taskController = new TaskController(propCenter, loggerSingleton.getInst());
+                taskController.start();
+                return taskController;
+            }, TaskController.class);
+        }
     }
 
     /**
@@ -108,8 +111,8 @@ public abstract class SparkStreamingApp implements Serializable {
     @Nonnull
     private final Singleton<MonitorThread> monitorSingleton;
 
-    @Nonnull
-    private final Singleton<TaskController> taskController;
+    @Nullable
+    private Singleton<TaskController> taskController = null;
 
     protected void registerStreams(Collection<Stream> streams) {
         this.streams.addAll(streams);
@@ -243,15 +246,19 @@ public abstract class SparkStreamingApp implements Serializable {
             addToContext();
 
             if (!acceptingTypes.isEmpty()) {
-                final JavaPairDStream<DataType, Tuple2<UUID, byte[]>> inputStream =
+                JavaPairDStream<DataType, Tuple2<UUID, byte[]>> inputStream =
                         buildDirectStream(acceptingTypes)
-                                .mapValues(tuple -> new Tuple2<>(UUID.fromString(tuple._1()), tuple._2()))
-                                .filter(kv -> (Boolean) !taskController.getInst().termSigPool.contains(kv._2()._1()));
+                                .mapValues(tuple -> new Tuple2<>(UUID.fromString(tuple._1()), tuple._2()));
+                if (taskController != null) {
+                    inputStream = inputStream.filter(kv ->
+                            (Boolean) !taskController.getInst().termSigPool.contains(kv._2()._1()));
+                }
                 Map<DataType, JavaPairDStream<UUID, TaskData>> streamMap = new Object2ObjectOpenHashMap<>();
-                acceptingTypes.forEach(type ->
-                        streamMap.put(type,
-                                inputStream.filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))
-                                        .mapToPair(rec -> new Tuple2<>(rec._2()._1(), deserialize(rec._2()._2())))));
+                for (DataType type : acceptingTypes) {
+                    streamMap.put(type,
+                            inputStream.filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))
+                                    .mapToPair(rec -> new Tuple2<>(rec._2()._1(), deserialize(rec._2()._2()))));
+                }
                 streams.forEach(stream -> stream.addToGlobalStream(streamMap));
             }
 

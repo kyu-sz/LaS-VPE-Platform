@@ -132,6 +132,8 @@ public class SystemPropertyCenter implements Serializable {
     public int repartition = -1;
     /* Whether to print verbose running information */
     public boolean verbose = false;
+    /* Whether to enable task controller. */
+    public boolean taskControllerEnable = true;
 
     /* Subclasses can continue to analyze this property storage */
     protected Properties sysProps = new Properties();
@@ -385,6 +387,9 @@ public class SystemPropertyCenter implements Serializable {
                     break;
                 case "vpe.repartition":
                     repartition = Integer.parseInt((String) entry.getValue());
+                    break;
+                case "vpe.task.controller.enable":
+                    taskControllerEnable = Boolean.parseBoolean((String) entry.getValue());
                     break;
             }
         }
