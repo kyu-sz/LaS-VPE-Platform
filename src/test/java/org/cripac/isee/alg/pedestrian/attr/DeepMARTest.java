@@ -75,17 +75,18 @@ public class DeepMARTest {
 
     //    @Test
     public void recognize() throws Exception {
-        final int NUM_ROUNDS = 100;
+        int roundCnt = 0;
         long timeSum = 0;
         Attributes attributes = null;
-        for (int i = 0; i < NUM_ROUNDS; ++i) {
+        while (timeSum < 10000) {
             final long start = System.currentTimeMillis();
             attributes = recognizer.recognize(img2Tracklet(imread(testImage)));
             final long end = System.currentTimeMillis();
             timeSum += end - start;
+            ++roundCnt;
             assertEquals(answer, attributes);
         }
-        logger.info((timeSum / NUM_ROUNDS) + "ms per round.");
+        logger.info((timeSum / roundCnt) + "ms per round.");
         logger.info(attributes);
     }
 }

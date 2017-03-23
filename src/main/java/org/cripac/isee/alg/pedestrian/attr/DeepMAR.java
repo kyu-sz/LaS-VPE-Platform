@@ -87,10 +87,10 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
      */
     public DeepMAR(int gpu,
                    @Nullable Logger logger) throws IOException {
-        this(gpu, getProtobuf(), getModel(), logger);
+        this(gpu, getDefaultProtobuf(), getDefaultModel(), logger);
     }
 
-    private static File getProtobuf() throws FileNotFoundException {
+    private static File getDefaultProtobuf() throws IOException {
         // Retrieve the file from JAR and store to temporary files.
         try {
             File tempFile = File.createTempFile("DeepMAR", ".prototxt");
@@ -99,12 +99,12 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
                     tempFile.toPath(),
                     REPLACE_EXISTING);
             return tempFile;
-        } catch (IOException | NullPointerException e) {
+        } catch (NullPointerException e) {
             throw new FileNotFoundException("Cannot find default Caffe protocol buffer in the JAR package.");
         }
     }
 
-    private static File getModel() throws FileNotFoundException {
+    private static File getDefaultModel() throws IOException {
         // Retrieve the file from JAR and store to temporary files.
         try {
             File tempFile = File.createTempFile("DeepMAR", ".caffemodel");
@@ -113,7 +113,7 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
                     tempFile.toPath(),
                     REPLACE_EXISTING);
             return tempFile;
-        } catch (IOException | NullPointerException e) {
+        } catch (NullPointerException e) {
             throw new FileNotFoundException("Cannot find default Caffe model in the JAR package.");
         }
     }

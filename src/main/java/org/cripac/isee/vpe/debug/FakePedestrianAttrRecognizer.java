@@ -27,6 +27,11 @@ public class FakePedestrianAttrRecognizer implements PedestrianAttrRecognizer {
     @Nonnull
     @Override
     public Attributes recognize(@Nonnull Tracklet tracklet) {
+        try {
+            Thread.sleep(200);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         return new Attributes();
     }
 }

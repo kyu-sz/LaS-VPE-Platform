@@ -182,11 +182,11 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreach(kv -> {
                         Logger logger = loggerSingleton.getInst();
                         try {
-                            UUID taskID = kv._1();
-                            TaskData taskData = kv._2();
+                            final UUID taskID = kv._1();
+                            final TaskData taskData = kv._2();
                             logger.debug("Received task " + taskID + "!");
 
-                            Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
+                            final Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
                             logger.debug("To recognize attributes for task " + taskID + "!");
                             // Recognize attributes robustly.
                             Attributes attr = new RobustExecutor<>((Function<Tracklet, Attributes>) t ->
@@ -197,10 +197,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             attr.trackletID = tracklet.id;
 
                             // Find current node.
-                            TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);
+                            final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);
                             // Get ports to output to.
                             assert curNode != null;
-                            List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                            final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
                             // Mark the current node as executed.
                             curNode.markExecuted();
 
