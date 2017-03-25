@@ -163,8 +163,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.bytedeco.javacpp-presets</groupId>
-            <artifactId>tensorflow-platform</artifactId>
+            <groupId>org.tensorflow</groupId>
+            <artifactId>tensorflow</artifactId>
             <version>LATEST</version>
         </dependency>
         <dependency>

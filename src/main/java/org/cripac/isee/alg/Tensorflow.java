@@ -18,61 +18,40 @@
  */
 package org.cripac.isee.alg;
 
+import org.apache.commons.io.IOUtils;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.opencv_core;
-import org.bytedeco.javacpp.tensorflow;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.tensorflow.Graph;
+import org.tensorflow.Session;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-
-import static org.bytedeco.javacpp.tensorflow.*;
+import java.io.IOException;
 
 public class Tensorflow {
 
     protected Logger logger;
     protected Session session;
+    protected Graph graph;
 
     /**
-     * Initialize Tensorflow with protocol and pre-trained model.
+     * Initialize Tensorflow with a frozen protobuf of a pre-trained model.
      *
-     * @param graphPB Tensorflow graph protocol buffer file.
-     * @param model   Tensorflow model file.
+     * @param frozenPB frozen protobuf of the pretrain-model
      */
-    protected void initialize(@Nonnull File graphPB,
-                              @Nonnull File model) throws FileNotFoundException {
-        if (!graphPB.exists()) {
-            throw new FileNotFoundException("Graph protocol buffer not found at " + graphPB.getAbsolutePath());
+    protected void initialize(@Nonnull File frozenPB) throws IOException {
+        if (!frozenPB.exists()) {
+            throw new FileNotFoundException("Protobuf not found at " + frozenPB.getAbsolutePath());
         }
-        logger.info("Loading Tensorflow graph protocol from " + graphPB.getAbsolutePath());
-        session = new Session(new SessionOptions());
-        GraphDef def = new GraphDef();
-        ReadBinaryProto(Env.Default(), graphPB.getAbsolutePath(), def);
-        Status status = session.Create(def);
-        if (!status.ok()) {
-            throw new RuntimeException(status.error_message().getString());
-        }
-
-        if (!model.exists()) {
-            throw new FileNotFoundException("Model not found at " + model.getAbsolutePath());
-        }
-        logger.info("Loading Tensorflow model from " + model.getAbsolutePath());
-        Tensor fn = new Tensor(tensorflow.DT_STRING, new TensorShape(1));
-        StringArray a = fn.createStringArray();
-        a.position(0).put(model.getAbsolutePath());
-        status = session.Run(
-                new StringTensorPairVector(
-                        new String[]{"save/Const:0"},
-                        new Tensor[]{fn}),
-                new StringVector(),
-                new StringVector("save/restore_all"),
-                new TensorVector());
-        if (!status.ok()) {
-            throw new RuntimeException(status.error_message().getString());
-        }
+        logger.info("Loading Tensorflow frozen protobuf from " + frozenPB.getAbsolutePath());
+        graph = new Graph();
+        graph.importGraphDef(IOUtils.toByteArray(new FileInputStream(frozenPB)));
+        session = new Session(graph);
 
         this.logger.debug("Tensorflow initialized!");
     }
@@ -86,7 +65,6 @@ public class Tensorflow {
     protected Tensorflow(String gpu,
                          @Nullable Logger logger) {
         Loader.load(opencv_core.class);
-        Loader.load(tensorflow.class);
 
         if (logger == null) {
             this.logger = new ConsoleLogger();

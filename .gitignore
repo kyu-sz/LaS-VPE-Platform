@@ -23,5 +23,5 @@ checkpoint/
 
 # Model files #
 *.caffemodel
-*.ckpt
+*.ckpt*
 *.pb

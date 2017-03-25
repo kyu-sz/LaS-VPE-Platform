@@ -1,4 +1,4 @@
-package org.cripac.isee.alg.pedestrian.attr;/*
+/*
  * This file is part of las-vpe-platform.
  *
  * las-vpe-platform is free software: you can redistribute it and/or modify
@@ -16,12 +16,13 @@ package org.cripac.isee.alg.pedestrian.attr;/*
  *
  * Created by ken.yu on 17-3-24.
  */
+package org.cripac.isee.alg.pedestrian.attr;
 
 import org.apache.commons.io.IOUtils;
-import org.bytedeco.javacpp.tensorflow;
 import org.cripac.isee.alg.Tensorflow;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.util.logging.Logger;
+import org.tensorflow.Tensor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,37 +39,18 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
      */
     public DeepMARTensorflow(String gpu,
                              @Nullable Logger logger) throws IOException {
-        this(gpu, getDefaultProtobuf(), getDefaultModel(), logger);
+        this(gpu, getDefaultProtobuf(), logger);
     }
 
     private static File getDefaultProtobuf() throws IOException {
         // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMARCaffe.class.getResourceAsStream("/models/DeepMARTensorflow/DeepMAR.pb");
+        InputStream in = DeepMARCaffe.class.getResourceAsStream("/models/DeepMARTensorflow/DeepMAR_frozen.pb");
         if (in == null) {
-            throw new FileNotFoundException("Cannot find default Tensorflow protocol buffer in the JAR package.");
+            throw new FileNotFoundException("Cannot find default Tensorflow frozen protobuf in the JAR package.");
         }
 
         try {
-            File tempFile = File.createTempFile("DeepMAR", ".proto");
-            tempFile.deleteOnExit();
-            try (OutputStream out = new FileOutputStream(tempFile)) {
-                IOUtils.copy(in, out);
-                return tempFile;
-            }
-        } finally {
-            in.close();
-        }
-    }
-
-    private static File getDefaultModel() throws IOException {
-        // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMARCaffe.class.getResourceAsStream("/models/DeepMARTensorflow/DeepMAR.ckpt");
-        if (in == null) {
-            throw new FileNotFoundException("Cannot find default Tensorflow protocol buffer in the JAR package.");
-        }
-
-        try {
-            File tempFile = File.createTempFile("DeepMAR", ".tfmodel");
+            File tempFile = File.createTempFile("DeepMAR_frozen", ".pb");
             tempFile.deleteOnExit();
             try (OutputStream out = new FileOutputStream(tempFile)) {
                 IOUtils.copy(in, out);
@@ -87,10 +69,9 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
      */
     public DeepMARTensorflow(String gpu,
                              @Nonnull File protocol,
-                             @Nonnull File model,
-                             @Nullable Logger logger) throws FileNotFoundException {
+                             @Nullable Logger logger) throws IOException {
         super(gpu, logger);
-        initialize(protocol, model);
+        initialize(protocol);
     }
 
     /**
@@ -114,31 +95,19 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
     public Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
         float[] pixelFloats = DeepMAR.pixelFloatsFromBBox(bbox);
 
-        // try to predict for two (2) sets of inputs.
-        tensorflow.Tensor inputs = new tensorflow.Tensor(tensorflow.DT_FLOAT,
-                new tensorflow.TensorShape(1, 3, INPUT_HEIGHT, INPUT_WIDTH));
-        FloatBuffer x = inputs.createBuffer();
-        x.put(pixelFloats);
+        Tensor input = Tensor.create(
+                new long[]{1, INPUT_HEIGHT, INPUT_WIDTH, 3},
+                FloatBuffer.wrap(pixelFloats));
 
-        tensorflow.TensorVector outputs = new tensorflow.TensorVector();
-
-        // to predict each time, pass in values for placeholders
-        outputs.resize(0);
-        tensorflow.Status status = session.Run(
-                new tensorflow.StringTensorPairVector(
-                        new String[]{"data"},
-                        new tensorflow.Tensor[]{inputs}),
-                new tensorflow.StringVector("fc8"),
-                new tensorflow.StringVector(),
-                outputs);
-        if (!status.ok()) {
-            throw new RuntimeException(status.error_message().getString());
-        }
-
-        // get back the predicted value from outputs
-        FloatBuffer output = outputs.get(0).createBuffer();
+        Tensor output = session.runner()
+                .feed("data", input)
+                .fetch(graph.operation("fc8/fc8").output(0))
+                .run()
+                .get(0);
+        FloatBuffer floatBuffer = FloatBuffer.allocate(output.numElements());
+        output.writeTo(floatBuffer);
 
         // transform result to Attributes and return.
-        return DeepMAR.fillAttributes(output.array());
+        return DeepMAR.fillAttributes(floatBuffer.array());
     }
 }

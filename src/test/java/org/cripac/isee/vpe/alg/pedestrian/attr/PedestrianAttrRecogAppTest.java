@@ -135,8 +135,7 @@ public class PedestrianAttrRecogAppTest {
             case DeepMARTensorflow:
                 recognizer = new DeepMARTensorflow(
                         "",
-                        new File("models/DeepMARTensorflow/DeepMAR.pb"),
-                        new File("models/DeepMARTensorflow/DeepMAR.ckpt"),
+                        new File("models/DeepMARTensorflow/DeepMAR_frozen.pb"),
                         logger);
                 break;
             case Fake:
