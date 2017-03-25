@@ -18,8 +18,6 @@
 package org.cripac.isee.vpe.ctrl;
 
 import com.google.gson.Gson;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Stream;
 
@@ -130,7 +128,7 @@ public class TaskData implements Serializable, Cloneable {
     public TaskData(@Nonnull Collection<ExecutionPlan.Node.Port> destPorts,
                     @Nonnull ExecutionPlan executionPlan,
                     @Nullable Serializable predecessorRes) {
-        this.destPorts = new Object2ObjectOpenHashMap<>();
+        this.destPorts = new HashMap<>();
         Optional<DataType> outputTypeOptional =
                 destPorts.stream().map(port -> port.prototype.inputType).reduce((dataType1, dataType2) -> {
                     assert dataType1 == dataType2;
@@ -167,7 +165,7 @@ public class TaskData implements Serializable, Cloneable {
         /**
          * Map for finding nodes according to the class of its module.
          */
-        private Map<Integer, Node> nodes = new Object2ObjectOpenHashMap<>();
+        private Map<Integer, Node> nodes = new HashMap<>();
 
         private int nodeIDCounter = 0;
 
@@ -271,7 +269,7 @@ public class TaskData implements Serializable, Cloneable {
              * Each node has its own successor nodes, each organized in a list.
              * The indexes of the set correspond to that of the nodes.
              */
-            private List<Port> outputPorts = new ObjectArrayList<>();
+            private List<Port> outputPorts = new ArrayList<>();
 
             private final int id;
             final DataType outputType;

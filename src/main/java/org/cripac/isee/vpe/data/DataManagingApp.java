@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.data;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -106,7 +105,7 @@ public class DataManagingApp extends SparkStreamingApp {
                         maxFramePerFragment = Integer.parseInt((String) entry.getValue());
                         break;
                     default:
-                        logger.error("Unrecognized option: " + entry.getValue());
+                        logger.warn("Unrecognized option: " + entry.getKey());
                         break;
                 }
             }
@@ -265,7 +264,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
                     while (running.get()) {
                         ConsumerRecords<String, byte[]> records = jobListener.poll(1000);
-                        Map<String, byte[]> taskMap = new Object2ObjectOpenHashMap<>();
+                        Map<String, byte[]> taskMap = new HashMap<>();
                         records.forEach(rec -> taskMap.put(rec.key(), rec.value()));
 
                         final long start = System.currentTimeMillis();

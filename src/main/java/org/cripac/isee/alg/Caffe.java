@@ -62,7 +62,7 @@ public class Caffe {
     }
 
     /**
-     * Create an instance of DeepMAR.
+     * Create an instance of DeepMARCaffe.
      *
      * @param gpu index of GPU to use.
      */
@@ -71,7 +71,7 @@ public class Caffe {
     }
 
     /**
-     * Create an instance of DeepMAR.
+     * Create an instance of DeepMARCaffe.
      *
      * @param gpu    index of GPU to use.
      * @param logger logger for outputting debug info.

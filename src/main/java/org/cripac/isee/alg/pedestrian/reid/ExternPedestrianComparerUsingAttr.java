@@ -18,7 +18,6 @@
 package org.cripac.isee.alg.pedestrian.reid;
 
 import com.google.gson.Gson;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
@@ -30,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -120,7 +120,7 @@ public class ExternPedestrianComparerUsingAttr implements PedestrianComparerUsin
 
     private final Socket socket;
     private Thread resListeningThread = null;
-    private final Map<UUID, Float> resultPool = new Object2ObjectOpenHashMap<>();
+    private final Map<UUID, Float> resultPool = new HashMap<>();
     private boolean enableFeatureOnly = true;
 
     /**

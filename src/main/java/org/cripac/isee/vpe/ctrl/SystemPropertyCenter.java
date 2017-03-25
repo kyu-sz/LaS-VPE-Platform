@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.ctrl;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -43,11 +42,8 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Properties;
 
 /**
  * The SystemPropertyCenter class is responsible of managing the properties of
@@ -137,14 +133,6 @@ public class SystemPropertyCenter implements Serializable {
 
     /* Subclasses can continue to analyze this property storage */
     protected Properties sysProps = new Properties();
-
-    /**
-     * Construction function supporting allocating a SystemPropertyCenter then
-     * filling in the properties manually.
-     */
-    public SystemPropertyCenter() throws SAXException, ParserConfigurationException, URISyntaxException {
-        this(new String[0]);
-    }
 
     private void validateConfigurations() {
         assert new Path(metadataDir).isAbsolute();
@@ -391,10 +379,8 @@ public class SystemPropertyCenter implements Serializable {
                 case "vpe.task.controller.enable":
                     taskControllerEnable = Boolean.parseBoolean((String) entry.getValue());
                     break;
-                default:
-                    logger.error("Unrecognized option: " + entry.getValue());
-                    break;
             }
+            sysProps.remove(entry);
         }
 
         if (commandLine.hasOption('g')) {
@@ -522,7 +508,7 @@ public class SystemPropertyCenter implements Serializable {
     }
 
     public Map<String, Object> getKafkaParams(String group) {
-        Map<String, Object> kafkaParams = new Object2ObjectOpenHashMap<>();
+        Map<String, Object> kafkaParams = new HashMap<>();
         kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
         kafkaParams.put(ConsumerConfig.GROUP_ID_CONFIG, group);
         kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");

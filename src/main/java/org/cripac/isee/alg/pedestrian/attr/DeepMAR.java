@@ -1,149 +1,46 @@
 /*
- * This file is part of LaS-VPE Platform.
+ * This file is part of las-vpe-platform.
  *
- * LaS-VPE Platform is free software: you can redistribute it and/or modify
+ * las-vpe-platform is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * LaS-VPE Platform is distributed in the hope that it will be useful,
+ * las-vpe-platform is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
+ * along with las-vpe-platform. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Created by ken.yu on 17-3-25.
  */
-
 package org.cripac.isee.alg.pedestrian.attr;
 
 import com.google.gson.Gson;
-import org.apache.commons.io.IOUtils;
-import org.bytedeco.javacpp.*;
-import org.cripac.isee.alg.Caffe;
+import org.bytedeco.javacpp.BytePointer;
+import org.bytedeco.javacpp.FloatPointer;
+import org.bytedeco.javacpp.opencv_core;
+import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.io.*;
-import java.nio.file.AccessDeniedException;
-import java.util.Collection;
 
 import static org.bytedeco.javacpp.opencv_core.*;
 
-/**
- * The class DeepMAR uses the algorithm proposed in
- * Li, D., Chen, X., Huang, K.:
- * Multi-attribute learning for pedestrian attribute recognition in surveillance scenarios. In: Proc. ACPR (2015)
- * to conduct pedestrian attribute recognizing.
- * <p>
- * Created by ken.yu on 17-1-10.
- */
-public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
-    private final FloatPointer pMean;
-    private final FloatPointer pRegCoeff;
-    private final DoublePointer pScale;
+public interface DeepMAR extends PedestrianAttrRecognizer {
+    float MEAN_PIXEL = 128;
+    float REG_COEFF = 1.0f / 256;
 
-    private final static float MEAN_PIXEL = 128;
-    private final static float REG_COEFF = 1.0f / 256;
-    private final static String[] ATTR_LIST;
+    FloatPointer pMean = new FloatPointer(MEAN_PIXEL);
+    FloatPointer pRegCoeff = new FloatPointer(REG_COEFF);
+    FloatPointer pScale = new FloatPointer(1.f);
 
-    private final int INPUT_WIDTH = 227;
-    private final int INPUT_HEIGHT = 227;
+    int INPUT_WIDTH = 227;
+    int INPUT_HEIGHT = 227;
 
-    /**
-     * Create an instance of DeepMAR. The protocol and weights are directly loaded from local files.
-     *
-     * @param gpu      index of GPU to use.
-     * @param protocol DeepMAR protocol file.
-     * @param model    DeepMAR binary model file.
-     * @param logger   external logger.
-     */
-    public DeepMAR(int gpu,
-                   @Nonnull File protocol,
-                   @Nonnull File model,
-                   @Nullable Logger logger) throws FileNotFoundException, AccessDeniedException {
-        super(gpu, logger);
-        initialize(protocol, model);
-
-        pMean = new FloatPointer(1);
-        pRegCoeff = new FloatPointer(1);
-        pScale = new DoublePointer(1);
-
-        pMean.put(MEAN_PIXEL);
-        pRegCoeff.put(REG_COEFF);
-        pScale.put(1);
-    }
-
-    /**
-     * Create an instance of DeepMAR. The protocol and weights are retrieved from the JAR.
-     *
-     * @param gpu    index of GPU to use.
-     * @param logger logger for outputting debug info.
-     */
-    public DeepMAR(int gpu,
-                   @Nullable Logger logger) throws IOException {
-        this(gpu, getDefaultProtobuf(), getDefaultModel(), logger);
-    }
-
-    private static File getDefaultProtobuf() throws IOException {
-        // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.prototxt");
-        if (in == null) {
-            throw new FileNotFoundException("Cannot find default Caffe protocol buffer in the JAR package.");
-        }
-
-        try {
-            File tempFile = File.createTempFile("DeepMAR", ".prototxt");
-            tempFile.deleteOnExit();
-            try (OutputStream out = new FileOutputStream(tempFile)) {
-                IOUtils.copy(in, out);
-                return tempFile;
-            }
-        } finally {
-            in.close();
-        }
-    }
-
-    private static File getDefaultModel() throws IOException {
-        // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMAR.class.getResourceAsStream("/models/DeepMAR/DeepMAR.caffemodel");
-        if (in == null) {
-            throw new FileNotFoundException("Cannot find default Caffe model in the JAR package.");
-        }
-
-        try {
-            File tempFile = File.createTempFile("DeepMAR", ".caffemodel");
-            tempFile.deleteOnExit();
-            try (OutputStream out = new FileOutputStream(tempFile)) {
-                IOUtils.copy(in, out);
-                return tempFile;
-            }
-        } finally {
-            in.close();
-        }
-    }
-
-    /**
-     * Recognize attributes from a track of pedestrian.
-     *
-     * @param tracklet tracklet of the pedestrian.
-     * @return the attributes of the pedestrian recognized from the tracklet.
-     */
-    @Nonnull
-    @Override
-    public Attributes recognize(@Nonnull Tracklet tracklet) {
-        Collection<Tracklet.BoundingBox> samples = tracklet.getSamples();
-        assert samples.size() >= 1;
-        //noinspection OptionalGetWithoutIsPresent
-        return Attributes.div(
-                samples.stream().map(this::recognize).reduce(Attributes::add).get(),
-                samples.size());
-    }
-
-    @Nonnull
-    public Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
+    static float[] pixelFloatsFromBBox(Tracklet.BoundingBox bbox) {
         // Process image.
         opencv_core.Mat image = new opencv_core.Mat(bbox.height, bbox.width, CV_8UC3);
         image.data(new BytePointer(bbox.patchData));
@@ -183,24 +80,11 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
             fp.get(pixelFloats, i * numPixelPerChannel, numPixelPerChannel);
         }
 
-        // Put the data into the data blob.
-        final caffe.FloatBlob dataBlob = net.blob_by_name("data");
-        dataBlob.Reshape(1, 3, INPUT_HEIGHT, INPUT_WIDTH);
-//        dataBlob.set_cpu_data(pixelFloats); // Seems like there is some bugs with this function.
-        dataBlob.cpu_data().put(pixelFloats);
-
-        // Forward the data.
-        net.Forward();
-
-        // Transform result to Attributes and return.
-        return fillAttributes(net.blob_by_name("fc8"));
+        return pixelFloats;
     }
 
     @Nonnull
-    private Attributes fillAttributes(@Nonnull caffe.FloatBlob outputBlob) {
-        final float[] outputArray = new float[outputBlob.count()];
-        outputBlob.cpu_data().get(outputArray);
-
+    static Attributes fillAttributes(@Nonnull float[] outputArray) {
         int iter = 0;
         StringBuilder jsonBuilder = new StringBuilder();
         jsonBuilder.append('{');
@@ -216,140 +100,130 @@ public final class DeepMAR extends Caffe implements PedestrianAttrRecognizer {
         return new Gson().fromJson(jsonBuilder.toString(), Attributes.class);
     }
 
-    static {
-        ATTR_LIST = new String[]{
-                "action_pulling",
-                "lower_green",
-                "gender_female",
-                "upper_cotton",
-                "accessory_other",
-                "occlusion_accessory",
-                "upper_other_color",
-                "shoes_casual",
-                "shoes_white",
-                "lower_pants",
-                "shoes_boot",
-                "age_60",
-                "weight_little_thin",
-                "head_shoulder_mask",
-                "upper_vest",
-                "lower_white",
-                "upper_black",
-                "upper_white",
-                "upper_shirt",
-                "upper_silvery",
-                "role_client",
-                "upper_brown",
-                "action_nipthing",
-                "shoes_silver",
-                "accessory_waistbag",
-                "accessory_handbag",
-                "action_picking",
-                "shoes_black",
-                "occlusion_down",
-                "shoes_yellow",
-                "gender_other",
-                "accessory_shoulderbag",
-                "upper_cotta",
-                "occlusion_right",
-                "action_pushing",
-                "shoes_green",
-                "action_armstretching",
-                "shoes_other",
-                "shoes_red",
-                "lower_mix_color",
-                "occlusion_left",
-                "view_angle_left",
-                "shoes_sport",
-                "lower_gray",
-                "upper_other",
-                "accessory_kid",
-                "head_shoulder_sunglasses",
-                "lower_silver",
-                "accessory_cart",
-                "age_16",
-                "hair_style_null",
-                "upper_hoodie",
-                "shoes_mix_color",
-                "upper_green",
-                "accessory_backpack",
-                "age_older_60",
-                "shoes_cloth",
-                "action_chatting",
-                "shoes_purple",
-                "upper_suit",
-                "lower_black",
-                "lower_tight_pants",
-                "occlusion_up",
-                "action_holdthing",
-                "lower_pink",
-                "action_other",
-                "lower_jean",
-                "hair_style_long",
-                "upper_red",
-                "role_uniform",
-                "lower_short_pants",
-                "lower_one_piece",
-                "lower_blue",
-                "upper_tshirt",
-                "upper_purple",
-                "upper_pink",
-                "action_lying",
-                "shoes_pink",
-                "shoes_shandle",
-                "shoes_leather",
-                "occlusion_environment",
-                "view_angle_right",
-                "shoes_other_color",
-                "head_shoulder_with_hat",
-                "age_30",
-                "shoes_gray",
-                "accessory_paperbag",
-                "shoes_brown",
-                "action_crouching",
-                "lower_purple",
-                "weight_very_thin",
-                "shoes_blue",
-                "action_gathering",
-                "weight_normal",
-                "action_running",
-                "view_angle_front",
-                "accessory_plasticbag",
-                "head_shoulder_black_hair",
-                "accessory_box",
-                "lower_long_skirt",
-                "shoes_orange",
-                "weight_little_fat",
-                "head_shoulder_scarf",
-                "lower_other_color",
-                "upper_jacket",
-                "upper_gray",
-                "lower_short_skirt",
-                "age_45",
-                "lower_skirt",
-                "upper_sweater",
-                "lower_brown",
-                "lower_yellow",
-                "occlusion_object",
-                "upper_orange",
-                "gender_male",
-                "view_angle_back",
-                "upper_blue",
-                "lower_red",
-                "head_shoulder_glasses",
-                "upper_mix_color",
-                "lower_orange",
-                "upper_yellow",
-                "weight_very_fat",
-                "action_calling",
-                "occlusion_other"};
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-        Pointer.free(pScale);
-        Pointer.free(pMean);
-        Pointer.free(pRegCoeff);
-        super.finalize();
-    }
+    String[] ATTR_LIST = new String[]{
+            "action_pulling",
+            "lower_green",
+            "gender_female",
+            "upper_cotton",
+            "accessory_other",
+            "occlusion_accessory",
+            "upper_other_color",
+            "shoes_casual",
+            "shoes_white",
+            "lower_pants",
+            "shoes_boot",
+            "age_60",
+            "weight_little_thin",
+            "head_shoulder_mask",
+            "upper_vest",
+            "lower_white",
+            "upper_black",
+            "upper_white",
+            "upper_shirt",
+            "upper_silvery",
+            "role_client",
+            "upper_brown",
+            "action_nipthing",
+            "shoes_silver",
+            "accessory_waistbag",
+            "accessory_handbag",
+            "action_picking",
+            "shoes_black",
+            "occlusion_down",
+            "shoes_yellow",
+            "gender_other",
+            "accessory_shoulderbag",
+            "upper_cotta",
+            "occlusion_right",
+            "action_pushing",
+            "shoes_green",
+            "action_armstretching",
+            "shoes_other",
+            "shoes_red",
+            "lower_mix_color",
+            "occlusion_left",
+            "view_angle_left",
+            "shoes_sport",
+            "lower_gray",
+            "upper_other",
+            "accessory_kid",
+            "head_shoulder_sunglasses",
+            "lower_silver",
+            "accessory_cart",
+            "age_16",
+            "hair_style_null",
+            "upper_hoodie",
+            "shoes_mix_color",
+            "upper_green",
+            "accessory_backpack",
+            "age_older_60",
+            "shoes_cloth",
+            "action_chatting",
+            "shoes_purple",
+            "upper_suit",
+            "lower_black",
+            "lower_tight_pants",
+            "occlusion_up",
+            "action_holdthing",
+            "lower_pink",
+            "action_other",
+            "lower_jean",
+            "hair_style_long",
+            "upper_red",
+            "role_uniform",
+            "lower_short_pants",
+            "lower_one_piece",
+            "lower_blue",
+            "upper_tshirt",
+            "upper_purple",
+            "upper_pink",
+            "action_lying",
+            "shoes_pink",
+            "shoes_shandle",
+            "shoes_leather",
+            "occlusion_environment",
+            "view_angle_right",
+            "shoes_other_color",
+            "head_shoulder_with_hat",
+            "age_30",
+            "shoes_gray",
+            "accessory_paperbag",
+            "shoes_brown",
+            "action_crouching",
+            "lower_purple",
+            "weight_very_thin",
+            "shoes_blue",
+            "action_gathering",
+            "weight_normal",
+            "action_running",
+            "view_angle_front",
+            "accessory_plasticbag",
+            "head_shoulder_black_hair",
+            "accessory_box",
+            "lower_long_skirt",
+            "shoes_orange",
+            "weight_little_fat",
+            "head_shoulder_scarf",
+            "lower_other_color",
+            "upper_jacket",
+            "upper_gray",
+            "lower_short_skirt",
+            "age_45",
+            "lower_skirt",
+            "upper_sweater",
+            "lower_brown",
+            "lower_yellow",
+            "occlusion_object",
+            "upper_orange",
+            "gender_male",
+            "view_angle_back",
+            "upper_blue",
+            "lower_red",
+            "head_shoulder_glasses",
+            "upper_mix_color",
+            "lower_orange",
+            "upper_yellow",
+            "weight_very_fat",
+            "action_calling",
+            "occlusion_other"};
 }

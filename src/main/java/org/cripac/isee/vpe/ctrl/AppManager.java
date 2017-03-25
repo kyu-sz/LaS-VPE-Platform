@@ -17,13 +17,13 @@
 
 package org.cripac.isee.vpe.ctrl;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.cripac.isee.vpe.alg.pedestrian.attr.PedestrianAttrRecogApp;
 import org.cripac.isee.vpe.alg.pedestrian.reid.PedestrianReIDUsingAttrApp;
 import org.cripac.isee.vpe.alg.pedestrian.tracking.PedestrianTrackingApp;
 import org.cripac.isee.vpe.data.DataManagingApp;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -31,7 +31,7 @@ import java.util.Map;
  */
 public class AppManager {
 
-    private static Map<String, String> classNameMap = new Object2ObjectOpenHashMap<>();
+    private static Map<String, String> classNameMap = new HashMap<>();
 
     static {
         classNameMap.put(PedestrianReIDUsingAttrApp.APP_NAME, PedestrianReIDUsingAttrApp.class.getName());

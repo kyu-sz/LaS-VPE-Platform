@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.alg.pedestrian.tracking;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import kafka.common.FailedToSendMessageException;
 import kafka.common.MessageSizeTooLargeException;
 import org.apache.commons.io.IOUtils;
@@ -45,10 +44,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * The PedestrianTrackingApp class takes in video URLs from Kafka, then process
@@ -108,7 +104,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                         numSamplesPerTracklet = Integer.valueOf((String) entry.getValue());
                         break;
                     default:
-                        logger.error("Unrecognized option: " + entry.getValue());
+                        logger.warn("Unrecognized option: " + entry.getKey());
                         break;
                 }
             }
@@ -127,7 +123,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 new Port("hdfs-video-url-for-pedestrian-tracking", DataType.URL);
         private static final long serialVersionUID = -6738652169567844016L;
 
-        private class ConfCache extends Object2ObjectOpenHashMap<String, byte[]> {
+        private class ConfCache extends HashMap<String, byte[]> {
             private static final long serialVersionUID = -1243878282849738861L;
         }
 
