@@ -18,25 +18,27 @@
 package org.cripac.isee.vpe.alg.pedestrian.attr;
 
 import kafka.utils.ZkUtils;
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
-import org.cripac.isee.alg.pedestrian.attr.DeepMARTest;
-import org.cripac.isee.alg.pedestrian.attr.ExternPedestrianAttrRecognizerTest;
+import org.cripac.isee.alg.pedestrian.attr.*;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.junit.Before;
+import org.junit.Test;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
-import java.net.InetAddress;
+import java.io.File;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.Collections;
@@ -65,8 +67,6 @@ public class PedestrianAttrRecogAppTest {
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
-    private InetAddress externAttrRecogServerAddr;
-    private int externAttrRecogServerPort = 0;
     private PedestrianAttrRecogApp.AppPropertyCenter propCenter;
     private static boolean toTestApp = true;
 
@@ -79,8 +79,7 @@ public class PedestrianAttrRecogAppTest {
             return;
         }
         try {
-            test.testDeepMAR();
-            test.testExternAttrReognizer();
+            test.testAttrReognizer();
             if (toTestApp) {
                 test.testAttrRecogApp();
             }
@@ -114,30 +113,43 @@ public class PedestrianAttrRecogAppTest {
         logger = new ConsoleLogger(Level.DEBUG);
 
         propCenter = new PedestrianAttrRecogApp.AppPropertyCenter(args);
-        externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
-        externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
     }
 
-    //    @Test
-    public void testExternAttrReognizer() throws Exception {
-        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.EXT) {
-            logger.info("Using external pedestrian attribute recognizer.");
-
-            ExternPedestrianAttrRecognizerTest test = new ExternPedestrianAttrRecognizerTest();
-            test.setUp();
-            test.recognize();
+    @Test
+    public void testAttrReognizer() throws Exception {
+        PedestrianAttrRecognizer recognizer;
+        switch (propCenter.algorithm) {
+            case EXT:
+                recognizer = new ExternPedestrianAttrRecognizer(
+                        propCenter.externAttrRecogServerAddr,
+                        propCenter.externAttrRecogServerPort,
+                        logger);
+                break;
+            case DeepMARCaffe:
+                recognizer = new DeepMARCaffe(
+                        propCenter.caffeGPU,
+                        new File("models/DeepMARCaffe/DeepMAR.prototxt"),
+                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
+                        logger);
+                break;
+            case DeepMARTensorflow:
+                recognizer = new DeepMARTensorflow(
+                        "",
+                        new File("models/DeepMARTensorflow/DeepMAR.pb"),
+                        new File("models/DeepMARTensorflow/DeepMAR.ckpt"),
+                        logger);
+                break;
+            case Fake:
+                recognizer = new FakePedestrianAttrRecognizer();
+                break;
+            default:
+                throw new NotImplementedException("Attribute recognition algorithm "
+                        + propCenter.algorithm + " is not implemented.");
         }
-    }
 
-    //    @Test
-    public void testDeepMAR() throws Exception {
-        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
-            logger.info("Using DeepMAR for pedestrian attribute recognition.");
-
-            DeepMARTest test = new DeepMARTest(propCenter.caffeGPU);
-            test.setUp();
-            test.recognize();
-        }
+        RecognizerTest test = new RecognizerTest(recognizer);
+        test.setUp();
+        test.recognize();
     }
 
     //    @Test
@@ -165,6 +177,7 @@ public class PedestrianAttrRecogAppTest {
         recogNode.outputTo(attrSavingNode.createInputPort(TEST_PED_ATTR_RECV_PORT));
 
         // Send request (fake tracklet).
+        //noinspection ConstantConditions
         TaskData trackletData = new TaskData(recogNode.getOutputPorts(), plan,
                 new FakePedestrianTracker().track(null)[0]);
         assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
@@ -176,6 +189,7 @@ public class PedestrianAttrRecogAppTest {
         logger.info("Waiting for response...");
         // Receive result (attributes).
         ConsumerRecords<String, byte[]> records;
+        //noinspection InfiniteLoopStatement
         while (true) {
             records = consumer.poll(0);
             if (records.isEmpty()) {

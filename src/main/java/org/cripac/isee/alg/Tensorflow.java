@@ -28,14 +28,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.nio.FloatBuffer;
 
 import static org.bytedeco.javacpp.tensorflow.*;
 
 public class Tensorflow {
 
     protected Logger logger;
-    Session session;
+    protected Session session;
 
     /**
      * Initialize Tensorflow with protocol and pre-trained model.
@@ -65,7 +64,9 @@ public class Tensorflow {
         StringArray a = fn.createStringArray();
         a.position(0).put(model.getAbsolutePath());
         status = session.Run(
-                new StringTensorPairVector(new String[]{"save/Const:0"}, new Tensor[]{fn}),
+                new StringTensorPairVector(
+                        new String[]{"save/Const:0"},
+                        new Tensor[]{fn}),
                 new StringVector(),
                 new StringVector("save/restore_all"),
                 new TensorVector());
@@ -76,45 +77,13 @@ public class Tensorflow {
         this.logger.debug("Tensorflow initialized!");
     }
 
-    void example() {
-        // try to predict for two (2) sets of inputs.
-        Tensor inputs = new Tensor(tensorflow.DT_FLOAT, new TensorShape(2, 5));
-        FloatBuffer x = inputs.createBuffer();
-        x.put(new float[]{-6.0f, 22.0f, 383.0f, 27.781754111198122f, -6.5f});
-        x.put(new float[]{66.0f, 22.0f, 2422.0f, 45.72160947712418f, 0.4f});
-
-        Tensor keepall = new Tensor(tensorflow.DT_FLOAT, new TensorShape(2, 1));
-        ((FloatBuffer) keepall.createBuffer()).put(new float[]{1f, 1f});
-
-        TensorVector outputs = new TensorVector();
-
-        // to predict each time, pass in values for placeholders
-        outputs.resize(0);
-        Status status = session.Run(
-                new StringTensorPairVector(
-                        new String[]{"Placeholder", "Placeholder_2"},
-                        new Tensor[]{inputs, keepall}),
-                new StringVector("Sigmoid"),
-                new StringVector(),
-                outputs);
-        if (!status.ok()) {
-            throw new RuntimeException(status.error_message().getString());
-        }
-
-        // this is how you get back the predicted value from outputs
-        FloatBuffer output = outputs.get(0).createBuffer();
-        for (int k = 0; k < output.limit(); ++k) {
-            System.out.println("prediction=" + output.get(k));
-        }
-    }
-
     /**
-     * Create an instance of DeepMAR.
+     * Create an instance of Tensorflow.
      *
      * @param gpu    index of GPU to use.
      * @param logger logger for outputting debug info.
      */
-    protected Tensorflow(int gpu,
+    protected Tensorflow(String gpu,
                          @Nullable Logger logger) {
         Loader.load(opencv_core.class);
         Loader.load(tensorflow.class);

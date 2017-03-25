@@ -1,3 +1,3 @@
-# Native folder
+# External projects
 
-This folder is for storing native codes and projects.
+This folder is for storing external projects.

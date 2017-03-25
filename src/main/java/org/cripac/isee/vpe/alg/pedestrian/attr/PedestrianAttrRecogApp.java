@@ -20,10 +20,7 @@ package org.cripac.isee.vpe.alg.pedestrian.attr;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.cripac.isee.alg.pedestrian.attr.Attributes;
-import org.cripac.isee.alg.pedestrian.attr.DeepMAR;
-import org.cripac.isee.alg.pedestrian.attr.ExternPedestrianAttrRecognizer;
-import org.cripac.isee.alg.pedestrian.attr.PedestrianAttrRecognizer;
+import org.cripac.isee.alg.pedestrian.attr.*;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.pedestrian.tracking.TrackletOrURL;
 import org.cripac.isee.vpe.common.DataType;
@@ -66,7 +63,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public enum Algorithm {
         EXT,
-        DeepMAR,
+        DeepMARCaffe,
+        DeepMARTensorflow,
         Fake
     }
 
@@ -154,19 +152,26 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
             switch (propCenter.algorithm) {
                 case EXT:
-                    recognizerSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
-                            propCenter.externAttrRecogServerAddr,
-                            propCenter.externAttrRecogServerPort,
-                            loggerSingleton.getInst()),
+                    recognizerSingleton = new Singleton<>(
+                            () -> new ExternPedestrianAttrRecognizer(
+                                    propCenter.externAttrRecogServerAddr,
+                                    propCenter.externAttrRecogServerPort,
+                                    loggerSingleton.getInst()),
                             ExternPedestrianAttrRecognizer.class);
                     break;
-                case DeepMAR:
-                    recognizerSingleton = new Singleton<>(() ->
-                            new DeepMAR(propCenter.caffeGPU, loggerSingleton.getInst()),
-                            DeepMAR.class);
+                case DeepMARCaffe:
+                    recognizerSingleton = new Singleton<>(
+                            () -> new DeepMARCaffe(propCenter.caffeGPU, loggerSingleton.getInst()),
+                            DeepMARCaffe.class);
+                    break;
+                case DeepMARTensorflow:
+                    recognizerSingleton = new Singleton<>(
+                            () -> new DeepMARTensorflow("", loggerSingleton.getInst()),
+                            DeepMARTensorflow.class);
                     break;
                 case Fake:
-                    recognizerSingleton = new Singleton<>(FakePedestrianAttrRecognizer::new,
+                    recognizerSingleton = new Singleton<>(
+                            FakePedestrianAttrRecognizer::new,
                             FakePedestrianAttrRecognizer.class);
                     break;
                 default:
