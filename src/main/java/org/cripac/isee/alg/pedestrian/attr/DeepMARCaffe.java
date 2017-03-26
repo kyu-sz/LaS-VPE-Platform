@@ -115,7 +115,7 @@ public final class DeepMARCaffe extends Caffe implements DeepMAR {
     public Attributes recognize(@Nonnull Tracklet tracklet) {
         Collection<Tracklet.BoundingBox> samples = tracklet.getSamples();
         assert samples.size() >= 1;
-        //noinspection OptionalGetWithoutIsPresent
+        //noinspection OptionalGetWithoutIsPresent,ConstantConditions
         return Attributes.div(
                 samples.stream().map(this::recognize).reduce(Attributes::add).get(),
                 samples.size());
@@ -138,6 +138,8 @@ public final class DeepMARCaffe extends Caffe implements DeepMAR {
         caffe.FloatBlob outputBlob = net.blob_by_name("fc8");
         final float[] outputArray = new float[outputBlob.count()];
         outputBlob.cpu_data().get(outputArray);
+        outputBlob.deallocate();
+        dataBlob.deallocate();
         return DeepMAR.fillAttributes(outputArray);
     }
 }

@@ -94,4 +94,10 @@ public class Caffe {
         }
         this.logger.debug("Caffe mode and device set!");
     }
+
+    @Override
+    protected void finalize() throws Throwable {
+        net.deallocate();
+        super.finalize();
+    }
 }

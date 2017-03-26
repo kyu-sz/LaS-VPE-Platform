@@ -19,10 +19,7 @@
 package org.cripac.isee.alg.pedestrian.attr;
 
 import com.google.gson.Gson;
-import org.bytedeco.javacpp.BytePointer;
-import org.bytedeco.javacpp.FloatPointer;
-import org.bytedeco.javacpp.opencv_core;
-import org.bytedeco.javacpp.opencv_imgproc;
+import org.bytedeco.javacpp.*;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
 import javax.annotation.Nonnull;
@@ -78,7 +75,10 @@ public interface DeepMAR extends PedestrianAttrRecognizer {
         for (int i = 0; i < 3; ++i) {
             final FloatPointer fp = new FloatPointer(bgr.get(i).data());
             fp.get(pixelFloats, i * numPixelPerChannel, numPixelPerChannel);
+            fp.deallocate();
         }
+        floatDataPointer.deallocate();
+        image.deallocate();
 
         return pixelFloats;
     }

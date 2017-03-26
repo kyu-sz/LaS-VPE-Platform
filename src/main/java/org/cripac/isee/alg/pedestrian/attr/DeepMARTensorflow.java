@@ -117,19 +117,20 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
     public Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
         float[] pixelFloats = DeepMAR.pixelFloatsFromBBox(bbox);
 
-        Tensor input = Tensor.create(
+        try (Tensor input = Tensor.create(
+                // TODO: Confirm the order of height and width parameter.
                 new long[]{1, INPUT_HEIGHT, INPUT_WIDTH, 3},
-                FloatBuffer.wrap(pixelFloats));
+                FloatBuffer.wrap(pixelFloats))) {
+            try (Tensor output = session.runner()
+                    .feed("data", input)
+                    .fetch(graph.operation("fc8/fc8").output(0))
+                    .run().get(0)) {
+                FloatBuffer floatBuffer = FloatBuffer.allocate(output.numElements());
+                output.writeTo(floatBuffer);
 
-        Tensor output = session.runner()
-                .feed("data", input)
-                .fetch(graph.operation("fc8/fc8").output(0))
-                .run()
-                .get(0);
-        FloatBuffer floatBuffer = FloatBuffer.allocate(output.numElements());
-        output.writeTo(floatBuffer);
-
-        // transform result to Attributes and return.
-        return DeepMAR.fillAttributes(floatBuffer.array());
+                // transform result to Attributes and return.
+                return DeepMAR.fillAttributes(floatBuffer.array());
+            }
+        }
     }
 }
