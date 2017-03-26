@@ -150,6 +150,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     + " videos in this batch.");
                         }
 
+                        long startTime = System.currentTimeMillis();
                         synchronized (HDFSVideoTrackingStream.class) {
                             ParallelExecutor.execute(kvList.iterator(), kv -> {
                                 try {
@@ -243,6 +244,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 }
                             });
                         }
+                        long endTime = System.currentTimeMillis();
+                        logger.info("Average cost time: " + ((endTime - startTime) / kvList.size()) + "ms");
                     }));
         }
 

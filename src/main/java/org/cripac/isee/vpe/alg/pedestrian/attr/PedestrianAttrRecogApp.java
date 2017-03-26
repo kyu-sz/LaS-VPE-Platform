@@ -185,35 +185,40 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             // Extract tracklets from the data.
             // Recognize attributes from the tracklets.
             this.filter(globalStreamMap, TRACKLET_PORT)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
+                    .foreachRDD(rdd -> rdd.glom().foreach(kvList -> {
                         Logger logger = loggerSingleton.getInst();
-                        try {
-                            final UUID taskID = kv._1();
-                            final TaskData taskData = kv._2();
-                            logger.debug("Received task " + taskID + "!");
+                        long startTime = System.currentTimeMillis();
+                        kvList.forEach(kv -> {
+                            try {
+                                final UUID taskID = kv._1();
+                                final TaskData taskData = kv._2();
+                                logger.debug("Received task " + taskID + "!");
 
-                            logger.debug("To recognize attributes for task " + taskID + "!");
-                            // Recognize attributes robustly.
-                            final Attributes attr = new RobustExecutor<>((Function<TrackletOrURL, Attributes>) tou -> {
-                                final Tracklet t = tou.getTracklet();
-                                final Attributes a = recognizerSingleton.getInst().recognize(t);
-                                a.trackletID = t.id;
-                                return a;
-                            }).execute((TrackletOrURL) taskData.predecessorRes);
-                            logger.debug("Attributes retrieved for task " + taskID + "!");
+                                logger.debug("To recognize attributes for task " + taskID + "!");
+                                // Recognize attributes robustly.
+                                final Attributes attr = new RobustExecutor<>((Function<TrackletOrURL, Attributes>) tou -> {
+                                    final Tracklet t = tou.getTracklet();
+                                    final Attributes a = recognizerSingleton.getInst().recognize(t);
+                                    a.trackletID = t.id;
+                                    return a;
+                                }).execute((TrackletOrURL) taskData.predecessorRes);
+                                logger.debug("Attributes retrieved for task " + taskID + "!");
 
-                            // Find current node.
-                            final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);
-                            // Get ports to output to.
-                            assert curNode != null;
-                            final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                            // Mark the current node as executed.
-                            curNode.markExecuted();
+                                // Find current node.
+                                final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);
+                                // Get ports to output to.
+                                assert curNode != null;
+                                final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                // Mark the current node as executed.
+                                curNode.markExecuted();
 
-                            output(outputPorts, taskData.executionPlan, attr, taskID);
-                        } catch (Exception e) {
-                            logger.error("During processing attributes.", e);
-                        }
+                                output(outputPorts, taskData.executionPlan, attr, taskID);
+                            } catch (Exception e) {
+                                logger.error("During processing attributes.", e);
+                            }
+                        });
+                        long endTime = System.currentTimeMillis();
+                        logger.info("Average cost time: " + ((endTime - startTime) / kvList.size()) + "ms");
                     }));
         }
 
