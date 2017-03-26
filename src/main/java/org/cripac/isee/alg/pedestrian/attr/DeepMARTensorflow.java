@@ -39,7 +39,26 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
      */
     public DeepMARTensorflow(String gpu,
                              @Nullable Logger logger) throws IOException {
-        this(gpu, getDefaultProtobuf(), logger);
+        this(gpu, getDefaultProtobuf(), getDefaultSessionConfig(), logger);
+    }
+
+    private static File getDefaultSessionConfig() throws IOException {
+        // Retrieve the file from JAR and store to temporary files.
+        InputStream in = DeepMARCaffe.class.getResourceAsStream("/models/DeepMARTensorflow/tf_session_config.pb");
+        if (in == null) {
+            throw new FileNotFoundException("Cannot find default Tensorflow session configuration in the JAR package.");
+        }
+
+        try {
+            File tempFile = File.createTempFile("tf_session_config", ".pb");
+            tempFile.deleteOnExit();
+            try (OutputStream out = new FileOutputStream(tempFile)) {
+                IOUtils.copy(in, out);
+                return tempFile;
+            }
+        } finally {
+            in.close();
+        }
     }
 
     private static File getDefaultProtobuf() throws IOException {
@@ -64,14 +83,17 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
     /**
      * Create an instance of DeepMARTensorflow.
      *
-     * @param gpu    index of GPU to use.
-     * @param logger logger for outputting debug info.
+     * @param gpu           index of GPU to use.
+     * @param frozenPB      frozen graph protobuf of trained DeepMAR.
+     * @param sessionConfig serialized session configuration protobuf.
+     * @param logger        logger for outputting debug info.
      */
     public DeepMARTensorflow(String gpu,
-                             @Nonnull File protocol,
+                             @Nonnull File frozenPB,
+                             @Nonnull File sessionConfig,
                              @Nullable Logger logger) throws IOException {
         super(gpu, logger);
-        initialize(protocol);
+        initialize(frozenPB, sessionConfig);
     }
 
     /**

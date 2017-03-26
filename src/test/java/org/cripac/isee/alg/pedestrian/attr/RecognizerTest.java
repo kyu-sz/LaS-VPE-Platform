@@ -75,9 +75,9 @@ public class RecognizerTest {
             final long end = System.currentTimeMillis();
             timeSum += end - start;
             ++roundCnt;
-            assertEquals(answer, attributes);
         }
         logger.info((timeSum / roundCnt) + "ms per round.");
         logger.info(attributes);
+        assertEquals(answer, attributes);
     }
 }

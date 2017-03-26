@@ -41,18 +41,50 @@ public class Tensorflow {
 
     /**
      * Initialize Tensorflow with a frozen protobuf of a pre-trained model.
-     *
-     * @param frozenPB frozen protobuf of the pretrain-model
+     *  @param frozenPB      frozen protobuf of the pretrain-model.
+     * 
      */
     protected void initialize(@Nonnull File frozenPB) throws IOException {
+        initialize(frozenPB, null);
+    }
+
+    /**
+     * Initialize Tensorflow with a frozen protobuf of a pre-trained model.
+     *
+     * @param frozenPB      frozen protobuf of the pretrain-model.
+     * @param sessionConfig configuration protobuf for session.
+     */
+    protected void initialize(@Nonnull File frozenPB,
+                              @Nullable File sessionConfig) throws IOException {
         if (!frozenPB.exists()) {
             throw new FileNotFoundException("Protobuf not found at " + frozenPB.getAbsolutePath());
         }
         logger.info("Loading Tensorflow frozen protobuf from " + frozenPB.getAbsolutePath());
-        graph = new Graph();
-        graph.importGraphDef(IOUtils.toByteArray(new FileInputStream(frozenPB)));
-        session = new Session(graph);
+        byte[] sessionConfigBytes = sessionConfig == null ? null :
+                IOUtils.toByteArray(new FileInputStream(sessionConfig));
+        initialize(IOUtils.toByteArray(new FileInputStream(frozenPB)), sessionConfigBytes);
+    }
 
+    /**
+     * Initialize Tensorflow with a frozen protobuf of a pre-trained model.
+     *  @param frozenPB      frozen protobuf of the pretrain-model.
+     * 
+     */
+    protected void initialize(@Nonnull byte[] frozenPB) throws IOException {
+        initialize(frozenPB, null);
+    }
+
+    /**
+     * Initialize Tensorflow with a frozen protobuf of a pre-trained model.
+     *
+     * @param frozenPB      frozen protobuf of the pretrain-model.
+     * @param sessionConfig serialized configuration protobuf for session.
+     */
+    protected void initialize(@Nonnull byte[] frozenPB,
+                              @Nullable byte[] sessionConfig) throws IOException {
+        graph = new Graph();
+        graph.importGraphDef(frozenPB);
+        session = new Session(graph, sessionConfig);
         this.logger.debug("Tensorflow initialized!");
     }
 
