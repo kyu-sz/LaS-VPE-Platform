@@ -244,8 +244,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                 }
                             });
                         }
-                        long endTime = System.currentTimeMillis();
-                        logger.info("Average cost time: " + ((endTime - startTime) / kvList.size()) + "ms");
+                        if (kvList.size() > 0) {
+                            long endTime = System.currentTimeMillis();
+                            logger.info("Average cost time: " + ((endTime - startTime) / kvList.size()) + "ms");
+                        }
                     }));
         }
 

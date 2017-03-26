@@ -77,6 +77,9 @@ properly on your cluster.
     mvn package
     ```
 
+    * Tests are enabled by default. Use ```mvn package -Dmaven.test.skip.exec```
+      to skip them when your machine is not suitable to run the tests or you are
+      sure the tests will pass and need to save time.
     * If your maven resolves dependencies at a low speed, try
     ```mvn -Dmaven.artifact.threads=100 package``` or add
     ```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.

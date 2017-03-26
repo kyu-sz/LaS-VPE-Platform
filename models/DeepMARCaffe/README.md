@@ -1,4 +1,4 @@
-This directory stores the model files for DeepMAR.
+This directory stores the Caffe model files for DeepMAR.
 
 There should be two files: _DeepMAR.prototxt_ and _DeepMAR.caffemodel_.
 

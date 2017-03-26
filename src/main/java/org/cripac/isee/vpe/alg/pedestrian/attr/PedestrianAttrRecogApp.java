@@ -217,8 +217,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                 logger.error("During processing attributes.", e);
                             }
                         });
-                        long endTime = System.currentTimeMillis();
-                        logger.info("Average cost time: " + ((endTime - startTime) / kvList.size()) + "ms");
+                        if (kvList.size() > 0) {
+                            long endTime = System.currentTimeMillis();
+                            logger.info("Average cost time: " + ((endTime - startTime) / kvList.size()) + "ms");
+                        }
                     }));
         }
 
