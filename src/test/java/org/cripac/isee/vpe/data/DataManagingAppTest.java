@@ -24,7 +24,7 @@ import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
+import org.cripac.isee.vpe.debug.FakeRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
@@ -113,7 +113,7 @@ public class DataManagingAppTest {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
-        Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
+        Attributes attributes = new FakeRecognizer().recognize(
                 new FakePedestrianTracker().track(null)[0]);
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
 

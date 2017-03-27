@@ -30,21 +30,21 @@ import java.io.*;
 import java.nio.FloatBuffer;
 import java.util.Collection;
 
-public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
+public class DeepMARTF extends Tensorflow implements DeepMAR {
     /**
-     * Create an instance of DeepMARTensorflow.
+     * Create an instance of DeepMARTF.
      *
      * @param gpu    index of GPU to use.
      * @param logger logger for outputting debug info.
      */
-    public DeepMARTensorflow(String gpu,
-                             @Nullable Logger logger) throws IOException {
+    public DeepMARTF(String gpu,
+                     @Nullable Logger logger) throws IOException {
         this(gpu, getDefaultProtobuf(), getDefaultSessionConfig(), logger);
     }
 
     private static File getDefaultSessionConfig() throws IOException {
         // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMARCaffe.class.getResourceAsStream("/models/DeepMARTensorflow/tf_session_config.pb");
+        InputStream in = DeepMARCaffeBytedeco.class.getResourceAsStream("/models/DeepMARTF/tf_session_config.pb");
         if (in == null) {
             throw new FileNotFoundException("Cannot find default Tensorflow session configuration in the JAR package.");
         }
@@ -63,7 +63,7 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
 
     private static File getDefaultProtobuf() throws IOException {
         // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMARCaffe.class.getResourceAsStream("/models/DeepMARTensorflow/DeepMAR_frozen.pb");
+        InputStream in = DeepMARCaffeBytedeco.class.getResourceAsStream("/models/DeepMARTF/DeepMAR_frozen.pb");
         if (in == null) {
             throw new FileNotFoundException("Cannot find default Tensorflow frozen protobuf in the JAR package.");
         }
@@ -81,17 +81,17 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
     }
 
     /**
-     * Create an instance of DeepMARTensorflow.
+     * Create an instance of DeepMARTF.
      *
      * @param gpu           index of GPU to use.
      * @param frozenPB      frozen graph protobuf of trained DeepMAR.
      * @param sessionConfig serialized session configuration protobuf.
      * @param logger        logger for outputting debug info.
      */
-    public DeepMARTensorflow(String gpu,
-                             @Nonnull File frozenPB,
-                             @Nonnull File sessionConfig,
-                             @Nullable Logger logger) throws IOException {
+    public DeepMARTF(String gpu,
+                     @Nonnull File frozenPB,
+                     @Nonnull File sessionConfig,
+                     @Nullable Logger logger) throws IOException {
         super(gpu, logger);
         initialize(frozenPB, sessionConfig);
     }
@@ -115,7 +115,7 @@ public class DeepMARTensorflow extends Tensorflow implements DeepMAR {
 
     @Nonnull
     public Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
-        float[] pixelFloats = DeepMAR.pixelFloatsFromBBox(bbox);
+        float[] pixelFloats = DeepMAR.preprocess(bbox);
 
         try (Tensor input = Tensor.create(
                 // TODO: Confirm the order of height and width parameter.

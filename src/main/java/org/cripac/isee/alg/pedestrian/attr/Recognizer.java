@@ -22,13 +22,13 @@ import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import javax.annotation.Nonnull;
 
 /**
- * The PedestrianAttrRecognizer class is the base class of all pedestrian
+ * The Recognizer class is the base class of all pedestrian
  * attribute recognizing classes. Any subclass is required to implement a simple
  * 'recognize' method, which takes in a track and returns an attribute.
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public interface PedestrianAttrRecognizer {
+public interface Recognizer {
 
     /**
      * Recognize attributes from a track of pedestrian.

@@ -26,21 +26,20 @@ import javax.annotation.Nonnull;
 
 import static org.bytedeco.javacpp.opencv_core.*;
 
-public interface DeepMAR extends PedestrianAttrRecognizer {
+public interface DeepMAR extends Recognizer {
     float MEAN_PIXEL = 128;
     float REG_COEFF = 1.0f / 256;
 
-    FloatPointer pMean = new FloatPointer(MEAN_PIXEL);
+    FloatPointer pMean32f = new FloatPointer(MEAN_PIXEL);
     FloatPointer pRegCoeff = new FloatPointer(REG_COEFF);
     FloatPointer pScale = new FloatPointer(1.f);
 
     int INPUT_WIDTH = 227;
     int INPUT_HEIGHT = 227;
 
-    static float[] pixelFloatsFromBBox(Tracklet.BoundingBox bbox) {
+    static float[] preprocess(Tracklet.BoundingBox bbox) {
         // Process image.
-        opencv_core.Mat image = new opencv_core.Mat(bbox.height, bbox.width, CV_8UC3);
-        image.data(new BytePointer(bbox.patchData));
+        opencv_core.Mat image = bbox.getImage();
         image.convertTo(image, CV_32FC3);
         opencv_imgproc.resize(image, image, new opencv_core.Size(INPUT_WIDTH, INPUT_HEIGHT));
 
@@ -58,7 +57,7 @@ public interface DeepMAR extends PedestrianAttrRecognizer {
         // Subtract mean pixel.
         sub32f(floatDataPointer, // Pointer to minuends
                 4, // Bytes per step (4 bytes for float)
-                pMean, // Pointer to subtrahend
+                pMean32f, // Pointer to subtrahend
                 0, // Bytes per step (using the value 128 circularly)
                 floatDataPointer, // Pointer to result buffer.
                 4, // Bytes per step (4 bytes for float)

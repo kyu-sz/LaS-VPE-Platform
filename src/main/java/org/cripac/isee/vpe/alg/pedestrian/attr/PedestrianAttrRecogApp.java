@@ -29,7 +29,7 @@ import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
+import org.cripac.isee.vpe.debug.FakeRecognizer;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
@@ -63,7 +63,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public enum Algorithm {
         EXT,
-        DeepMARCaffe,
+        DeepMARCaffeBytedeco,
+        DeepMARCaffeNative,
         DeepMARTensorflow,
         Fake
     }
@@ -143,7 +144,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                 new Port("pedestrian-tracklet-for-attr-recog", DataType.TRACKLET);
         private static final long serialVersionUID = -4672941060404428484L;
 
-        private final Singleton<PedestrianAttrRecognizer> recognizerSingleton;
+        private final Singleton<Recognizer> recognizerSingleton;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
@@ -153,26 +154,32 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
             switch (propCenter.algorithm) {
                 case EXT:
                     recognizerSingleton = new Singleton<>(
-                            () -> new ExternPedestrianAttrRecognizer(
+                            () -> new ExternRecognizer(
                                     propCenter.externAttrRecogServerAddr,
                                     propCenter.externAttrRecogServerPort,
                                     loggerSingleton.getInst()),
-                            ExternPedestrianAttrRecognizer.class);
+                            ExternRecognizer.class);
                     break;
-                case DeepMARCaffe:
+                case DeepMARCaffeBytedeco:
                     recognizerSingleton = new Singleton<>(
-                            () -> new DeepMARCaffe(propCenter.caffeGPU, loggerSingleton.getInst()),
-                            DeepMARCaffe.class);
+                            () -> new DeepMARCaffeBytedeco(propCenter.caffeGPU, loggerSingleton.getInst()),
+                            DeepMARCaffeBytedeco.class);
+                    break;
+                case DeepMARCaffeNative:
+                    recognizerSingleton = new Singleton<Recognizer>(
+                            () -> new DeepMARCaffeNative(propCenter.caffeGPU),
+                            DeepMARCaffeNative.class
+                    );
                     break;
                 case DeepMARTensorflow:
                     recognizerSingleton = new Singleton<>(
-                            () -> new DeepMARTensorflow("", loggerSingleton.getInst()),
-                            DeepMARTensorflow.class);
+                            () -> new DeepMARTF("", loggerSingleton.getInst()),
+                            DeepMARTF.class);
                     break;
                 case Fake:
                     recognizerSingleton = new Singleton<>(
-                            FakePedestrianAttrRecognizer::new,
-                            FakePedestrianAttrRecognizer.class);
+                            FakeRecognizer::new,
+                            FakeRecognizer.class);
                     break;
                 default:
                     throw new NotImplementedException("Attribute recognition algorithm "

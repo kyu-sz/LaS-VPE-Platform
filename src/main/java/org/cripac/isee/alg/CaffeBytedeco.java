@@ -15,69 +15,69 @@ import java.nio.file.AccessDeniedException;
 import static org.bytedeco.javacpp.caffe.TEST;
 
 /**
- * Base class of classes using Caffe.
+ * Base class of classes using CaffeBytedeco.
  * Created by Ken Yu on 2017/3/7.
  */
-public class Caffe {
+public class CaffeBytedeco {
     static {
         Loader.load(opencv_core.class);
         Loader.load(caffe.class);
     }
 
     /**
-     * Instance of Caffe.
+     * Instance of CaffeBytedeco.
      */
     protected caffe.FloatNet net = null;
 
     protected Logger logger;
 
     /**
-     * Initialize Caffe with protocol and pre-trained model.
+     * Initialize CaffeBytedeco with protocol and pre-trained model.
      *
-     * @param protobuf Caffe protocol buffer file.
-     * @param model    Caffe model file.
+     * @param protobuf CaffeBytedeco protocol buffer file.
+     * @param model    CaffeBytedeco model file.
      */
     protected void initialize(@Nonnull File protobuf,
                               @Nonnull File model) throws FileNotFoundException, AccessDeniedException {
         if (!protobuf.exists()) {
-            throw new FileNotFoundException("Cannot find Caffe protocol from " + protobuf.getAbsolutePath());
+            throw new FileNotFoundException("Cannot find CaffeBytedeco protocol from " + protobuf.getAbsolutePath());
         }
         if (!protobuf.canRead()) {
-            throw new AccessDeniedException("Cannot read Caffe protocol from " + protobuf.getAbsolutePath());
+            throw new AccessDeniedException("Cannot read CaffeBytedeco protocol from " + protobuf.getAbsolutePath());
         }
-        logger.info("Loading Caffe protocol from " + protobuf.getAbsolutePath()
+        logger.info("Loading CaffeBytedeco protocol from " + protobuf.getAbsolutePath()
                 + " (" + (protobuf.length() / 1024) + "kb)");
         net = new caffe.FloatNet(protobuf.getAbsolutePath(), TEST);
 
         if (!model.exists()) {
-            throw new FileNotFoundException("Cannot find Caffe model from " + model.getAbsolutePath());
+            throw new FileNotFoundException("Cannot find CaffeBytedeco model from " + model.getAbsolutePath());
         }
         if (!model.canRead()) {
-            throw new AccessDeniedException("Cannot read Caffe model from " + model.getAbsolutePath());
+            throw new AccessDeniedException("Cannot read CaffeBytedeco model from " + model.getAbsolutePath());
         }
-        logger.info("Loading Caffe model from " + model.getAbsolutePath() + " (" + (model.length() / 1024) + "kb)");
+        logger.info("Loading CaffeBytedeco model from " + model.getAbsolutePath() + " (" + (model.length() / 1024) + "kb)");
         net.CopyTrainedLayersFrom(model.getAbsolutePath());
 
-        this.logger.debug("Caffe initialized!");
+        this.logger.debug("CaffeBytedeco initialized!");
     }
 
     /**
-     * Create an instance of DeepMARCaffe.
+     * Create an instance of DeepMARCaffeBytedeco.
      *
      * @param gpu index of GPU to use.
      */
-    protected Caffe(int gpu) {
+    protected CaffeBytedeco(int gpu) {
         this(gpu, null);
     }
 
     /**
-     * Create an instance of DeepMARCaffe.
+     * Create an instance of DeepMARCaffeBytedeco.
      *
      * @param gpu    index of GPU to use.
      * @param logger logger for outputting debug info.
      */
-    protected Caffe(int gpu,
-                    @Nullable Logger logger) {
+    protected CaffeBytedeco(int gpu,
+                            @Nullable Logger logger) {
         if (logger == null) {
             this.logger = new ConsoleLogger();
         } else {
@@ -92,7 +92,7 @@ public class Caffe {
             this.logger.info("Use CPU.");
             caffe.Caffe.set_mode(caffe.Caffe.CPU);
         }
-        this.logger.debug("Caffe mode and device set!");
+        this.logger.debug("CaffeBytedeco mode and device set!");
     }
 
     @Override

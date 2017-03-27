@@ -35,9 +35,9 @@ public class RecognizerTest {
     private Attributes answer;
 
     final Logger logger = new ConsoleLogger(Level.DEBUG);
-    final PedestrianAttrRecognizer recognizer;
+    final Recognizer recognizer;
 
-    public RecognizerTest(PedestrianAttrRecognizer recognizer) {
+    public RecognizerTest(Recognizer recognizer) {
         this.recognizer = recognizer;
     }
 

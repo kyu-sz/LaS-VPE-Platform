@@ -19,6 +19,8 @@ package org.cripac.isee.alg.pedestrian.tracking;
 
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
+import org.bytedeco.javacpp.BytePointer;
+import org.bytedeco.javacpp.opencv_core;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
@@ -26,6 +28,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+
+import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
 
 /**
  * The Tracklet class stores a sequence of bounding boxes, representing the
@@ -247,6 +251,16 @@ public class Tracklet implements Serializable, Cloneable {
                 buf.put(patchData);
             }
             return buf.array();
+        }
+
+        /**
+         * Get the image stored in the bounding box.
+         * @return a OpenCV Mat (by Bytedeco) with CV_8SC3 data form.
+         */
+        public opencv_core.Mat getImage() {
+            opencv_core.Mat image = new opencv_core.Mat(height, width, CV_8UC3);
+            image.data(new BytePointer(patchData));
+            return image;
         }
     }
 }

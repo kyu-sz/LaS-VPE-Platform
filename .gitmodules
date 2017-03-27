@@ -1,3 +1,9 @@
 [submodule "ISEE-Basic-Pedestrian-Tracker"]
 	path = src/native/ISEE-Basic-Pedestrian-Tracker
 	url = https://github.com/kyu-sz/ISEE-Basic-Pedestrian-Tracker.git
+[submodule "src/native/DeepMAR_deploy"]
+	path = src/native/DeepMAR_deploy
+	url = https://github.com/kyu-sz/DeepMAR_deploy.git
+[submodule "src/native/caffe"]
+	path = src/native/caffe
+	url = https://github.com/kyu-sz/caffe.git

@@ -83,7 +83,7 @@ public class SystemPropertyCenter implements Serializable {
     public String sparkMaster = "local[*]";
     public String sparkDeployMode = "client";
     String[] appsToStart = null;
-    /* Caffe properties */
+    /* CaffeBytedeco properties */
     public int caffeGPU = -1;
     /* Number of executor instances. */
     public int numExecutors = 2;
@@ -145,7 +145,7 @@ public class SystemPropertyCenter implements Serializable {
         options.addOption("h", "help", false, "Print this help message.");
         options.addOption("v", "verbose", false, "Display debug information.");
         options.addOption("a", "application", true, "Application specified to run.");
-        options.addOption("g", "gpu", true, "Indices of GPU for Caffe.");
+        options.addOption("g", "gpu", true, "Indices of GPU for CaffeBytedeco.");
         options.addOption(null, "spark-property-file", true, "Path of the spark property file.");
         options.addOption(null, "system-property-file", true, "Path of the system property file.");
         options.addOption(null, "app-property-file", true,

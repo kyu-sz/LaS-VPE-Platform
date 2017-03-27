@@ -28,7 +28,7 @@ import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
+import org.cripac.isee.vpe.debug.FakeRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -117,30 +117,36 @@ public class PedestrianAttrRecogAppTest {
 
     @Test
     public void testAttrReognizer() throws Exception {
-        PedestrianAttrRecognizer recognizer;
+        Recognizer recognizer;
         switch (propCenter.algorithm) {
             case EXT:
-                recognizer = new ExternPedestrianAttrRecognizer(
+                recognizer = new ExternRecognizer(
                         propCenter.externAttrRecogServerAddr,
                         propCenter.externAttrRecogServerPort,
                         logger);
                 break;
-            case DeepMARCaffe:
-                recognizer = new DeepMARCaffe(
+            case DeepMARCaffeBytedeco:
+                recognizer = new DeepMARCaffeBytedeco(
                         propCenter.caffeGPU,
                         new File("models/DeepMARCaffe/DeepMAR.prototxt"),
                         new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
                         logger);
                 break;
+            case DeepMARCaffeNative:
+                recognizer = new DeepMARCaffeNative(
+                        propCenter.caffeGPU,
+                        new File("models/DeepMARCaffe/DeepMAR.prototxt"),
+                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"));
+                break;
             case DeepMARTensorflow:
-                recognizer = new DeepMARTensorflow(
+                recognizer = new DeepMARTF(
                         "",
-                        new File("models/DeepMARTensorflow/DeepMAR_frozen.pb"),
-                        new File("models/DeepMARTensorflow/tf_session_config.pb"),
+                        new File("models/DeepMARTF/DeepMAR_frozen.pb"),
+                        new File("models/DeepMARTF/tf_session_config.pb"),
                         logger);
                 break;
             case Fake:
-                recognizer = new FakePedestrianAttrRecognizer();
+                recognizer = new FakeRecognizer();
                 break;
             default:
                 throw new NotImplementedException("Attribute recognition algorithm "
