@@ -76,4 +76,32 @@ fi
 cp -Rpu .build_release/lib/libcaffe.so* ${PROJECT_PATH}/lib/linux || :
 ##################################################
 
+##################################################
+# Build DeepMAR_deploy
+##################################################
+echo "Building DeepMAR_deploy..."
+##################################################
+cd ${NATIVE_SRC}/DeepMAR_deploy
+if [ $? -ne 0 ]
+then
+  exit $?
+fi
+##################################################
+cmake .
+if [ $? -ne 0 ]
+then
+  exit $?
+fi
+##################################################
+make clean
+make -j 16
+if [ $? -ne 0 ]
+then
+  exit $?
+fi
+##################################################
+cp -Rpu lib/libDeepMAR.so ${PROJECT_PATH}/lib/linux || :
+cp -Rpu lib/jni/libDeepMAR_caffe_jni.so ${PROJECT_PATH}/lib/linux || :
+##################################################
+
 echo "Successfully finished building native libraries!"
