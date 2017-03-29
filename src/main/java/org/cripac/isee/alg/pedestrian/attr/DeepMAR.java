@@ -32,7 +32,7 @@ public interface DeepMAR extends Recognizer {
 
     FloatPointer pMean32f = new FloatPointer(MEAN_PIXEL);
     FloatPointer pRegCoeff = new FloatPointer(REG_COEFF);
-    FloatPointer pScale = new FloatPointer(1.f);
+    DoublePointer pScale = new DoublePointer(1.);
 
     int INPUT_WIDTH = 227;
     int INPUT_HEIGHT = 227;
@@ -40,8 +40,8 @@ public interface DeepMAR extends Recognizer {
     static float[] preprocess(Tracklet.BoundingBox bbox) {
         // Process image.
         opencv_core.Mat image = bbox.getImage();
-        image.convertTo(image, CV_32FC3);
         opencv_imgproc.resize(image, image, new opencv_core.Size(INPUT_WIDTH, INPUT_HEIGHT));
+        image.convertTo(image, CV_32FC3);
 
         // Regularize pixel values.
         final int numPixelPerChannel = image.rows() * image.cols();
@@ -49,7 +49,7 @@ public interface DeepMAR extends Recognizer {
         final FloatPointer floatDataPointer = new FloatPointer(image.data());
 
 //        float[] origin = new float[numPixels];
-//        floatDataPointer.getTracklet(origin);
+//        floatDataPointer.get(origin);
 //        for (int i = 0; i < numPixels; ++i) {
 //            origin[i] = (origin[i] - 128) / 256;
 //        }

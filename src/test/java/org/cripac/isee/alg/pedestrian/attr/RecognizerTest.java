@@ -34,8 +34,8 @@ public class RecognizerTest {
     private String testImage;
     private Attributes answer;
 
-    final Logger logger = new ConsoleLogger(Level.DEBUG);
-    final Recognizer recognizer;
+    private final Logger logger = new ConsoleLogger(Level.DEBUG);
+    private final Recognizer recognizer;
 
     public RecognizerTest(Recognizer recognizer) {
         this.recognizer = recognizer;
