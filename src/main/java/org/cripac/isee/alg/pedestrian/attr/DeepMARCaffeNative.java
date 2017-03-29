@@ -18,8 +18,8 @@
  */
 package org.cripac.isee.alg.pedestrian.attr;
 
+import org.apache.log4j.Logger;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
-import scala.Char;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -33,10 +33,17 @@ import java.util.Collection;
 
 public class DeepMARCaffeNative implements DeepMARCaffe {
     static {
-        System.out.println("Loading native libraries for DeepMARCaffeNative from "
-                + System.getProperty("java.library.path"));
-        System.loadLibrary("DeepMAR_caffe_jni");
-        System.out.println("Native libraries for DeepMARCaffeNative successfully loaded!");
+        try {
+            Logger logger = Logger.getLogger(DeepMARCaffe.class);
+            logger.info("Loading native libraries for DeepMARCaffeNative from "
+                    + System.getProperty("java.library.path"));
+            System.loadLibrary("DeepMAR_caffe_jni");
+            logger.info("Native libraries for DeepMARCaffeNative successfully loaded!");
+        } catch (Throwable t) {
+            Logger logger = Logger.getLogger(DeepMARCaffe.class);
+            logger.error("Failure during static initilaization", t);
+            throw t;
+        }
     }
 
     private long net;
