@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
-##################################################
-source `dirname "${BASH_SOURCE[0]}"`/env.sh
-if [ $? -ne 0 ]
-then
-  exit $?
-fi
+PROJECT_PATH=$(cd `dirname "${BASH_SOURCE[0]}"`/../..; pwd)
+NATIVE_SRC=${PROJECT_PATH}/src/native
+mkdir -p ${PROJECT_PATH}/lib/linux
+mkdir -p ${PROJECT_PATH}/lib/windows
+
 ##################################################
 cd ${NATIVE_SRC}/ISEE-Basic-Pedestrian-Tracker
 if [ $? -ne 0 ]
