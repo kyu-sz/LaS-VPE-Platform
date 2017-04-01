@@ -79,7 +79,8 @@ public class RecognizerTest {
                 recognizer = new DeepMARCaffeNative(
                         propCenter.caffeGPU,
                         new File("models/DeepMARCaffe/DeepMAR.prototxt"),
-                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"));
+                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
+                        logger);
                 break;
             case DeepMARTensorflow:
                 recognizer = new DeepMARTF(

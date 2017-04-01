@@ -167,7 +167,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     break;
                 case DeepMARCaffeNative:
                     recognizerSingleton = new Singleton<Recognizer>(
-                            () -> new DeepMARCaffeNative(propCenter.caffeGPU),
+                            () -> new DeepMARCaffeNative(propCenter.caffeGPU, loggerSingleton.getInst()),
                             DeepMARCaffeNative.class
                     );
                     break;

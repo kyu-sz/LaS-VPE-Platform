@@ -18,8 +18,8 @@
  */
 package org.cripac.isee.alg.pedestrian.attr;
 
-import org.apache.log4j.Logger;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -27,13 +27,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.file.AccessDeniedException;
 import java.util.Collection;
 
 public class DeepMARCaffeNative implements DeepMARCaffe {
     static {
-        Logger logger = Logger.getLogger(DeepMARCaffe.class);
+        org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(DeepMARCaffe.class);
         try {
             logger.info("Loading native libraries for DeepMARCaffeNative from "
                     + System.getProperty("java.library.path"));
@@ -47,6 +48,7 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
 
     private long net;
     private final float[] outputBuf = new float[1024];
+    private org.cripac.isee.vpe.util.logging.Logger logger;
 
     /**
      * Initialize the native DeepMAR network.
@@ -80,11 +82,14 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
      * @param str a UTF-16 character array.
      * @return an ASCII character array.
      */
-    private byte[] toASCII(char[] str) {
+    private byte[] toASCII(char[] str) throws CharacterCodingException {
         byte[] ascii = new byte[str.length];
         for (int i = 0; i < str.length; ++i) {
             char ch = str[i];
-            ascii[i] = (ch <= 0xFF) ? (byte) ch : (byte) '?';
+            if (ch > 0xFF) {
+                throw new CharacterCodingException();
+            }
+            ascii[i] = (byte) ch;
         }
         return ascii;
     }
@@ -99,17 +104,15 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
      */
     public DeepMARCaffeNative(int gpu,
                               @Nonnull File pb,
-                              @Nonnull File model)
-            throws FileNotFoundException, AccessDeniedException {
-        Charset charset = Charset.defaultCharset();
-        CharBuffer charBuffer = CharBuffer.wrap(pb.getPath().toCharArray());
-        ByteBuffer byteBuffer = charset.encode(charBuffer);
-        byteBuffer.flip();
-        byte[] utf8PB = new byte[byteBuffer.remaining()];
-        byteBuffer.get(utf8PB);
+                              @Nonnull File model,
+                              @Nonnull Logger logger)
+            throws FileNotFoundException, AccessDeniedException, CharacterCodingException {
+        this.logger = logger;
+        this.logger.debug("Initializing DeepMARCaffeNative...");
         net = initialize(gpu,
                 toASCII(pb.getPath().toCharArray()),
                 toASCII(model.getPath().toCharArray()));
+        this.logger.debug("DeepMARCaffeNative initialized!");
     }
 
     /**
@@ -117,8 +120,9 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
      *
      * @param gpu index of GPU to use.
      */
-    public DeepMARCaffeNative(int gpu) throws IOException {
-        this(gpu, DeepMARCaffe.getDefaultProtobuf(), DeepMARCaffe.getDefaultModel());
+    public DeepMARCaffeNative(int gpu,
+                              @Nonnull Logger logger) throws IOException {
+        this(gpu, DeepMARCaffe.getDefaultProtobuf(), DeepMARCaffe.getDefaultModel(), logger);
     }
 
     /**
