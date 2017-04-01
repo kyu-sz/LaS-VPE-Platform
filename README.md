@@ -29,10 +29,15 @@ LaS-VPE Platform is released under the GPL License.
 
 ## Requirements
 
-1. Use Maven to build the project:
+1. Use Maven to build the project.
 
+    For Ubuntu:
 	```Shell
 	sudo apt-get install maven
+	```
+	For CentOS:
+	```Shell
+	sudo yum install maven
 	```
 	
 2. Increase open files limit in Linux.
@@ -58,7 +63,7 @@ properly on your cluster.
       and configure your environment.
 
 4. If you choose to run algorithms based on Caffe locally, no matter the
- algorithms use CPU-only or GPUs, you must have Cuda 8.0 installed on every
+ algorithms use CPU-only or GPUs, you must have CUDA 8.0 installed on every
  node in your cluster.
 
 ## How to run
@@ -92,20 +97,14 @@ _${PROJECT_DIR}/models/DeepMAR/_. See [models](models).
  Specially, modify the [cluster-env.sh](conf/cluster-env.sh) in [conf](conf)
 to adapt to your cluster address.
 
-4. Upload the whole project to your cluster:
-
-    ```Shell
-    ./sbin/upload.sh
-    ```
-    
-    * Then switch to the terminal of your cluster, change to the platform folder and
-      deliver native libraries to worker nodes using [install.sh](sbin/install.sh) in
-      [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_
-      environment variable.
+4. Change to the platform folder and deliver native libraries to worker nodes using
+ [install.sh](sbin/install.sh) in [sbin](sbin).
     
     ```Shell
     ./sbin/install.sh
     ```
+    
+ Note that this script requires the _HADOOP_HOME_ environment variable.
 
 5. Finally, you can start the applications by invoking the scripts in the home
 directory by command like "./sbin/run-*.sh".

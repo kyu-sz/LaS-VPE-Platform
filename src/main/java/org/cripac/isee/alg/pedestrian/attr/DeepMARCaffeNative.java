@@ -108,7 +108,21 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
                               @Nonnull Logger logger)
             throws FileNotFoundException, AccessDeniedException, CharacterCodingException {
         this.logger = logger;
-        this.logger.debug("Initializing DeepMARCaffeNative...");
+        this.logger.debug("Initializing DeepMARCaffeNative with "
+                + pb.getPath() + "(" + pb.length() + ")"
+                + model.getPath() + "(" + model.length() + ")");
+        if (!pb.exists()) {
+            throw new FileNotFoundException("Cannot find " + pb.getPath());
+        }
+        if (!model.exists()) {
+            throw new FileNotFoundException("Cannot find " + model.getPath());
+        }
+        if (!pb.canRead()) {
+            throw new AccessDeniedException("Cannot read " + pb.getPath());
+        }
+        if (!model.canRead()) {
+            throw new AccessDeniedException("Cannot read " + model.getPath());
+        }
         net = initialize(gpu,
                 toASCII(pb.getPath().toCharArray()),
                 toASCII(model.getPath().toCharArray()));
