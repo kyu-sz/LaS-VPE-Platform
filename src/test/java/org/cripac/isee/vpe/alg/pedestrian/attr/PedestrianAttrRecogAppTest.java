@@ -18,29 +18,25 @@
 package org.cripac.isee.vpe.alg.pedestrian.attr;
 
 import kafka.utils.ZkUtils;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
-import org.cripac.isee.alg.pedestrian.attr.*;
+import org.apache.log4j.PropertyConfigurator;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.util.ResourceManager;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.debug.FakeRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.junit.Before;
-import org.junit.Test;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.File;
+import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
@@ -48,17 +44,6 @@ import java.util.UUID;
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
-//import org.junit.Test;
-
-/**
- * This is a JUnit test for the DataManagingApp.
- * Different from usual JUnit tests, this test does not initiate a DataManagingApp.
- * The application should be run on YARN in advance.
- * This test only sends fake data messages to and receives results
- * from the already running application through Kafka.
- * <p>
- * Created by ken.yu on 16-10-31.
- */
 public class PedestrianAttrRecogAppTest {
 
     private static final Stream.Port TEST_PED_ATTR_RECV_PORT =
@@ -68,7 +53,6 @@ public class PedestrianAttrRecogAppTest {
     private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
     private PedestrianAttrRecogApp.AppPropertyCenter propCenter;
-    private static boolean toTestApp = true;
 
     public static void main(String[] args) {
         PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
@@ -79,10 +63,7 @@ public class PedestrianAttrRecogAppTest {
             return;
         }
         try {
-            test.testAttrReognizer();
-            if (toTestApp) {
-                test.testAttrRecogApp();
-            }
+            test.testAttrRecogApp();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -101,65 +82,14 @@ public class PedestrianAttrRecogAppTest {
                 propCenter.kafkaReplFactor);
     }
 
-    @Before
-    public void init() throws Exception {
-        init(new String[]{"-a", PedestrianAttrRecogApp.APP_NAME,
-                "--system-property-file", "conf/system.properties",
-                "--app-property-file", "conf/" + PedestrianAttrRecogApp.APP_NAME + "/app.properties",
-                "-v"});
-    }
-
-    private void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
+    private void init(String[] args)
+            throws ParserConfigurationException, IOException, SAXException, URISyntaxException {
+        PropertyConfigurator.configure(ResourceManager.getResource("/conf/log4j_local.properties").getPath());
         logger = new ConsoleLogger(Level.DEBUG);
-
         propCenter = new PedestrianAttrRecogApp.AppPropertyCenter(args);
     }
 
-    @Test
-    public void testAttrReognizer() throws Exception {
-        Recognizer recognizer;
-        switch (propCenter.algorithm) {
-            case EXT:
-                recognizer = new ExternRecognizer(
-                        propCenter.externAttrRecogServerAddr,
-                        propCenter.externAttrRecogServerPort,
-                        logger);
-                break;
-            case DeepMARCaffeBytedeco:
-                recognizer = new DeepMARCaffeBytedeco(
-                        propCenter.caffeGPU,
-                        new File("models/DeepMARCaffe/DeepMAR.prototxt"),
-                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
-                        logger);
-                break;
-            case DeepMARCaffeNative:
-                recognizer = new DeepMARCaffeNative(
-                        propCenter.caffeGPU,
-                        new File("models/DeepMARCaffe/DeepMAR.prototxt"),
-                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"));
-                break;
-            case DeepMARTensorflow:
-                recognizer = new DeepMARTF(
-                        "",
-                        new File("models/DeepMARTF/DeepMAR_frozen.pb"),
-                        new File("models/DeepMARTF/tf_session_config.pb"),
-                        logger);
-                break;
-            case Fake:
-                recognizer = new FakeRecognizer();
-                break;
-            default:
-                throw new NotImplementedException("Attribute recognition algorithm "
-                        + propCenter.algorithm + " is not implemented.");
-        }
-
-        RecognizerTest test = new RecognizerTest(recognizer);
-        test.setUp();
-        test.recognize();
-    }
-
-    //    @Test
-    public void testAttrRecogApp() throws Exception {
+    private void testAttrRecogApp() throws Exception {
         logger.info("Testing attr recogn app.");
 
         checkTopic(TEST_PED_ATTR_RECV_PORT.inputType.name());
@@ -174,7 +104,6 @@ public class PedestrianAttrRecogAppTest {
         } catch (Exception e) {
             logger.error("When checking topics", e);
             logger.info("App test is disabled.");
-            toTestApp = false;
         }
 
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();

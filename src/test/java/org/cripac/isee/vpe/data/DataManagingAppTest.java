@@ -90,6 +90,7 @@ public class DataManagingAppTest {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
+        //noinspection ConstantConditions
         Tracklet[] tracklets = new FakePedestrianTracker().track(null);
         String taskID = UUID.randomUUID().toString();
         for (int i = 0; i < tracklets.length; ++i) {

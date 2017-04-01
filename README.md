@@ -73,7 +73,6 @@ properly on your cluster.
 2. Build and pack the system into a JAR:
 
     ```Shell
-    ./sbin/build-native-libs.sh
     mvn package
     ```
 
@@ -89,7 +88,7 @@ properly on your cluster.
 Put them in appropriate locations. For example, the _DeepMAR.caffemodel_ should be put in
 _${PROJECT_DIR}/models/DeepMAR/_. See [models](models).
 
-3. Configure the environment and running properties in the files in [conf](conf).
+4. Configure the environment and running properties in the files in [conf](conf).
  Specially, modify the [cluster-env.sh](conf/cluster-env.sh) in [conf](conf)
 to adapt to your cluster address.
 
@@ -195,7 +194,7 @@ implement this in another GitHub repository, and import it as a submodule.
 it in a suitable package.
  
 3. Build your algorithm project, and copy the resulting shared JNI
-library and those it depends on into the [library folder](lib/linux) directory.
+library and those it depends on into the [library folder](lib/x64) directory.
   
     * To enable auto building and cleaning together with Maven, it is recommended to
       use CMake to build your project. Then edit the

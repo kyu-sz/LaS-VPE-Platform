@@ -21,6 +21,7 @@ import org.bytedeco.javacpp.opencv_core;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.OpenCVFrameConverter;
+import org.junit.Test;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -36,7 +37,7 @@ public class FFmpegFrameGrabberNewTest {
 
     private final static String videoPath = "src/test/resources/20131220184349-20131220184937.h264";
 
-    //    @Test
+    @Test
     public void grabImage() throws IOException, FrameGrabber.Exception {
 
         System.out.println("Reading video...");
@@ -46,7 +47,7 @@ public class FFmpegFrameGrabberNewTest {
         decoder.start();
         opencv_core.Mat cvFrame;
         int frameCnt = 0;
-        boolean display = true;
+        boolean display = false;
         while (true) {
             Frame frame = decoder.grabImage();
             if (frame == null) {

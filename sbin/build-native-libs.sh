@@ -10,6 +10,7 @@ source ${PROJECT_PATH}/sbin/native/build-basic-tracker.sh
 # Build Caffe
 echo "Building Caffe..."
 source ${PROJECT_PATH}/sbin/native/build-caffe.sh
+export CAFFE_HOME=${NATIVE_SRC}/caffe
 
 # Build DeepMAR_deploy
 echo "Building DeepMAR_deploy..."

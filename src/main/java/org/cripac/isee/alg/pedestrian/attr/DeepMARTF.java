@@ -18,7 +18,6 @@
  */
 package org.cripac.isee.alg.pedestrian.attr;
 
-import org.apache.commons.io.IOUtils;
 import org.cripac.isee.alg.Tensorflow;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.util.logging.Logger;
@@ -29,6 +28,8 @@ import javax.annotation.Nullable;
 import java.io.*;
 import java.nio.FloatBuffer;
 import java.util.Collection;
+
+import static org.cripac.isee.util.ResourceManager.getResource;
 
 public class DeepMARTF extends Tensorflow implements DeepMAR {
     /**
@@ -43,41 +44,11 @@ public class DeepMARTF extends Tensorflow implements DeepMAR {
     }
 
     private static File getDefaultSessionConfig() throws IOException {
-        // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMARCaffeBytedeco.class.getResourceAsStream("/models/DeepMARTF/tf_session_config.pb");
-        if (in == null) {
-            throw new FileNotFoundException("Cannot find default Tensorflow session configuration in the JAR package.");
-        }
-
-        try {
-            File tempFile = File.createTempFile("tf_session_config", ".pb");
-            tempFile.deleteOnExit();
-            try (OutputStream out = new FileOutputStream(tempFile)) {
-                IOUtils.copy(in, out);
-                return tempFile;
-            }
-        } finally {
-            in.close();
-        }
+        return getResource("/models/DeepMARTF/tf_session_config.pb");
     }
 
     private static File getDefaultProtobuf() throws IOException {
-        // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMARCaffeBytedeco.class.getResourceAsStream("/models/DeepMARTF/DeepMAR_frozen.pb");
-        if (in == null) {
-            throw new FileNotFoundException("Cannot find default Tensorflow frozen protobuf in the JAR package.");
-        }
-
-        try {
-            File tempFile = File.createTempFile("DeepMAR_frozen", ".pb");
-            tempFile.deleteOnExit();
-            try (OutputStream out = new FileOutputStream(tempFile)) {
-                IOUtils.copy(in, out);
-                return tempFile;
-            }
-        } finally {
-            in.close();
-        }
+        return getResource("/models/DeepMARTF/DeepMAR_frozen.pb");
     }
 
     /**
@@ -107,7 +78,7 @@ public class DeepMARTF extends Tensorflow implements DeepMAR {
     public Attributes recognize(@Nonnull Tracklet tracklet) {
         Collection<Tracklet.BoundingBox> samples = tracklet.getSamples();
         assert samples.size() >= 1;
-        //noinspection OptionalGetWithoutIsPresent
+        //noinspection OptionalGetWithoutIsPresent,ConstantConditions
         return Attributes.div(
                 samples.stream().map(this::recognize).reduce(Attributes::add).get(),
                 samples.size());

@@ -43,15 +43,14 @@ import static org.bytedeco.javacpp.avutil.av_log_set_level;
 public class BasicTracker implements Tracker {
 
     static {
+        org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(DeepMARCaffe.class);
         try {
-            org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(DeepMARCaffe.class);
             logger.info("Loading native libraries for BasicTracker from "
                     + System.getProperty("java.library.path"));
-            System.loadLibrary("basic_pedestrian_tracker_jni");
+            System.loadLibrary("jnibasic_pedestrian_tracker");
             logger.info("Native libraries for BasicTracker successfully loaded!");
         } catch (Throwable t) {
-            org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(DeepMARCaffe.class);
-            logger.error("Failure during static initilaization", t);
+            logger.error("Failed to load native library for BasicTracker", t);
             throw t;
         }
     }

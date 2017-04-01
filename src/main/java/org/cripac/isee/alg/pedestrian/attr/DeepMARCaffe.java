@@ -18,50 +18,21 @@
  */
 package org.cripac.isee.alg.pedestrian.attr;
 
-import org.apache.commons.io.IOUtils;
-
 import javax.annotation.Nonnull;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+
+import static org.cripac.isee.util.ResourceManager.getResource;
 
 public interface DeepMARCaffe extends DeepMAR {
 
     @Nonnull
     static File getDefaultProtobuf() throws IOException {
-        // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMARCaffe.class.getResourceAsStream("/models/DeepMARCaffe/DeepMAR.prototxt");
-        if (in == null) {
-            throw new FileNotFoundException("Cannot find default Caffe protocol buffer in the JAR package.");
-        }
-
-        try {
-            File tempFile = File.createTempFile("DeepMAR", ".prototxt");
-            tempFile.deleteOnExit();
-            try (OutputStream out = new FileOutputStream(tempFile)) {
-                IOUtils.copy(in, out);
-                return tempFile;
-            }
-        } finally {
-            in.close();
-        }
+        return getResource("/models/DeepMARCaffe/DeepMAR.prototxt");
     }
 
     @Nonnull
     static File getDefaultModel() throws IOException {
-        // Retrieve the file from JAR and store to temporary files.
-        InputStream in = DeepMARCaffe.class.getResourceAsStream("/models/DeepMARCaffe/DeepMAR.caffemodel");
-        if (in == null) {
-            throw new FileNotFoundException("Cannot find default Caffe model in the JAR package.");
-        }
-
-        try {
-            File tempFile = File.createTempFile("DeepMAR", ".caffemodel");
-            tempFile.deleteOnExit();
-            try (OutputStream out = new FileOutputStream(tempFile)) {
-                IOUtils.copy(in, out);
-                return tempFile;
-            }
-        } finally {
-            in.close();
-        }
+        return getResource("/models/DeepMARCaffe/DeepMAR.caffemodel");
     }
 }

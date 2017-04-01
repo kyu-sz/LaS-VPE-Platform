@@ -184,7 +184,8 @@ public class SystemPropertyCenter implements Serializable {
                 logger.debug("\t\t" + app);
             }
         } else {
-            throw new IllegalArgumentException("No application specified to run.");
+            logger.warn("No application specified to run!");
+            appsToStart = new String[0];
         }
 
         if (commandLine.hasOption("system-property-file")) {

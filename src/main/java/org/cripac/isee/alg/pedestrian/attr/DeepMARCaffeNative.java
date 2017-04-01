@@ -33,15 +33,14 @@ import java.util.Collection;
 
 public class DeepMARCaffeNative implements DeepMARCaffe {
     static {
+        Logger logger = Logger.getLogger(DeepMARCaffe.class);
         try {
-            Logger logger = Logger.getLogger(DeepMARCaffe.class);
             logger.info("Loading native libraries for DeepMARCaffeNative from "
                     + System.getProperty("java.library.path"));
-            System.loadLibrary("DeepMAR_caffe_jni");
+            System.loadLibrary("jniDeepMARCaffe");
             logger.info("Native libraries for DeepMARCaffeNative successfully loaded!");
         } catch (Throwable t) {
-            Logger logger = Logger.getLogger(DeepMARCaffe.class);
-            logger.error("Failure during static initilaization", t);
+            logger.error("Failed to load native library for DeepMARCaffeNative", t);
             throw t;
         }
     }

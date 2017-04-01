@@ -2,8 +2,7 @@
 
 PROJECT_PATH=$(cd `dirname "${BASH_SOURCE[0]}"`/../..; pwd)
 NATIVE_SRC=${PROJECT_PATH}/src/native
-mkdir -p ${PROJECT_PATH}/lib/linux
-mkdir -p ${PROJECT_PATH}/lib/windows
+mkdir -p ${PROJECT_PATH}/lib/x64
 
 ##################################################
 cd ${NATIVE_SRC}/DeepMAR_deploy
@@ -18,13 +17,12 @@ then
   exit $?
 fi
 ##################################################
-make clean
 make -j 16
 if [ $? -ne 0 ]
 then
   exit $?
 fi
 ##################################################
-cp -Rpu lib/libDeepMAR.so ${PROJECT_PATH}/lib/linux || :
-cp -Rpu lib/jni/libDeepMAR_caffe_jni.so ${PROJECT_PATH}/lib/linux || :
+cp -Rpu lib/libDeepMARCaffe.so ${PROJECT_PATH}/lib/x64 || :
+cp -Rpu lib/jni/libjniDeepMARCaffe.so ${PROJECT_PATH}/lib/x64 || :
 ##################################################

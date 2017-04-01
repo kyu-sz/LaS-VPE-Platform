@@ -13,5 +13,5 @@ do
     #ssh ${SLAVE}  "rm -r /tmp/lib" 2 >> /dev/null
     #scp -r lib/linux ${SLAVE}:/tmp/lib
     #ssh ${SLAVE} "sudo mv /tmp/lib/* /usr/local/lib/ && rm -r /tmp/lib"
-    scp -r ./lib/linux/*.so ${USER}@${SLAVE}:${SLAVE_HADOOP_HOME}/lib/native
+    scp -r ./lib/x64/*.so* ${USER}@${SLAVE}:${SLAVE_HADOOP_HOME}/lib/native
 done
