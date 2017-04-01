@@ -153,8 +153,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.12.4</version>
+                <version>2.19.1</version>
                 <configuration>
+                    <forkCount>4</forkCount>
+                    <reuseFork>true</reuseFork>
                     <argLine>-Djava.library.path=${project.basedir}/lib/x64</argLine>
                 </configuration>
             </plugin>
