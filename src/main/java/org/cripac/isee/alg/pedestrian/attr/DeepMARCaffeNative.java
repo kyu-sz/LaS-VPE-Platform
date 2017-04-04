@@ -56,8 +56,8 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
      * @return pointer to the allocated native network.
      */
     private native long initialize(int gpu,
-                                   @Nonnull byte[] pbPath,
-                                   @Nonnull byte[] modelPath);
+                                   @Nonnull String pbPath,
+                                   @Nonnull String modelPath);
 
     private native void free(long p);
 
@@ -69,28 +69,6 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
     protected void finalize() throws Throwable {
         free(net);
         super.finalize();
-    }
-
-    /**
-     * Convert a UTF-16 character array (Java default) to ASCII character array.
-     * The new character array has exactly the same length.
-     * Characters not recognizable in ASCII are represented by '?'.
-     *
-     * @param str a UTF-16 character array.
-     * @return an ASCII character array.
-     */
-    @Nonnull
-    private byte[] toASCII(@Nonnull char[] str) throws CharacterCodingException {
-        byte[] ascii = new byte[str.length + 1];
-        for (int i = 0; i < str.length; ++i) {
-            char ch = str[i];
-            if (ch > 0xFF) {
-                throw new CharacterCodingException();
-            }
-            ascii[i] = (byte) ch;
-        }
-        ascii[str.length] = '\0';
-        return ascii;
     }
 
     /**
@@ -122,9 +100,7 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
         if (!model.canRead()) {
             throw new AccessDeniedException("Cannot read " + model.getPath());
         }
-        net = initialize(gpu,
-                toASCII(pb.getPath().toCharArray()),
-                toASCII(model.getPath().toCharArray()));
+        net = initialize(gpu, pb.getPath(), model.getPath());
         this.logger.debug("DeepMARCaffeNative initialized!");
     }
 

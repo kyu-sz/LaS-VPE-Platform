@@ -46,8 +46,10 @@ public class ResourceManager {
         int lastSlash = path.replace('\\', '/').lastIndexOf('/');
         String filename = path.substring(lastSlash + 1);
 
+        File defaultTmpDir = new File("/tmp");
         try {
-            File tempFile = File.createTempFile(filename, null);
+            File tempFile = File.createTempFile(filename, null,
+                    defaultTmpDir.canWrite() ? defaultTmpDir : null);
             tempFile.deleteOnExit();
             try (OutputStream out = new FileOutputStream(tempFile)) {
                 IOUtils.copy(in, out);
