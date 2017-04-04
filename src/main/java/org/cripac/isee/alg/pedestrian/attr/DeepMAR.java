@@ -30,9 +30,25 @@ public interface DeepMAR extends Recognizer {
     float MEAN_PIXEL = 128;
     float REG_COEFF = 1.0f / 256;
 
-    FloatPointer pMean32f = new FloatPointer(MEAN_PIXEL);
-    FloatPointer pRegCoeff = new FloatPointer(REG_COEFF);
-    DoublePointer pScale = new DoublePointer(1.);
+    class PointerManager {
+        static {
+            Loader.load(opencv_core.class);
+            Loader.load(caffe.class);
+        }
+
+        FloatPointer pMean32f = new FloatPointer(MEAN_PIXEL);
+        FloatPointer pRegCoeff = new FloatPointer(REG_COEFF);
+        DoublePointer pScale = new DoublePointer(1.);
+
+        @Override
+        protected void finalize() throws Throwable {
+            pMean32f.deallocate();
+            pRegCoeff.deallocate();
+            pScale.deallocate();
+            super.finalize();
+        }
+    }
+    PointerManager POINTERS = new PointerManager();
 
     int INPUT_WIDTH = 227;
     int INPUT_HEIGHT = 227;
@@ -46,25 +62,25 @@ public interface DeepMAR extends Recognizer {
         // Regularize pixel values.
         final int numPixelPerChannel = image.rows() * image.cols();
         final int numPixels = numPixelPerChannel * 3;
-        final FloatPointer floatDataPointer = new FloatPointer(image.data());
+        final FloatPointer imgData = new FloatPointer(image.data());
 
 //        float[] origin = new float[numPixels];
-//        floatDataPointer.get(origin);
+//        imgData.get(origin);
 //        for (int i = 0; i < numPixels; ++i) {
 //            origin[i] = (origin[i] - 128) / 256;
 //        }
-//        floatDataPointer.put(origin);
+//        imgData.put(origin);
         // Subtract mean pixel.
-        sub32f(floatDataPointer, // Pointer to minuends
+        sub32f(imgData, // Pointer to minuends
                 4, // Bytes per step (4 bytes for float)
-                pMean32f, // Pointer to subtrahend
+                POINTERS.pMean32f, // Pointer to subtrahend
                 0, // Bytes per step (using the value 128 circularly)
-                floatDataPointer, // Pointer to result buffer.
+                imgData, // Pointer to result buffer.
                 4, // Bytes per step (4 bytes for float)
                 1, numPixels, // Data dimensions.
                 null);
         // Regularize to -0.5 to 0.5. The additional scaling is disabled (set to 1).
-        mul32f(floatDataPointer, 4, pRegCoeff, 0, floatDataPointer, 4, 1, numPixels, pScale);
+        mul32f(imgData, 4, POINTERS.pRegCoeff, 0, imgData, 4, 1, numPixels, POINTERS.pScale);
 
         //Slice into channels.
         MatVector bgr = new MatVector(3);
@@ -76,7 +92,7 @@ public interface DeepMAR extends Recognizer {
             fp.get(pixelFloats, i * numPixelPerChannel, numPixelPerChannel);
             fp.deallocate();
         }
-        floatDataPointer.deallocate();
+        imgData.deallocate();
         image.deallocate();
 
         return pixelFloats;

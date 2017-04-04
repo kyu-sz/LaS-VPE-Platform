@@ -269,10 +269,9 @@ public class DataManagingApp extends SparkStreamingApp {
 
                         final long start = System.currentTimeMillis();
                         logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
-                        taskMap.entrySet().forEach(rec -> {
+                        taskMap.forEach((taskID, value) -> {
                             try {
-                                final String taskID = rec.getKey();
-                                final Tuple2<String, Integer> info = SerializationHelper.deserialize(rec.getValue());
+                                final Tuple2<String, Integer> info = SerializationHelper.deserialize(value);
                                 final String videoID = info._1();
                                 final int numTracklets = info._2();
                                 final String videoRoot = metadataDir + "/" + videoID;
