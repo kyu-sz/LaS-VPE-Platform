@@ -100,7 +100,7 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
         if (!model.canRead()) {
             throw new AccessDeniedException("Cannot read " + model.getPath());
         }
-        net = initialize(gpu, pb.getPath(), model.getPath());
+        net = initialize(gpu, pb.getPath().concat("\0"), model.getPath().concat("\0"));
         this.logger.debug("DeepMARCaffeNative initialized!");
     }
 
