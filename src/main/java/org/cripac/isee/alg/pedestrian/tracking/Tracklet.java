@@ -259,7 +259,7 @@ public class Tracklet implements Serializable, Cloneable {
          */
         public opencv_core.Mat getImage() {
             opencv_core.Mat image = new opencv_core.Mat(height, width, CV_8UC3);
-            image.data(new BytePointer(patchData));
+            image.data().put(patchData);
             return image;
         }
     }

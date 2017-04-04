@@ -28,8 +28,6 @@ import java.io.IOException;
 import java.nio.charset.CharacterCodingException;
 import java.nio.file.AccessDeniedException;
 import java.util.Collection;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class DeepMARCaffeNative implements DeepMARCaffe {
     static {
@@ -162,9 +160,7 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
 
     @Nonnull
     public synchronized Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
-        logger.debug("Recognizing...");
         recognize(net, DeepMAR.preprocess(bbox), outputBuf);
-        logger.debug("Recognition finished!");
         return DeepMAR.fillAttributes(outputBuf);
     }
 }

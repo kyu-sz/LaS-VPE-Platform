@@ -33,10 +33,7 @@ public interface DeepMAR extends Recognizer {
 
     class PointerManager {
         static {
-            Logger.getLogger(DeepMAR.class).info("Loading Bytedeco classes.");
             Loader.load(opencv_core.class);
-            Loader.load(caffe.class);
-            Logger.getLogger(DeepMAR.class).info("Bytedeco classes loaded.");
         }
 
         FloatPointer pMean32f;
