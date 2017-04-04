@@ -19,6 +19,7 @@
 package org.cripac.isee.alg.pedestrian.attr;
 
 import com.google.gson.Gson;
+import org.apache.log4j.Logger;
 import org.bytedeco.javacpp.*;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
@@ -32,6 +33,7 @@ public interface DeepMAR extends Recognizer {
 
     class PointerManager {
         static {
+            Logger.getLogger(DeepMAR.class).debug("Creating pointers.");
             Loader.load(opencv_core.class);
             Loader.load(caffe.class);
         }

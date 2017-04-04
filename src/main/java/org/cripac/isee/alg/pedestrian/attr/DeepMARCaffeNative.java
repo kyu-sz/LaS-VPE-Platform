@@ -80,7 +80,7 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
      * @return an ASCII character array.
      */
     private byte[] toASCII(char[] str) throws CharacterCodingException {
-        byte[] ascii = new byte[str.length];
+        byte[] ascii = new byte[str.length + 1];
         for (int i = 0; i < str.length; ++i) {
             char ch = str[i];
             if (ch > 0xFF) {
@@ -88,6 +88,7 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
             }
             ascii[i] = (byte) ch;
         }
+        ascii[str.length] = '\0';
         return ascii;
     }
 
