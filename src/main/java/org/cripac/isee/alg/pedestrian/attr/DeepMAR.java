@@ -41,11 +41,9 @@ public interface DeepMAR extends Recognizer {
         DoublePointer pScale;
 
         PointerManager() {
-            Logger.getLogger(DeepMAR.class).info("Creating pointers.");
             pMean32f = new FloatPointer(MEAN_PIXEL);
             pRegCoeff = new FloatPointer(REG_COEFF);
             pScale = new DoublePointer(1.);
-            Logger.getLogger(DeepMAR.class).info("Pointers created.");
         }
 
         @Override

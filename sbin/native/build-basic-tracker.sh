@@ -11,7 +11,9 @@ then
   exit $?
 fi
 ##################################################
-cmake .
+mkdir -p Release
+cd Release
+cmake -DCMAKE_BUILD_TYPE=Release ..
 if [ $? -ne 0 ]
 then
   exit $?
@@ -23,6 +25,6 @@ then
   exit $?
 fi
 ##################################################
-cp -Rpu lib/libbasic_pedestrian_tracker.so ${PROJECT_PATH}/lib/x64 || :
+cp -Rpu ../lib/libbasic_pedestrian_tracker.so ${PROJECT_PATH}/lib/x64 || :
 cp -Rpu lib/jni/libjnibasic_pedestrian_tracker.so ${PROJECT_PATH}/lib/x64 || :
 ##################################################

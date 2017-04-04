@@ -11,7 +11,9 @@ then
   exit $?
 fi
 ##################################################
-cmake .
+mkdir -p Release
+cd Release
+cmake -DCMAKE_BUILD_TYPE=Release ..
 if [ $? -ne 0 ]
 then
   exit $?
