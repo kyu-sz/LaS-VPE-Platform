@@ -33,14 +33,23 @@ public interface DeepMAR extends Recognizer {
 
     class PointerManager {
         static {
-            Logger.getLogger(DeepMAR.class).debug("Creating pointers.");
+            Logger.getLogger(DeepMAR.class).info("Loading Bytedeco classes.");
             Loader.load(opencv_core.class);
             Loader.load(caffe.class);
+            Logger.getLogger(DeepMAR.class).info("Bytedeco classes loaded.");
         }
 
-        FloatPointer pMean32f = new FloatPointer(MEAN_PIXEL);
-        FloatPointer pRegCoeff = new FloatPointer(REG_COEFF);
-        DoublePointer pScale = new DoublePointer(1.);
+        FloatPointer pMean32f;
+        FloatPointer pRegCoeff;
+        DoublePointer pScale;
+
+        PointerManager() {
+            Logger.getLogger(DeepMAR.class).info("Creating pointers.");
+            pMean32f = new FloatPointer(MEAN_PIXEL);
+            pRegCoeff = new FloatPointer(REG_COEFF);
+            pScale = new DoublePointer(1.);
+            Logger.getLogger(DeepMAR.class).info("Pointers created.");
+        }
 
         @Override
         protected void finalize() throws Throwable {

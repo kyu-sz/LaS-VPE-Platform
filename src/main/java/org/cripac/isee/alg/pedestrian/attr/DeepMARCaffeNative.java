@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.nio.charset.CharacterCodingException;
 import java.nio.file.AccessDeniedException;
 import java.util.Collection;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class DeepMARCaffeNative implements DeepMARCaffe {
     static {
@@ -45,7 +47,7 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
 
     private long net;
     private final float[] outputBuf = new float[1024];
-    private org.cripac.isee.vpe.util.logging.Logger logger;
+    private Logger logger;
 
     /**
      * Initialize the native DeepMAR network.
@@ -79,7 +81,8 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
      * @param str a UTF-16 character array.
      * @return an ASCII character array.
      */
-    private byte[] toASCII(char[] str) throws CharacterCodingException {
+    @Nonnull
+    private byte[] toASCII(@Nonnull char[] str) throws CharacterCodingException {
         byte[] ascii = new byte[str.length + 1];
         for (int i = 0; i < str.length; ++i) {
             char ch = str[i];
@@ -159,7 +162,9 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
 
     @Nonnull
     public synchronized Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
+        logger.debug("Recognizing...");
         recognize(net, DeepMAR.preprocess(bbox), outputBuf);
+        logger.debug("Recognition finished!");
         return DeepMAR.fillAttributes(outputBuf);
     }
 }

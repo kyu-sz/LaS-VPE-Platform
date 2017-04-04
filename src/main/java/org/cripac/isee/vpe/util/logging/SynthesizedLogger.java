@@ -91,7 +91,7 @@ public class SynthesizedLogger extends Logger {
         this.reportTopic = username + "_report";
 
         PropertyConfigurator.configure("log4j.properties");
-        log4jLogger = LogManager.getRootLogger();
+        log4jLogger = LogManager.getLogger(username);
         log4jLogger.setLevel(level);
 
         consoleLogger = new ConsoleLogger(this.level);

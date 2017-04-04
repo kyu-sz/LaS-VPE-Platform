@@ -51,8 +51,8 @@ public class Singleton<T> implements Serializable {
     /**
      * Create a singleton manager of specified class T.
      *
-     * @param objFactory       Factory to create new instance of class T when instance of it
-     *                         does not exist.
+     * @param objFactory Factory to create new instance of class T when instance of it
+     *                   does not exist.
      * @throws Exception On failure creating a new instance.
      */
     public <U extends T> Singleton(Factory<U> objFactory, Class<U> type) throws Exception {
