@@ -52,7 +52,7 @@ public class RecognizerTest {
 
     @Before
     public void setUp() throws ParserConfigurationException, IOException, SAXException, URISyntaxException {
-        PropertyConfigurator.configure(ResourceManager.getResource("/conf/log4j_local.properties").getPath());
+        PropertyConfigurator.configure("conf/log4j_local.properties");
 
         testImage = "src/test/resources/" +
                 "CAM01_2014-02-15_20140215161032-20140215162620_tarid0_frame218_line1.png";
