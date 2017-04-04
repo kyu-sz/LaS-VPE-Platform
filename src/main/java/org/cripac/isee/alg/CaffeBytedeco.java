@@ -47,7 +47,7 @@ public class CaffeBytedeco {
         }
         logger.info("Loading CaffeBytedeco protocol from " + protobuf.getAbsolutePath()
                 + " (" + (protobuf.length() / 1024) + "kb)");
-        net = new caffe.FloatNet(protobuf.getAbsolutePath().concat("\0"), TEST);
+        net = new caffe.FloatNet(protobuf.getAbsolutePath(), TEST);
 
         if (!model.exists()) {
             throw new FileNotFoundException("Cannot find CaffeBytedeco model from " + model.getAbsolutePath());
@@ -56,7 +56,7 @@ public class CaffeBytedeco {
             throw new AccessDeniedException("Cannot read CaffeBytedeco model from " + model.getAbsolutePath());
         }
         logger.info("Loading CaffeBytedeco model from " + model.getAbsolutePath() + " (" + (model.length() / 1024) + "kb)");
-        net.CopyTrainedLayersFrom(model.getAbsolutePath().concat("\0"));
+        net.CopyTrainedLayersFrom(model.getAbsolutePath());
 
         this.logger.debug("CaffeBytedeco initialized!");
     }

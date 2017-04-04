@@ -69,8 +69,8 @@ public final class DeepMARCaffeBytedeco extends CaffeBytedeco implements DeepMAR
     /**
      * Recognize attributes from a pedestrian tracklet.
      *
-     * @param tracklet tracklet of the pedestrian.
-     * @return the attributes of the pedestrian recognized from the tracklet.
+     * @param tracklet a pedestrian tracklet.
+     * @return attributes of the pedestrian specified by the tracklet.
      */
     @Nonnull
     @Override
@@ -83,6 +83,12 @@ public final class DeepMARCaffeBytedeco extends CaffeBytedeco implements DeepMAR
                 samples.size());
     }
 
+    /**
+     * Recognize attributes from a pedestrian bounding box.
+     *
+     * @param bbox a pedestrian bounding box with patch data.
+     * @return attributes of the pedestrian specified by the tracklet.
+     */
     @Nonnull
     public Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
         float[] pixelFloats = DeepMAR.preprocess(bbox);

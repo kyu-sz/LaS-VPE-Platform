@@ -118,12 +118,11 @@ public class ExternRecognizer implements Recognizer {
         }
     }
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Recognize attributes from a pedestrian tracklet.
      *
-     * @see
-     * Recognizer#recognize(
-     * Tracklet)
+     * @param tracklet a pedestrian tracklet.
+     * @return attributes of the pedestrian specified by the tracklet.
      */
     @Override
     public

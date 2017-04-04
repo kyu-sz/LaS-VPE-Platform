@@ -100,7 +100,7 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
         if (!model.canRead()) {
             throw new AccessDeniedException("Cannot read " + model.getPath());
         }
-        net = initialize(gpu, pb.getPath().concat("\0"), model.getPath().concat("\0"));
+        net = initialize(gpu, pb.getPath(), model.getPath());
         this.logger.debug("DeepMARCaffeNative initialized!");
     }
 
@@ -115,10 +115,10 @@ public class DeepMARCaffeNative implements DeepMARCaffe {
     }
 
     /**
-     * Recognize attributes from a track of pedestrian.
+     * Recognize attributes from a pedestrian tracklet.
      *
-     * @param tracklet A pedestrian track.
-     * @return The attributes of the pedestrian specified by the track.
+     * @param tracklet a pedestrian tracklet.
+     * @return attributes of the pedestrian specified by the tracklet.
      */
     @Nonnull
     @Override

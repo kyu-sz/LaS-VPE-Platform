@@ -31,10 +31,10 @@ import javax.annotation.Nonnull;
 public interface Recognizer {
 
     /**
-     * Recognize attributes from a track of pedestrian.
+     * Recognize attributes from a pedestrian tracklet.
      *
-     * @param tracklet A pedestrian track.
-     * @return The attributes of the pedestrian specified by the track.
+     * @param tracklet a pedestrian tracklet.
+     * @return attributes of the pedestrian specified by the tracklet.
      */
     @Nonnull
     Attributes recognize(@Nonnull Tracklet tracklet);
