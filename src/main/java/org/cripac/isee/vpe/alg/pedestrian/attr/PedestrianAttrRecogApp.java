@@ -160,21 +160,21 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     loggerSingleton.getInst()),
                             ExternRecognizer.class);
                     break;
-                case DeepMARCaffeBytedeco:
-                    recognizerSingleton = new Singleton<>(
-                            () -> new DeepMARCaffeBytedeco(propCenter.caffeGPU, loggerSingleton.getInst()),
-                            DeepMARCaffeBytedeco.class);
-                    break;
+//                case DeepMARCaffeBytedeco:
+//                    recognizerSingleton = new Singleton<>(
+//                            () -> new DeepMARCaffeBytedeco(propCenter.caffeGPU, loggerSingleton.getInst()),
+//                            DeepMARCaffeBytedeco.class);
+//                    break;
+//                case DeepMARTensorflow:
+//                    recognizerSingleton = new Singleton<>(
+//                            () -> new DeepMARTF("", loggerSingleton.getInst()),
+//                            DeepMARTF.class);
+//                    break;
                 case DeepMARCaffeNative:
                     recognizerSingleton = new Singleton<>(
                             () -> new DeepMARCaffeNative(propCenter.caffeGPU, loggerSingleton.getInst()),
                             DeepMARCaffeNative.class
                     );
-                    break;
-                case DeepMARTensorflow:
-                    recognizerSingleton = new Singleton<>(
-                            () -> new DeepMARTF("", loggerSingleton.getInst()),
-                            DeepMARTF.class);
                     break;
                 case Fake:
                     recognizerSingleton = new Singleton<>(
