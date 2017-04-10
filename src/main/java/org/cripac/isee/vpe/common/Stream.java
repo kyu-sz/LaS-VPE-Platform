@@ -1,4 +1,4 @@
-package org.cripac.isee.vpe.common;/*
+/*
  * This file is part of LaS-VPE Platform.
  *
  * LaS-VPE Platform is free software: you can redistribute it and/or modify
@@ -14,6 +14,7 @@ package org.cripac.isee.vpe.common;/*
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  */
+package org.cripac.isee.vpe.common;
 
 import kafka.common.FailedToSendMessageException;
 import kafka.common.MessageSizeTooLargeException;
@@ -41,6 +42,7 @@ import java.util.*;
 public abstract class Stream implements Serializable {
     private static final long serialVersionUID = 7965952554107861881L;
     private final Singleton<ByteArrayProducer> producerSingleton;
+    private final boolean verbose;
 
     protected void
     output(Collection<TaskData.ExecutionPlan.Node.Port> outputPorts,
@@ -48,11 +50,20 @@ public abstract class Stream implements Serializable {
            Serializable result,
            UUID taskID) throws Exception {
         new RobustExecutor<Void, Void>(
-                () -> KafkaHelper.sendWithLog(taskID.toString(),
-                        new TaskData(outputPorts, executionPlan, result),
-                        producerSingleton.getInst(),
-                        loggerSingleton.getInst()),
-                Arrays.asList(MessageSizeTooLargeException.class,
+                () -> {
+                    if (verbose) {
+                        KafkaHelper.sendWithLog(taskID.toString(),
+                                new TaskData(outputPorts, executionPlan, result),
+                                producerSingleton.getInst(),
+                                loggerSingleton.getInst());
+                    } else {
+                        KafkaHelper.send(taskID.toString(),
+                                new TaskData(outputPorts, executionPlan, result),
+                                producerSingleton.getInst());
+                    }
+                },
+                Arrays.asList(
+                        MessageSizeTooLargeException.class,
                         KafkaException.class,
                         FailedToSendMessageException.class)
         ).execute();
@@ -74,6 +85,8 @@ public abstract class Stream implements Serializable {
      * @throws Exception On failure creating singleton.
      */
     public Stream(String appName, SystemPropertyCenter propCenter) throws Exception {
+        this.verbose = propCenter.verbose;
+
         this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter), SynthesizedLogger.class);
 
         Properties producerProp = propCenter.getKafkaProducerProp(false);

@@ -54,15 +54,19 @@ LaS-VPE Platform is released under the GPL License.
 3. Deploy Kafka(>=0.10.2.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2)
 properly on your cluster.
 
-    * Configure the "max.request.size" to a large number, e.g. 157286400 before
-      starting the Kafka cluster, so as to enable large message transferring through
-      Kafka. This should be configured in "server.properties".
-
     * To enable multi-appications running concurrently, see
       [Job-Scheduling](https://spark.apache.org/docs/1.2.0/job-scheduling.html)
       and configure your environment.
+      
+    * Disable virtual memory checking of YARN in "yarn-site.xml" to enable GPU applications:
+      ```xml
+      <property>
+        <name>yarn.nodemanager.vmem-check-enabled</name>
+        <value>false</value>
+      </property>
+      ```
 
-4. If you choose to run algorithms based on Caffe locally, no matter the
+4. If you choose to run algorithms based on Caffe, no matter the
  algorithms use CPU-only or GPUs, you must have CUDA 8.0 installed on every
  node in your cluster.
 
