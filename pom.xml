@@ -156,7 +156,7 @@
                 <version>2.19.1</version>
                 <configuration>
                     <forkCount>4</forkCount>
-                    <reuseFork>true</reuseFork>
+                    <!--<reuseFork>true</reuseFork>-->
                     <argLine>-Djava.library.path=${project.basedir}/lib/x64</argLine>
                 </configuration>
             </plugin>
