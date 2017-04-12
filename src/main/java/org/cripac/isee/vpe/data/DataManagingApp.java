@@ -39,6 +39,8 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
+import org.cripac.isee.vpe.data.GraphDatabaseConnector;
+import org.cripac.isee.vpe.data.Neo4jConnector;
 import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
@@ -240,7 +242,8 @@ public class DataManagingApp extends SparkStreamingApp {
             metadataDir = propCenter.metadataDir;
             logger = new SynthesizedLogger(APP_NAME, propCenter);
             this.running = running;
-            databaseConnector = new FakeDatabaseConnector();
+            // databaseConnector = new FakeDatabaseConnector();
+            databaseConnector = new Neo4jConnector();
         }
 
         @Override

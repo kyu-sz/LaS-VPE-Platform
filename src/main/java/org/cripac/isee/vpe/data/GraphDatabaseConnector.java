@@ -90,6 +90,15 @@ public abstract class GraphDatabaseConnector {
     public abstract Attributes getPedestrianAttributes(@Nonnull String id) throws NoSuchElementException;
 
     /**
+     * Get relations: (nodA)-[SIMILARITY]-(nodeB)
+     * 
+     * @param  id The id of the pedestrian.
+     * @return The relations related to the input pedestrian.
+     * @throws NoSuchElementException On failure finding the pedestrian.
+     */
+    public abstract Link[] getLinkedPedestrians(@Nonnull String id) throws NoSuchElementException;
+
+    /**
      * The class Link represents a link from one node to another in the graph
      * database.
      *

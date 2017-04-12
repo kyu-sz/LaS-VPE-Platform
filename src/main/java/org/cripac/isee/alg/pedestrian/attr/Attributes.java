@@ -316,7 +316,7 @@ public class Attributes implements Serializable {
     public float accessoryShoulderBag;
 
     @SerializedName("accessory_handbag")
-    public float accessoryHandbag;
+    public float accessoryHandBag;
 
     @SerializedName("accessory_waistbag")
     public float accessoryWaistBag;
