@@ -141,12 +141,12 @@ public class SynthesizedLogger extends Logger {
             String richMsg = "[DEBUG]\t" + wrapMsg(message) + ": " + t;
             send(richMsg);
 
-            String stackTraceMsg = "";
+            StringBuilder stackTraceMsg = new StringBuilder();
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
+                stackTraceMsg.append("\t").append(element.toString()).append("\n");
             }
-            send(stackTraceMsg);
+            send(stackTraceMsg.toString());
         }
     }
 
