@@ -37,12 +37,12 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * (non-Javadoc)
      *
      * @see
-     * GraphDatabaseConnector#setTrackSavingPath(
+     * GraphDatabaseConnector#setTrackletSavingPath(
      * java.lang.String, java.lang.String)
      */
     @Override
-    public void setTrackSavingPath(@Nonnull String id,
-                                   @Nonnull String path) {
+    public void setTrackletSavingPath(@Nonnull String nodeID,
+                                      @Nonnull String path) {
     }
 
     /*
@@ -53,8 +53,8 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * java.lang.String, java.lang.String)
      */
     @Override
-    public String getTrackletSavingDir(@Nonnull String videoID) throws NoSuchElementException {
-        return "har:///user/labadmin/metadata/" + videoID;
+    public String getTrackletSavingDir(@Nonnull String nodeID) throws NoSuchElementException {
+        return "har:///user/labadmin/metadata/" + nodeID;
     }
 
     /*
@@ -88,7 +88,7 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * Attributes)
      */
     @Override
-    public void setPedestrianAttributes(@Nonnull String id,
+    public void setPedestrianAttributes(@Nonnull String nodeID,
                                         @Nonnull Attributes attr) {
     }
 
@@ -99,12 +99,12 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * getPedestrianAttributes(java.lang.String)
      */
     @Override
-    public Attributes getPedestrianAttributes(@Nonnull String id) throws NoSuchElementException {
+    public Attributes getPedestrianAttributes(@Nonnull String nodeID) throws NoSuchElementException {
         return new Attributes();
     }
 
     @Override
-    public Link[] getLinkedPedestrians(@Nonnull String id) throws NoSuchElementException {
+    public Link[] getLinkedPedestrians(@Nonnull String nodeID) throws NoSuchElementException {
         return null;
     }
 }

@@ -28,6 +28,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.api.java.function.Function0;
+import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
@@ -229,7 +230,7 @@ public class DataManagingApp extends SparkStreamingApp {
         final String metadataDir;
         final Logger logger;
         private final AtomicReference<Boolean> running;
-        final GraphDatabaseConnector databaseConnector;
+        final GraphDatabaseConnector dbConnector;
         private final static int MAX_POLL_INTERVAL_MS = 300000;
         private int maxPollRecords = 500;
 
@@ -240,8 +241,8 @@ public class DataManagingApp extends SparkStreamingApp {
             metadataDir = propCenter.metadataDir;
             logger = new SynthesizedLogger(APP_NAME, propCenter);
             this.running = running;
-            // databaseConnector = new FakeDatabaseConnector();
-            databaseConnector = new Neo4jConnector();
+            // dbConnector = new FakeDatabaseConnector();
+            dbConnector = new Neo4jConnector();
         }
 
         @Override
@@ -271,8 +272,9 @@ public class DataManagingApp extends SparkStreamingApp {
                         taskMap.entrySet().forEach(rec -> {
                             try {
                                 final String taskID = rec.getKey();
-                                final Tuple2<String, Integer> info = SerializationHelper.deserialize(rec.getValue());
-                                final String videoID = info._1();
+                                final Tuple2<Tracklet.Identifier, Integer> info = SerializationHelper.deserialize(rec.getValue());
+                                final Tracklet.Identifier trackletID = info._1();
+                                final String videoID = trackletID.videoID;
                                 final int numTracklets = info._2();
                                 final String videoRoot = metadataDir + "/" + videoID;
                                 final String taskRoot = videoRoot + "/" + taskID;
@@ -327,10 +329,14 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                     logger.info("Task " + taskID + "(" + videoID + ") packed!");
 
-                                    new RobustExecutor<Void, Void>(() ->
-                                            databaseConnector.setTrackSavingPath(videoID,
-                                                    videoRoot + "/" + taskID + ".har")
-                                    ).execute();
+                                    // Set the HAR path to all the tracklets from this video.
+                                    for (int i = 0; i < numTracklets; ++i) {
+                                        new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx -> {
+                                            dbConnector.setTrackletSavingPath(
+                                                    new Tracklet.Identifier(videoID, idx).toString(),
+                                                    videoRoot + "/" + taskID + ".har/" + idx);
+                                        }).execute(i);
+                                    }
 
                                     // Delete the original folder recursively.
                                     new RobustExecutor<Void, Void>(() ->
@@ -431,7 +437,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                     new RobustExecutor<Void, Void>(() ->
                                             KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
                                                     taskID.toString(),
-                                                    serialize(new Tuple2<>(tracklet.id.videoID, numTracklets)),
+                                                    serialize(new Tuple2<>(tracklet.id, numTracklets)),
                                                     packingJobProducerSingleton.getInst(),
                                                     logger)
                                     ).execute();

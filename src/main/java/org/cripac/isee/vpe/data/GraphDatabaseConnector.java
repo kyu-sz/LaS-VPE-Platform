@@ -23,37 +23,37 @@ import javax.annotation.Nonnull;
 import java.util.NoSuchElementException;
 
 /**
- * The class GraphDatabaseConnector is the base class for connector to graph
- * databases.
+ * The class GraphDatabaseConnector is the base class of graph databases connectors.
+ * Each node in the graph database is a pedestrian.
  *
  * @author Ken Yu, CRIPAC, 2016
  */
 public abstract class GraphDatabaseConnector {
 
     /**
-     * Set the path of the directory saving the track of a pedestrian.
+     * Set the path of the directory saving the tracklet of a pedestrian.
      *
-     * @param id   The id of the pedestrian.
-     * @param path The path of the directory saving the track of the pedestrian.
+     * @param nodeID the id of the pedestrian.
+     * @param path   the path of the directory saving the tracklet of the pedestrian.
      */
-    public abstract void setTrackSavingPath(@Nonnull String id,
-                                            @Nonnull String path);
+    public abstract void setTrackletSavingPath(@Nonnull String nodeID,
+                                               @Nonnull String path);
 
     /**
-     * Get the path of the directory saving the track of a pedestrian.
+     * Get the path of the directory saving the tracklet of a pedestrian.
      *
-     * @param id The id of the pedestrian.
-     * @return The path of the directory saving the track of the pedestrian.
+     * @param nodeID the id of the pedestrian.
+     * @return the path of the directory saving the tracklet of the pedestrian.
      * @throws NoSuchElementException On failure finding the pedestrian.
      */
-    public abstract String getTrackletSavingDir(@Nonnull String id) throws NoSuchElementException;
+    public abstract String getTrackletSavingDir(@Nonnull String nodeID) throws NoSuchElementException;
 
     /**
      * Set the similarity between two pedestrians.
      *
-     * @param idA        The id of the first pedestrian.
-     * @param idB        The id of the second pedestrian.
-     * @param similarity The similarity between them.
+     * @param idA        the ID of the first pedestrian.
+     * @param idB        the ID of the second pedestrian.
+     * @param similarity the similarity between them.
      */
     public abstract void setPedestrianSimilarity(@Nonnull String idA,
                                                  @Nonnull String idB,
@@ -62,8 +62,8 @@ public abstract class GraphDatabaseConnector {
     /**
      * Get the similarity between two pedestrians.
      *
-     * @param idA The id of the first pedestrian.
-     * @param idB The id of the second pedestrian.
+     * @param idA the ID of the first pedestrian.
+     * @param idB the ID of the second pedestrian.
      * @return The similarity between them.
      * @throws NoSuchElementException On failure finding any of these two pedestrian, or when there
      *                                is no link between them.
@@ -74,29 +74,29 @@ public abstract class GraphDatabaseConnector {
     /**
      * Set the attributes of a pedestrian.
      *
-     * @param id   The id of the pedestrian.
-     * @param attr The attributes of the pedestrian.
+     * @param nodeID the ID of the pedestrian.
+     * @param attr   the attributes of the pedestrian.
      */
-    public abstract void setPedestrianAttributes(@Nonnull String id,
+    public abstract void setPedestrianAttributes(@Nonnull String nodeID,
                                                  @Nonnull Attributes attr);
 
     /**
      * Get the attributes of a pedestrian.
      *
-     * @param id The id of the pedestrian.
-     * @return The attributes of the pedestrian.
+     * @param nodeID the ID of the pedestrian.
+     * @return the attributes of the pedestrian.
      * @throws NoSuchElementException On failure finding the pedestrian.
      */
-    public abstract Attributes getPedestrianAttributes(@Nonnull String id) throws NoSuchElementException;
+    public abstract Attributes getPedestrianAttributes(@Nonnull String nodeID) throws NoSuchElementException;
 
     /**
      * Get relations: (nodA)-[SIMILARITY]-(nodeB)
-     * 
-     * @param  id The id of the pedestrian.
-     * @return The relations related to the input pedestrian.
+     *
+     * @param nodeID the ID of the pedestrian.
+     * @return the relationships related to the input pedestrian.
      * @throws NoSuchElementException On failure finding the pedestrian.
      */
-    public abstract Link[] getLinkedPedestrians(@Nonnull String id) throws NoSuchElementException;
+    public abstract Link[] getLinkedPedestrians(@Nonnull String nodeID) throws NoSuchElementException;
 
     /**
      * The class Link represents a link from one node to another in the graph
@@ -114,7 +114,7 @@ public abstract class GraphDatabaseConnector {
 
         public Link(@Nonnull String nodeA,
                     @Nonnull String nodeB,
-                    @Nonnull float similarity) {
+                    float similarity) {
             this.nodeA = nodeA;
             this.nodeB = nodeB;
             this.similarity = similarity;
