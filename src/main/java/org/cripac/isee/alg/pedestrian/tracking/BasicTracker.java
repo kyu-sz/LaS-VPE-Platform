@@ -18,10 +18,10 @@
 package org.cripac.isee.alg.pedestrian.tracking;
 
 import org.bytedeco.javacpp.opencv_core;
+import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.OpenCVFrameConverter;
-import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 
@@ -79,7 +79,7 @@ public class BasicTracker implements Tracker {
     @Nonnull
     @Override
     public Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception {
-        FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(videoStream);
+        FFmpegFrameGrabber frameGrabber = new FFmpegFrameGrabber(videoStream);
         av_log_set_level(AV_LOG_QUIET);
         frameGrabber.start();
         logger.debug("Initialized video decoder!");

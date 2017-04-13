@@ -29,6 +29,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
@@ -39,9 +40,6 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
-import org.cripac.isee.vpe.data.GraphDatabaseConnector;
-import org.cripac.isee.vpe.data.Neo4jConnector;
-import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
@@ -160,7 +158,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                         final TaskData taskData = kv._2();
 
                                         final FileSystem hdfs = HDFSFactory.newInstance();
-                                        FFmpegFrameGrabberNew frameGrabber = new FFmpegFrameGrabberNew(
+                                        FFmpegFrameGrabber frameGrabber = new FFmpegFrameGrabber(
                                                 hdfs.open(new Path((String) taskData.predecessorRes))
                                         );
 
