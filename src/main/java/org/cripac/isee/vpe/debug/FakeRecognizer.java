@@ -15,27 +15,23 @@
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.cripac.isee.alg.pedestrian.attr;
+package org.cripac.isee.vpe.debug;
 
+import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.Recognizer;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
 import javax.annotation.Nonnull;
 
-/**
- * The PedestrianAttrRecognizer class is the base class of all pedestrian
- * attribute recognizing classes. Any subclass is required to implement a simple
- * 'recognize' method, which takes in a track and returns an attribute.
- *
- * @author Ken Yu, CRIPAC, 2016
- */
-public interface PedestrianAttrRecognizer {
-
-    /**
-     * Recognize attributes from a track of pedestrian.
-     *
-     * @param tracklet A pedestrian track.
-     * @return The attributes of the pedestrian specified by the track.
-     */
+public class FakeRecognizer implements Recognizer {
     @Nonnull
-    Attributes recognize(@Nonnull Tracklet tracklet);
+    @Override
+    public Attributes recognize(@Nonnull Tracklet tracklet) {
+        try {
+            Thread.sleep(200);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return new Attributes();
+    }
 }

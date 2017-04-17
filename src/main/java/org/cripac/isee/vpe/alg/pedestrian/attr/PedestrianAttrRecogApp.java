@@ -20,10 +20,7 @@ package org.cripac.isee.vpe.alg.pedestrian.attr;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
-import org.cripac.isee.alg.pedestrian.attr.Attributes;
-import org.cripac.isee.alg.pedestrian.attr.DeepMAR;
-import org.cripac.isee.alg.pedestrian.attr.ExternPedestrianAttrRecognizer;
-import org.cripac.isee.alg.pedestrian.attr.PedestrianAttrRecognizer;
+import org.cripac.isee.alg.pedestrian.attr.*;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.pedestrian.tracking.TrackletOrURL;
 import org.cripac.isee.vpe.common.DataType;
@@ -32,6 +29,7 @@ import org.cripac.isee.vpe.common.SparkStreamingApp;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.debug.FakeRecognizer;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
@@ -65,7 +63,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public enum Algorithm {
         EXT,
-        DeepMAR
+        DeepMARCaffeBytedeco,
+        DeepMARCaffeNative,
+        DeepMARTensorflow,
+        Fake
     }
 
     /**
@@ -91,7 +92,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         private static final long serialVersionUID = -786439769732467646L;
         public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         public int externAttrRecogServerPort = 0;
-        public Algorithm algorithm = Algorithm.EXT;
+        public Algorithm algorithm = Algorithm.Fake;
 
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
@@ -107,6 +108,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         break;
                     case "vpe.ped.attr.alg":
                         algorithm = Algorithm.valueOf((String) entry.getValue());
+                        break;
+                    default:
+                        logger.warn("Unrecognized option: " + entry.getKey());
                         break;
                 }
             }
@@ -140,7 +144,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                 new Port("pedestrian-tracklet-for-attr-recog", DataType.TRACKLET);
         private static final long serialVersionUID = -4672941060404428484L;
 
-        private final Singleton<PedestrianAttrRecognizer> recognizerSingleton;
+        private final Singleton<Recognizer> recognizerSingleton;
 
         public RecogStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
@@ -149,53 +153,80 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 
             switch (propCenter.algorithm) {
                 case EXT:
-                    recognizerSingleton = new Singleton<>(() -> new ExternPedestrianAttrRecognizer(
-                            propCenter.externAttrRecogServerAddr,
-                            propCenter.externAttrRecogServerPort,
-                            loggerSingleton.getInst()));
+                    recognizerSingleton = new Singleton<>(
+                            () -> new ExternRecognizer(
+                                    propCenter.externAttrRecogServerAddr,
+                                    propCenter.externAttrRecogServerPort,
+                                    loggerSingleton.getInst()),
+                            ExternRecognizer.class);
                     break;
-                case DeepMAR:
-                    recognizerSingleton = new Singleton<>(() ->
-                            new DeepMAR(propCenter.caffeGPU, loggerSingleton.getInst()));
+//                case DeepMARCaffeBytedeco:
+//                    recognizerSingleton = new Singleton<>(
+//                            () -> new DeepMARCaffeBytedeco(propCenter.caffeGPU, loggerSingleton.getInst()),
+//                            DeepMARCaffeBytedeco.class);
+//                    break;
+//                case DeepMARTensorflow:
+//                    recognizerSingleton = new Singleton<>(
+//                            () -> new DeepMARTF("", loggerSingleton.getInst()),
+//                            DeepMARTF.class);
+//                    break;
+                case DeepMARCaffeNative:
+                    recognizerSingleton = new Singleton<>(
+                            () -> new DeepMARCaffeNative(propCenter.caffeGPU, loggerSingleton.getInst()),
+                            DeepMARCaffeNative.class
+                    );
+                    break;
+                case Fake:
+                    recognizerSingleton = new Singleton<>(
+                            FakeRecognizer::new,
+                            FakeRecognizer.class);
                     break;
                 default:
-                    throw new NotImplementedException("Recognizer singleton construction for "
-                            + propCenter.algorithm + " not realized.");
+                    throw new NotImplementedException("Attribute recognition algorithm "
+                            + propCenter.algorithm + " is not implemented.");
             }
         }
 
         @Override
-        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {// Extract tracklets from the data.
+        public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
+            // Extract tracklets from the data.
             // Recognize attributes from the tracklets.
             this.filter(globalStreamMap, TRACKLET_PORT)
-                    .foreachRDD(rdd -> rdd.foreach(kv -> {
+                    .foreachRDD(rdd -> rdd.glom().foreach(kvList -> {
                         Logger logger = loggerSingleton.getInst();
-                        try {
-                            UUID taskID = kv._1();
-                            TaskData taskData = kv._2();
-                            logger.debug("Received task " + taskID + "!");
+                        long startTime = System.currentTimeMillis();
+                        kvList.forEach(kv -> {
+                            try {
+                                final UUID taskID = kv._1();
+                                final TaskData taskData = kv._2();
+                                logger.debug("Received task " + taskID + "!");
 
-                            Tracklet tracklet = ((TrackletOrURL) taskData.predecessorRes).getTracklet();
-                            logger.debug("To recognize attributes for task " + taskID + "!");
-                            // Recognize attributes robustly.
-                            Attributes attr = new RobustExecutor<>((Function<Tracklet, Attributes>) t ->
-                                    recognizerSingleton.getInst().recognize(t)
-                            ).execute(tracklet);
+                                logger.debug("To recognize attributes for task " + taskID + "!");
+                                // Recognize attributes robustly.
+                                final Attributes attr = new RobustExecutor<>((Function<TrackletOrURL, Attributes>) tou -> {
+                                    final Tracklet t = tou.getTracklet();
+                                    final Attributes a = recognizerSingleton.getInst().recognize(t);
+                                    a.trackletID = t.id;
+                                    return a;
+                                }).execute((TrackletOrURL) taskData.predecessorRes);
+                                logger.debug("Attributes retrieved for task " + taskID + "!");
 
-                            logger.debug("Attributes retrieved for task " + taskID + "!");
-                            attr.trackletID = tracklet.id;
+                                // Find current node.
+                                final TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);
+                                // Get ports to output to.
+                                assert curNode != null;
+                                final List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
+                                // Mark the current node as executed.
+                                curNode.markExecuted();
 
-                            // Find current node.
-                            TaskData.ExecutionPlan.Node curNode = taskData.getDestNode(TRACKLET_PORT);
-                            // Get ports to output to.
-                            assert curNode != null;
-                            List<TaskData.ExecutionPlan.Node.Port> outputPorts = curNode.getOutputPorts();
-                            // Mark the current node as executed.
-                            curNode.markExecuted();
-
-                            output(outputPorts, taskData.executionPlan, attr, taskID);
-                        } catch (Exception e) {
-                            logger.error("During processing attributes.", e);
+                                output(outputPorts, taskData.executionPlan, attr, taskID);
+                            } catch (Exception e) {
+                                logger.error("During processing attributes.", e);
+                            }
+                        });
+                        if (kvList.size() > 0) {
+                            long endTime = System.currentTimeMillis();
+                            logger.info("Average cost time: " + ((endTime - startTime) / kvList.size()) + "ms");
                         }
                     }));
         }

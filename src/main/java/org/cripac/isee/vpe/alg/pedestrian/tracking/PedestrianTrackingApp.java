@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.alg.pedestrian.tracking;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import kafka.common.FailedToSendMessageException;
 import kafka.common.MessageSizeTooLargeException;
 import org.apache.commons.io.IOUtils;
@@ -45,10 +44,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * The PedestrianTrackingApp class takes in video URLs from Kafka, then process
@@ -107,6 +103,9 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                     case "vpe.num.sample.per.tracklet":
                         numSamplesPerTracklet = Integer.valueOf((String) entry.getValue());
                         break;
+                    default:
+                        logger.warn("Unrecognized option: " + entry.getKey());
+                        break;
                 }
             }
         }
@@ -124,7 +123,11 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                 new Port("hdfs-video-url-for-pedestrian-tracking", DataType.URL);
         private static final long serialVersionUID = -6738652169567844016L;
 
-        private final Singleton<Map<String, byte[]>> confBuffer;
+        private class ConfCache extends HashMap<String, byte[]> {
+            private static final long serialVersionUID = -1243878282849738861L;
+        }
+
+        private final Singleton<ConfCache> confCacheSingleton;
         private final int numSamplesPerTracklet;
         private final String metadataDir;
 
@@ -133,7 +136,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
             numSamplesPerTracklet = propCenter.numSamplesPerTracklet;
             metadataDir = propCenter.metadataDir;
-            confBuffer = new Singleton<>(Object2ObjectOpenHashMap::new);
+            confCacheSingleton = new Singleton<>(ConfCache::new, ConfCache.class);
         }
 
         @Override
@@ -147,6 +150,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     + " videos in this batch.");
                         }
 
+                        long startTime = System.currentTimeMillis();
                         synchronized (HDFSVideoTrackingStream.class) {
                             ParallelExecutor.execute(kvList.iterator(), kv -> {
                                 try {
@@ -176,16 +180,16 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     curNode.markExecuted();
 
                                     // Load tracking configuration to create a tracker.
-                                    if (!confBuffer.getInst().containsKey(confFile)) {
+                                    if (!confCacheSingleton.getInst().containsKey(confFile)) {
                                         InputStream confStream = getClass().getResourceAsStream(
                                                 "/conf/" + APP_NAME + "/" + confFile);
                                         if (confStream == null) {
                                             throw new IllegalArgumentException(
                                                     "Tracking configuration file not found in JAR!");
                                         }
-                                        confBuffer.getInst().put(confFile, IOUtils.toByteArray(confStream));
+                                        confCacheSingleton.getInst().put(confFile, IOUtils.toByteArray(confStream));
                                     }
-                                    final byte[] confBytes = confBuffer.getInst().get(confFile);
+                                    final byte[] confBytes = confCacheSingleton.getInst().get(confFile);
                                     if (confBytes == null) {
                                         logger.fatal("confPool contains key " + confFile + " but value is null!");
                                         return;
@@ -239,6 +243,10 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                     logger.error("During tracking.", e);
                                 }
                             });
+                        }
+                        if (kvList.size() > 0) {
+                            long endTime = System.currentTimeMillis();
+                            logger.info("Average cost time: " + ((endTime - startTime) / kvList.size()) + "ms");
                         }
                     }));
         }

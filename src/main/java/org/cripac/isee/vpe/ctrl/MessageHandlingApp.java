@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.ctrl;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -40,7 +39,8 @@ import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 import org.cripac.isee.vpe.data.HDFSReader;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
 import org.cripac.isee.vpe.util.Singleton;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 
 import java.io.Serializable;
@@ -63,7 +63,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
     public static final String APP_NAME = "message-handling";
     private static final long serialVersionUID = 4894389080346176479L;
 
-    private Singleton<KafkaProducer<String, byte[]>> producerSingleton;
+    private Singleton<ByteArrayProducer> producerSingleton;
     private Singleton<HDFSReader> hdfsReaderSingleton;
 
     /**
@@ -77,18 +77,13 @@ public class MessageHandlingApp extends SparkStreamingApp {
         super(propCenter, APP_NAME);
 
         Properties producerProp = propCenter.getKafkaProducerProp(false);
-        producerSingleton = new Singleton<>(new KafkaProducerFactory<>(producerProp));
+        producerSingleton = new Singleton<>(new ByteArrayProducerFactory(producerProp), ByteArrayProducer.class);
 
-        hdfsReaderSingleton = new Singleton<>(HDFSReader::new);
+        hdfsReaderSingleton = new Singleton<>(HDFSReader::new, HDFSReader.class);
     }
 
     public static void main(String[] args) throws Exception {
-        SystemPropertyCenter propCenter;
-        if (args.length > 0) {
-            propCenter = new SystemPropertyCenter(args);
-        } else {
-            propCenter = new SystemPropertyCenter();
-        }
+        SystemPropertyCenter propCenter = new SystemPropertyCenter(args);
 
         SparkStreamingApp app = new MessageHandlingApp(propCenter);
         app.initialize();
@@ -147,7 +142,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                         final String cmd = rec._2()._1();
                         logger.debug("Received command: " + cmd);
 
-                        final Object2ObjectOpenHashMap<String, Serializable> param = deserialize(rec._2()._2());
+                        final HashMap<String, Serializable> param = deserialize(rec._2()._2());
 
                         if (cmd.equals(CommandType.RT_TRACK_ONLY)
                                 || cmd.equals(CommandType.RT_TRACK_ATTRRECOG_REID)) {

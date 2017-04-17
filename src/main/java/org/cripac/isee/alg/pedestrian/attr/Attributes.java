@@ -427,7 +427,7 @@ public class Attributes implements Serializable {
                     try {
                         final float thisValue = (float) field.get(this);
                         final float thatValue = (float) field.get(o);
-                        if (thatValue * thisValue < 0 || Math.abs(thisValue - thatValue) >= 0.00001) {
+                        if (thatValue * thisValue < 0 || Math.abs(thisValue - thatValue) >= 0.0001) {
                             System.out.println(field.getName() + ": " + thisValue + " vs " + thatValue + " -> "
                                     + Math.abs(thisValue - thatValue));
                             return false;

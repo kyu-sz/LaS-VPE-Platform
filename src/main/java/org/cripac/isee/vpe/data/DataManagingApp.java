@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.data;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -26,7 +25,6 @@ import org.apache.kafka.clients.consumer.CommitFailedException;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
@@ -45,8 +43,9 @@ import org.cripac.isee.vpe.util.SerializationHelper;
 import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
+import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
-import org.cripac.isee.vpe.util.kafka.KafkaProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.xml.sax.SAXException;
@@ -105,6 +104,9 @@ public class DataManagingApp extends SparkStreamingApp {
                 switch ((String) entry.getKey()) {
                     case "vpe.max.frame.per.fragment":
                         maxFramePerFragment = Integer.parseInt((String) entry.getValue());
+                        break;
+                    default:
+                        logger.warn("Unrecognized option: " + entry.getKey());
                         break;
                 }
             }
@@ -264,17 +266,15 @@ public class DataManagingApp extends SparkStreamingApp {
                     jobListener.subscribe(Collections.singletonList(JOB_TOPIC));
                     while (running.get()) {
                         ConsumerRecords<String, byte[]> records = jobListener.poll(1000);
-                        Map<String, byte[]> taskMap = new Object2ObjectOpenHashMap<>();
+                        Map<String, byte[]> taskMap = new HashMap<>();
                         records.forEach(rec -> taskMap.put(rec.key(), rec.value()));
 
                         final long start = System.currentTimeMillis();
                         logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
-                        taskMap.entrySet().forEach(rec -> {
+                        taskMap.forEach((taskID, value) -> {
                             try {
-                                final String taskID = rec.getKey();
-                                final Tuple2<Tracklet.Identifier, Integer> info = SerializationHelper.deserialize(rec.getValue());
-                                final Tracklet.Identifier trackletID = info._1();
-                                final String videoID = trackletID.videoID;
+                                final Tuple2<String, Integer> info = SerializationHelper.deserialize(value);
+                                final String videoID = info._1();
                                 final int numTracklets = info._2();
                                 final String videoRoot = metadataDir + "/" + videoID;
                                 final String taskRoot = videoRoot + "/" + taskID;
@@ -331,11 +331,10 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                     // Set the HAR path to all the tracklets from this video.
                                     for (int i = 0; i < numTracklets; ++i) {
-                                        new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx -> {
-                                            dbConnector.setTrackletSavingPath(
-                                                    new Tracklet.Identifier(videoID, idx).toString(),
-                                                    videoRoot + "/" + taskID + ".har/" + idx);
-                                        }).execute(i);
+                                        new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx ->
+                                                dbConnector.setTrackletSavingPath(
+                                                        new Tracklet.Identifier(videoID, idx).toString(),
+                                                        videoRoot + "/" + taskID + ".har/" + idx)).execute(i);
                                     }
 
                                     // Delete the original folder recursively.
@@ -385,15 +384,15 @@ public class DataManagingApp extends SparkStreamingApp {
                 new Port("pedestrian-tracklet-saving", DataType.TRACKLET);
         private static final long serialVersionUID = 2820895755662980265L;
         private final String metadataDir;
-        private final Singleton<KafkaProducer<String, byte[]>> packingJobProducerSingleton;
+        private final Singleton<ByteArrayProducer> packingJobProducerSingleton;
 
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
             metadataDir = propCenter.metadataDir;
             packingJobProducerSingleton = new Singleton<>(
-                    new KafkaProducerFactory<>(propCenter.getKafkaProducerProp(false))
-            );
+                    new ByteArrayProducerFactory(propCenter.getKafkaProducerProp(false)),
+                    ByteArrayProducer.class);
         }
 
         @Override
@@ -467,7 +466,7 @@ public class DataManagingApp extends SparkStreamingApp {
         AttrSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
-            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new);
+            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new, FakeDatabaseConnector.class);
         }
 
         @Override

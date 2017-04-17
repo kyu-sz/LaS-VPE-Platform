@@ -19,6 +19,7 @@ package org.cripac.isee.vpe.ctrl;
 
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 import org.apache.spark.launcher.SparkLauncher;
@@ -54,6 +55,7 @@ public class SystemEntry {
 
         PropertyConfigurator.configure(SystemEntry.class.getResourceAsStream("/conf/log4j_local.properties"));
         final Logger logger = Logger.getLogger("");
+        logger.setLevel(propCenter.verbose ? Level.DEBUG : Level.INFO);
 
         // Prepare system configuration.
         if (propCenter.sparkMaster.toLowerCase().contains("yarn")) {

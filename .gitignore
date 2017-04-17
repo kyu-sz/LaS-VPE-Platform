@@ -1,5 +1,5 @@
 # Binary files #
-*.so
+*.so*
 
 # Temporary files #
 checkpoint/
@@ -21,5 +21,7 @@ checkpoint/
 .idea
 .gitignore
 
-# Caffe model files #
-DeepMAR.caffemodel
+# Model files #
+*.caffemodel
+*.ckpt*
+*.pb

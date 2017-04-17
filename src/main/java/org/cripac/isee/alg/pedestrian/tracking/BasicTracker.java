@@ -22,6 +22,8 @@ import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.OpenCVFrameConverter;
+import org.cripac.isee.alg.pedestrian.attr.DeepMARCaffe;
+import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 
@@ -42,10 +44,16 @@ import static org.bytedeco.javacpp.avutil.av_log_set_level;
 public class BasicTracker implements Tracker {
 
     static {
-        System.out.println("Loading native libraries for BasicTracker from "
-                + System.getProperty("java.library.path"));
-        System.loadLibrary("basic_pedestrian_tracker_jni");
-        System.out.println("Native libraries for BasicTracker successfully loaded!");
+        org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(DeepMARCaffe.class);
+        try {
+            logger.info("Loading native libraries for BasicTracker from "
+                    + System.getProperty("java.library.path"));
+            System.loadLibrary("jnibasic_pedestrian_tracker");
+            logger.info("Native libraries for BasicTracker successfully loaded!");
+        } catch (Throwable t) {
+            logger.error("Failed to load native library for BasicTracker", t);
+            throw t;
+        }
     }
 
     private byte[] conf;

@@ -19,6 +19,7 @@
 
 package org.cripac.isee.vpe.common;
 
+import org.apache.log4j.Logger;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function0;
 import org.apache.spark.api.java.function.VoidFunction;
@@ -220,8 +221,7 @@ public class RobustExecutor<T, R> {
                 if (retryCnt >= maxRetries) {
                     throw t;
                 }
-                t.printStackTrace();
-                System.err.println("RobustExecutor retry: " + retryCnt + "/" + maxRetries);
+                Logger.getLogger(this.getClass()).error("To retry " + retryCnt + "/" + maxRetries, t);
                 TimeUnit.MILLISECONDS.sleep(retryInterval);
                 ++retryCnt;
             }

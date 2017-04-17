@@ -19,9 +19,7 @@
 
 package org.cripac.isee.vpe.alg.pedestrian.tracking;
 
-import org.apache.spark.api.java.function.Function;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.RobustExecutor;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 
 import javax.annotation.Nonnull;
@@ -79,7 +77,6 @@ public class TrackletOrURL implements Serializable {
 
     @Nonnull
     public Tracklet getTracklet() throws Exception {
-        return tracklet != null ? tracklet : (tracklet =
-                new RobustExecutor<>((Function<String, Tracklet>) HadoopHelper::retrieveTracklet).execute(URL));
+        return tracklet != null ? tracklet : HadoopHelper.retrieveTracklet(URL);
     }
 }

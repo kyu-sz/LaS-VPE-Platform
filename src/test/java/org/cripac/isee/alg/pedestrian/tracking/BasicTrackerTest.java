@@ -22,6 +22,7 @@ import org.apache.log4j.Level;
 import org.cripac.isee.vpe.alg.pedestrian.tracking.PedestrianTrackingApp;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Assert;
+import org.junit.Test;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -30,7 +31,7 @@ import java.io.InputStream;
  * Created by ken.yu on 16-10-23.
  */
 public class BasicTrackerTest {
-    //    @Test
+    @Test
     public void initialize() throws Exception {
         System.out.println("Performing memory leak test...");
 
@@ -41,7 +42,7 @@ public class BasicTrackerTest {
         }
     }
 
-    //    @Test
+    @Test
     public void track() throws Exception {
         System.out.println("Performing validness test...");
 
@@ -59,9 +60,6 @@ public class BasicTrackerTest {
         Tracklet[] tracklets = tracker.track(videoStream);
 
         System.out.println("Tracked " + tracklets.length + " pedestrians!");
-        for (Tracklet tracklet : tracklets) {
-            System.out.println(tracklet);
-        }
 
         Assert.assertEquals(2, tracklets.length);
         Assert.assertEquals(3495, tracklets[0].startFrameIndex);

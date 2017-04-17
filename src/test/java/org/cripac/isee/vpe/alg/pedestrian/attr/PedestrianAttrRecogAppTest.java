@@ -22,9 +22,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.log4j.Level;
-import org.cripac.isee.alg.pedestrian.attr.DeepMARTest;
-import org.cripac.isee.alg.pedestrian.attr.ExternPedestrianAttrRecognizerTest;
+import org.apache.log4j.PropertyConfigurator;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.util.ResourceManager;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.TaskData;
@@ -32,13 +32,11 @@ import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.junit.Before;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
-import java.net.InetAddress;
+import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
@@ -46,15 +44,6 @@ import java.util.UUID;
 import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
-/**
- * This is a JUnit test for the DataManagingApp.
- * Different from usual JUnit tests, this test does not initiate a DataManagingApp.
- * The application should be run on YARN in advance.
- * This test only sends fake data messages to and receives results
- * from the already running application through Kafka.
- * <p>
- * Created by ken.yu on 16-10-31.
- */
 public class PedestrianAttrRecogAppTest {
 
     private static final Stream.Port TEST_PED_ATTR_RECV_PORT =
@@ -63,10 +52,7 @@ public class PedestrianAttrRecogAppTest {
     private KafkaProducer<String, byte[]> producer;
     private KafkaConsumer<String, byte[]> consumer;
     private ConsoleLogger logger;
-    private InetAddress externAttrRecogServerAddr;
-    private int externAttrRecogServerPort = 0;
     private PedestrianAttrRecogApp.AppPropertyCenter propCenter;
-    private static boolean toTestApp = true;
 
     public static void main(String[] args) {
         PedestrianAttrRecogAppTest test = new PedestrianAttrRecogAppTest();
@@ -77,11 +63,7 @@ public class PedestrianAttrRecogAppTest {
             return;
         }
         try {
-            test.testDeepMAR();
-            test.testExternAttrReognizer();
-            if (toTestApp) {
-                test.testAttrRecogApp();
-            }
+            test.testAttrRecogApp();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -100,45 +82,14 @@ public class PedestrianAttrRecogAppTest {
                 propCenter.kafkaReplFactor);
     }
 
-    @Before
-    public void init() throws Exception {
-        init(new String[]{"-a", PedestrianAttrRecogApp.APP_NAME,
-                "--system-property-file", "conf/system.properties",
-                "--app-property-file", "conf/" + PedestrianAttrRecogApp.APP_NAME + "/app.properties"});
-    }
-
-    private void init(String[] args) throws ParserConfigurationException, UnknownHostException, SAXException, URISyntaxException {
+    private void init(String[] args)
+            throws ParserConfigurationException, IOException, SAXException, URISyntaxException {
+        PropertyConfigurator.configure(ResourceManager.getResource("/conf/log4j_local.properties").getPath());
         logger = new ConsoleLogger(Level.DEBUG);
-
         propCenter = new PedestrianAttrRecogApp.AppPropertyCenter(args);
-        externAttrRecogServerAddr = propCenter.externAttrRecogServerAddr;
-        externAttrRecogServerPort = propCenter.externAttrRecogServerPort;
     }
 
-//    @Test
-    public void testExternAttrReognizer() throws Exception {
-        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.EXT) {
-            logger.info("Using external pedestrian attribute recognizer.");
-
-            ExternPedestrianAttrRecognizerTest test = new ExternPedestrianAttrRecognizerTest();
-            test.setUp();
-            test.recognize();
-        }
-    }
-
-//    @Test
-    public void testDeepMAR() throws Exception {
-        if (propCenter.algorithm == PedestrianAttrRecogApp.Algorithm.DeepMAR) {
-            logger.info("Using DeepMAR for pedestrian attribute recognition.");
-
-            DeepMARTest test = new DeepMARTest();
-            test.setUp();
-            test.recognize();
-        }
-    }
-
-    //    @Test
-    public void testAttrRecogApp() throws Exception {
+    private void testAttrRecogApp() throws Exception {
         logger.info("Testing attr recogn app.");
 
         checkTopic(TEST_PED_ATTR_RECV_PORT.inputType.name());
@@ -153,7 +104,6 @@ public class PedestrianAttrRecogAppTest {
         } catch (Exception e) {
             logger.error("When checking topics", e);
             logger.info("App test is disabled.");
-            toTestApp = false;
         }
 
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
@@ -162,6 +112,7 @@ public class PedestrianAttrRecogAppTest {
         recogNode.outputTo(attrSavingNode.createInputPort(TEST_PED_ATTR_RECV_PORT));
 
         // Send request (fake tracklet).
+        //noinspection ConstantConditions
         TaskData trackletData = new TaskData(recogNode.getOutputPorts(), plan,
                 new FakePedestrianTracker().track(null)[0]);
         assert trackletData.predecessorRes != null && trackletData.predecessorRes instanceof Tracklet;
@@ -173,6 +124,7 @@ public class PedestrianAttrRecogAppTest {
         logger.info("Waiting for response...");
         // Receive result (attributes).
         ConsumerRecords<String, byte[]> records;
+        //noinspection InfiniteLoopStatement
         while (true) {
             records = consumer.poll(0);
             if (records.isEmpty()) {

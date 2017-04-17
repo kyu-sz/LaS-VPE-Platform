@@ -16,7 +16,7 @@
  */
 
 /*
- * ExternPedestrianAttrRecognizer.java
+ * ExternRecognizer.java
  *
  *  Created on: Sep 22, 2016
  *      Author: ken
@@ -41,7 +41,7 @@ import java.nio.ByteOrder;
 import java.util.Collection;
 
 /**
- * The class ExternPedestrianAttrRecognizer is a recognizer of pedestrian
+ * The class ExternRecognizer is a recognizer of pedestrian
  * attributes that depend on external solvers connected with sockets. It sends
  * recognition requests each containing a track to the solver, then receives
  * responses containing the attributes. The requests and responses are processed
@@ -66,7 +66,7 @@ import java.util.Collection;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class ExternPedestrianAttrRecognizer implements PedestrianAttrRecognizer {
+public class ExternRecognizer implements Recognizer {
 
     private Logger logger;
     private Socket socket = null;
@@ -74,15 +74,15 @@ public class ExternPedestrianAttrRecognizer implements PedestrianAttrRecognizer 
     private int port;
 
     /**
-     * Constructor of ExternPedestrianAttrRecognizer specifying external solver's
+     * Constructor of ExternRecognizer specifying external solver's
      * address and listening port.
      *
-     * @param solverAddress The address of the solver.
-     * @param port          The port the solver is listening to.
+     * @param solverAddress the address of the solver.
+     * @param port          the port the solver is listening to.
      */
-    public ExternPedestrianAttrRecognizer(@Nonnull InetAddress solverAddress,
-                                          int port,
-                                          @Nullable Logger logger) {
+    public ExternRecognizer(@Nonnull InetAddress solverAddress,
+                            int port,
+                            @Nullable Logger logger) {
         if (logger == null) {
             this.logger = new ConsoleLogger();
         } else {
@@ -118,12 +118,11 @@ public class ExternPedestrianAttrRecognizer implements PedestrianAttrRecognizer 
         }
     }
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Recognize attributes from a pedestrian tracklet.
      *
-     * @see
-     * PedestrianAttrRecognizer#recognize(
-     * Tracklet)
+     * @param tracklet a pedestrian tracklet.
+     * @return attributes of the pedestrian specified by the tracklet.
      */
     @Override
     public

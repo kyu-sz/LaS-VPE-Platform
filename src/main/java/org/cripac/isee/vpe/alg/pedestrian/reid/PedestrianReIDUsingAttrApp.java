@@ -120,7 +120,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
 
             bufDuration = propCenter.bufDuration;
 
-            reidSingleton = new Singleton<>(FakePedestrianReIDerWithAttr::new);
+            reidSingleton = new Singleton<>(FakePedestrianReIDerWithAttr::new, FakePedestrianReIDerWithAttr.class);
         }
 
         @Override

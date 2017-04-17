@@ -24,7 +24,7 @@ import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.debug.FakePedestrianAttrRecognizer;
+import org.cripac.isee.vpe.debug.FakeRecognizer;
 import org.cripac.isee.vpe.debug.FakePedestrianTracker;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.junit.Before;
@@ -73,7 +73,8 @@ public class DataManagingAppTest {
     public void init() throws Exception {
         init(new String[]{"-a", DataManagingApp.APP_NAME,
                 "--system-property-file", "conf/system.properties",
-                "--app-property-file", "conf/" + DataManagingApp.APP_NAME + "/app.properties"});
+                "--app-property-file", "conf/" + DataManagingApp.APP_NAME + "/app.properties",
+                "-v"});
     }
 
     public void init(String[] args) throws Exception {
@@ -89,6 +90,7 @@ public class DataManagingAppTest {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
+        //noinspection ConstantConditions
         Tracklet[] tracklets = new FakePedestrianTracker().track(null);
         String taskID = UUID.randomUUID().toString();
         for (int i = 0; i < tracklets.length; ++i) {
@@ -112,7 +114,7 @@ public class DataManagingAppTest {
         TaskData.ExecutionPlan plan = new TaskData.ExecutionPlan();
         TaskData.ExecutionPlan.Node savingNode = plan.addNode(DataManagingApp.IDRankSavingStream.OUTPUT_TYPE);
 
-        Attributes attributes = new FakePedestrianAttrRecognizer().recognize(
+        Attributes attributes = new FakeRecognizer().recognize(
                 new FakePedestrianTracker().track(null)[0]);
         attributes.trackletID = new Tracklet.Identifier("fake", 0);
 

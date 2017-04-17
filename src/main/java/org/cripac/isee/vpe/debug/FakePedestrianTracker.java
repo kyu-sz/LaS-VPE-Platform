@@ -69,6 +69,11 @@ public class FakePedestrianTracker implements Tracker {
     @Nonnull
     @Override
     public Tracklet[] track(@Nonnull InputStream videoStream) {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         return generateRandomTrackSet();
     }
 }

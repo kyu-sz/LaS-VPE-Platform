@@ -29,10 +29,15 @@ LaS-VPE Platform is released under the GPL License.
 
 ## Requirements
 
-1. Use Maven to build the project:
+1. Use Maven to build the project.
 
+    For Ubuntu:
 	```Shell
 	sudo apt-get install maven
+	```
+	For CentOS:
+	```Shell
+	sudo yum install maven
 	```
 	
 2. Increase open files limit in Linux.
@@ -49,16 +54,20 @@ LaS-VPE Platform is released under the GPL License.
 3. Deploy Kafka(>=0.10.2.0), Spark(>=2.0.2), HDFS(>=2.7.2) and YARN(>=2.7.2)
 properly on your cluster.
 
-    * Configure the "max.request.size" to a large number, e.g. 157286400 before
-      starting the Kafka cluster, so as to enable large message transferring through
-      Kafka. This should be configured in "server.properties".
-
     * To enable multi-appications running concurrently, see
       [Job-Scheduling](https://spark.apache.org/docs/1.2.0/job-scheduling.html)
       and configure your environment.
+      
+    * Disable virtual memory checking of YARN in "yarn-site.xml" to enable GPU applications:
+      ```xml
+      <property>
+        <name>yarn.nodemanager.vmem-check-enabled</name>
+        <value>false</value>
+      </property>
+      ```
 
-4. If you choose to run algorithms based on Caffe locally, no matter the
- algorithms use CPU-only or GPUs, you must have Cuda 8.0 installed on every
+4. If you choose to run algorithms based on Caffe, no matter the
+ algorithms use CPU-only or GPUs, you must have CUDA 8.0 installed on every
  node in your cluster.
 
 ## How to run
@@ -73,10 +82,12 @@ properly on your cluster.
 2. Build and pack the system into a JAR:
 
     ```Shell
-    ./sbin/build-native-libs.sh
     mvn package
     ```
 
+    * Tests are enabled by default. Use ```mvn package -Dmaven.test.skip.exec```
+      to skip them when your machine is not suitable to run the tests or you are
+      sure the tests will pass and need to save time.
     * If your maven resolves dependencies at a low speed, try
     ```mvn -Dmaven.artifact.threads=100 package``` or add
     ```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.
@@ -86,24 +97,18 @@ properly on your cluster.
 Put them in appropriate locations. For example, the _DeepMAR.caffemodel_ should be put in
 _${PROJECT_DIR}/models/DeepMAR/_. See [models](models).
 
-3. Configure the environment and running properties in the files in [conf](conf).
+4. Configure the environment and running properties in the files in [conf](conf).
  Specially, modify the [cluster-env.sh](conf/cluster-env.sh) in [conf](conf)
 to adapt to your cluster address.
 
-4. Upload the whole project to your cluster:
-
-    ```Shell
-    ./sbin/upload.sh
-    ```
-    
-    * Then switch to the terminal of your cluster, change to the platform folder and
-      deliver native libraries to worker nodes using [install.sh](sbin/install.sh) in
-      [sbin](sbin) on your cluster. Note that this script requires the _HADOOP_HOME_
-      environment variable.
+4. Change to the platform folder and deliver native libraries to worker nodes using
+ [install.sh](sbin/install.sh) in [sbin](sbin).
     
     ```Shell
     ./sbin/install.sh
     ```
+    
+ Note that this script requires the _HADOOP_HOME_ environment variable.
 
 5. Finally, you can start the applications by invoking the scripts in the home
 directory by command like "./sbin/run-*.sh".
@@ -192,7 +197,7 @@ implement this in another GitHub repository, and import it as a submodule.
 it in a suitable package.
  
 3. Build your algorithm project, and copy the resulting shared JNI
-library and those it depends on into the [library folder](lib/linux) directory.
+library and those it depends on into the [library folder](lib/x64) directory.
   
     * To enable auto building and cleaning together with Maven, it is recommended to
       use CMake to build your project. Then edit the

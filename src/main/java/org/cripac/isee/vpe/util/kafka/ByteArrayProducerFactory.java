@@ -17,7 +17,6 @@
 
 package org.cripac.isee.vpe.util.kafka;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.cripac.isee.vpe.util.Factory;
 
 import javax.annotation.Nonnull;
@@ -28,7 +27,7 @@ import java.util.Properties;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public class KafkaProducerFactory<K, V> implements Factory<KafkaProducer<K, V>> {
+public class ByteArrayProducerFactory implements Factory<ByteArrayProducer> {
 
     private static final long serialVersionUID = 537687120172257949L;
 
@@ -40,7 +39,7 @@ public class KafkaProducerFactory<K, V> implements Factory<KafkaProducer<K, V>> 
     /**
      * Input a property for constructing the Kafka producer.
      */
-    public KafkaProducerFactory(@Nonnull Properties prop) {
+    public ByteArrayProducerFactory(@Nonnull Properties prop) {
         this.config = prop;
     }
 
@@ -52,8 +51,8 @@ public class KafkaProducerFactory<K, V> implements Factory<KafkaProducer<K, V>> 
      */
     @Nonnull
     @Override
-    public KafkaProducer<K, V> produce() {
-        return new KafkaProducer<>(config);
+    public ByteArrayProducer produce() {
+        return new ByteArrayProducer(config);
     }
 
 }

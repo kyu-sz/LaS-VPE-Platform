@@ -43,6 +43,26 @@ import scala.language.postfixOps
   */
 object KafkaHelper {
   /**
+    * Send a message to Kafka with provided producer with no log.
+    *
+    * @param topic    the Kafka topic to send to.
+    * @param key      key of the message.
+    * @param value    value of the message.
+    * @param producer the Kafka producer to use to send the message.
+    * @tparam K type of the key.
+    * @tparam V type of the value.
+    */
+  def send[K, V](
+                  @Nonnull topic: String,
+                  @Nonnull key: K,
+                  @Nonnull value: V,
+                  @Nonnull producer: KafkaProducer[K, V]
+                ): Unit = {
+    // Retrieve sending report.
+    producer send new ProducerRecord[K, V](topic, key, value)
+  }
+
+  /**
     * Send a message to Kafka with provided producer. Debug info is output to given logger.
     *
     * @param topic     the Kafka topic to send to.
@@ -78,6 +98,25 @@ object KafkaHelper {
       case e@(_: ExecutionException | _: CancellationException) =>
         throw if (e.getCause != null) e.getCause else e
     }
+  }
+
+  /**
+    * Send a TaskData to Kafka with provided producer with no log.
+    *
+    * @param key      key of the Kafka message.
+    * @param taskData the TaskData object to send.
+    * @param producer Kafka producer used to send the message.
+    * @tparam K type of key.
+    */
+  def send[K](
+               @Nonnull key: K,
+               @Nonnull taskData: TaskData,
+               @Nonnull producer: KafkaProducer[K, Array[Byte]]
+             ): Unit = {
+    send(taskData.outputType.name(),
+      key,
+      SerializationHelper.serialize(taskData),
+      producer)
   }
 
   /**

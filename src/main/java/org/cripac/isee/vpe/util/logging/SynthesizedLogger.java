@@ -49,7 +49,7 @@ public class SynthesizedLogger extends Logger {
     private final String reportTopic;
     private org.apache.log4j.Logger log4jLogger;
     private ConsoleLogger consoleLogger;
-    private KafkaProducer<String, String> producer;
+    private final KafkaProducer<String, String> producer;
 
     private final static SimpleDateFormat ft = new SimpleDateFormat("yy.MM.dd HH:mm:ss");
 
@@ -91,7 +91,7 @@ public class SynthesizedLogger extends Logger {
         this.reportTopic = username + "_report";
 
         PropertyConfigurator.configure("log4j.properties");
-        log4jLogger = LogManager.getRootLogger();
+        log4jLogger = LogManager.getLogger(username);
         log4jLogger.setLevel(level);
 
         consoleLogger = new ConsoleLogger(this.level);
@@ -110,11 +110,13 @@ public class SynthesizedLogger extends Logger {
     private void send(@Nonnull String message) {
         try {
             new RobustExecutor<Void, Void>(() -> {
-                Future<RecordMetadata> metadataFuture =
-                        producer.send(new ProducerRecord<>(reportTopic, username, message));
-                RecordMetadata recordMetadata = metadataFuture.get(5, TimeUnit.SECONDS);
-                consoleLogger.debug("Report sent to "
-                        + recordMetadata.topic() + ":" + recordMetadata.partition() + "-" + recordMetadata.offset());
+                synchronized (producer) {
+                    Future<RecordMetadata> metadataFuture =
+                            producer.send(new ProducerRecord<>(reportTopic, username, message));
+                    RecordMetadata recordMetadata = metadataFuture.get(5, TimeUnit.SECONDS);
+                    consoleLogger.debug("Report sent to "
+                            + recordMetadata.topic() + ":" + recordMetadata.partition() + "-" + recordMetadata.offset());
+                }
             }).execute();
         } catch (Exception e) {
             consoleLogger.error("Error on sending report", e);
@@ -139,12 +141,12 @@ public class SynthesizedLogger extends Logger {
             String richMsg = "[DEBUG]\t" + wrapMsg(message) + ": " + t;
             send(richMsg);
 
-            String stackTraceMsg = "";
+            StringBuilder stackTraceMsg = new StringBuilder();
             StackTraceElement[] stackTrace = t.getStackTrace();
             for (StackTraceElement element : stackTrace) {
-                stackTraceMsg = stackTraceMsg + "\t" + element.toString() + "\n";
+                stackTraceMsg.append("\t").append(element.toString()).append("\n");
             }
-            send(stackTraceMsg);
+            send(stackTraceMsg.toString());
         }
     }
 

@@ -43,7 +43,7 @@ public class BasicTrackerFactory implements Factory<BasicTracker> {
             this.loggerSingleton = loggerSingleton;
         } else {
             try {
-                this.loggerSingleton = new Singleton<>(ConsoleLogger::new);
+                this.loggerSingleton = new Singleton<>(ConsoleLogger::new, ConsoleLogger.class);
             } catch (Throwable e) {
                 e.printStackTrace();
             }
