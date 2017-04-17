@@ -84,7 +84,7 @@ public class SystemPropertyCenter implements Serializable {
     public String sparkDeployMode = "client";
     String[] appsToStart = null;
     /* CaffeBytedeco properties */
-    public int caffeGPU = -1;
+    public String caffeGPU = "-1";
     /* Number of executor instances. */
     public int numExecutors = 2;
     /* Memory per executor (e.g. 1000M, 2G) (Default: 1G) */
@@ -369,7 +369,7 @@ public class SystemPropertyCenter implements Serializable {
                     kafkaFetchTimeoutMs = Integer.parseInt((String) entry.getValue());
                     break;
                 case "caffe.gpu":
-                    caffeGPU = Integer.parseInt((String) entry.getValue());
+                    caffeGPU = (String) entry.getValue();
                     break;
                 case "spark.streaming.kafka.maxRatePerPartition":
                     maxRatePerPartition = (String) entry.getValue();
@@ -385,7 +385,7 @@ public class SystemPropertyCenter implements Serializable {
         }
 
         if (commandLine.hasOption('g')) {
-            caffeGPU = Integer.parseInt(commandLine.getOptionValue('g'));
+            caffeGPU = commandLine.getOptionValue('g');
         }
 
         validateConfigurations();

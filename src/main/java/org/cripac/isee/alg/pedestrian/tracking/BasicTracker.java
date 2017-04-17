@@ -23,7 +23,6 @@ import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.OpenCVFrameConverter;
 import org.cripac.isee.alg.pedestrian.attr.DeepMARCaffe;
-import org.cripac.isee.vpe.util.FFmpegFrameGrabberNew;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 

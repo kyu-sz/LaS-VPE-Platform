@@ -38,20 +38,20 @@
 // * Created by ken.yu on 17-1-10.
 // */
 //public final class DeepMARCaffeBytedeco extends CaffeBytedeco implements DeepMARCaffe {
-//
 //    /**
 //     * Create an instance of DeepMARCaffeBytedeco. The protocol and weights are directly loaded from local files.
 //     *
 //     * @param gpu      index of GPU to use.
+//     *                 If multiple GPU IDs are provided (separated by comma), randomly select one.
 //     * @param protocol DeepMARCaffeBytedeco protocol file.
 //     * @param model    DeepMARCaffeBytedeco binary model file.
 //     * @param logger   external logger.
 //     */
-//    public DeepMARCaffeBytedeco(int gpu,
+//    public DeepMARCaffeBytedeco(String gpu,
 //                                @Nonnull File protocol,
 //                                @Nonnull File model,
 //                                @Nullable Logger logger) throws FileNotFoundException, AccessDeniedException {
-//        super(gpu, logger);
+//        super(DeepMAR.randomlyPickGPU(gpu), logger);
 //        initialize(protocol, model);
 //    }
 //
@@ -61,7 +61,7 @@
 //     * @param gpu    index of GPU to use.
 //     * @param logger logger for outputting debug info.
 //     */
-//    public DeepMARCaffeBytedeco(int gpu,
+//    public DeepMARCaffeBytedeco(String gpu,
 //                                @Nullable Logger logger) throws IOException {
 //        this(gpu, DeepMARCaffe.getDefaultProtobuf(), DeepMARCaffe.getDefaultModel(), logger);
 //    }

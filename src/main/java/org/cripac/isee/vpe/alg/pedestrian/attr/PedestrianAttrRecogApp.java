@@ -39,10 +39,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * The PedestrianAttrRecogApp class is a Spark Streaming application which
@@ -63,9 +60,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public enum Algorithm {
         EXT,
-        DeepMARCaffeBytedeco,
+        //        DeepMARCaffeBytedeco,
         DeepMARCaffeNative,
-        DeepMARTensorflow,
+        //        DeepMARTensorflow,
+        DeepMARMultiGPU,
         Fake
     }
 
@@ -174,6 +172,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                     recognizerSingleton = new Singleton<>(
                             () -> new DeepMARCaffeNative(propCenter.caffeGPU, loggerSingleton.getInst()),
                             DeepMARCaffeNative.class
+                    );
+                    break;
+                case DeepMARMultiGPU:
+                    recognizerSingleton = new Singleton<>(
+                            () -> new DeepMARMultiGPU(propCenter.caffeGPU, loggerSingleton.getInst()),
+                            DeepMARMultiGPU.class
                     );
                     break;
                 case Fake:

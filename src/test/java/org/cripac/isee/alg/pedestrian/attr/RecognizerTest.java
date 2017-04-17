@@ -22,7 +22,6 @@ import org.apache.log4j.Level;
 import org.apache.log4j.PropertyConfigurator;
 import org.bytedeco.javacpp.opencv_core;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
-import org.cripac.isee.util.ResourceManager;
 import org.cripac.isee.vpe.alg.pedestrian.attr.PedestrianAttrRecogApp;
 import org.cripac.isee.vpe.debug.FakeRecognizer;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -31,14 +30,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.xml.sax.SAXException;
 
+import javax.annotation.Nonnull;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.UnknownHostException;
-import java.nio.charset.CharacterCodingException;
-import java.nio.file.AccessDeniedException;
 
 import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
 import static org.junit.Assert.assertEquals;
@@ -83,6 +79,13 @@ public class RecognizerTest {
                         new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
                         logger);
                 break;
+            case DeepMARMultiGPU:
+                recognizer = new DeepMARMultiGPU(
+                        propCenter.caffeGPU,
+                        new File("models/DeepMARCaffe/DeepMAR.prototxt"),
+                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
+                        logger);
+                break;
             case Fake:
                 recognizer = new FakeRecognizer();
                 break;
@@ -109,7 +112,8 @@ public class RecognizerTest {
                 "-v"});
     }
 
-    private static Tracklet img2Tracklet(opencv_core.Mat img) {
+    @Nonnull
+    private static Tracklet.BoundingBox img2BBox(@Nonnull opencv_core.Mat img) {
         final Tracklet.BoundingBox boundingBox = new Tracklet.BoundingBox();
         boundingBox.height = img.rows();
         boundingBox.width = img.cols();
@@ -117,10 +121,20 @@ public class RecognizerTest {
         boundingBox.y = 0;
         boundingBox.patchData = new byte[boundingBox.width * boundingBox.height * 3];
         img.data().get(boundingBox.patchData);
+        return boundingBox;
+    }
 
+    /**
+     * Create a tracklet with only one bounding box, which is the given image.
+     *
+     * @param img an cropped pedestrian image.
+     * @return a one-shot tracklet.
+     */
+    @Nonnull
+    private static Tracklet img2Tracklet(@Nonnull opencv_core.Mat img) {
         final Tracklet tracklet = new Tracklet();
         tracklet.locationSequence = new Tracklet.BoundingBox[1];
-        tracklet.locationSequence[0] = boundingBox;
+        tracklet.locationSequence[0] = img2BBox(img);
         return tracklet;
     }
 
@@ -149,5 +163,22 @@ public class RecognizerTest {
         logger.info((timeSum / roundCnt) + "ms per round.");
         logger.info(attributes);
         assertEquals(answer, attributes);
+    }
+
+    @Test
+    public void batchRecognize() throws Exception {
+        Recognizer recognizer = createRecognizer();
+        if (recognizer instanceof BatchRecognizer) {
+            opencv_core.Mat img = imread(testImage);
+            Tracklet.BoundingBox bbox = img2BBox(img);
+            Tracklet.BoundingBox[] clone = new Tracklet.BoundingBox[16];
+            for (int i = 0; i < clone.length; ++i) {
+                clone[i] = bbox;
+            }
+            Attributes[] attributes = ((BatchRecognizer) recognizer).recognize(clone);
+            for (Attributes attribute : attributes) {
+                assertEquals(answer, attribute);
+            }
+        }
     }
 }

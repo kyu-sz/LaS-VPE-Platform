@@ -25,11 +25,19 @@ import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
 import javax.annotation.Nonnull;
 
+import java.util.Random;
+
 import static org.bytedeco.javacpp.opencv_core.*;
 
 public interface DeepMAR extends Recognizer {
     float MEAN_PIXEL = 128;
     float REG_COEFF = 1.0f / 256;
+    Random random = new Random(System.currentTimeMillis());
+
+    static int randomlyPickGPU(String gpus) {
+        String[] gpuIDs = gpus.split(",");
+        return Integer.parseInt(gpuIDs[random.nextInt() % gpuIDs.length]);
+    }
 
     class PointerManager {
         static {
@@ -59,7 +67,8 @@ public interface DeepMAR extends Recognizer {
     int INPUT_WIDTH = 227;
     int INPUT_HEIGHT = 227;
 
-    static float[] preprocess(Tracklet.BoundingBox bbox) {
+    static @Nonnull
+    float[] preprocess(@Nonnull Tracklet.BoundingBox bbox) {
         // Process image.
         opencv_core.Mat image = bbox.getImage();
         opencv_imgproc.resize(image, image, new opencv_core.Size(INPUT_WIDTH, INPUT_HEIGHT));
