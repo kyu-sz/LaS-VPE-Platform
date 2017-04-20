@@ -34,6 +34,7 @@ import org.spark_project.guava.collect.Range;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.BufferedReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -165,6 +166,60 @@ public class HadoopHelper {
             harFS.close();
         }
         return tracklet;
+    }
+
+    /**
+     * Get the content of info.txt in Har.
+     * 
+     * @param  storeDir the directory storing the tracklet.
+     * @throws IOException        on failure of retrieving the tracklet.
+     * @throws URISyntaxException on syntax error detected in the storeDir.
+     * @return the content in info.txt which is in json format (as a string).
+     */
+    public static String getTrackletInfo(@Nonnull String storeDir) throws IOException, URISyntaxException {
+        final InputStreamReader infoReader;
+        final HarFileSystem harFS;
+        final String revisedStoreDir;
+
+        FileSystem hdfs = new HDFSFactory().produce();
+
+        boolean onHDFS = false;
+        try {
+            onHDFS = hdfs.exists(new Path(storeDir));
+        } catch(IOException | IllegalArgumentException ignored) {
+            
+        }
+        if (onHDFS) {
+            infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
+            harFS = null;
+        } else {
+            // Open the Hadoop Archive of the task the track is generated in.
+            while (storeDir.endsWith("/")) {
+                storeDir = storeDir.substring(0, storeDir.length() - 1);
+            }
+            if (storeDir.contains(".har")) {
+                revisedStoreDir = storeDir;
+            } else {
+                final int splitter = storeDir.lastIndexOf("/");
+                revisedStoreDir = storeDir.substring(0, splitter) + ".har" + storeDir.substring(splitter);
+            }
+            harFS = new HarFileSystem();
+            // When we run the code on our platform, it maybe not necessary to call getDefaultConf().
+            // And just use "new Configuration()" as the second input in harFS.initialize().
+            //Configuration hdfsConf = getDefaultConf();
+            //harFS.initialize(new URI(revisedStoreDir), hdfsConf);
+            harFS.initialize(new URI(revisedStoreDir), new Configuration());
+            infoReader = new InputStreamReader(harFS.open(new Path(revisedStoreDir + "/info.txt")));
+        }
+
+        BufferedReader bufferedReader = new BufferedReader(infoReader);
+        String trackletInfo = bufferedReader.readLine();
+
+        if (harFS != null) {
+            harFS.close();
+        }
+
+        return trackletInfo;
     }
 
     /**
