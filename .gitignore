@@ -3,7 +3,7 @@
 
 # Temporary files #
 checkpoint/
-*.log
+*.log*
 *.swp
 *.lck
 
@@ -25,3 +25,4 @@ checkpoint/
 *.caffemodel
 *.ckpt*
 *.pb
+lib/
