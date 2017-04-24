@@ -154,8 +154,9 @@ public class RecognizerTest {
         Attributes attributes = null;
         Recognizer recognizer = createRecognizer();
         while (timeSum < 10000) {
+            Tracklet tracklet = img2Tracklet(imread(testImage));
             final long start = System.currentTimeMillis();
-            attributes = recognizer.recognize(img2Tracklet(imread(testImage)));
+            attributes = recognizer.recognize(tracklet);
             final long end = System.currentTimeMillis();
             timeSum += end - start;
             ++roundCnt;
