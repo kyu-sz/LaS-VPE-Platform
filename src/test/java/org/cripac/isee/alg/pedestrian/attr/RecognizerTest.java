@@ -48,6 +48,7 @@ public class RecognizerTest {
 
     private final Logger logger = new ConsoleLogger(Level.DEBUG);
     private PedestrianAttrRecogApp.AppPropertyCenter propCenter;
+    Recognizer recognizer;
 
     private Recognizer createRecognizer() throws IOException {
         Recognizer recognizer;
@@ -110,6 +111,8 @@ public class RecognizerTest {
                 "--system-property-file", "conf/system.properties",
                 "--app-property-file", "conf/" + PedestrianAttrRecogApp.APP_NAME + "/app.properties",
                 "-v"});
+
+        recognizer = createRecognizer();
     }
 
     @Nonnull
@@ -148,11 +151,10 @@ public class RecognizerTest {
     }
 
     @Test
-    public void recognize() throws Exception {
+    public void recognizeSingleSample() throws Exception {
         int roundCnt = 0;
         long timeSum = 0;
         Attributes attributes = null;
-        Recognizer recognizer = createRecognizer();
         while (timeSum < 10000) {
             Tracklet tracklet = img2Tracklet(imread(testImage));
             final long start = System.currentTimeMillis();
@@ -161,22 +163,24 @@ public class RecognizerTest {
             timeSum += end - start;
             ++roundCnt;
         }
-        logger.info((timeSum / roundCnt) + "ms per round.");
+        logger.info("Single sample recognition speed=" + (timeSum / roundCnt) + "ms per sample.");
         logger.info(attributes);
         assertEquals(answer, attributes);
     }
 
     @Test
-    public void batchRecognize() throws Exception {
-        Recognizer recognizer = createRecognizer();
+    public void recognizeBatch() throws Exception {
         if (recognizer instanceof BatchRecognizer) {
             opencv_core.Mat img = imread(testImage);
             Tracklet.BoundingBox bbox = img2BBox(img);
-            Tracklet.BoundingBox[] clone = new Tracklet.BoundingBox[16];
+            Tracklet.BoundingBox[] clone = new Tracklet.BoundingBox[128];
             for (int i = 0; i < clone.length; ++i) {
                 clone[i] = bbox;
             }
+            final long start = System.currentTimeMillis();
             Attributes[] attributes = ((BatchRecognizer) recognizer).recognize(clone);
+            final long end = System.currentTimeMillis();
+            logger.info("Batch recognition speed=" + ((end - start) / clone.length) + "ms per sample.");
             for (Attributes attribute : attributes) {
                 assertEquals(answer, attribute);
             }

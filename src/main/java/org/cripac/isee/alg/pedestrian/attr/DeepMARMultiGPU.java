@@ -28,7 +28,6 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Queue;
-import java.util.concurrent.SynchronousQueue;
 
 public class DeepMARMultiGPU implements BatchRecognizer, Recognizer {
     private final @Nonnull
@@ -52,6 +51,7 @@ public class DeepMARMultiGPU implements BatchRecognizer, Recognizer {
                            @Nonnull File pb,
                            @Nonnull File model,
                            @Nonnull Logger logger) {
+        logger.info("Initializing DeepMARMultiGPU...");
         this.pb = pb;
         this.model = model;
         this.logger = logger;
