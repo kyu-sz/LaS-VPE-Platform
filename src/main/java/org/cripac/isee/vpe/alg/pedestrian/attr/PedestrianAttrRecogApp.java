@@ -200,6 +200,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         Logger logger = loggerSingleton.getInst();
                         long startTime = System.currentTimeMillis();
                         final long[] recognizerCostTime = {0};
+                        final int[] numSamples = {0};
                         kvList.forEach(kv -> {
                             try {
                                 final UUID taskID = kv._1();
@@ -213,7 +214,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                                     long recogStartTime = System.currentTimeMillis();
                                     final Attributes a = recognizerSingleton.getInst().recognize(t);
                                     long recogEndTime = System.currentTimeMillis();
-                                    recognizerCostTime[0] += (recogEndTime - recogStartTime) / t.getSamples().size();
+                                    recognizerCostTime[0] += recogEndTime - recogStartTime;
+                                    numSamples[0] += t.getSamples().size();
                                     a.trackletID = t.id;
                                     return a;
                                 }).execute((TrackletOrURL) taskData.predecessorRes);
@@ -234,8 +236,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         });
                         if (kvList.size() > 0) {
                             long endTime = System.currentTimeMillis();
-                            logger.info("Recognizer speed=" + (recognizerCostTime[0] / kvList.size()) + "ms per sample");
-                            logger.info("Overall speed=" + ((endTime - startTime) / kvList.size()) + "ms per tracklet");
+                            logger.info("Recognizer speed=" + (recognizerCostTime[0] / numSamples[0])
+                                    + "ms per sample (totally " + numSamples[0] + " samples)");
+                            logger.info("Overall speed=" + ((endTime - startTime) / kvList.size())
+                                    + "ms per tracklet (totally " + kvList.size() + " tracklets)");
                         }
                     }));
         }
