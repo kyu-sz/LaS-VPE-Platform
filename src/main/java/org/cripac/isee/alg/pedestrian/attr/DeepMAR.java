@@ -36,7 +36,7 @@ public interface DeepMAR extends Recognizer {
 
     static int randomlyPickGPU(String gpus) {
         String[] gpuIDs = gpus.split(",");
-        return Integer.parseInt(gpuIDs[random.nextInt() % gpuIDs.length]);
+        return Integer.parseInt(gpuIDs[random.nextInt(gpuIDs.length)]);
     }
 
     class PointerManager {
