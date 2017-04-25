@@ -4,16 +4,22 @@
  * other application modules, e.g., tracking, attributes recognition,
  * and so on.
  *
- * @version 1.0 on 2017/04/12
+ * @version 1.0 on 2017/04/12; 1.1 on 2017/04/17
+ * @author  houjing.huang
  */
 
 package org.cripac.isee.vpe.data;
 
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.neo4j.driver.v1.*;
+import com.google.gson.*;
 
 import javax.annotation.Nonnull;
 import java.util.NoSuchElementException;
+import java.io.IOException;
+import java.net.URISyntaxException;
+
+import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.getTrackletInfo;
 
 /**
  * \class Neo4jConnector
@@ -33,12 +39,136 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         }
     }
 
+    /**
+     * Calculate the start time of a tracklet based on start frame index, fps
+     * and the start time of the video.
+     *
+     * @param trackletStartIdx start frame index of a tracklet.
+     * @param videoStartTime start time of the video.
+     * @return the start time of a tracklevideoStartTime start time of the video.
+     * created by da.li on 2014/04/18
+     */
+    private String calTrackletStartTime(@Nonnull int trackletStartIdx,
+                                        @Nonnull String videoStartTime) {
+        final int fpsDenominator = 2;
+        final int fpsNumerator = 25;
+        final int secPos = 12;
+        final int minPos = 10;
+
+        int trackletDuration = trackletStartIdx * fpsDenominator / fpsNumerator;
+        // Confirm second:
+        int secOld = 0;
+        try {
+            secOld = Integer.parseInt(videoStartTime.substring(secPos));
+        } catch(NumberFormatException e) {
+        }
+        int min = (secOld + trackletDuration) / 60;
+        int sec = (secOld + trackletDuration) % 60;
+        String secNew = null;
+        if (sec < 10) {
+            secNew = "0" + sec;
+        } else {
+            secNew = "" + sec;
+        }
+        // Confirm minute:
+        int minOld = 0;
+        try {
+            minOld = Integer.parseInt(videoStartTime.substring(minPos, secPos));
+        } catch(NumberFormatException e) {
+        }
+        int hour = (minOld + min) / 60;
+        min  = (minOld + min) % 60;
+        String minNew = null;
+        if (min < 10) {
+            minNew = "0" + min;
+        } else {
+            minNew = "" + min;
+        }
+        // Confirm hour:
+        int hourOld = 0;
+        try {
+            hourOld = Integer.parseInt(videoStartTime.substring(0, minPos));
+        } catch(NumberFormatException e) {
+        }
+        hour = hourOld + hour;
+
+        // Finally, get start time of a tracklet.
+        String trackletStartTime = "" + hour + minNew + secNew;
+
+        return trackletStartTime;
+    }
+
+    // Modified by da.li on 2017/04/18:
+    // Set start frame-index and time; create relation between person node and
+    // time tree.
     @Override
     public void setTrackletSavingPath(@Nonnull String nodeID, @Nonnull String path) {
         // Set path to an existing node or one newly created.
         Session session = driver.session();
         session.run("MERGE (p:Person {id: {id}}) SET p.path={path};",
                 Values.parameters("id", nodeID, "path", path));
+        // Get the info of a tracklet.
+        // Test (we don't need host:port when run on our platform).
+        //String hostPort = "har://hdfs-kman-nod2:8020";
+        //String storeDir = hostPort + path;
+        //System.out.println("storeDir: " + storeDir);
+        // End
+        String storeDir = path;
+        String trackletInfo = "1024";
+        try {
+            trackletInfo = getTrackletInfo(storeDir);
+        } catch(IOException e1) {
+        } catch(URISyntaxException e2) {
+        }
+
+        JsonParser jParser = new JsonParser();
+        JsonObject jObject = jParser.parse(trackletInfo).getAsJsonObject();
+        
+        // Start frame index of a tracklet.
+        int trackletStartIdx = jObject.get("run-frame-index").getAsInt();
+        JsonObject jObjectId = jObject.get("id").getAsJsonObject();
+        String videoStartTime= jObjectId.get("video-url").getAsString();
+        // split videoStartTime with "-".
+        videoStartTime = videoStartTime.split("-")[0];
+        
+        // bounding boxes.
+        JsonArray jArrayBoundingBoxes = jObject.get("bounding-boxes").getAsJsonArray();
+        String bbCoordinatesInfo = jArrayBoundingBoxes.toString();
+
+        // Start time of a tracklet.
+        String trackletStartTime = calTrackletStartTime(trackletStartIdx, 
+                                                        videoStartTime);
+        // Insert the information of boundingboxes, start time and start frame index.
+        session.run("MATCH (p:Person {id: {id}}) SET " 
+                  + "p.startTime=toint({startTime}), "
+                  + "p.startIndex={startIndex}, "
+                  + "p.boundingBoxes={boundingBoxes};",
+                   Values.parameters(
+                   "id", nodeID,
+                   "startTime", trackletStartTime,
+                   "startIndex",trackletStartIdx,
+                   "boundingBoxes", bbCoordinatesInfo));
+        // Insert relation.
+        String queryYear = trackletStartTime.substring(0,4);
+        String queryMon  = trackletStartTime.substring(0,6);
+        String queryDay  = trackletStartTime.substring(0,8);
+        String queryHour = trackletStartTime.substring(0,10);
+        String run = "MATCH (n:Root)-[:HAS_YEAR]->(y:Year {year: toint({year})})-[:HAS_MONTH]->" +
+        "(mon:Month {month: toint({month})})-[:HAS_DAY]->(d:Day {day: toint({day})})-[:HAS_HOUR]->" + 
+        "(h:Hour {hour: toint({hour})})-[:HAS_MIN]->(min) WHERE toint(tostring(min.start)+'00')<=" +
+        "toint({trackletStartTime}) AND toint({trackletStartTime})<=toint(tostring(min.end)+'59') " +
+        "MATCH (p:Person {id: {id}}) MERGE (min)-[:INCLUDES_PERSON]->(p);";
+        session.run(run, Values.parameters(
+            "year", queryYear,
+            "month",queryMon,
+            "day",  queryDay,
+            "hour", queryHour,
+            "trackletStartTime", trackletStartTime,
+            "trackletStartTime", trackletStartTime,
+            "id",   nodeID
+        ));
+
+        // Close session.
         session.close();
     }
 
