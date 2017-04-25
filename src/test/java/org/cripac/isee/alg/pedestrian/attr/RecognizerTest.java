@@ -80,13 +80,6 @@ public class RecognizerTest {
                         new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
                         logger);
                 break;
-            case DeepMARMultiGPU:
-                recognizer = new DeepMARMultiGPU(
-                        propCenter.caffeGPU,
-                        new File("models/DeepMARCaffe/DeepMAR.prototxt"),
-                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
-                        logger);
-                break;
             case Fake:
                 recognizer = new FakeRecognizer();
                 break;
