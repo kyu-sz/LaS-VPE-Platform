@@ -273,8 +273,12 @@ public class DataManagingApp extends SparkStreamingApp {
                         logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
                         taskMap.forEach((taskID, value) -> {
                             try {
-                                final Tuple2<String, Integer> info = SerializationHelper.deserialize(value);
-                                final String videoID = info._1();
+                                //final Tuple2<String, Integer> info = SerializationHelper.deserialize(value);
+                                //final String videoID = info._1();
+                                // Modified "String" in Tuple2 to "Tracklet.Identifier" on 2017/04/26
+                                final Tuple2<Tracklet.Identifier, Integer> info = SerializationHelper.deserialize(value);
+                                final Tracklet.Identifier trackletID = info._1();
+                                final String videoID = trackletID.videoID;
                                 final int numTracklets = info._2();
                                 final String videoRoot = metadataDir + "/" + videoID;
                                 final String taskRoot = videoRoot + "/" + taskID;
