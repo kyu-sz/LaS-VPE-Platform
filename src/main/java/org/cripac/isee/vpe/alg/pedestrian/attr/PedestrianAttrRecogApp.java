@@ -229,10 +229,12 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         });
                         if (kvList.size() > 0) {
                             long endTime = System.currentTimeMillis();
-                            logger.info("Recognizer speed=" + (recognizerCostTime[0] / numSamples[0])
-                                    + "ms per sample (totally " + numSamples[0] + " samples)");
                             logger.info("Overall speed=" + ((endTime - startTime) / kvList.size())
                                     + "ms per tracklet (totally " + kvList.size() + " tracklets)");
+                        }
+                        if (numSamples[0] > 0) {
+                            logger.info("Recognizer speed=" + (recognizerCostTime[0] / numSamples[0])
+                                    + "ms per sample (totally " + numSamples[0] + " samples)");
                         }
                     }));
         }
