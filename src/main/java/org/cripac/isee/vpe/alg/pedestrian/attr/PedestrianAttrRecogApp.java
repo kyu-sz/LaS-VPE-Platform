@@ -198,8 +198,6 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                             try {
                                 final UUID taskID = kv._1();
                                 final TaskData taskData = kv._2();
-                                logger.debug("Received task " + taskID + "!");
-
                                 logger.debug("To recognize attributes for task " + taskID + "!");
                                 // Recognize attributes robustly.
                                 final Attributes attr = new RobustExecutor<>((Function<TrackletOrURL, Attributes>) tou -> {
