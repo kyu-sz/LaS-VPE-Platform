@@ -60,8 +60,7 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
      */
     public enum Algorithm {
         EXT,
-        //        DeepMARCaffeBytedeco,
-        DeepMARCaffeNative,
+        DeepMARCaffe2Native,
         //        DeepMARTensorflow,
         Fake
     }
@@ -167,10 +166,10 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 //                            () -> new DeepMARTF("", loggerSingleton.getInst()),
 //                            DeepMARTF.class);
 //                    break;
-                case DeepMARCaffeNative:
+                case DeepMARCaffe2Native:
                     recognizerSingleton = new Singleton<>(
-                            () -> new DeepMARCaffeNative(propCenter.caffeGPU, loggerSingleton.getInst()),
-                            DeepMARCaffeNative.class
+                            () -> new DeepMARCaffe2Native(propCenter.caffeGPU, loggerSingleton.getInst()),
+                            DeepMARCaffe2Native.class
                     );
                     break;
                 case Fake:

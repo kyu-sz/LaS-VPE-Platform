@@ -24,15 +24,15 @@ import java.io.IOException;
 
 import static org.cripac.isee.util.ResourceManager.getResource;
 
-public interface DeepMARCaffe extends DeepMAR {
+public interface DeepMARCaffe2 extends DeepMAR {
 
     @Nonnull
-    static File getDefaultProtobuf() throws IOException {
-        return getResource("/models/DeepMARCaffe/DeepMAR.prototxt");
+    static File getInitNetProtobuf() throws IOException {
+        return getResource("/models/DeepMARCaffe2/init_net.pb");
     }
 
     @Nonnull
-    static File getDefaultModel() throws IOException {
-        return getResource("/models/DeepMARCaffe/DeepMAR.caffemodel");
+    static File getPredictNetModel() throws IOException {
+        return getResource("/models/DeepMARCaffe2/predict_net.pb");
     }
 }

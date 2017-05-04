@@ -26,5 +26,5 @@ then
 fi
 ##################################################
 cp -Rpu lib/libDeepMARCaffe.so ${PROJECT_PATH}/lib/x64 || :
-cp -Rpu lib/jni/libjniDeepMARCaffe.so ${PROJECT_PATH}/lib/x64 || :
+cp -Rpu lib/jni/libjniDeepMARCaffe2.so ${PROJECT_PATH}/lib/x64 || :
 ##################################################

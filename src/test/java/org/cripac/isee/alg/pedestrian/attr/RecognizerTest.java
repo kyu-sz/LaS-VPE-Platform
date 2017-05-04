@@ -59,13 +59,6 @@ public class RecognizerTest {
                         propCenter.externAttrRecogServerPort,
                         logger);
                 break;
-//            case DeepMARCaffeBytedeco:
-//                recognizer = new DeepMARCaffeBytedeco(
-//                        propCenter.caffeGPU,
-//                        new File("models/DeepMARCaffe/DeepMAR.prototxt"),
-//                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
-//                        logger);
-//                break;
 //            case DeepMARTensorflow:
 //                recognizer = new DeepMARTF(
 //                        "",
@@ -73,11 +66,11 @@ public class RecognizerTest {
 //                        new File("models/DeepMARTF/tf_session_config.pb"),
 //                        logger);
 //                break;
-            case DeepMARCaffeNative:
-                recognizer = new DeepMARCaffeNative(
+            case DeepMARCaffe2Native:
+                recognizer = new DeepMARCaffe2Native(
                         propCenter.caffeGPU,
-                        new File("models/DeepMARCaffe/DeepMAR.prototxt"),
-                        new File("models/DeepMARCaffe/DeepMAR.caffemodel"),
+                        new File("models/DeepMARCaffe2/init_net.pb"),
+                        new File("models/DeepMARCaffe2/predict_net.pb"),
                         logger);
                 break;
             case Fake:

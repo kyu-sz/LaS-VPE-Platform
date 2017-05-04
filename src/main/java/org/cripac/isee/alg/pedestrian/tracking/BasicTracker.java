@@ -22,7 +22,7 @@ import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.OpenCVFrameConverter;
-import org.cripac.isee.alg.pedestrian.attr.DeepMARCaffe;
+import org.cripac.isee.alg.pedestrian.attr.DeepMARCaffe2;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 
@@ -43,7 +43,7 @@ import static org.bytedeco.javacpp.avutil.av_log_set_level;
 public class BasicTracker implements Tracker {
 
     static {
-        org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(DeepMARCaffe.class);
+        org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(DeepMARCaffe2.class);
         try {
             logger.info("Loading native libraries for BasicTracker from "
                     + System.getProperty("java.library.path"));

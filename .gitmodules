@@ -7,3 +7,6 @@
 [submodule "src/native/caffe"]
 	path = src/native/caffe
 	url = https://github.com/kyu-sz/caffe.git
+[submodule "src/native/caffe2"]
+	path = src/native/caffe2
+	url = https://github.com/kyu-sz/caffe2.git
