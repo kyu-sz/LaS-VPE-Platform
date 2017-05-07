@@ -96,6 +96,8 @@ object KafkaHelper {
       case ie: InterruptedException =>
         logger error("Interrupted when retrieving Kafka sending result.", ie)
       case e@(_: ExecutionException | _: CancellationException) =>
+        // The real cause is usually wrapped in the ExecutionException.
+        // If so, we take it out to throw.
         throw if (e.getCause != null) e.getCause else e
     }
   }
@@ -150,6 +152,15 @@ object KafkaHelper {
     new ZkUtils(zkClient, zkConn, JaasUtils.isZkSecurityEnabled)
   }
 
+  /**
+    * Create topics corresponding to all data types.
+    *
+    * @param zkServers         Zookeeper server addresses string in format x.x.x.x:x,x.x.x.x:x,...
+    * @param sessionTimeout    timeout of Zookeeper session.
+    * @param connectionTimeout timeout of Zookeeper connection.
+    * @param partitions        partitions of the topic to be created.
+    * @param replicas          replicas of the topic to be created.
+    */
   def checkTopics(
                    zkServers: String,
                    sessionTimeout: Int,
@@ -158,30 +169,26 @@ object KafkaHelper {
                    replicas: Int
                  ): Unit = {
     DataType.values().foreach(dataType =>
-      createTopicIfNotExists(zkServers, sessionTimeout, connectionTimeout, dataType.name(), partitions, replicas))
+      createTopic(zkServers,
+        sessionTimeout, connectionTimeout,
+        dataType.name(),
+        partitions, replicas,
+        ifNotExist = false))
   }
 
-  def createTopicIfNotExists(
-                              zkServers: String,
-                              sessionTimeout: Int,
-                              connectionTimeout: Int,
-                              topic: String,
-                              partitions: Int,
-                              replicas: Int
-                            ): Unit = {
-    createTopicIfNotExists(createZkUtils(zkServers, sessionTimeout, connectionTimeout),
-      topic, partitions, replicas)
-  }
-
-  def createTopicIfNotExists(
-                              zkUtils: ZkUtils,
-                              topic: String,
-                              partitions: Int,
-                              replicas: Int
-                            ): Unit = {
-    createTopic(zkUtils, topic, partitions, replicas, ifNotExists = true)
-  }
-
+  /**
+    * Create a Kafka topic.
+    *
+    * @param zkServers         Zookeeper server addresses string in format x.x.x.x:x,x.x.x.x:x,...
+    * @param sessionTimeout    timeout of Zookeeper session.
+    * @param connectionTimeout timeout of Zookeeper connection.
+    * @param topic             name of the topic.
+    * @param partitions        partitions of the topic to be created.
+    * @param replicas          replicas of the topic to be created.
+    * @param ifNotExist        whether only to create the topic if it does not exist.
+    * @throws TopicExistsException when a topic with the same name already exists
+    *                              and ifNotExist is true.
+    */
   def createTopic(
                    zkServers: String,
                    sessionTimeout: Int,
@@ -189,18 +196,31 @@ object KafkaHelper {
                    topic: String,
                    partitions: Int,
                    replicas: Int,
-                   ifNotExists: Boolean
+                   ifNotExist: Boolean
                  ): Unit = {
     createTopic(createZkUtils(zkServers, sessionTimeout, connectionTimeout),
-      topic, partitions, replicas, ifNotExists)
+      topic,
+      partitions, replicas,
+      ifNotExist)
   }
 
+  /**
+    * Create a Kafka topic.
+    *
+    * @param zkUtils    Zookeeper utilities for managing topics in Zookeeper.
+    * @param topic      name of the topic to be created.
+    * @param partitions partitions of the topic to be created.
+    * @param replicas   replicas of the topic to be created.
+    * @param ifNotExist whether only to create the topic if it does not exist.
+    * @throws TopicExistsException when a topic with the same name already exists
+    *                              and ifNotExist is true.
+    */
   def createTopic(
                    zkUtils: ZkUtils,
                    topic: String,
                    partitions: Int,
                    replicas: Int,
-                   ifNotExists: Boolean
+                   ifNotExist: Boolean
                  ) {
     val configs = new Properties
     if (Topic.hasCollisionChars(topic))
@@ -210,7 +230,7 @@ object KafkaHelper {
       AdminUtils.createTopic(zkUtils, topic, partitions, replicas, configs, rackAwareMode)
       println("Created topic \"%s\".".format(topic))
     } catch {
-      case e: TopicExistsException => if (!ifNotExists) throw e
+      case e: TopicExistsException => if (ifNotExist) throw e
     }
   }
 }
