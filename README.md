@@ -66,7 +66,7 @@ properly on your cluster.
       </property>
       ```
 
-4. If you choose to run algorithms based on Caffe, no matter the
+4. If you choose to run algorithms based on Caffe2, no matter the
  algorithms use CPU-only or GPUs, you must have CUDA 8.0 installed on every
  node in your cluster.
 
@@ -78,8 +78,16 @@ properly on your cluster.
     # Make sure to clone with --recursive
     git clone --recursive https://github.com/kyu-sz/LaS-VPE-Platform
     ```
+    
+2. Retrieve additional model files such as _DeepMAR.caffemodel_ from algorithm providers.
+Put them in appropriate locations. For example, the _DeepMAR.caffemodel_ should be put in
+_${PROJECT_DIR}/models/DeepMAR/_. See [models](models).
 
-2. Build and pack the system into a JAR:
+3. Configure the environment and running properties in the files in [conf](conf).
+ Specially, modify the [cluster-env.sh](conf/cluster-env.sh) in [conf](conf)
+to adapt to your cluster address.
+
+4. Build and pack the system into a JAR:
 
     ```Shell
     mvn package
@@ -93,15 +101,11 @@ properly on your cluster.
     ```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.
     * You may also try a Maven mirror. For users in China, the Aliyun mirror is recommended.
 
-3. Retrieve additional model files such as _DeepMAR.caffemodel_ from algorithm providers.
-Put them in appropriate locations. For example, the _DeepMAR.caffemodel_ should be put in
-_${PROJECT_DIR}/models/DeepMAR/_. See [models](models).
+5. Install all the dependencies required by the native libraries.
+   
+   Especially, we use OpenBLAS for Caffe2 by default for best efficiency.
 
-4. Configure the environment and running properties in the files in [conf](conf).
- Specially, modify the [cluster-env.sh](conf/cluster-env.sh) in [conf](conf)
-to adapt to your cluster address.
-
-4. Change to the platform folder and deliver native libraries to worker nodes using
+6. Build and deliver the native libraries to worker nodes using
  [install.sh](sbin/install.sh) in [sbin](sbin).
     
     ```Shell
@@ -110,7 +114,7 @@ to adapt to your cluster address.
     
  Note that this script requires the _HADOOP_HOME_ environment variable.
 
-5. Finally, you can start the applications by invoking the scripts in the home
+7. Finally, you can start the applications by invoking the scripts in the home
 directory by command like "./sbin/run-*.sh".
 
     * It is recommended to last start the

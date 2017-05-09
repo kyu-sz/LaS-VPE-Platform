@@ -2,16 +2,15 @@
 
 PROJECT_PATH=$(cd `dirname "${BASH_SOURCE[0]}"`/../..; pwd)
 NATIVE_SRC=${PROJECT_PATH}/src/native
-mkdir -p ${PROJECT_PATH}/lib/x64
 
 ##################################################
-cd ${NATIVE_SRC}/caffe2
-if [ $? -ne 0 ]
-then
-  exit $?
-fi
+mkdir -p ${PROJECT_PATH}/lib/x64 && \
 ##################################################
-make -j 16 && cd build && sudo make install
+cd ${NATIVE_SRC}/caffe2 && \
+##################################################
+mkdir -p build && cd build && \
+cmake -DBLAS=OpenBLAS .. $(shell python ./scripts/get_python_cmake_flags.py) && \
+make -j 16 && sudo make install
 if [ $? -ne 0 ]
 then
   exit $?
