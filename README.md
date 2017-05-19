@@ -105,7 +105,13 @@ to adapt to your cluster address.
    
    Especially, we use OpenBLAS for Caffe2 by default for best efficiency. Both Eigen3 and OpenBLAS should be installed
    by package management tools like yum (CentOS) or apt (Ubuntu) in addition to the packages
-   listed on Caffe2's installation guide. 
+   listed on Caffe2's installation guide.
+   
+   Note that for the time being, the Caffe2 installation guide states that GLog should be compiled from the latest
+   version on [GitHub](https://github.com/google/glog),
+   while GFlags can be installed from package management tools. However, on CentOS, the libgflags-devel is too old for
+   the latest GLog. It should also be compiled from the latest version on
+   [GitHub](https://github.com/gflags/gflags).
 
 6. Build and deliver the native libraries to worker nodes using
  [install.sh](sbin/install.sh) in [sbin](sbin).
@@ -120,7 +126,7 @@ to adapt to your cluster address.
      create a link from the OpenBLAS library:
      
      ```bash
-     sudo ln /usr/lib64/libopenblas.so /usr/lib64/libcblas.so
+     sudo ln -s /usr/lib64/libopenblas.so /usr/lib64/libcblas.so
      ```
 
 7. Finally, you can start the applications by invoking the scripts in the home
