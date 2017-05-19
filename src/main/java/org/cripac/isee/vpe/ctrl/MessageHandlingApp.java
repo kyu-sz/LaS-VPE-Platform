@@ -134,8 +134,6 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 .foreachRDD(rdd -> rdd.foreach(rec -> {
                     final Logger logger = loggerSingleton.getInst();
                     try {
-                        String taskID = UUID.randomUUID().toString();
-
                         // Get a next command message.
                         final DataType dataType = rec._1();
                         assert dataType.equals(DataType.COMMAND);
@@ -149,7 +147,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                             // TODO: After finishing real time processing function, implement here.
                             throw new NotImplementedException();
                         } else {
-                            new RobustExecutor<Void, Void>(() -> handle(cmd, param, taskID)).execute();
+                            new RobustExecutor<Void, Void>(() -> handle(cmd, param)).execute();
                         }
                     } catch (Exception e) {
                         logger.error("During msg handling", e);
@@ -157,7 +155,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 }));
     }
 
-    private void handle(String cmd, Map<String, Serializable> param, String taskID) throws Exception {
+    private void handle(String cmd, Map<String, Serializable> param) throws Exception {
         final KafkaProducer<String, byte[]> producer = producerSingleton.getInst();
         final Logger logger = loggerSingleton.getInst();
         final ExecutionPlan plan = new ExecutionPlan();
@@ -178,6 +176,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                         DataManagingApp.TrackletSavingStream.PED_TRACKLET_SAVING_PORT));
 
                 videoPaths.forEach(path -> {
+                    final String taskID = UUID.randomUUID().toString();
                     final TaskData taskData = new TaskData(
                             trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
                             plan,
@@ -203,6 +202,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                         DataManagingApp.AttrSavingStream.PED_ATTR_SAVING_PORT));
 
                 videoPaths.forEach(path -> {
+                    final String taskID = UUID.randomUUID().toString();
                     final TaskData taskData = new TaskData(
                             trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
                             plan,
@@ -235,6 +235,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                         DataManagingApp.IDRankSavingStream.PED_IDRANK_SAVING_PORT));
 
                 videoPaths.forEach(path -> {
+                    final String taskID = UUID.randomUUID().toString();
                     final TaskData taskData = new TaskData(
                             trackingNode.createInputPort(HDFSVideoTrackingStream.VIDEO_URL_PORT),
                             plan,
@@ -253,6 +254,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
+                    final String taskID = UUID.randomUUID().toString();
                     final Tracklet.Identifier id = new Tracklet.Identifier(
                             path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));
@@ -282,6 +284,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
+                    final String taskID = UUID.randomUUID().toString();
                     final Tracklet.Identifier id = new Tracklet.Identifier(
                             path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));
@@ -309,6 +312,7 @@ public class MessageHandlingApp extends SparkStreamingApp {
                 String trackletIdx = (String) param.get(Parameter.TRACKLET_INDEX);
                 final GraphDatabaseConnector dbConnector = new FakeDatabaseConnector();
                 videoPaths.forEach(path -> {
+                    final String taskID = UUID.randomUUID().toString();
                     final Tracklet.Identifier id = new Tracklet.Identifier(
                             path.getName().substring(0, path.getName().lastIndexOf('.')),
                             Integer.valueOf(trackletIdx));

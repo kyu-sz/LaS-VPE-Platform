@@ -32,11 +32,11 @@ LaS-VPE Platform is released under the GPL License.
 1. Use Maven to build the project.
 
     For Ubuntu:
-	```Shell
+	```bash
 	sudo apt-get install maven
 	```
 	For CentOS:
-	```Shell
+	```bash
 	sudo yum install maven
 	```
 	
@@ -44,7 +44,7 @@ LaS-VPE Platform is released under the GPL License.
 
     Paste following towards end of _/etc/security/limits.conf_:
     
-    ```
+    ```bash
        *       hard    nofile  500000
        *       soft    nofile  500000
        root    hard    nofile  500000
@@ -74,7 +74,7 @@ properly on your cluster.
 
 1. Clone the project to your cluster:
 
-    ```Shell
+    ```bash
     # Make sure to clone with --recursive
     git clone --recursive https://github.com/kyu-sz/LaS-VPE-Platform
     ```
@@ -89,7 +89,7 @@ to adapt to your cluster address.
 
 4. Build and pack the system into a JAR:
 
-    ```Shell
+    ```bash
     mvn package
     ```
 
@@ -103,16 +103,25 @@ to adapt to your cluster address.
 
 5. Install all the dependencies required by the native libraries.
    
-   Especially, we use OpenBLAS for Caffe2 by default for best efficiency.
+   Especially, we use OpenBLAS for Caffe2 by default for best efficiency. Both Eigen3 and OpenBLAS should be installed
+   by package management tools like yum (CentOS) or apt (Ubuntu) in addition to the packages
+   listed on Caffe2's installation guide. 
 
 6. Build and deliver the native libraries to worker nodes using
  [install.sh](sbin/install.sh) in [sbin](sbin).
-    
-    ```Shell
-    ./sbin/install.sh
-    ```
-    
- Note that this script requires the _HADOOP_HOME_ environment variable.
+     
+     ```bash
+     ./sbin/install.sh
+     ```
+        
+     Note that this script requires the _HADOOP_HOME_ environment variable.
+     
+     If this fails because libcblas.so is not found (-lcblas fails),
+     create a link from the OpenBLAS library:
+     
+     ```bash
+     sudo ln /usr/lib64/libopenblas.so /usr/lib64/libcblas.so
+     ```
 
 7. Finally, you can start the applications by invoking the scripts in the home
 directory by command like "./sbin/run-*.sh".

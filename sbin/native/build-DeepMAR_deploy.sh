@@ -9,7 +9,7 @@ mkdir -p ${PROJECT_PATH}/lib/x64 && \
 cd ${NATIVE_SRC}/DeepMAR_deploy && \
 ##################################################
 mkdir -p Release && cd Release && \
-cmake -DCMAKE_BUILD_TYPE=Release .. && \
+cmake -DCMAKE_BUILD_TYPE=Release -DCAFFE2_INSTALL_HOME=${CAFFE2_INSTALL_HOME} .. && \
 ##################################################
 make -j 16
 if [ $? -ne 0 ]

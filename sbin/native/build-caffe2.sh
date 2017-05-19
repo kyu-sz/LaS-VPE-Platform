@@ -9,7 +9,8 @@ mkdir -p ${PROJECT_PATH}/lib/x64 && \
 cd ${NATIVE_SRC}/caffe2 && \
 ##################################################
 mkdir -p build && cd build && \
-cmake -DBLAS=OpenBLAS .. $(shell python ./scripts/get_python_cmake_flags.py) && \
+mkdir -p ${CAFFE2_INSTALL_HOME}/include ${CAFFE2_INSTALL_HOME}/lib ${CAFFE2_INSTALL_HOME}/lib64 && \
+cmake -DBLAS=OpenBLAS -CMAKE_INSTALL_PREFIX=/home/${USER}/ .. $(shell python ./scripts/get_python_cmake_flags.py) && \
 make -j 16 && sudo make install
 if [ $? -ne 0 ]
 then
