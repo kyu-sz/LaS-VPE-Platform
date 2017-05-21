@@ -26,3 +26,6 @@ checkpoint/
 *.ckpt*
 *.pb
 lib/
+
+# System runtime logs #
+core.*
