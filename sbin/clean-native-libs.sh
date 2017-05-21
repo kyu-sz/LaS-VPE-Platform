@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-projectpath=$(cd `dirname "${BASH_SOURCE[0]}"`/..; pwd)
+PROJECT_PATH=$(cd `dirname "${BASH_SOURCE[0]}"`/..; pwd)
 
 # Clean ISEE-Basic-Pedestrian-Tracker
-rm ${projectpath}/lib/x64/libbasic_pedestrian_tracker.so
-rm ${projectpath}/lib/x64/libjnibasic_pedestrian_tracker.so
-cd ${projectpath}/src/native/ISEE-Basic-Pedestrian-Tracker/Release
+rm ${PROJECT_PATH}/lib/x64/libbasic_pedestrian_tracker.so
+rm ${PROJECT_PATH}/lib/x64/libjnibasic_pedestrian_tracker.so
+cd ${PROJECT_PATH}/src/native/ISEE-Basic-Pedestrian-Tracker/Release
 make clean
 
 # Clean Caffe
-rm ${projectpath}/lib/x64/libcaffe.so*
-cd ${projectpath}/src/native/caffe/
+rm ${PROJECT_PATH}/lib/x64/libCaffe2_*PU.so
+cd ${PROJECT_PATH}/src/native/caffe2/
 make clean
 
 # Clean DeepMAR_deploy
-rm ${projectpath}/lib/x64/libDeepMARCaffe.so
-rm ${projectpath}/lib/x64/libjniDeepMARCaffe.so
-cd ${projectpath}/src/native/DeepMAR_deploy/Release
+rm ${PROJECT_PATH}/lib/x64/libDeepMARCaffe2.so
+rm ${PROJECT_PATH}/lib/x64/libjniDeepMARCaffe2.so
+cd ${PROJECT_PATH}/src/native/DeepMAR_deploy/Release
 make clean
