@@ -21,7 +21,7 @@ cp -Rpu ${CAFFE2_INSTALL_HOME}/lib/libCaffe2_CPU.so ${PROJECT_PATH}/lib/x64 || :
 cp -Rpu ${CAFFE2_INSTALL_HOME}/lib/libCaffe2_GPU.so ${PROJECT_PATH}/lib/x64 || :
 ##################################################
 python -c 'from caffe2.python import core' 2>/dev/null && echo "Success" || echo "Failure"
-check_env "PYTHONPATH" "/usr/local"
-check_env "PYTHONPATH" ${NATIVE_SRC}/caffe2/build
-check_env "LIBRARY_PATH" "/usr/local/lib"
+check_env "PYTHONPATH" "${CAFFE2_INSTALL_HOME}"
+check_env "PYTHONPATH" "${NATIVE_SRC}/caffe2/build"
+check_env "LIBRARY_PATH" "${CAFFE2_INSTALL_HOME}/lib"
 ##################################################

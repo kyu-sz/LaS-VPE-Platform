@@ -172,8 +172,31 @@ object KafkaHelper {
       createTopic(zkServers,
         sessionTimeout, connectionTimeout,
         dataType.name(),
-        partitions, replicas,
-        ifNotExist = false))
+        partitions, replicas))
+  }
+
+  /**
+    * Create a Kafka topic.
+    *
+    * @param zkServers         Zookeeper server addresses string in format x.x.x.x:x,x.x.x.x:x,...
+    * @param sessionTimeout    timeout of Zookeeper session.
+    * @param connectionTimeout timeout of Zookeeper connection.
+    * @param topic             name of the topic.
+    * @param partitions        partitions of the topic to be created.
+    * @param replicas          replicas of the topic to be created.
+    */
+  def createTopic(
+                   zkServers: String,
+                   sessionTimeout: Int,
+                   connectionTimeout: Int,
+                   topic: String,
+                   partitions: Int,
+                   replicas: Int
+                 ): Unit = {
+    createTopic(createZkUtils(zkServers, sessionTimeout, connectionTimeout),
+      topic,
+      partitions, replicas,
+      false)
   }
 
   /**

@@ -104,14 +104,25 @@ to adapt to your cluster address.
 5. Install all the dependencies required by the native libraries.
    
    Especially, we use OpenBLAS for Caffe2 by default for best efficiency. Both Eigen3 and OpenBLAS should be installed
-   by package management tools like yum (CentOS) or apt (Ubuntu) in addition to the packages
-   listed on Caffe2's installation guide.
+   by package management tools like yum (CentOS) or apt (Ubuntu) in addition to the packages listed on Caffe2's
+   installation guide.
    
-   Note that for the time being, the Caffe2 installation guide states that GLog should be compiled from the latest
-   version on [GitHub](https://github.com/google/glog),
-   while GFlags can be installed from package management tools. However, on CentOS, the libgflags-devel is too old for
-   the latest GLog. It should also be compiled from the latest version on
-   [GitHub](https://github.com/gflags/gflags).
+   Note that on CentOS, the libgflags-devel is too old for the latest GLog. It should be compiled from the latest
+   version on [GitHub](https://github.com/gflags/gflags). Use the following commands to install GFlags and GLog (using
+   a sudoer account):
+   
+   ```bash
+   git clone https://github.com/gflags/gflags.git && \
+   cd gflags && \
+   mkdir build && cd build && \
+   cmake3 -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_FLAGS='-fPIC' .. && \
+   make -j 8 && sudo make install && cd ../.. && \
+   git clone https://github.com/google/glog && \
+   cd glog && \
+   mkdir build && cd build && \
+   cmake3 -DCMAKE_CXX_FLAGS='-fPIC' .. && \
+   make -j 8 && sudo make install && cd ../..
+   ```
 
 6. Build and deliver the native libraries to worker nodes using
  [install.sh](sbin/install.sh) in [sbin](sbin).

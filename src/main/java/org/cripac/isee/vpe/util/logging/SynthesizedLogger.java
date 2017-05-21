@@ -65,10 +65,11 @@ public class SynthesizedLogger extends Logger {
                 final ZkUtils zkUtils = KafkaHelper.createZkUtils(propCenter.zkConn,
                         propCenter.zkSessionTimeoutMs,
                         propCenter.zkConnectionTimeoutMS);
-                KafkaHelper.createTopicIfNotExists(zkUtils,
+                KafkaHelper.createTopic(zkUtils,
                         topic,
                         propCenter.kafkaNumPartitions,
-                        propCenter.kafkaReplFactor);
+                        propCenter.kafkaReplFactor,
+                        false);
             }).execute();
         } catch (Exception e) {
             log4jLogger.error("Cannot create topic " + topic + "! "
