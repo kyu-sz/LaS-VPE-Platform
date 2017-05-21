@@ -76,7 +76,7 @@ public class PedestrianAttrRecogAppTest {
                 propCenter.zkSessionTimeoutMs,
                 propCenter.zkConnectionTimeoutMS);
         logger.info("Checking topic: " + topic);
-        KafkaHelper.createTopicIfNotExists(zkUtils,
+        KafkaHelper.createTopic(zkUtils,
                 topic,
                 propCenter.kafkaNumPartitions,
                 propCenter.kafkaReplFactor);

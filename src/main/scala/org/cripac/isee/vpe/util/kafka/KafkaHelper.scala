@@ -196,7 +196,7 @@ object KafkaHelper {
     createTopic(createZkUtils(zkServers, sessionTimeout, connectionTimeout),
       topic,
       partitions, replicas,
-      false)
+      ifNotExist = false)
   }
 
   /**
@@ -225,6 +225,23 @@ object KafkaHelper {
       topic,
       partitions, replicas,
       ifNotExist)
+  }
+
+  /**
+    * Create a Kafka topic.
+    *
+    * @param zkUtils    Zookeeper utilities for managing topics in Zookeeper.
+    * @param topic      name of the topic to be created.
+    * @param partitions partitions of the topic to be created.
+    * @param replicas   replicas of the topic to be created.
+    */
+  def createTopic(
+                   zkUtils: ZkUtils,
+                   topic: String,
+                   partitions: Int,
+                   replicas: Int
+                 ): Unit = {
+    createTopic(zkUtils, topic, partitions, replicas, ifNotExist = false)
   }
 
   /**
