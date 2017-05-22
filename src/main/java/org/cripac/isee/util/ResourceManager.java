@@ -27,6 +27,7 @@ public class ResourceManager {
      * Find a resource in the JAR file.
      * If failed (e.g. it is not in the JAR file or the program is not run from a JAR),
      * try to locate the resource at java.library.path.
+     *
      * @param path path to the resource starting with a slash (e.g. /lib/x64/libcaffe.so).
      * @return a file with the same content as the required resource.
      * @throws IOException on failure locating or opening the resource.

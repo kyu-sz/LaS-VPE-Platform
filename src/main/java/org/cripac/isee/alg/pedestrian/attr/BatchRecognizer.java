@@ -28,11 +28,11 @@ import javax.annotation.Nonnull;
 public interface BatchRecognizer {
 
     /**
-     * Recognize attributes in parallel from a batch of pedestrian bounding boxes.
+     * Recognize attributes from a batch of pedestrian bounding box images.
      *
-     * @param boundingBoxes a batch of pedestrian bounding boxes.
-     * @return attributes of the pedestrian in the batch.
+     * @param bboxes a batch of bounding boxes containing the images.
+     * @return attributes of the pedestrians in the images.
      */
     @Nonnull
-    Attributes[] recognize(@Nonnull Tracklet.BoundingBox[] boundingBoxes);
+    Attributes[] recognize(@Nonnull Tracklet.BoundingBox[] bboxes);
 }

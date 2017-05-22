@@ -37,6 +37,7 @@ import java.util.Collection;
  * each using a different GPU.
  */
 public class DeepMARCaffe2Native implements DeepMARCaffe2, BatchRecognizer {
+    // Load the DeepMAR native library.
     static {
         org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(DeepMARCaffe2.class);
         try {
@@ -68,16 +69,40 @@ public class DeepMARCaffe2Native implements DeepMARCaffe2, BatchRecognizer {
                                    @Nonnull String pbPath,
                                    @Nonnull String modelPath);
 
+    /**
+     * Free the network.
+     *
+     * @param p the pointer to the network.
+     */
     private native void free(long p);
 
+    /**
+     * Recognize attributes from an image using the network.
+     *
+     * @param net        the pointer to the network.
+     * @param pixelBytes pixel bytes retrieved from the image.
+     * @param outputBuf  buffer for returning the FC8 result.
+     */
     public native void recognize(long net,
                                  @Nonnull float[] pixelBytes,
                                  @Nonnull float[] outputBuf);
 
+    /**
+     * Recognize attributes from a batch of images using the network.
+     *
+     * @param net        the pointer to the network.
+     * @param pixelBytes pixel bytes retrieved from each of the images in the batch.
+     * @param outputBuf  buffer for returning the FC8 results for each of the images in the batch.
+     */
     public native void recognize(long net,
                                  @Nonnull float[][] pixelBytes,
                                  @Nonnull float[][] outputBuf);
 
+    /**
+     * Free the network.
+     *
+     * @throws Throwable on failure finalizing the super class.
+     */
     @Override
     protected void finalize() throws Throwable {
         free(net);
@@ -153,12 +178,24 @@ public class DeepMARCaffe2Native implements DeepMARCaffe2, BatchRecognizer {
                 samples.size());
     }
 
+    /**
+     * Recognize attributes from a pedestrian bounding box image.
+     *
+     * @param bbox the bounding box containing the target pedestrian image.
+     * @return attributes of the pedestrian in the image.
+     */
     @Nonnull
     public synchronized Attributes recognize(@Nonnull Tracklet.BoundingBox bbox) {
         recognize(net, DeepMAR.preprocess(bbox), outputBuf);
         return DeepMAR.fillAttributes(outputBuf);
     }
 
+    /**
+     * Recognize attributes from a batch of pedestrian bounding box images.
+     *
+     * @param bboxes a batch of bounding boxes containing the images.
+     * @return attributes of the pedestrians in the images.
+     */
     @Nonnull
     @Override
     public synchronized Attributes[] recognize(@Nonnull Tracklet.BoundingBox[] bboxes) {

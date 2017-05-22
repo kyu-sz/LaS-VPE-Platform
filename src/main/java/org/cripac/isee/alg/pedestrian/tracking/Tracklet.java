@@ -258,6 +258,10 @@ public class Tracklet implements Serializable, Cloneable {
          * @return a OpenCV Mat (by Bytedeco) with CV_8SC3 data form.
          */
         public opencv_core.Mat getImage() {
+            if (patchData == null) {
+                throw new UnsupportedOperationException(
+                        "This bounding box does not contain pixel data, so does not support transferring into image.");
+            }
             opencv_core.Mat image = new opencv_core.Mat(height, width, CV_8UC3);
             image.data().put(patchData);
             return image;

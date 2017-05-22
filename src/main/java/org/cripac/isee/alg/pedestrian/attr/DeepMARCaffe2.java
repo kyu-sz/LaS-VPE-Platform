@@ -24,6 +24,10 @@ import java.io.IOException;
 
 import static org.cripac.isee.util.ResourceManager.getResource;
 
+/**
+ * The interface DeepMARCaffe2 defines methods of retrieving the network protobuf and model for DeepMAR implementations
+ * that are based on Caffe2.
+ */
 public interface DeepMARCaffe2 extends DeepMAR {
 
     @Nonnull

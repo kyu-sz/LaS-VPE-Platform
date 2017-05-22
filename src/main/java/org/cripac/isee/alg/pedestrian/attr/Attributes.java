@@ -29,7 +29,6 @@ import java.lang.reflect.Field;
  * one moment in a track. In other words, each attribute object correspond to
  * one bounding box in a track.
  * <p>
- * <p>
  * TODO Fill the pre-defined attributes. </p>
  *
  * @author Ken Yu, CRIPAC, 2016

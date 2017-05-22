@@ -20,6 +20,8 @@ fi
 cp -Rpu ${CAFFE2_INSTALL_HOME}/lib/libCaffe2_CPU.so ${PROJECT_PATH}/lib/x64 || :
 cp -Rpu ${CAFFE2_INSTALL_HOME}/lib/libCaffe2_GPU.so ${PROJECT_PATH}/lib/x64 || :
 ##################################################
+# Here we need the NCCL dynamic libraries installed because for the current version of Caffe2,
+# we find it not able to link symbols from the NCCL static library.
 echo "Installing NCCL to ${CAFFE2_INSTALL_HOME}..."
 cd ${NATIVE_SRC}/caffe2/third_party/nccl && \
 make PREFIX=${CAFFE2_INSTALL_HOME} install -j 32

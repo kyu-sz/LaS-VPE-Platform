@@ -34,8 +34,8 @@ public interface Tracker {
     /**
      * Read a video from a URL, and perform pedestrian tracking on it.
      *
-     * @param videoStream Video stream to conduct tracking on.
-     * @return A set of tracklets of pedestrians.
+     * @param videoStream the video stream to conduct tracking on.
+     * @return a set of tracklets of pedestrians.
      */
     @Nonnull
     Tracklet[] track(@Nonnull InputStream videoStream) throws FrameGrabber.Exception;

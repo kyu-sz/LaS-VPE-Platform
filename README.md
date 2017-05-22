@@ -133,12 +133,24 @@ to adapt to your cluster address.
         
      Note that this script requires the _HADOOP_HOME_ environment variable.
      
-     If this fails because libcblas.so is not found (-lcblas fails),
-     create a link from the OpenBLAS library:
+     * Trouble shooting: 
      
-     ```bash
-     sudo ln -s /usr/lib64/libopenblas.so /usr/lib64/libcblas.so
-     ```
+        * libcblas.so is not found (-lcblas fails):
+        
+            Create a link from the OpenBLAS library:
+            
+            ```bash
+            sudo ln -s /usr/lib64/libopenblas.so /usr/lib64/libcblas.so
+            ```
+            
+        * Built once and failed, then reconfigure the environment and dependencies but still fails:
+        
+            Call the [cleaning script](sbin/clean-native-libs.sh), then build again.
+            
+        * Eigen/Core not found:
+        
+            Ensure you have installed Eigen3 on your computer and its headers are in "/usr/include" or
+            "/usr/local/include".
 
 7. Finally, you can start the applications by invoking the scripts in the home
 directory by command like "./sbin/run-*.sh".

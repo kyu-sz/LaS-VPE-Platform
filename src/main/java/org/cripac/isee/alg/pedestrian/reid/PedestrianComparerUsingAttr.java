@@ -35,7 +35,7 @@ public interface PedestrianComparerUsingAttr {
      * @param personA The first pedestrian.
      * @param personB The second pedestrian.
      * @return The similarity between them.
-     * @throws IOException
+     * @throws Exception
      */
     float compare(@Nonnull PedestrianInfo personA,
                   @Nonnull PedestrianInfo personB) throws Exception;

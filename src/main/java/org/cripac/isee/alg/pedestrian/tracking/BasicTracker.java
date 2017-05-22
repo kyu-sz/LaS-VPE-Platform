@@ -78,10 +78,11 @@ public class BasicTracker implements Tracker {
         }
     }
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Read a video from a URL, and perform pedestrian tracking on it.
      *
-     * @see Tracker#track(java.lang.String)
+     * @param videoStream the video stream to conduct tracking on.
+     * @return a set of tracklets of pedestrians.
      */
     @Nonnull
     @Override
@@ -162,10 +163,15 @@ public class BasicTracker implements Tracker {
     /**
      * Get tracked targets in currently input frames.
      *
-     * @param p The pointer of an initialized tracker the user has fed frames to.
-     * @return An array of tracklets, each representing a target.
+     * @param p the pointer of an initialized tracker the user has fed frames to.
+     * @return an array of tracklets, each representing a target.
      */
     private native Tracklet[] getTargets(long p);
 
+    /**
+     * Free the native tracker.
+     *
+     * @param p the pointer to the native tracker.
+     */
     private native void free(long p);
 }

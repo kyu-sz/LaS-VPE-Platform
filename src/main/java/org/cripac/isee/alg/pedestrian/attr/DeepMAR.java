@@ -29,6 +29,9 @@ import java.util.Random;
 
 import static org.bytedeco.javacpp.opencv_core.*;
 
+/**
+ * The interface DeepMAR defines some universal parameters and actions used by any DeepMAR implementations.
+ */
 public interface DeepMAR extends Recognizer {
     float MEAN_PIXEL = 128;
     float REG_COEFF = 1.0f / 256;
@@ -39,6 +42,10 @@ public interface DeepMAR extends Recognizer {
         return Integer.parseInt(gpuIDs[random.nextInt(gpuIDs.length)]);
     }
 
+    /**
+     * The class PointerManager holds the pointers to some constant values.
+     * It deallocates the pointers on destruction.
+     */
     class PointerManager {
         static {
             Loader.load(opencv_core.class);
@@ -48,12 +55,20 @@ public interface DeepMAR extends Recognizer {
         FloatPointer pRegCoeff;
         DoublePointer pScale;
 
+        /**
+         * Create the pointers.
+         */
         PointerManager() {
             pMean32f = new FloatPointer(MEAN_PIXEL);
             pRegCoeff = new FloatPointer(REG_COEFF);
             pScale = new DoublePointer(1.);
         }
 
+        /**
+         * Deallocate the pointers.
+         *
+         * @throws Throwable on failure finalizing the super class.
+         */
         @Override
         protected void finalize() throws Throwable {
             pMean32f.deallocate();
@@ -62,11 +77,18 @@ public interface DeepMAR extends Recognizer {
             super.finalize();
         }
     }
+
     PointerManager POINTERS = new PointerManager();
 
     int INPUT_WIDTH = 227;
     int INPUT_HEIGHT = 227;
 
+    /**
+     * Preprocess the image, including mean value subtracting, value normalizing and pixel remapping.
+     *
+     * @param bbox the bounding box including the target pedestrian image.
+     * @return the preprocessed pixel array (three channels lined in order).
+     */
     static @Nonnull
     float[] preprocess(@Nonnull Tracklet.BoundingBox bbox) {
         // Process image.
@@ -113,6 +135,12 @@ public interface DeepMAR extends Recognizer {
         return pixelFloats;
     }
 
+    /**
+     * Fill the values from the FC8 layer of DeepMAR into an Attributes object.
+     *
+     * @param outputArray vector from the FC8 layer.
+     * @return attributes.
+     */
     @Nonnull
     static Attributes fillAttributes(@Nonnull float[] outputArray) {
         int iter = 0;
@@ -130,6 +158,9 @@ public interface DeepMAR extends Recognizer {
         return new Gson().fromJson(jsonBuilder.toString(), Attributes.class);
     }
 
+    /**
+     * This array lists the attributes in the same order as the values retrieved from the FC8 layer.
+     */
     String[] ATTR_LIST = new String[]{
             "action_pulling",
             "lower_green",

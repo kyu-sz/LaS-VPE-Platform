@@ -148,6 +148,14 @@ public class DataManagingApp extends SparkStreamingApp {
             maxFramePerFragment = propCenter.maxFramePerFragment;
         }
 
+        /**
+         * Add streaming actions to the global {@link TaskData} stream.
+         * This global stream contains pre-deserialized TaskData messages, so as to save time.
+         *
+         * @param globalStreamMap A map of streams. The key of an entry is the topic name,
+         *                        which must be one of the {@link DataType}.
+         *                        The value is a filtered stream.
+         */
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             this.filter(globalStreamMap, VIDEO_URL_PORT)
@@ -399,6 +407,14 @@ public class DataManagingApp extends SparkStreamingApp {
                     ByteArrayProducer.class);
         }
 
+        /**
+         * Add streaming actions to the global {@link TaskData} stream.
+         * This global stream contains pre-deserialized TaskData messages, so as to save time.
+         *
+         * @param globalStreamMap A map of streams. The key of an entry is the topic name,
+         *                        which must be one of the {@link DataType}.
+         *                        The value is a filtered stream.
+         */
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             // Save tracklets.
@@ -473,6 +489,14 @@ public class DataManagingApp extends SparkStreamingApp {
             dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new, FakeDatabaseConnector.class);
         }
 
+        /**
+         * Add streaming actions to the global {@link TaskData} stream.
+         * This global stream contains pre-deserialized TaskData messages, so as to save time.
+         *
+         * @param globalStreamMap A map of streams. The key of an entry is the topic name,
+         *                        which must be one of the {@link DataType}.
+         *                        The value is a filtered stream.
+         */
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             // Display the attributes.
@@ -518,6 +542,14 @@ public class DataManagingApp extends SparkStreamingApp {
             super(APP_NAME, propCenter);
         }
 
+        /**
+         * Add streaming actions to the global {@link TaskData} stream.
+         * This global stream contains pre-deserialized TaskData messages, so as to save time.
+         *
+         * @param globalStreamMap A map of streams. The key of an entry is the topic name,
+         *                        which must be one of the {@link DataType}.
+         *                        The value is a filtered stream.
+         */
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             // Display the id ranks.

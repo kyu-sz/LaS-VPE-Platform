@@ -123,10 +123,19 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
             reidSingleton = new Singleton<>(FakePedestrianReIDerWithAttr::new, FakePedestrianReIDerWithAttr.class);
         }
 
+        /**
+         * Add streaming actions to the global {@link TaskData} stream.
+         * This global stream contains pre-deserialized TaskData messages, so as to save time.
+         *
+         * @param globalStreamMap A map of streams. The key of an entry is the topic name,
+         *                        which must be one of the {@link DataType}.
+         *                        The value is a filtered stream.
+         */
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
             final JavaPairDStream<UUID, TaskData> trackletDStream = filter(globalStreamMap, TRACKLET_PORT);
             final JavaPairDStream<UUID, TaskData> attrDStream = filter(globalStreamMap, ATTR_PORT);
+
             // Read track with attribute bytes in parallel from Kafka.
             // Recover attributes from the bytes and extract the IDRANK of the track the
             // attributes belong to.
@@ -223,6 +232,11 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                     }));
         }
 
+        /**
+         * Get input ports of the stream.
+         *
+         * @return A list of ports.
+         */
         @Override
         public List<Port> getPorts() {
             return Arrays.asList(TRACKLET_PORT, ATTR_PORT, TRACKLET_ATTR_PORT);

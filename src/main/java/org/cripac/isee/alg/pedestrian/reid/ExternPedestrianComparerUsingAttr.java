@@ -158,13 +158,13 @@ public class ExternPedestrianComparerUsingAttr implements PedestrianComparerUsin
         resListeningThread.start();
     }
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Compare two pedestrians each given in a track with attributes.
      *
-     * @see
-     * org.casia.cripac.isee.pedestrian.reid.PedestrianComparerWithAttr#compare(
-     * PedestrianInfo,
-     * PedestrianInfo)
+     * @param personA The first pedestrian.
+     * @param personB The second pedestrian.
+     * @return The similarity between them.
+     * @throws Exception
      */
     @Override
     public float compare(@Nonnull PedestrianInfo personA,
