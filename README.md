@@ -250,22 +250,12 @@ library and those it depends on into the [library folder](lib/x64) directory.
 4. If the new algorithm requires extra configuration files, register them to the
 [CongigFileManager](src/main/java/org/cripac/isee/vpe/ctrl/ConfigFileManager.java).
 
-## How to deploy a new version
+## How to deploy a new version of an application
 
-1. Pack the new or modified project into a new JAR.
+1. Kill the particular old application.
 
-    * If you have updated the version number, remember to check the
-      [system property file](conf/system.properties), where there is an option named
-      "vpe.platform.jar" specifying the name of the JAR file to upload, and it should
-      be the same as that of your newly built JAR file.
+2. If checkpointing is enabled, clean the old checkpoint directory for that application or use a new one.
 
-2. Upload the JAR to your cluster with your customized
-[uploading script](sbin/upload.sh).
+3. Build the new version of project using ```mvn package -Dmaven.test.skip.exec```.
 
-3. Kill the particular old application and run the new one.
-
-    * If you have checkpoint enabled, you should also clean the old checkpoint directory
-      or use a new one.
-    
-    * You need not restart other modules! Now your module runs together with the original
-      modules.
+4. Run the new application with a script. You do not need to stop other applications~
