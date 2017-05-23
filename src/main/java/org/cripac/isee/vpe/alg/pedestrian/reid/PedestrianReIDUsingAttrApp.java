@@ -19,11 +19,13 @@ package org.cripac.isee.vpe.alg.pedestrian.reid;
 
 import org.apache.spark.api.java.Optional;
 import org.apache.spark.api.java.function.Function0;
+import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.cripac.isee.alg.pedestrian.reid.PedestrianInfo;
 import org.cripac.isee.alg.pedestrian.reid.PedestrianReIDer;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.alg.pedestrian.tracking.TrackletOrURL;
 import org.cripac.isee.vpe.common.DataType;
 import org.cripac.isee.vpe.common.RobustExecutor;
@@ -36,6 +38,7 @@ import org.cripac.isee.vpe.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
 import scala.Tuple2;
 
+import javax.sound.midi.Track;
 import java.util.*;
 
 /**
@@ -50,11 +53,6 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
      */
     public static final String APP_NAME = "pedestrian-reid-using-attr";
     private static final long serialVersionUID = 7561012713161590005L;
-
-    @Override
-    public void addToContext() throws Exception {
-        // Do nothing.
-    }
 
     /**
      * Constructor of the application, configuring properties read from a
@@ -84,6 +82,11 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
         app.awaitTermination();
     }
 
+    @Override
+    public void addToContext() throws Exception {
+        // Do nothing.
+    }
+
     public static class ReIDStream extends Stream {
 
         public static final String NAME = "PedestrianReIDUsingAttr";
@@ -106,6 +109,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
          */
         public static final Port TRACKLET_ATTR_PORT =
                 new Port("pedestrian-track-attr-for-reid-using-attr", DataType.TRACKLET_ATTR);
+
         private static final long serialVersionUID = 3988152284961510251L;
 
         /**
@@ -133,8 +137,16 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
          */
         @Override
         public void addToGlobalStream(Map<DataType, JavaPairDStream<UUID, TaskData>> globalStreamMap) {
-            final JavaPairDStream<UUID, TaskData> trackletDStream = filter(globalStreamMap, TRACKLET_PORT);
-            final JavaPairDStream<UUID, TaskData> attrDStream = filter(globalStreamMap, ATTR_PORT);
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, TaskData> trackletDStream =
+                    filter(globalStreamMap, TRACKLET_PORT)
+                            .mapToPair(kvPair -> new Tuple2<>(
+                                    new Tuple2<>(kvPair._1(), ((Tracklet) kvPair._2().predecessorRes).id),
+                                    kvPair._2()));
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, TaskData> attrDStream =
+                    filter(globalStreamMap, ATTR_PORT)
+                            .mapToPair(kvPair -> new Tuple2<>(
+                                    new Tuple2<>(kvPair._1(), ((Attributes) kvPair._2().predecessorRes).trackletID),
+                                    kvPair._2()));
 
             // Read track with attribute bytes in parallel from Kafka.
             // Recover attributes from the bytes and extract the IDRANK of the track the
@@ -143,38 +155,38 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                     filter(globalStreamMap, TRACKLET_ATTR_PORT);
 
             // Join the track globalStream and attribute globalStream, tolerating failure.
-            final JavaPairDStream<UUID, Tuple2<Optional<TaskData>, Optional<TaskData>>>
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, Tuple2<Optional<TaskData>, Optional<TaskData>>>
                     unsurelyJoinedDStream = trackletDStream.fullOuterJoin(attrDStream);
 
             // Filter out instantly joined pairs.
-            final JavaPairDStream<UUID, Tuple2<TaskData, TaskData>> instantlyJoinedDStream =
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, Tuple2<TaskData, TaskData>> instantlyJoinedDStream =
                     unsurelyJoinedDStream
                             .filter(item -> (Boolean) (item._2()._1().isPresent() && item._2()._2().isPresent()))
                             .mapValues(optPair -> new Tuple2<>(optPair._1().get(), optPair._2().get()));
 
             // Filter out tracklets that cannot find attributes to match.
-            final JavaPairDStream<UUID, TaskData> unjoinedTrackletDStream =
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, TaskData> unjoinedTrackletDStream =
                     unsurelyJoinedDStream
                             .filter(item -> (Boolean) (item._2()._1().isPresent() && !item._2()._2().isPresent()))
                             .mapValues(optPair -> optPair._1().get());
 
             // Filter out attributes that cannot find tracklets to match.
-            final JavaPairDStream<UUID, TaskData> unjoinedAttrStream = unsurelyJoinedDStream
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, TaskData> unjoinedAttrStream = unsurelyJoinedDStream
                     .filter(item -> (Boolean) (!item._2()._1().isPresent() && item._2()._2().isPresent()))
                     .mapValues(optPair -> optPair._2().get());
 
-            final JavaPairDStream<UUID, Tuple2<Optional<TaskData>, TaskData>>
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, Tuple2<Optional<TaskData>, TaskData>>
                     unsurelyJoinedAttrDStream =
                     unjoinedTrackletDStream
                             .window(Durations.milliseconds(bufDuration))
                             .rightOuterJoin(unjoinedAttrStream);
 
-            final JavaPairDStream<UUID, Tuple2<TaskData, TaskData>> lateAttrJoinedDStream =
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, Tuple2<TaskData, TaskData>> lateAttrJoinedDStream =
                     unsurelyJoinedAttrDStream
                             .filter(item -> (Boolean) (item._2()._1().isPresent()))
                             .mapValues(item -> new Tuple2<>(item._1().get(), item._2()));
 
-            final JavaPairDStream<UUID, Tuple2<TaskData, TaskData>> lateTrackletJoinedDStream =
+            final JavaPairDStream<Tuple2<UUID, Tracklet.Identifier>, Tuple2<TaskData, TaskData>> lateTrackletJoinedDStream =
                     unjoinedTrackletDStream
                             .join(unsurelyJoinedAttrDStream
                                     .filter(item -> (Boolean) (!item._2()._1().isPresent()))
@@ -187,7 +199,7 @@ public class PedestrianReIDUsingAttrApp extends SparkStreamingApp {
                     instantlyJoinedDStream.union(lateTrackletJoinedDStream)
                             .union(lateAttrJoinedDStream)
                             .mapToPair(pack -> {
-                                UUID taskID = pack._1();
+                                UUID taskID = pack._1()._1();
                                 TaskData taskDataWithTracklet = pack._2()._1();
                                 TaskData taskDataWithAttr = pack._2()._2();
 
