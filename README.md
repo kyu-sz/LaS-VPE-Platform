@@ -66,9 +66,9 @@ properly on your cluster.
       </property>
       ```
 
-4. If you choose to run algorithms based on Caffe2, no matter the
- algorithms use CPU-only or GPUs, you must have CUDA 8.0 installed on every
- node in your cluster.
+4. If you choose to run algorithms based on __Caffe__ or __Caffe2__,
+   no matter the algorithms use CPU-only or GPUs,
+   you must have __CUDA 8.0__ installed on __all nodes__ in your cluster.
 
 ## How to run
 
@@ -94,35 +94,20 @@ to adapt to your cluster address.
     ```
 
     * Tests are enabled by default. Use ```mvn package -Dmaven.test.skip.exec```
-      to skip them when your machine is not suitable to run the tests or you are
+      to skip them when your machine is not able to run the tests or you are
       sure the tests will pass and need to save time.
+      
     * If your maven resolves dependencies at a low speed, try
     ```mvn -Dmaven.artifact.threads=100 package``` or add
     ```export MAVEN_OPTS=-Dmaven.artifact.threads=100``` to your ~/.bashrc.
+    
     * You may also try a Maven mirror. For users in China, the Aliyun mirror is recommended.
 
-5. Install all the dependencies required by the native libraries.
+5. Install all the dependencies required by the native libraries on __all nodes__ in your cluster.
       
     Especially, we use OpenBLAS for Caffe2 by default for best efficiency. Both Eigen3 and OpenBLAS should be installed
     by package management tools like yum (CentOS) or apt (Ubuntu) in addition to the packages listed on Caffe2's
-    installation guide.
-    
-    Note that on CentOS, the libgflags-devel is too old for the latest GLog. It should be compiled from the latest
-    version on [GitHub](https://github.com/gflags/gflags). Use the following commands to install these libraries (using
-    a sudoer account):
-    
-    ```bash
-    git clone https://github.com/gflags/gflags.git && \
-    cd gflags && \
-    mkdir build && cd build && \
-    cmake3 -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_FLAGS='-fPIC' .. && \
-    make -j 8 && sudo make install && cd ../.. && \
-    git clone https://github.com/google/glog && \
-    cd glog && \
-    mkdir build && cd build && \
-    cmake3 -DCMAKE_CXX_FLAGS='-fPIC' .. && \
-    make -j 8 && sudo make install && cd ../..
-    ```
+    installation guide:
     
     For CentOS:
     
@@ -136,6 +121,27 @@ to adapt to your cluster address.
     ```bash
     sudo apt install openblas-dev eigen3-dev
     sudo ln -s /usr/lib/libopenblas.so /usr/lib/libcblas.so
+    ```
+    
+    Note that on CentOS, the libgflags-devel is too old for the latest GLog. It should be compiled from the latest
+    version on [GitHub](https://github.com/gflags/gflags). However, these libraries might cause compilation failure
+    of Caffe in old versions. Therefore, you need not install them on every node, since these nodes might be shared by
+    other users who might use old Caffe. The [Caffe2 installing script](sbin/native/build-caffe2.sh) can automatically
+    copy the libraries to the project library folder, so that they can be distributed to the Hadoop native directories.
+    
+    Use the following commands to install gflags and glog (using a sudoer account):
+    
+    ```bash
+    git clone https://github.com/gflags/gflags.git && \
+    cd gflags && \
+    mkdir build && cd build && \
+    cmake3 -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_FLAGS='-fPIC' .. && \
+    make -j 8 && sudo make install && cd ../.. && \
+    git clone https://github.com/google/glog && \
+    cd glog && \
+    mkdir build && cd build && \
+    cmake3 -DCMAKE_CXX_FLAGS='-fPIC' .. && \
+    make -j 8 && sudo make install && cd ../..
     ```
 
 6. Build and deliver the native libraries to worker nodes using
@@ -169,7 +175,7 @@ to adapt to your cluster address.
             For CentOS, use ```yum install eigen3-devel```.
 
 7. Finally, you can start the applications by invoking the scripts in the home
-directory by command like "./sbin/run-*.sh".
+   directory by command like "./sbin/run-*.sh".
 
     * It is recommended to last start the
       [run-command-generating-app.sh](sbin/run-command-generating-app.sh), which is

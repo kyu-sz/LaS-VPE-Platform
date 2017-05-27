@@ -29,7 +29,11 @@ if [ $? -ne 0 ]
 then
   exit $?
 fi
-cp -Rpu ${CAFFE2_INSTALL_HOME}/lib/libnccl.so* ${PROJECT_PATH}/lib/x64 || : 
+cp -Rpu ${CAFFE2_INSTALL_HOME}/lib/libnccl.so* ${PROJECT_PATH}/lib/x64 || :
+##################################################
+# Copy the libraries of gflags and glogs for Caffe2.
+cp -Rpu /usr/local/lib/libgflags.so* ${PROJECT_PATH}/lib/x64 || :
+cp -Rpu /usr/local/lib/libglog.so* ${PROJECT_PATH}/lib/x64 || :
 ##################################################
 python -c 'from caffe2.python import core' 2>/dev/null && echo "Success" || echo "Failure"
 check_env "PYTHONPATH" "${CAFFE2_INSTALL_HOME}"
