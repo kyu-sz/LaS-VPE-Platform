@@ -140,7 +140,7 @@ to adapt to your cluster address.
     git clone https://github.com/google/glog && \
     cd glog && \
     mkdir build && cd build && \
-    cmake3 -DCMAKE_CXX_FLAGS='-fPIC' .. && \
+    cmake3 -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_FLAGS='-fPIC' .. && \
     make -j 8 && sudo make install && cd ../..
     ```
 
