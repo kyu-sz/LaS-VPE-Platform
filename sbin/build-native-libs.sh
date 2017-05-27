@@ -18,6 +18,8 @@ function check_env() {
 PROJECT_PATH=$(cd `dirname "${BASH_SOURCE[0]}"`/..; pwd)
 NATIVE_SRC=${PROJECT_PATH}/src/native
 
+source ${PROJECT_PATH}/conf/cluster-env.sh
+
 CAFFE2_INSTALL_HOME=/home/${USER}
 
 # Build ISEE-Basic-Pedestrian-Tracker
