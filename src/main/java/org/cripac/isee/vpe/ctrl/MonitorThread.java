@@ -156,7 +156,7 @@ public class MonitorThread extends Thread {
                 info.powerUsage = getPowerUsage(i);
                 info.powerLimit = getPowerLimit(i);
 
-                stringBuilder.append("\n|Index\t|Fan\t|Util\t|Mem(MB)\t|Temp(C)\t|\tPow");
+                stringBuilder.append("\n|Index\t|Fan\t|Util\t|Mem(MB)\t|Temp(C)\t|Pow");
                 stringBuilder.append("\n|").append(i)
                         .append("\t|")
                         .append(info.fanSpeed)
