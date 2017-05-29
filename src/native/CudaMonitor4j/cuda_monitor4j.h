@@ -27,7 +27,7 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_initNVML
  * Signature: ()I
  */
 JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getDeviceCount
-  (JNIEnv *, jobject);
+    (JNIEnv *, jobject);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
@@ -35,7 +35,7 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getDeviceCoun
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getFanSpeed
-  (JNIEnv *, jobject, jint);
+    (JNIEnv *, jobject, jint);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
@@ -51,7 +51,7 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getUtilizatio
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getFreeMemory
-  (JNIEnv *, jobject, jint);
+    (JNIEnv *, jobject, jint);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
@@ -59,7 +59,7 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getFreeMemory
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getTotalMemory
-  (JNIEnv *, jobject, jint);
+    (JNIEnv *, jobject, jint);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
@@ -67,7 +67,7 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getTotalMemor
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getUsedMemory
-  (JNIEnv *, jobject, jint);
+    (JNIEnv *, jobject, jint);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
@@ -75,7 +75,7 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getUsedMemory
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getTemperature
-  (JNIEnv *, jobject, jint);
+    (JNIEnv *, jobject, jint);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
@@ -87,10 +87,10 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getSlowDownTe
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
- * Method:    getShutDownTemperatureThreshold
+ * Method:    getShutdownTemperatureThreshold
  * Signature: (I)I
  */
-JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getShutDownTemperatureThreshold
+JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getShutdownTemperatureThreshold
     (JNIEnv *, jobject, jint);
 
 /*
@@ -99,7 +99,7 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getShutDownTe
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getPowerLimit
-  (JNIEnv *, jobject, jint);
+    (JNIEnv *, jobject, jint);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
@@ -107,7 +107,7 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getPowerLimit
  * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getPowerUsage
-  (JNIEnv *, jobject, jint);
+    (JNIEnv *, jobject, jint);
 
 #ifdef __cplusplus
 }

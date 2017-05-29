@@ -115,10 +115,10 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getSlowDownTe
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
- * Method:    getShutDownTemperatureThreshold
+ * Method:    getShutdownTemperatureThreshold
  * Signature: (I)I
  */
-JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getShutDownTemperatureThreshold
+JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getShutdownTemperatureThreshold
     (JNIEnv *env, jobject obj, jint index) {
   unsigned int thresh;
   nvmlDeviceGetTemperatureThreshold(getDevice((unsigned int) index), NVML_TEMPERATURE_THRESHOLD_SHUTDOWN, &thresh);
