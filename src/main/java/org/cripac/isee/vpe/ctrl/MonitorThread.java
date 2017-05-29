@@ -37,7 +37,7 @@ public class MonitorThread extends Thread {
 
     public static final String REPORT_TOPIC = "monitor-report";
 
-    private class Report {
+    private static class Report {
         long usedMem;
         long jvmMaxMem;
         long jvmTotalMem;
@@ -46,7 +46,7 @@ public class MonitorThread extends Thread {
         double sysCpuLoad;
         DevInfo[] devInfos;
 
-        private class DevInfo {
+        private static class DevInfo {
             int fanSpeed;
             int utilRate;
             int usedMem;
@@ -114,6 +114,9 @@ public class MonitorThread extends Thread {
     public void run() {
         Report report = new Report();
         report.devInfos = new Report.DevInfo[deviceCount];
+        for (int i = 0; i < deviceCount; ++i) {
+            report.devInfos[i] = new Report.DevInfo();
+        }
 
         logger.debug("Starting monitoring!");
         //noinspection InfiniteLoopStatement
