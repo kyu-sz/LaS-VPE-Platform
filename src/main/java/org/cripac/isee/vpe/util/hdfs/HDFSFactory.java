@@ -19,7 +19,7 @@ package org.cripac.isee.vpe.util.hdfs;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.cripac.isee.vpe.util.Factory;
+import org.cripac.isee.util.Factory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;

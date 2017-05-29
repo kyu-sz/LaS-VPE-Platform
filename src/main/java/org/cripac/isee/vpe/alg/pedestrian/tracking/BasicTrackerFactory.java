@@ -18,8 +18,8 @@
 package org.cripac.isee.vpe.alg.pedestrian.tracking;
 
 import org.cripac.isee.alg.pedestrian.tracking.BasicTracker;
-import org.cripac.isee.vpe.util.Factory;
-import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.util.Factory;
+import org.cripac.isee.util.Singleton;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 

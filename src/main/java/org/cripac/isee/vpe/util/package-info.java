@@ -22,7 +22,7 @@
  */
 
 /**
- * This package contains utility classes.
+ * This package contains utility classes specially for LaS-VPE-Platform.
  *
  * Created by ken.yu on 16-12-2.
  */

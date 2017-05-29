@@ -34,7 +34,7 @@ import org.cripac.isee.vpe.ctrl.MonitorThread;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskController;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
@@ -49,7 +49,7 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.util.SerializationHelper.deserialize;
 
 /**
  * The SparkStreamingApp class wraps a whole Spark Streaming application,

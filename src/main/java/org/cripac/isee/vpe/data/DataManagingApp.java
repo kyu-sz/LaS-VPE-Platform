@@ -39,8 +39,8 @@ import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
-import org.cripac.isee.vpe.util.SerializationHelper;
-import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.util.SerializationHelper;
+import org.cripac.isee.util.Singleton;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
@@ -59,7 +59,7 @@ import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.util.SerializationHelper.serialize;
 
 /**
  * The DataManagingApp class combines two functions: meta data saving and data

@@ -18,25 +18,40 @@
  */
 package org.cripac.isee.vpe.ctrl;
 
+import com.sun.management.OperatingSystemMXBean;
 import org.cripac.isee.vpe.util.logging.Logger;
+
+import javax.management.InstanceNotFoundException;
+import javax.management.MalformedObjectNameException;
+import javax.management.ReflectionException;
+import java.lang.management.ManagementFactory;
 
 public class MonitorThread extends Thread {
 
     private final Logger logger;
+    private final Runtime runtime = Runtime.getRuntime();
+    private final OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
 
-    public MonitorThread(Logger logger) {
+    public MonitorThread(Logger logger)
+            throws MalformedObjectNameException, ReflectionException, InstanceNotFoundException {
         this.logger = logger;
+        logger.info("Running with " + osBean.getAvailableProcessors() + " " + osBean.getArch() + " processors");
     }
 
     @Override
     public void run() {
         logger.debug("Starting monitoring!");
-        final Runtime runtime = Runtime.getRuntime();
         //noinspection InfiniteLoopStatement
         while (true) {
-            logger.info("Used memory: "
+            logger.info("Memory consumption: "
                     + ((runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)) + "/"
-                    + (runtime.maxMemory() / (1024 * 1024)) + "M");
+                    + (runtime.maxMemory() / (1024 * 1024)) + "/"
+                    + runtime.totalMemory() + "/"
+                    + osBean.getTotalPhysicalMemorySize() + "/");
+
+            logger.info("CPU load: " + osBean.getProcessCpuLoad()
+                    + "/" + osBean.getSystemCpuLoad());
+
             try {
                 sleep(10000);
             } catch (InterruptedException ignored) {

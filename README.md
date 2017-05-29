@@ -68,7 +68,7 @@ properly on your cluster.
 
 4. If you choose to run algorithms based on __Caffe__ or __Caffe2__,
    no matter the algorithms use CPU-only or GPUs,
-   you must have __CUDA 8.0__ installed on __all nodes__ in your cluster.
+   you must have the latest __CUDA(>=8.0)__ and __CUDNN(>=v6.0)__ installed on __all nodes__ in your cluster.
 
 ## How to run
 

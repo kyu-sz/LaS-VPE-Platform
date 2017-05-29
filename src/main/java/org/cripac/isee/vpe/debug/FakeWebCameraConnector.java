@@ -18,7 +18,7 @@ package org.cripac.isee.vpe.debug;
 
 import org.cripac.isee.vpe.common.LoginParam;
 import org.cripac.isee.vpe.data.WebCameraConnector;
-import org.cripac.isee.vpe.util.Factory;
+import org.cripac.isee.util.Factory;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;

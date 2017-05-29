@@ -17,7 +17,7 @@
 
 package org.cripac.isee.vpe.util.kafka;
 
-import org.cripac.isee.vpe.util.Factory;
+import org.cripac.isee.util.Factory;
 
 import javax.annotation.Nonnull;
 import java.util.Properties;

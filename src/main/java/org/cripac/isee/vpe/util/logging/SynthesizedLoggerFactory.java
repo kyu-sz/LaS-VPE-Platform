@@ -18,7 +18,7 @@
 package org.cripac.isee.vpe.util.logging;
 
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
-import org.cripac.isee.vpe.util.Factory;
+import org.cripac.isee.util.Factory;
 
 import javax.annotation.Nonnull;
 

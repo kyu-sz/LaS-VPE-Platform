@@ -32,7 +32,7 @@ import org.junit.Before;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.serialize;
+import static org.cripac.isee.util.SerializationHelper.serialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**

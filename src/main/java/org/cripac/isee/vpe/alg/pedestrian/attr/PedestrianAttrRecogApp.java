@@ -30,7 +30,7 @@ import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakeRecognizer;
-import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 

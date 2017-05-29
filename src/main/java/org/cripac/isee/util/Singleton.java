@@ -15,7 +15,7 @@
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.cripac.isee.vpe.util;
+package org.cripac.isee.util;
 
 
 import java.io.Serializable;

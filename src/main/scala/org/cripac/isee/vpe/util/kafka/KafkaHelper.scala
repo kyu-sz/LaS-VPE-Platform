@@ -27,9 +27,9 @@ import kafka.utils.ZkUtils
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.errors.TopicExistsException
 import org.apache.kafka.common.security.JaasUtils
+import org.cripac.isee.util.SerializationHelper
 import org.cripac.isee.vpe.common.DataType
 import org.cripac.isee.vpe.ctrl.TaskData
-import org.cripac.isee.vpe.util.SerializationHelper
 import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
 
 import scala.language.postfixOps

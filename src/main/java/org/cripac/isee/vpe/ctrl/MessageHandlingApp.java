@@ -38,7 +38,7 @@ import org.cripac.isee.vpe.data.DataManagingApp;
 import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 import org.cripac.isee.vpe.data.HDFSReader;
 import org.cripac.isee.vpe.debug.FakeDatabaseConnector;
-import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
 import org.cripac.isee.vpe.util.logging.Logger;
@@ -46,7 +46,7 @@ import org.cripac.isee.vpe.util.logging.Logger;
 import java.io.Serializable;
 import java.util.*;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 /**

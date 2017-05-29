@@ -41,7 +41,7 @@ import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.cripac.isee.vpe.util.SerializationHelper.deserialize;
+import static org.cripac.isee.util.SerializationHelper.deserialize;
 import static org.cripac.isee.vpe.util.kafka.KafkaHelper.sendWithLog;
 
 public class PedestrianAttrRecogAppTest {

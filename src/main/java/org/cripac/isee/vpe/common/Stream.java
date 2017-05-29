@@ -22,7 +22,7 @@ import org.apache.kafka.common.KafkaException;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.util.Singleton;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;

@@ -19,7 +19,6 @@ package org.cripac.isee.vpe.alg.pedestrian.reid;
 
 import org.apache.spark.api.java.Optional;
 import org.apache.spark.api.java.function.Function0;
-import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
@@ -34,11 +33,10 @@ import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.debug.FakePedestrianReIDerWithAttr;
-import org.cripac.isee.vpe.util.Singleton;
+import org.cripac.isee.util.Singleton;
 import org.cripac.isee.vpe.util.logging.Logger;
 import scala.Tuple2;
 
-import javax.sound.midi.Track;
 import java.util.*;
 
 /**
