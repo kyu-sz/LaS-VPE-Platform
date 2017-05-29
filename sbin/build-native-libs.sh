@@ -35,4 +35,8 @@ export CAFFE2_HOME=${NATIVE_SRC}/caffe2
 echo "Building DeepMAR_deploy..."
 source ${PROJECT_PATH}/sbin/native/build-DeepMAR_deploy.sh
 
+# Build CudaMonitor4j
+echo "Building CudaMonitor4j..."
+source ${PROJECT_PATH}/sbin/native/build-cuda-monitor.sh
+
 echo "Successfully finished building native libraries!"

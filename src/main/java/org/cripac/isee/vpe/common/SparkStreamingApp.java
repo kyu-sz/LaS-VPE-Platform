@@ -83,7 +83,7 @@ public abstract class SparkStreamingApp implements Serializable {
                 new SynthesizedLoggerFactory(appName, propCenter),
                 SynthesizedLogger.class);
         this.monitorSingleton = new Singleton<>(() -> {
-            MonitorThread monitorThread = new MonitorThread(loggerSingleton.getInst());
+            MonitorThread monitorThread = new MonitorThread(loggerSingleton.getInst(), propCenter);
             monitorThread.start();
             return monitorThread;
         }, MonitorThread.class);
