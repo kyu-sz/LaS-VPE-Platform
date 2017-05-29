@@ -3,6 +3,12 @@ project(CudaMonitor4j)
 
 set(CMAKE_CXX_STANDARD 11)
 
+set(CUDA_HOME $ENV{CUDA_HOME} CACHE PATH "Home directory of Cuda.")
+if (${CUDA_HOME} STREQUAL "")
+    message(FATAL_ERROR "CUDA_HOME not set!")
+endif ()
+link_directories(${CUDA_HOME}/lib64 ${CUDA_HOME}/lib64/stubs)
+
 set(SOURCE_FILES cuda_monitor4j.cpp)
 add_library(CudaMonitor4j SHARED ${SOURCE_FILES})
 
@@ -15,11 +21,6 @@ else ()
     target_include_directories(CudaMonitor4j PUBLIC ${JAVA_HOME}/include/linux)
 endif ()
 
-set(CUDA_HOME $ENV{CUDA_HOME} CACHE PATH "Home directory of Cuda.")
-if (CUDA_HOME)
-    message(STATUS "Using CUDA at ${CUDA_HOME}")
-    target_include_directories(CudaMonitor4j PUBLIC ${CUDA_HOME}/include)
-    link_directories(CudaMonitor4j PUBLIC ${CUDA_HOME}/lib64)
-else()
-    message(FATAL_ERROR "CUDA_HOME not set!")
-endif ()
+message(STATUS "Using CUDA at ${CUDA_HOME}")
+target_include_directories(CudaMonitor4j PUBLIC ${CUDA_HOME}/include)
+target_link_libraries(CudaMonitor4j nvidia-ml)
