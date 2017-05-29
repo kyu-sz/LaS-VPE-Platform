@@ -1,5 +1,3 @@
-#include <iostream>
-#include <cuda_runtime.h>
 #include <nvml.h>
 #include "cuda_monitor4j.h"
 
@@ -7,6 +5,16 @@ inline nvmlDevice_t getDevice(unsigned int index) {
   nvmlDevice_t dev;
   nvmlDeviceGetHandleByIndex(index, &dev);
   return dev;
+}
+
+/*
+ * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
+ * Method:    initNVML
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_initNVML
+    (JNIEnv *env, jobject obj) {
+  return nvmlInit();
 }
 
 /*

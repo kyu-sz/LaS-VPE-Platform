@@ -31,7 +31,6 @@ import javax.management.ReflectionException;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Map;
 
 public class MonitorThread extends Thread {
 
@@ -42,8 +41,8 @@ public class MonitorThread extends Thread {
         long jvmMaxMem;
         long jvmTotalMem;
         long physicTotalMem;
-        double procCpuLoad;
-        double sysCpuLoad;
+        int procCpuLoad;
+        int sysCpuLoad;
         DevInfo[] devInfos;
 
         private static class DevInfo {
@@ -65,6 +64,8 @@ public class MonitorThread extends Thread {
     private final OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
     private final int deviceCount;
     private final String nodeName;
+
+    private native int initNVML();
 
     private native int getDeviceCount();
 
@@ -91,7 +92,6 @@ public class MonitorThread extends Thread {
     public MonitorThread(Logger logger, SystemPropertyCenter propCenter)
             throws MalformedObjectNameException, ReflectionException, InstanceNotFoundException {
         this.logger = logger;
-        this.deviceCount = getDeviceCount();
         this.reportProducer = new KafkaProducer<>(propCenter.getKafkaProducerProp(true));
 
         String nodeName1;
@@ -107,7 +107,15 @@ public class MonitorThread extends Thread {
                 propCenter.kafkaNumPartitions, propCenter.kafkaReplFactor);
 
         logger.info("Running with " + osBean.getAvailableProcessors() + " " + osBean.getArch() + " processors");
-        logger.info("Running with " + this.deviceCount + " GPUs.");
+
+        int nvmlInitRet = initNVML();
+        if (nvmlInitRet == 0) {
+            this.deviceCount = getDeviceCount();
+            logger.info("Running with " + this.deviceCount + " GPUs.");
+        } else {
+            this.deviceCount = 0;
+            logger.info("Cannot initialize NVML: " + nvmlInitRet);
+        }
     }
 
     @Override
@@ -121,19 +129,19 @@ public class MonitorThread extends Thread {
         logger.debug("Starting monitoring!");
         //noinspection InfiniteLoopStatement
         while (true) {
-            report.usedMem = ((runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024));
-            report.jvmMaxMem = (runtime.maxMemory() / (1024 * 1024));
-            report.jvmTotalMem = runtime.totalMemory();
-            report.physicTotalMem = osBean.getTotalPhysicalMemorySize();
+            report.usedMem = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+            report.jvmMaxMem = runtime.maxMemory() / (1024 * 1024);
+            report.jvmTotalMem = runtime.totalMemory() / (1024 * 1024);
+            report.physicTotalMem = osBean.getTotalPhysicalMemorySize() / (1024 * 1024);
             logger.info("Memory consumption: "
                     + report.usedMem + "/"
                     + report.jvmMaxMem + "/"
                     + report.jvmTotalMem + "/"
-                    + report.physicTotalMem);
+                    + report.physicTotalMem + "M");
 
-            report.procCpuLoad = osBean.getProcessCpuLoad();
-            report.sysCpuLoad = osBean.getSystemCpuLoad();
-            logger.info("CPU load: " + report.procCpuLoad + "/" + report.sysCpuLoad);
+            report.procCpuLoad = (int) (osBean.getProcessCpuLoad() * 100);
+            report.sysCpuLoad = (int) (osBean.getSystemCpuLoad() * 100);
+            logger.info("CPU load: " + report.procCpuLoad + "/" + report.sysCpuLoad + "%");
 
             for (int i = 0; i < deviceCount; ++i) {
                 report.devInfos[i].fanSpeed = getFanSpeed(i);
