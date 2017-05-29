@@ -23,9 +23,10 @@ LaS-VPE Platform is released under the GPL License.
 1. [Requirements](#requirements)
 2. [How to run](#how-to-run)
 3. [How to monitor](#how-to-monitor)
+4. [Basic concepts in this project](#basic-concepts-in-this-project)
 4. [How to add a new module](#how-to-add-a-new-module)
 5. [How to add a new native algorithm](#how-to-add-a-new-native-algorithm) 
-6. [How to deploy a new version](#how-to-deploy-a-new-version)
+6. [How to deploy a new version](#How to deploy a new version of an application)
 
 ## Requirements
 
