@@ -1,9 +1,14 @@
-org.cripac.isee.pedestrian
-org.cripac.isee.pedestrian.attr
-org.cripac.isee.pedestrian.reid
-org.cripac.isee.pedestrian.tracking
+org.cripac.isee.alg
+org.cripac.isee.alg.pedestrian
+org.cripac.isee.alg.pedestrian.attr
+org.cripac.isee.alg.pedestrian.reid
+org.cripac.isee.alg.pedestrian.tracking
+org.cripac.isee.util
 org.cripac.isee.vpe
 org.cripac.isee.vpe.alg
+org.cripac.isee.vpe.alg.pedestrian.attr
+org.cripac.isee.vpe.alg.pedestrian.reid
+org.cripac.isee.vpe.alg.pedestrian.tracking
 org.cripac.isee.vpe.common
 org.cripac.isee.vpe.ctrl
 org.cripac.isee.vpe.data
@@ -12,4 +17,3 @@ org.cripac.isee.vpe.util
 org.cripac.isee.vpe.util.hdfs
 org.cripac.isee.vpe.util.kafka
 org.cripac.isee.vpe.util.logging
-org.cripac.isee.vpe.util.tracking
