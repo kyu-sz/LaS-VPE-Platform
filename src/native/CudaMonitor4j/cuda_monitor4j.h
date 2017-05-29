@@ -48,25 +48,25 @@ JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getUtilizatio
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
  * Method:    getFreeMemory
- * Signature: (I)I
+ * Signature: (I)J
  */
-JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getFreeMemory
+JNIEXPORT jlong JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getFreeMemory
     (JNIEnv *, jobject, jint);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
  * Method:    getTotalMemory
- * Signature: (I)I
+ * Signature: (I)J
  */
-JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getTotalMemory
+JNIEXPORT jlong JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getTotalMemory
     (JNIEnv *, jobject, jint);
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
  * Method:    getUsedMemory
- * Signature: (I)I
+ * Signature: (I)J
  */
-JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getUsedMemory
+JNIEXPORT jlong JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getUsedMemory
     (JNIEnv *, jobject, jint);
 
 /*

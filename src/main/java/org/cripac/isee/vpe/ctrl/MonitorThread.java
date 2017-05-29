@@ -48,8 +48,8 @@ public class MonitorThread extends Thread {
         private static class DevInfo {
             int fanSpeed;
             int utilRate;
-            int usedMem;
-            int totalMem;
+            long usedMem;
+            long totalMem;
             int temp;
             int slowDownTemp;
             int shutdownTemp;
@@ -73,11 +73,11 @@ public class MonitorThread extends Thread {
 
     private native int getUtilizationRate(int index);
 
-    private native int getFreeMemory(int index);
+    private native long getFreeMemory(int index);
 
-    private native int getTotalMemory(int index);
+    private native long getTotalMemory(int index);
 
-    private native int getUsedMemory(int index);
+    private native long getUsedMemory(int index);
 
     private native int getTemperature(int index);
 
@@ -143,25 +143,34 @@ public class MonitorThread extends Thread {
             report.sysCpuLoad = (int) (osBean.getSystemCpuLoad() * 100);
             logger.info("CPU load: " + report.procCpuLoad + "/" + report.sysCpuLoad + "%");
 
+            StringBuilder stringBuilder = new StringBuilder("GPU Usage:");
             for (int i = 0; i < deviceCount; ++i) {
-                report.devInfos[i].fanSpeed = getFanSpeed(i);
-                report.devInfos[i].utilRate = getUtilizationRate(i);
-                report.devInfos[i].usedMem = getUsedMemory(i);
-                report.devInfos[i].totalMem = getTotalMemory(i);
-                report.devInfos[i].temp = getTemperature(i);
-                report.devInfos[i].slowDownTemp = getSlowDownTemperatureThreshold(i);
-                report.devInfos[i].shutdownTemp = getShutdownTemperatureThreshold(i);
-                report.devInfos[i].powerUsage = getPowerUsage(i);
-                report.devInfos[i].powerLimit = getPowerLimit(i);
-                logger.info("GPU " + i + ":"
-                        + "\n\tFan=" + report.devInfos[i].fanSpeed
-                        + "\n\tUtil=" + report.devInfos[i].utilRate
-                        + "\n\tMem=" + report.devInfos[i].usedMem + "/" + report.devInfos[i].totalMem
-                        + "\n\tTemp=" + report.devInfos[i].temp
-                        + "/" + report.devInfos[i].slowDownTemp
-                        + "/" + report.devInfos[i].shutdownTemp
-                        + "\n\tPow=" + report.devInfos[i].powerUsage + "/" + report.devInfos[i].powerLimit);
+                Report.DevInfo info = report.devInfos[i];
+                info.fanSpeed = getFanSpeed(i);
+                info.utilRate = getUtilizationRate(i);
+                info.usedMem = getUsedMemory(i);
+                info.totalMem = getTotalMemory(i);
+                info.temp = getTemperature(i);
+                info.slowDownTemp = getSlowDownTemperatureThreshold(i);
+                info.shutdownTemp = getShutdownTemperatureThreshold(i);
+                info.powerUsage = getPowerUsage(i);
+                info.powerLimit = getPowerLimit(i);
+
+                stringBuilder.append("\n|Index\t|Fan\t|Util\t|Mem(MB)\t|Temp(C)\t|\tPow");
+                stringBuilder.append("\n|").append(i)
+                        .append("\t|")
+                        .append(info.fanSpeed)
+                        .append("\t|")
+                        .append(String.format("%3d", info.utilRate)).append('%')
+                        .append("\t|")
+                        .append(String.format("%5d", info.usedMem / (1024 * 1024)))
+                        .append("/").append(String.format("%5d", info.totalMem / (1024 * 1024)))
+                        .append("\t|")
+                        .append(info.temp).append("/").append(info.slowDownTemp).append("/").append(info.shutdownTemp)
+                        .append("\t|")
+                        .append(info.powerUsage).append("/").append(info.powerLimit);
             }
+            logger.info(stringBuilder.toString());
 
             this.reportProducer.send(new ProducerRecord<>(REPORT_TOPIC, nodeName, new Gson().toJson(report)));
 
