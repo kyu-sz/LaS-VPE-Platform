@@ -18,4 +18,5 @@ then
 fi
 ##################################################
 cp -Rpu libCudaMonitor4j.so ${PROJECT_PATH}/lib/x64 || :
+cp -Rpu ${CUDA_HOME}/lib64/stubs/libnvidia-ml.so ${PROJECT_PATH}/lib/x64 || :
 ##################################################
