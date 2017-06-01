@@ -70,6 +70,11 @@ properly on your cluster.
 4. If you choose to run algorithms based on __Caffe__ or __Caffe2__,
    no matter the algorithms use CPU-only or GPUs,
    you must have the latest __CUDA(>=8.0)__ and __CUDNN(>=v6.0)__ installed on __all nodes__ in your cluster.
+   
+   Note that the libraries of CUDA and CUDNN should be contained in the directories that JVM finds for
+   _java.library.path_. By default, directories like _"/usr/local/lib(64)"_ or _"/usr/local/cuda/lib(64)"_ are not
+   found by JVM. You must have them installed to _"/usr/lib64"_ or _"${HADOOP_HOME}/lib/native"_. Header files are not
+   needed on nodes where you do not perform building.
 
 ## How to run
 
