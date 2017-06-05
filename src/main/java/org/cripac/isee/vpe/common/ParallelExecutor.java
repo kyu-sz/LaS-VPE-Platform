@@ -18,11 +18,20 @@ package org.cripac.isee.vpe.common;/*
  */
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 public class ParallelExecutor {
+    public static <T> void execute(Collection<T> items, Consumer<T> consumer) {
+        execute(items.iterator(), consumer);
+    }
+
+    public static <T> void execute(Collection<T> items, int parallelism, Consumer<T> consumer) {
+        execute(items.iterator(), parallelism, consumer);
+    }
+
     public static <T> void execute(Iterator<T> items, Consumer<T> consumer) {
         execute(items, Runtime.getRuntime().availableProcessors(), consumer);
     }

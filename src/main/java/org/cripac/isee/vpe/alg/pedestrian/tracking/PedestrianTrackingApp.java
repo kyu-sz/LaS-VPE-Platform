@@ -160,7 +160,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                         long startTime = System.currentTimeMillis();
                         synchronized (HDFSVideoTrackingStream.class) {
-                            ParallelExecutor.execute(kvList.iterator(), kv -> {
+                            ParallelExecutor.execute(kvList, kv -> {
                                 try {
                                     final UUID taskID = kv._1();
                                     final TaskData taskData = kv._2();

@@ -279,8 +279,12 @@ public class DataManagingApp extends SparkStreamingApp {
 
                         final long start = System.currentTimeMillis();
                         logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
-                        taskMap.forEach((taskID, value) -> {
+                        //TODO(Ken Yu): Make sure whether executing HAR packing in parallel is faster.
+                        //TODO(Ken Yu): Find the best parallelism.
+                        ParallelExecutor.execute(taskMap.entrySet(), 4, kv -> {
                             try {
+                                final String taskID = kv.getKey();
+                                final byte[] value = kv.getValue();
                                 //final Tuple2<String, Integer> info = SerializationHelper.deserialize(value);
                                 //final String videoID = info._1();
                                 // Modified "String" in Tuple2 to "Tracklet.Identifier" on 2017/04/26
