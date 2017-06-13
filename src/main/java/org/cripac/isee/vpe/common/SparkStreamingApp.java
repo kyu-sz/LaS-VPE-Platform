@@ -258,7 +258,7 @@ public abstract class SparkStreamingApp implements Serializable {
                 for (DataType type : acceptingTypes) {
                     streamMap.put(type,
                             inputStream.filter(rec -> (Boolean) (Objects.equals(rec._1(), type)))
-                                    .mapToPair(rec -> new Tuple2<>(rec._2()._1(), deserialize(rec._2()._2()))));
+                                    .mapToPair(rec -> new Tuple2<UUID,TaskData>(rec._2()._1(), deserialize(rec._2()._2()))));
                 }
                 streams.forEach(stream -> stream.addToGlobalStream(streamMap));
             }
