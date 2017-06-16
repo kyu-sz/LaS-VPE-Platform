@@ -347,10 +347,17 @@ public class DataManagingApp extends SparkStreamingApp {
 
                                     // Set the HAR path to all the tracklets from this video.
                                     for (int i = 0; i < numTracklets; ++i) {
-                                        new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx ->
+                                        new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx ->{
                                                 dbConnector.setTrackletSavingPath(
                                                         new Tracklet.Identifier(videoID, idx).toString(),
-                                                        videoRoot + "/" + taskID + ".har/" + idx)).execute(i);
+                                                        videoRoot + "/" + taskID + ".har/" + idx);
+                                                dbConnector.setTrackletSavingPathFlag(
+                                                		new Tracklet.Identifier(videoID, idx).toString(),
+                                                		true);
+                                                
+                                        }).execute(i);
+                                        
+                                        
                                     }
 
                                     // Delete the original folder recursively.
@@ -401,7 +408,8 @@ public class DataManagingApp extends SparkStreamingApp {
         private static final long serialVersionUID = 2820895755662980265L;
         private final String metadataDir;
         private final Singleton<ByteArrayProducer> packingJobProducerSingleton;
-
+        final GraphDatabaseConnector dbConnector;
+        
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
@@ -409,6 +417,7 @@ public class DataManagingApp extends SparkStreamingApp {
             packingJobProducerSingleton = new Singleton<>(
                     new ByteArrayProducerFactory(propCenter.getKafkaProducerProp(false)),
                     ByteArrayProducer.class);
+            dbConnector = new Neo4jConnector();
         }
 
         /**
@@ -445,13 +454,16 @@ public class DataManagingApp extends SparkStreamingApp {
                                         final String taskRoot = videoRoot + "/" + taskID;
                                         final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                                         final Path storePath = new Path(storeDir);
-                                        new RobustExecutor<Void, Void>(() -> {
+                                        new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx ->{
                                             if (hdfs.exists(storePath)
                                                     || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
                                                 logger.warn("Duplicated storing request for " + tracklet.id);
                                             } else {
                                                 hdfs.mkdirs(new Path(storeDir));
                                                 HadoopHelper.storeTracklet(storeDir, tracklet, hdfs);
+                                                dbConnector.setTrackletSavingVideoPath(
+                                                		new Tracklet.Identifier(tracklet.id.videoID, idx).toString(), 
+                                                		storeDir);
                                             }
                                         }).execute();
                                     }

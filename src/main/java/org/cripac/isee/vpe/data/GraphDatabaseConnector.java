@@ -39,6 +39,11 @@ public abstract class GraphDatabaseConnector {
     public abstract void setTrackletSavingPath(@Nonnull String nodeID,
                                                @Nonnull String path);
 
+    
+    public abstract void setTrackletSavingPathFlag(@Nonnull String nodeID,
+            @Nonnull Boolean flag);
+    
+    public abstract void setTrackletSavingVideoPath(@Nonnull String nodeID,@Nonnull String videoPath);
     /**
      * Get the path of the directory saving the tracklet of a pedestrian.
      *

@@ -171,7 +171,30 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         // Close session.
         session.close();
     }
+    
+    @Override
+    public void setTrackletSavingPathFlag(@Nonnull String nodeID,@Nonnull Boolean flag) {
+        // Set path to an existing node or one newly created.
+        Session session = driver.session();
+        session.run("MERGE (p:Person {id: {id}}) SET p.flag={flag};",
+                Values.parameters("id", nodeID, "flag", flag));
+      
 
+        // Close session.
+        session.close();
+    }
+    
+    @Override
+    public void setTrackletSavingVideoPath(@Nonnull String nodeID,@Nonnull String videoPath) {
+        // Set path to an existing node or one newly created.
+        Session session = driver.session();
+        session.run("MERGE (p:Person {id: {id}}) SET p.videoPath={videoPath};",
+                Values.parameters("id", nodeID, "videoPath", videoPath));
+      
+
+        // Close session.
+        session.close();
+    }
     @Override
     public String getTrackletSavingDir(@Nonnull String nodeID) throws NoSuchElementException {
         // Return path of an existing node, otherwise, return nothing.

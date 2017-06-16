@@ -107,4 +107,16 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
     public Link[] getLinkedPedestrians(@Nonnull String nodeID) throws NoSuchElementException {
         return null;
     }
+
+	@Override
+	public void setTrackletSavingPathFlag(String nodeID, Boolean flag) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void setTrackletSavingVideoPath(String nodeID, String videoPath) {
+		// TODO Auto-generated method stub
+		
+	}
 }
