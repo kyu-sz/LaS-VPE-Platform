@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.data;
 
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
 import javax.annotation.Nonnull;
 import java.util.NoSuchElementException;
@@ -44,6 +45,8 @@ public abstract class GraphDatabaseConnector {
             @Nonnull Boolean flag);
     
     public abstract void setTrackletSavingVideoPath(@Nonnull String nodeID,@Nonnull String videoPath);
+    
+    public abstract void setSaveTracklet(@Nonnull Tracklet tracklet);
     /**
      * Get the path of the directory saving the tracklet of a pedestrian.
      *

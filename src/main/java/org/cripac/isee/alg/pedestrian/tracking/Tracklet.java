@@ -70,7 +70,9 @@ public class Tracklet implements Serializable, Cloneable {
     @SerializedName("bounding-boxes")
     public BoundingBox[] locationSequence = null;
 
-    /**
+   
+
+	/**
      * Transform this tracklet to Json string.
      *
      * @return a json string of this tracklet.

@@ -46,6 +46,7 @@ import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
 import org.cripac.isee.vpe.util.kafka.KafkaHelper;
+import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.xml.sax.SAXException;
@@ -278,6 +279,7 @@ public class DataManagingApp extends SparkStreamingApp {
                         records.forEach(rec -> taskMap.put(rec.key(), rec.value()));
 
                         final long start = System.currentTimeMillis();
+                        logger.info("开始时间："+start);
                         logger.info("Packing thread received " + taskMap.keySet().size() + " jobs.");
                         //TODO(Ken Yu): Make sure whether executing HAR packing in parallel is faster.
                         //TODO(Ken Yu): Find the best parallelism.
@@ -373,7 +375,7 @@ public class DataManagingApp extends SparkStreamingApp {
                             }
                         });
                         final long end = System.currentTimeMillis();
-
+                        logger.info("结束时间："+end);
                         try {
                             jobListener.commitSync();
                             if (records.count() >= maxPollRecords && end - start < MAX_POLL_INTERVAL_MS) {
@@ -409,6 +411,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private final String metadataDir;
         private final Singleton<ByteArrayProducer> packingJobProducerSingleton;
         final GraphDatabaseConnector dbConnector;
+//        final Logger logger;
         
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
@@ -418,6 +421,7 @@ public class DataManagingApp extends SparkStreamingApp {
                     new ByteArrayProducerFactory(propCenter.getKafkaProducerProp(false)),
                     ByteArrayProducer.class);
             dbConnector = new Neo4jConnector();
+//            logger=new ConsoleLogger();
         }
 
         /**
@@ -453,6 +457,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                         final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
                                         final String taskRoot = videoRoot + "/" + taskID;
                                         final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                        logger.info("源视频路径是："+storeDir);
                                         final Path storePath = new Path(storeDir);
                                         new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx ->{
                                             if (hdfs.exists(storePath)
@@ -464,6 +469,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                                 dbConnector.setTrackletSavingVideoPath(
                                                 		new Tracklet.Identifier(tracklet.id.videoID, idx).toString(), 
                                                 		storeDir);
+                                                dbConnector.setSaveTracklet(tracklet);
                                             }
                                         }).execute();
                                     }

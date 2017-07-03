@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.debug;
 
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 
 import javax.annotation.Nonnull;
@@ -116,6 +117,12 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
 
 	@Override
 	public void setTrackletSavingVideoPath(String nodeID, String videoPath) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void setSaveTracklet(@Nonnull Tracklet tracklet) {
 		// TODO Auto-generated method stub
 		
 	}

@@ -11,6 +11,8 @@
 package org.cripac.isee.vpe.data;
 
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet.BoundingBox;
 import org.neo4j.driver.v1.*;
 import com.google.gson.*;
 
@@ -113,7 +115,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         //String storeDir = hostPort + path;
         //System.out.println("storeDir: " + storeDir);
         // End
-        String storeDir = path;
+        /*String storeDir = path;
         String trackletInfo = "1024";
         try {
             trackletInfo = getTrackletInfo(storeDir);
@@ -166,6 +168,56 @@ public class Neo4jConnector extends GraphDatabaseConnector {
             "trackletStartTime", trackletStartTime,
             "trackletStartTime", trackletStartTime,
             "id",   nodeID
+        ));
+*/
+        // Close session.
+        session.close();
+    }
+    
+    @Override
+    public void setSaveTracklet(@Nonnull Tracklet tracklet) {
+        // Set path to an existing node or one newly created.
+        Session session = driver.session();
+        int trackletStartIdx = tracklet.startFrameIndex;
+        String videoStartTime= tracklet.id.videoID;
+        // split videoStartTime with "-".
+        videoStartTime = videoStartTime.split("-")[0];
+        
+        // bounding boxes.
+        BoundingBox[] jArrayBoundingBoxes = tracklet.locationSequence;
+        String bbCoordinatesInfo = jArrayBoundingBoxes.toString();
+
+        // Start time of a tracklet.
+        String trackletStartTime = calTrackletStartTime(trackletStartIdx, 
+                                                        videoStartTime);
+        // Insert the information of boundingboxes, start time and start frame index.
+        session.run("MATCH (p:Person {id: {id}}) SET " 
+                  + "p.startTime=toint({startTime}), "
+                  + "p.startIndex={startIndex}, "
+                  + "p.boundingBoxes={boundingBoxes};",
+                   Values.parameters(
+                   "id", tracklet.id,
+                   "startTime", trackletStartTime,
+                   "startIndex",trackletStartIdx,
+                   "boundingBoxes", bbCoordinatesInfo));
+        // Insert relation.
+        String queryYear = trackletStartTime.substring(0,4);
+        String queryMon  = trackletStartTime.substring(0,6);
+        String queryDay  = trackletStartTime.substring(0,8);
+        String queryHour = trackletStartTime.substring(0,10);
+        String run = "MATCH (n:Root)-[:HAS_YEAR]->(y:Year {year: toint({year})})-[:HAS_MONTH]->" +
+        "(mon:Month {month: toint({month})})-[:HAS_DAY]->(d:Day {day: toint({day})})-[:HAS_HOUR]->" + 
+        "(h:Hour {hour: toint({hour})})-[:HAS_MIN]->(min) WHERE toint(tostring(min.start)+'00')<=" +
+        "toint({trackletStartTime}) AND toint({trackletStartTime})<=toint(tostring(min.end)+'59') " +
+        "MATCH (p:Person {id: {id}}) MERGE (min)-[:INCLUDES_PERSON]->(p);";
+        session.run(run, Values.parameters(
+            "year", queryYear,
+            "month",queryMon,
+            "day",  queryDay,
+            "hour", queryHour,
+            "trackletStartTime", trackletStartTime,
+            "trackletStartTime", trackletStartTime,
+            "id",   tracklet.id
         ));
 
         // Close session.
