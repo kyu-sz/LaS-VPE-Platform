@@ -17,8 +17,18 @@
 
 package org.cripac.isee.vpe.alg.pedestrian.tracking;
 
-import kafka.common.FailedToSendMessageException;
-import kafka.common.MessageSizeTooLargeException;
+import java.io.BufferedInputStream;
+import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.annotation.Nonnull;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -29,22 +39,24 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.cripac.isee.alg.pedestrian.tracking.BasicTracker;
 import org.cripac.isee.alg.pedestrian.tracking.Tracker;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.common.*;
+import org.cripac.isee.util.Singleton;
+import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.common.ParallelExecutor;
+import org.cripac.isee.vpe.common.RobustExecutor;
+import org.cripac.isee.vpe.common.SparkStreamingApp;
+import org.cripac.isee.vpe.common.Stream;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
 import org.cripac.isee.vpe.ctrl.TaskData.ExecutionPlan;
-import org.cripac.isee.util.Singleton;
+import org.cripac.isee.vpe.data.GraphDatabaseConnector;
+import org.cripac.isee.vpe.data.Neo4jConnector;
 import org.cripac.isee.vpe.util.hdfs.HDFSFactory;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.xml.sax.SAXException;
 
-import javax.annotation.Nonnull;
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.BufferedInputStream;
-import java.io.InputStream;
-import java.net.URISyntaxException;
-import java.util.*;
+import kafka.common.FailedToSendMessageException;
+import kafka.common.MessageSizeTooLargeException;
 
 /**
  * The PedestrianTrackingApp class takes in video URLs from Kafka, then process
@@ -131,12 +143,16 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private final int numSamplesPerTracklet;
         private final String metadataDir;
 
+        final GraphDatabaseConnector dbConnector;
+        
         public HDFSVideoTrackingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
             numSamplesPerTracklet = propCenter.numSamplesPerTracklet;
             metadataDir = propCenter.metadataDir;
             confCacheSingleton = new Singleton<>(ConfCache::new, ConfCache.class);
+            
+            dbConnector = new Neo4jConnector();
         }
 
         /**
@@ -238,7 +254,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                                             logger.debug("Tracklet " + tracklet.id
                                                     + " is too long. Passing it through HDFS at \"" + storeDir + "\".");
-                                            HadoopHelper.storeTracklet(storeDir, tracklet, hdfs);
+                                            HadoopHelper.storeTracklet(tracklet.id.videoID,storeDir, tracklet, hdfs,dbConnector);
                                             output(outputPorts,
                                                     taskData.executionPlan,
                                                     new TrackletOrURL(storeDir),

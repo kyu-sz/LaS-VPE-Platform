@@ -126,4 +126,10 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
 		// TODO Auto-generated method stub
 		
 	}
+
+	@Override
+	public void saveTrackletImg(String nodeID, int[] width) {
+		// TODO Auto-generated method stub
+		
+	}
 }

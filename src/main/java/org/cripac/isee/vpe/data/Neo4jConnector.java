@@ -852,4 +852,17 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         }
         return links;
     }
+
+	@Override
+	public void saveTrackletImg(String nodeID,int[] width) {
+		// TODO Auto-generated method stub
+		// Set path to an existing node or one newly created.
+        Session session = driver.session();
+        session.run("MERGE (p:Person {id: {id}}) SET p.width={width};",
+                Values.parameters("id", nodeID, "width", width));
+      
+
+        // Close session.
+        session.close();
+	}
 }

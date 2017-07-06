@@ -17,30 +17,42 @@
 
 package org.cripac.isee.vpe.util.hdfs;
 
-import com.google.gson.*;
+import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
+import static org.bytedeco.javacpp.opencv_imgcodecs.imdecode;
+import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import javax.annotation.Nonnull;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.HarFileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.bytedeco.javacpp.BytePointer;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.opencv_core;
 import org.bytedeco.javacpp.opencv_imgproc;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 import org.spark_project.guava.collect.ContiguousSet;
 import org.spark_project.guava.collect.DiscreteDomain;
 import org.spark_project.guava.collect.Range;
 
-import javax.annotation.Nonnull;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.BufferedReader;
-import java.net.URI;
-import java.net.URISyntaxException;
-
-import static org.bytedeco.javacpp.opencv_core.CV_8UC3;
-import static org.bytedeco.javacpp.opencv_imgcodecs.imdecode;
-import static org.bytedeco.javacpp.opencv_imgcodecs.imencode;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializer;
 
 /**
  * The HadoopHelper class provides utilities for Hadoop usage.
@@ -229,9 +241,12 @@ public class HadoopHelper {
      * @param tracklet the tracklet to store.
      * @throws IOException on failure creating and writing files in HDFS.
      */
-    public static void storeTracklet(@Nonnull String storeDir,
+    public static void storeTracklet(String nodeID,@Nonnull String storeDir,
                                      @Nonnull Tracklet tracklet,
-                                     @Nonnull FileSystem hdfs) throws Exception {
+                                     @Nonnull FileSystem hdfs,
+                                     GraphDatabaseConnector dbConnector
+//                                     ,TrackletImgEntity trackletImgEntity
+                                     ) throws Exception {
         // Write verbal informations with Json.
         final FSDataOutputStream outputStream = hdfs.create(new Path(storeDir + "/info.txt"));
 
@@ -250,38 +265,50 @@ public class HadoopHelper {
         // Write serialized basic information of the tracklet to HDFS.
         outputStream.writeBytes(gsonBuilder.create().toJson(tracklet));
         outputStream.close();
-
+        int []widths=new int[tracklet.locationSequence.length];
+        byte[][] outBytes=new byte[tracklet.locationSequence.length][];
+//        byte[] outBytes=null;
         // Write frames concurrently.
         ContiguousSet.create(Range.closedOpen(0, tracklet.locationSequence.length), DiscreteDomain.integers())
                 .parallelStream()
                 // Find bounding boxes that contain patch data.
                 .filter(idx -> tracklet.locationSequence[idx].patchData != null)
-                .forEach(idx -> {
+                .forEach((idx) -> {
                     final Tracklet.BoundingBox bbox = tracklet.locationSequence[idx];
 
                     // Use JavaCV to encode the image patch
                     // into JPEG, stored in the memory.
                     final BytePointer inputPointer = new BytePointer(bbox.patchData);
+                    widths[idx]=bbox.width;
                     final opencv_core.Mat image = new opencv_core.Mat(bbox.height, bbox.width, CV_8UC3, inputPointer);
                     final BytePointer outputPointer = new BytePointer();
                     imencode(".jpg", image, outputPointer);
                     final byte[] bytes = new byte[(int) outputPointer.limit()];
                     outputPointer.get(bytes);
-
-                    // Output the image patch to HDFS.
-                    final FSDataOutputStream imgOutputStream;
-                    try {
-                        imgOutputStream = hdfs.create(new Path(storeDir + "/" + idx + ".jpg"));
-                        imgOutputStream.write(bytes);
-                        imgOutputStream.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
+                    outBytes[idx]=bytes;
+//                    trackletImgEntity.setOutBytes(outBytes);
                     // Free resources.
                     image.release();
                     inputPointer.deallocate();
                     outputPointer.deallocate();
                 });
+        
+//		byte[] outBytes2;
+		
+        // Output the image patch to HDFS.
+        final FSDataOutputStream imgOutputStream;
+        try {
+        	imgOutputStream = hdfs.create(new Path(storeDir + "/"  + ".jpg"));
+//        	imgOutputStream.write(outBytes2);
+        	for (int i = 0; i < outBytes.length ; i++) {
+    			imgOutputStream.write(outBytes[i]);
+    			imgOutputStream.flush();
+    		}
+        	imgOutputStream.close();
+        } catch (IOException e) {
+        	e.printStackTrace();
+        }
+        
+        dbConnector.saveTrackletImg(nodeID, widths);
     }
 }

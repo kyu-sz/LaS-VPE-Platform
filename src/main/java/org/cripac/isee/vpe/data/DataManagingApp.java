@@ -120,8 +120,8 @@ public class DataManagingApp extends SparkStreamingApp {
         AtomicReference<Boolean> running = new AtomicReference<>();
         running.set(true);
 
-        Thread packingThread = new Thread(new TrackletPackingThread(propCenter, running));
-        packingThread.start();
+//        Thread packingThread = new Thread(new TrackletPackingThread(propCenter, running));
+//        packingThread.start();
 
         final SparkStreamingApp app = new DataManagingApp(propCenter);
         app.initialize();
@@ -465,7 +465,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                                 logger.warn("Duplicated storing request for " + tracklet.id);
                                             } else {
                                                 hdfs.mkdirs(new Path(storeDir));
-                                                HadoopHelper.storeTracklet(storeDir, tracklet, hdfs);
+                                                HadoopHelper.storeTracklet(tracklet.id.videoID,storeDir, tracklet, hdfs,dbConnector);
                                                 dbConnector.setTrackletSavingVideoPath(
                                                 		new Tracklet.Identifier(tracklet.id.videoID, idx).toString(), 
                                                 		storeDir);

@@ -17,6 +17,7 @@
 
 package org.cripac.isee.vpe.data;
 
+import org.bytedeco.javacpp.RealSense.intrinsics;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 
@@ -45,6 +46,8 @@ public abstract class GraphDatabaseConnector {
             @Nonnull Boolean flag);
     
     public abstract void setTrackletSavingVideoPath(@Nonnull String nodeID,@Nonnull String videoPath);
+    
+    public abstract void saveTrackletImg(@Nonnull String nodeID,@Nonnull int[] width);
     
     public abstract void setSaveTracklet(@Nonnull Tracklet tracklet);
     /**
