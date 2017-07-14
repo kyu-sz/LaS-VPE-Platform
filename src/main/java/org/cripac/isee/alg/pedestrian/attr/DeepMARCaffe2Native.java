@@ -141,7 +141,8 @@ public class DeepMARCaffe2Native implements DeepMARCaffe2, BatchRecognizer {
         }
 
         net = initialize(
-                DeepMAR.randomlyPickGPU(gpu),
+//                DeepMAR.randomlyPickGPU(gpu),
+        		Integer.parseInt(gpu),
                 init_net.getPath(),
                 predict_net.getPath());
         this.logger.debug("DeepMARCaffe2Native initialized!");

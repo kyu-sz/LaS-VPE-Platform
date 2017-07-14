@@ -162,7 +162,7 @@ public class MessageHandlingAppTest implements Serializable {
                 "isee-basic/CAM01_0.conf");
         param.put(MessageHandlingApp.Parameter.WEBCAM_LOGIN_PARAM,
                 new Gson().toJson(new LoginParam(InetAddress.getLocalHost(), 0,
-                        "Ken Yu", "I love Shenzhen!")));
+                        "Jun Li", "I love you!!!!!!!!!!!")));
 
         for (String url : cam01VideoURLs) {
             param.put(MessageHandlingApp.Parameter.VIDEO_URL, url);

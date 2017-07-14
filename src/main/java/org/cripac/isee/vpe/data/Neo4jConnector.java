@@ -30,7 +30,7 @@ import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.getTrackletInfo;
  */
 public class Neo4jConnector extends GraphDatabaseConnector {
 
-    private Driver driver = GraphDatabase.driver("bolt://172.18.33.37:7687",
+    private Driver driver = GraphDatabase.driver("bolt://172.18.33.84:7687",
             AuthTokens.basic("neo4j", "casia@1234"));
 
     protected void finalize() throws Throwable {

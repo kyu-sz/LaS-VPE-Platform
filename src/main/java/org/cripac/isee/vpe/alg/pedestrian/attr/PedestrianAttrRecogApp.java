@@ -89,7 +89,8 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
         public InetAddress externAttrRecogServerAddr = InetAddress.getLocalHost();
         public int externAttrRecogServerPort = 0;
         public Algorithm algorithm = Algorithm.Fake;
-
+        public String caffeGPUs[]=new String[2];
+        
         public AppPropertyCenter(@Nonnull String[] args)
                 throws URISyntaxException, ParserConfigurationException, SAXException, UnknownHostException {
             super(args);
@@ -104,6 +105,9 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
                         break;
                     case "vpe.ped.attr.alg":
                         algorithm = Algorithm.valueOf((String) entry.getValue());
+                        break;
+                    case "caffe.gpu":
+                    	caffeGPUs = ((String) entry.getValue()).split(",");
                         break;
                     default:
                         logger.warn("Unrecognized option: " + entry.getKey());
@@ -167,10 +171,20 @@ public class PedestrianAttrRecogApp extends SparkStreamingApp {
 //                            DeepMARTF.class);
 //                    break;
                 case DeepMARCaffe2Native:
-                    recognizerSingleton = new Singleton<>(
-                            () -> new DeepMARCaffe2Native(propCenter.caffeGPU, loggerSingleton.getInst()),
-                            DeepMARCaffe2Native.class
-                    );
+//                	if (Integer.parseInt(propCenter.caffeGPU)==-1) {
+//						
+                		recognizerSingleton = new Singleton<>(
+                				() -> new DeepMARCaffe2Native(propCenter.caffeGPU, loggerSingleton.getInst()),
+                				DeepMARCaffe2Native.class
+                				);
+//					}
+//                	else if (verbose) {
+//						recognizerSingleton = new Singleton<>(
+//								() -> new DeepMARCaffe2Native(caffeGPUs[0], loggerSingleton.getInst()),
+//								DeepMARCaffe2Native.class
+//								);
+//						
+//					}
                     break;
                 case Fake:
                     recognizerSingleton = new Singleton<>(

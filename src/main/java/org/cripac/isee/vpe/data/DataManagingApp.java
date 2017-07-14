@@ -466,10 +466,10 @@ public class DataManagingApp extends SparkStreamingApp {
                                             } else {
                                                 hdfs.mkdirs(new Path(storeDir));
                                                 HadoopHelper.storeTracklet(tracklet.id.videoID,storeDir, tracklet, hdfs,dbConnector);
-                                                dbConnector.setTrackletSavingVideoPath(
-                                                		new Tracklet.Identifier(tracklet.id.videoID, idx).toString(), 
-                                                		storeDir);
-                                                dbConnector.setSaveTracklet(tracklet);
+//                                                dbConnector.setTrackletSavingVideoPath(
+//                                                		new Tracklet.Identifier(tracklet.id.videoID, idx).toString(), 
+//                                                		storeDir);
+//                                                dbConnector.setSaveTracklet(tracklet);
                                             }
                                         }).execute();
                                     }

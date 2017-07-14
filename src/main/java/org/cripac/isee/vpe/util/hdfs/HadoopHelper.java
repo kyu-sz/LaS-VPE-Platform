@@ -288,9 +288,9 @@ public class HadoopHelper {
                     outBytes[idx]=bytes;
 //                    trackletImgEntity.setOutBytes(outBytes);
                     // Free resources.
-                    image.release();
-                    inputPointer.deallocate();
-                    outputPointer.deallocate();
+//                    image.release();
+//                    inputPointer.deallocate();
+//                    outputPointer.deallocate();
                 });
         
 //		byte[] outBytes2;
@@ -298,7 +298,7 @@ public class HadoopHelper {
         // Output the image patch to HDFS.
         final FSDataOutputStream imgOutputStream;
         try {
-        	imgOutputStream = hdfs.create(new Path(storeDir + "/"  + ".jpg"));
+        	imgOutputStream = hdfs.create(new Path(storeDir + "/"  + "bbox.jpg"));
 //        	imgOutputStream.write(outBytes2);
         	for (int i = 0; i < outBytes.length ; i++) {
     			imgOutputStream.write(outBytes[i]);
@@ -309,6 +309,6 @@ public class HadoopHelper {
         	e.printStackTrace();
         }
         
-        dbConnector.saveTrackletImg(nodeID, widths);
+//        dbConnector.saveTrackletImg(nodeID, widths);
     }
 }
