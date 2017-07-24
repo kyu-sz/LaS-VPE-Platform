@@ -16,23 +16,32 @@
  */
 package org.cripac.isee.vpe.common;
 
-import kafka.common.FailedToSendMessageException;
-import kafka.common.MessageSizeTooLargeException;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+
+import javax.annotation.Nonnull;
+
 import org.apache.kafka.common.KafkaException;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.cripac.isee.util.Singleton;
 import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 import org.cripac.isee.vpe.ctrl.TaskData;
-import org.cripac.isee.util.Singleton;
+import org.cripac.isee.vpe.data.GraphDatabaseConnector;
+import org.cripac.isee.vpe.data.Neo4jConnector;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducer;
 import org.cripac.isee.vpe.util.kafka.ByteArrayProducerFactory;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
 import org.cripac.isee.vpe.util.logging.Logger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
 import org.cripac.isee.vpe.util.logging.SynthesizedLoggerFactory;
-
-import javax.annotation.Nonnull;
-import java.io.Serializable;
-import java.util.*;
+import org.cripac.isee.vpe.util.logging.SynthesizedNeo4JFactory;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
+import kafka.common.FailedToSendMessageException;
+import kafka.common.MessageSizeTooLargeException;
 
 /**
  * A Stream is a flow of DStreams. Each stream outputs at most one type of data.
@@ -76,7 +85,9 @@ public abstract class Stream implements Serializable {
     }
 
     protected final Singleton<Logger> loggerSingleton;
+    protected final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
+    
     /**
      * Initialize necessary components of a Stream object.
      *
@@ -89,6 +100,7 @@ public abstract class Stream implements Serializable {
 
         this.loggerSingleton = new Singleton<>(new SynthesizedLoggerFactory(appName, propCenter), SynthesizedLogger.class);
 
+        this.dbConnSingleton =new Singleton<>(Neo4jConnector::new, Neo4jConnector.class);
         Properties producerProp = propCenter.getKafkaProducerProp(false);
         producerSingleton = new Singleton<>(new ByteArrayProducerFactory(producerProp), ByteArrayProducer.class);
     }

@@ -56,6 +56,8 @@ import java.util.Map.Entry;
 public class SystemPropertyCenter implements Serializable {
 
     private static final long serialVersionUID = -6642856932636724919L;
+    
+    public  static String projectLocation="/home/vpe.cripac/projects/jun.li/LaS-VPE-Platform";
     /* Logger for parsing */
     protected transient Logger logger = new ConsoleLogger(Level.INFO);
 

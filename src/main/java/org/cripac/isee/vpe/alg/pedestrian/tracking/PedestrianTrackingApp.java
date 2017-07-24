@@ -143,7 +143,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
         private final int numSamplesPerTracklet;
         private final String metadataDir;
 
-        final GraphDatabaseConnector dbConnector;
+//        final GraphDatabaseConnector dbConnector;
         
         public HDFSVideoTrackingStream(AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
@@ -152,7 +152,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
             metadataDir = propCenter.metadataDir;
             confCacheSingleton = new Singleton<>(ConfCache::new, ConfCache.class);
             
-            dbConnector = new Neo4jConnector();
+//            dbConnector = new Neo4jConnector();
         }
 
         /**
@@ -183,8 +183,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
 
                                     final String videoURL = (String) taskData.predecessorRes;
                                     logger.debug("Received taskID=" + taskID + ", URL=" + videoURL);
-
                                     final Path videoPath = new Path(videoURL);
+                                    logger.info("源视频路径是："+videoPath.toString().split("8020")[1]);
                                     String videoName = videoPath.getName();
                                     videoName = videoName.substring(0, videoName.lastIndexOf('.'));
 
@@ -249,12 +249,18 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                             // The tracklet's size exceeds the limit.
                                             // Here we first store it into HDFS,
                                             // then send its URL instead of the tracklet itself.
-                                            final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                                            final String videoRoot = metadataDir + "/new2/" + tracklet.id.videoID;
                                             final String taskRoot = videoRoot + "/" + taskID;
                                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
                                             logger.debug("Tracklet " + tracklet.id
                                                     + " is too long. Passing it through HDFS at \"" + storeDir + "\".");
-                                            HadoopHelper.storeTracklet(tracklet.id.videoID,storeDir, tracklet, hdfs,dbConnector);
+                                            logger.info("tracking开始保存图片");
+                                            HadoopHelper.storeTracklet(tracklet.id.videoID,storeDir, tracklet, hdfs
+//                                            		,dbConnector
+                                            		,logger
+                                            		);
+                                            
+                                            logger.info("tracking保存图片结束");
                                             output(outputPorts,
                                                     taskData.executionPlan,
                                                     new TrackletOrURL(storeDir),

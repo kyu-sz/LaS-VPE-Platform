@@ -20,6 +20,7 @@ package org.cripac.isee.vpe.debug;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.data.GraphDatabaseConnector;
+import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
 import java.util.NoSuchElementException;
@@ -41,7 +42,6 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      * GraphDatabaseConnector#setTrackletSavingPath(
      * java.lang.String, java.lang.String)
      */
-    @Override
     public void setTrackletSavingPath(@Nonnull String nodeID,
                                       @Nonnull String path) {
     }
@@ -90,7 +90,7 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
      */
     @Override
     public void setPedestrianAttributes(@Nonnull String nodeID,
-                                        @Nonnull Attributes attr) {
+                                        @Nonnull Attributes attr,Logger logger) {
     }
 
     /*
@@ -109,7 +109,6 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
         return null;
     }
 
-	@Override
 	public void setTrackletSavingPathFlag(String nodeID, Boolean flag) {
 		// TODO Auto-generated method stub
 		
@@ -122,13 +121,25 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
 	}
 
 	@Override
-	public void setSaveTracklet(@Nonnull Tracklet tracklet) {
+	public void setSaveTracklet(@Nonnull Tracklet tracklet,Logger logger) {
 		// TODO Auto-generated method stub
 		
 	}
 
 	@Override
 	public void saveTrackletImg(String nodeID, int[] width) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void setTrackletSavingPath(String nodeID, String path, Logger logger) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void setTrackletSavingPathFlag(String nodeID, Boolean flag, Logger logger) {
 		// TODO Auto-generated method stub
 		
 	}

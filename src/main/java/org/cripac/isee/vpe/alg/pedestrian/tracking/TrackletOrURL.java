@@ -21,6 +21,7 @@ package org.cripac.isee.vpe.alg.pedestrian.tracking;
 
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
+import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
 import java.io.Serializable;
@@ -75,6 +76,10 @@ public class TrackletOrURL implements Serializable {
         this.URL = URL;
     }
 
+    @Nonnull
+    public Tracklet getTracklet(Logger logger) throws Exception {
+        return tracklet != null ? tracklet : HadoopHelper.retrieveTracklet(URL,logger);
+    }
     @Nonnull
     public Tracklet getTracklet() throws Exception {
         return tracklet != null ? tracklet : HadoopHelper.retrieveTracklet(URL);

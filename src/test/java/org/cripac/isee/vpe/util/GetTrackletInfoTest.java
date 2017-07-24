@@ -17,9 +17,9 @@ public class GetTrackletInfoTest {
     public static void main(String[] args) throws Exception {
      
         // It is necessary to change the host:port and directory as your practical situation.
-        String base = "har://hdfs-kman-nod2:8020";
-        String storeDir = "/user/labadmin/metadata/20131223102739-20131223103331/280f5b30-1149-4dfa-9462-12fd8f307edc.har/9";
-        storeDir = base + storeDir;
+//        String base = "har://hdfs-kman-nod2:8020";
+        String storeDir = "/user/vpe.cripac/metadata_ssd_tracker_0609/20131223102739-20131223103331/27369a4b-8588-44b8-ab98-629bdf96a9d6.har";
+//        storeDir = base + storeDir;
 
         try {
             String trackletInfo = getTrackletInfo(storeDir);

@@ -19,6 +19,7 @@
 package org.cripac.isee.util;
 
 import org.apache.commons.io.IOUtils;
+import org.cripac.isee.vpe.ctrl.SystemPropertyCenter;
 
 import java.io.*;
 
@@ -36,7 +37,8 @@ public class ResourceManager {
         // Retrieve the file from JAR and store to temporary files.
         InputStream in = ResourceManager.class.getResourceAsStream(path);
         if (in == null) {
-            File externalResource = new File(System.getProperty("java.library.path") + path);
+//            File externalResource = new File(System.getProperty("java.library.path") + path);
+            File externalResource = new File(SystemPropertyCenter.projectLocation+ path);
             if (!externalResource.exists()) {
                 throw new FileNotFoundException("Cannot locate resource at " + path);
             } else {

@@ -87,8 +87,9 @@ public class DataManagingApp extends SparkStreamingApp {
         registerStreams(Arrays.asList(
                 new TrackletSavingStream(propCenter),
                 new AttrSavingStream(propCenter),
-                new IDRankSavingStream(propCenter),
-                new VideoCuttingStream(propCenter)));
+                new IDRankSavingStream(propCenter)
+//                ,new VideoCuttingStream(propCenter)
+                ));
     }
 
     public static class AppPropertyCenter extends SystemPropertyCenter {
@@ -297,7 +298,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 final String videoRoot = metadataDir + "/" + videoID;
                                 final String taskRoot = videoRoot + "/" + taskID;
 
-                                final boolean harExists = new RobustExecutor<Void, Boolean>(
+                                /*final boolean harExists = new RobustExecutor<Void, Boolean>(
                                         (Function0<Boolean>) () ->
                                                 hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))
                                 ).execute();
@@ -315,7 +316,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                         ).execute();
                                     }
                                     return;
-                                }
+                                }*/
 
                                 // If all the tracklets from a task are saved,
                                 // it's time to pack them into a HAR!
@@ -325,7 +326,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                 final long dirCnt = contentSummary.getDirectoryCount();
                                 // Decrease one for directory counter.
                                 if (dirCnt - 1 == numTracklets) {
-                                    logger.info("Starting to pack tracklets for task " + taskID
+                                   /* logger.info("Starting to pack tracklets for task " + taskID
                                             + "(" + videoID + ")! The directory consumes "
                                             + contentSummary.getSpaceConsumed() + " bytes.");
 
@@ -346,16 +347,21 @@ public class DataManagingApp extends SparkStreamingApp {
                                     }).execute();
 
                                     logger.info("Task " + taskID + "(" + videoID + ") packed!");
-
+                                    */
                                     // Set the HAR path to all the tracklets from this video.
                                     for (int i = 0; i < numTracklets; ++i) {
+                                    	logger.info("保存到neo4j中---------------"+i);
                                         new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx ->{
                                                 dbConnector.setTrackletSavingPath(
                                                         new Tracklet.Identifier(videoID, idx).toString(),
-                                                        videoRoot + "/" + taskID + ".har/" + idx);
+                                                        videoRoot + "/" + taskID + ".har/" + idx,logger);
                                                 dbConnector.setTrackletSavingPathFlag(
                                                 		new Tracklet.Identifier(videoID, idx).toString(),
-                                                		true);
+                                                		true,logger);
+                                              /*  dbConnector.setTrackletSavingVideoPath(
+                                                		new Tracklet.Identifier(tracklet.id.videoID, idx).toString(), 
+                                                		storeDir);
+                                                dbConnector.setSaveTracklet(tracklet);*/
                                                 
                                         }).execute(i);
                                         
@@ -410,7 +416,7 @@ public class DataManagingApp extends SparkStreamingApp {
         private static final long serialVersionUID = 2820895755662980265L;
         private final String metadataDir;
         private final Singleton<ByteArrayProducer> packingJobProducerSingleton;
-        final GraphDatabaseConnector dbConnector;
+//        final GraphDatabaseConnector dbConnector;
 //        final Logger logger;
         
         TrackletSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
@@ -420,7 +426,7 @@ public class DataManagingApp extends SparkStreamingApp {
             packingJobProducerSingleton = new Singleton<>(
                     new ByteArrayProducerFactory(propCenter.getKafkaProducerProp(false)),
                     ByteArrayProducer.class);
-            dbConnector = new Neo4jConnector();
+//            dbConnector = new Neo4jConnector();
 //            logger=new ConsoleLogger();
         }
 
@@ -439,13 +445,14 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
                         synchronized (TrackletSavingStream.class) {
                             final Logger logger = loggerSingleton.getInst();
+                            final GraphDatabaseConnector dbConnector=dbConnSingleton.getInst();
                             ParallelExecutor.execute(kvIter, kv -> {
                                 try {
                                     final FileSystem hdfs = HDFSFactory.newInstance();
                                     final UUID taskID = kv._1();
                                     final TaskData taskData = kv._2();
                                     final TrackletOrURL trackletOrURL = (TrackletOrURL) taskData.predecessorRes;
-                                    final Tracklet tracklet = trackletOrURL.getTracklet();
+                                    final Tracklet tracklet = trackletOrURL.getTracklet(logger);
                                     final int numTracklets = tracklet.numTracklets;
 
                                     if (trackletOrURL.isStored()) {
@@ -454,34 +461,47 @@ public class DataManagingApp extends SparkStreamingApp {
                                                 + ". Skipping.");
                                         return;
                                     } else {
-                                        final String videoRoot = metadataDir + "/" + tracklet.id.videoID;
+                                        final String videoRoot = metadataDir + "/new2/" + tracklet.id.videoID;
                                         final String taskRoot = videoRoot + "/" + taskID;
                                         final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
-                                        logger.info("源视频路径是："+storeDir);
+                                        logger.info("保存的路径是："+storeDir);
                                         final Path storePath = new Path(storeDir);
+                                        trackletOrURL.setURL(storeDir);
                                         new RobustExecutor<Integer, Void>((VoidFunction<Integer>) idx ->{
                                             if (hdfs.exists(storePath)
-                                                    || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))) {
+//                                                    || hdfs.exists(new Path(videoRoot + "/" + taskID + ".har"))
+                                                    ) {
                                                 logger.warn("Duplicated storing request for " + tracklet.id);
                                             } else {
                                                 hdfs.mkdirs(new Path(storeDir));
-                                                HadoopHelper.storeTracklet(tracklet.id.videoID,storeDir, tracklet, hdfs,dbConnector);
+                                                logger.info("dataMana开始保存图片");
+                                                HadoopHelper.storeTracklet(tracklet.id.videoID,storeDir, tracklet, hdfs
+//                                                		,dbConnector
+                                                		,logger
+                                                		);
+                                                logger.info("dataMana保存图片结束");
+                                                logger.info("开始保存到数据库");
+//                                                logger.info("tracklet:"+tracklet.toString());
+//                                                String s = "/user/labadmin/metadata/20131223102739-20131223103331/280f5b30-1149-4dfa-9462-12fd8f307edc.har/9";
+                                              logger.info("要保存的信息是:"+storeDir);
+                                                dbConnector.setTrackletSavingPath(storeDir, storeDir);
+//                                                dbConnector.setSaveTracklet(tracklet,logger);
 //                                                dbConnector.setTrackletSavingVideoPath(
 //                                                		new Tracklet.Identifier(tracklet.id.videoID, idx).toString(), 
 //                                                		storeDir);
-//                                                dbConnector.setSaveTracklet(tracklet);
+                                                logger.info("保存到数据库结束");
                                             }
                                         }).execute();
                                     }
 
                                     // Check packing.
-                                    new RobustExecutor<Void, Void>(() ->
-                                            KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
-                                                    taskID.toString(),
-                                                    serialize(new Tuple2<>(tracklet.id, numTracklets)),
-                                                    packingJobProducerSingleton.getInst(),
-                                                    logger)
-                                    ).execute();
+//                                    new RobustExecutor<Void, Void>(() ->
+//                                            KafkaHelper.sendWithLog(TrackletPackingThread.JOB_TOPIC,
+//                                                    taskID.toString(),
+//                                                    serialize(new Tuple2<>(tracklet.id, numTracklets)),
+//                                                    packingJobProducerSingleton.getInst(),
+//                                                    logger)
+//                                    ).execute();
                                     hdfs.close();
                                 } catch (Exception e) {
                                     logger.error("During storing tracklets.", e);
@@ -503,12 +523,12 @@ public class DataManagingApp extends SparkStreamingApp {
         public static final Port PED_ATTR_SAVING_PORT =
                 new Port("pedestrian-attr-saving", DataType.ATTRIBUTES);
         private static final long serialVersionUID = 858443725387544606L;
-        private final Singleton<GraphDatabaseConnector> dbConnSingleton;
+//        private final Singleton<GraphDatabaseConnector> dbConnSingleton;
 
         AttrSavingStream(@Nonnull AppPropertyCenter propCenter) throws Exception {
             super(APP_NAME, propCenter);
 
-            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new, FakeDatabaseConnector.class);
+//            dbConnSingleton = new Singleton<>(FakeDatabaseConnector::new, FakeDatabaseConnector.class);
         }
 
         /**
@@ -527,18 +547,20 @@ public class DataManagingApp extends SparkStreamingApp {
                     .foreachRDD(rdd -> rdd.foreachPartition(kvIter -> {
                         synchronized (AttrSavingStream.class) {
                             final Logger logger = loggerSingleton.getInst();
+                            final GraphDatabaseConnector dbConnector=dbConnSingleton.getInst();
                             ParallelExecutor.execute(kvIter, res -> {
                                 try {
                                     final TaskData taskData = res._2();
                                     final Attributes attr = (Attributes) taskData.predecessorRes;
 
-                                    logger.debug("Received " + res._1() + ": " + attr);
+                                    logger.debug("Received attr:" + res._1() + ": " + attr.toString());
 
                                     new RobustExecutor<Void, Void>(() ->
-                                            dbConnSingleton.getInst().setPedestrianAttributes(attr.trackletID.toString(), attr)
+////                                            dbConnSingleton.getInst()
+                                            dbConnector.setPedestrianAttributes(attr.trackletID.toString(), attr,logger)
                                     ).execute();
 
-                                    logger.debug("Saved " + res._1() + ": " + attr);
+                                    logger.debug("Saved attr:" + res._1() + ": " + attr.toString());
                                 } catch (Exception e) {
                                     logger.error("When decompressing attributes", e);
                                 }

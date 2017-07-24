@@ -59,6 +59,8 @@ public class Singleton<T> implements Serializable {
         this.objFactory = objFactory;
         this.type = type;
     }
+    
+    
 
     /**
      * Check existence of the instance pool.
@@ -79,7 +81,8 @@ public class Singleton<T> implements Serializable {
      * @return A singleton instance.
      * @throws Exception On failure creating a new instance.
      */
-    public T getInst() throws Exception {
+    @SuppressWarnings("unchecked")
+	public T getInst() throws Exception {
         checkPool();
 
         if (!instancePool.containsKey(type)) {

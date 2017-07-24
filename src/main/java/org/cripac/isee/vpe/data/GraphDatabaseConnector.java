@@ -20,8 +20,11 @@ package org.cripac.isee.vpe.data;
 import org.bytedeco.javacpp.RealSense.intrinsics;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.util.logging.Logger;
 
 import javax.annotation.Nonnull;
+
+import java.io.Serializable;
 import java.util.NoSuchElementException;
 
 /**
@@ -30,7 +33,7 @@ import java.util.NoSuchElementException;
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public abstract class GraphDatabaseConnector {
+public abstract class GraphDatabaseConnector implements Serializable{
 
     /**
      * Set the path of the directory saving the tracklet of a pedestrian.
@@ -39,17 +42,18 @@ public abstract class GraphDatabaseConnector {
      * @param path   the path of the directory saving the tracklet of the pedestrian.
      */
     public abstract void setTrackletSavingPath(@Nonnull String nodeID,
-                                               @Nonnull String path);
+                                               @Nonnull String path,Logger logger);
 
-    
+    public abstract void setTrackletSavingPath(@Nonnull String nodeID,
+            @Nonnull String path);
     public abstract void setTrackletSavingPathFlag(@Nonnull String nodeID,
-            @Nonnull Boolean flag);
+            @Nonnull Boolean flag,Logger logger);
     
     public abstract void setTrackletSavingVideoPath(@Nonnull String nodeID,@Nonnull String videoPath);
     
     public abstract void saveTrackletImg(@Nonnull String nodeID,@Nonnull int[] width);
     
-    public abstract void setSaveTracklet(@Nonnull Tracklet tracklet);
+    public abstract void setSaveTracklet(@Nonnull Tracklet tracklet,Logger logger);
     /**
      * Get the path of the directory saving the tracklet of a pedestrian.
      *
@@ -89,7 +93,8 @@ public abstract class GraphDatabaseConnector {
      * @param attr   the attributes of the pedestrian.
      */
     public abstract void setPedestrianAttributes(@Nonnull String nodeID,
-                                                 @Nonnull Attributes attr);
+                                                 @Nonnull Attributes attr
+                                                 ,Logger logger);
 
     /**
      * Get the attributes of a pedestrian.

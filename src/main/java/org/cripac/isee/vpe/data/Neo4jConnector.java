@@ -13,6 +13,7 @@ package org.cripac.isee.vpe.data;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet.BoundingBox;
+import org.cripac.isee.vpe.util.logging.Logger;
 import org.neo4j.driver.v1.*;
 import com.google.gson.*;
 
@@ -104,11 +105,12 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     // Set start frame-index and time; create relation between person node and
     // time tree.
     @Override
-    public void setTrackletSavingPath(@Nonnull String nodeID, @Nonnull String path) {
+    public void setTrackletSavingPath(@Nonnull String nodeID, @Nonnull String path,Logger logger) {
         // Set path to an existing node or one newly created.
         Session session = driver.session();
         session.run("MERGE (p:Person {id: {id}}) SET p.path={path};",
                 Values.parameters("id", nodeID, "path", path));
+        logger.info("插入的是："+nodeID+":"+path);
         // Get the info of a tracklet.
         // Test (we don't need host:port when run on our platform).
         //String hostPort = "har://hdfs-kman-nod2:8020";
@@ -175,7 +177,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     }
     
     @Override
-    public void setSaveTracklet(@Nonnull Tracklet tracklet) {
+    public void setSaveTracklet(@Nonnull Tracklet tracklet,Logger logger) {
         // Set path to an existing node or one newly created.
         Session session = driver.session();
         int trackletStartIdx = tracklet.startFrameIndex;
@@ -191,7 +193,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         String trackletStartTime = calTrackletStartTime(trackletStartIdx, 
                                                         videoStartTime);
         // Insert the information of boundingboxes, start time and start frame index.
-        session.run("MATCH (p:Person {id: {id}}) SET " 
+        session.run("MERGE (p:Person {id: {id}}) SET " 
                   + "p.startTime=toint({startTime}), "
                   + "p.startIndex={startIndex}, "
                   + "p.boundingBoxes={boundingBoxes};",
@@ -205,7 +207,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         String queryMon  = trackletStartTime.substring(0,6);
         String queryDay  = trackletStartTime.substring(0,8);
         String queryHour = trackletStartTime.substring(0,10);
-        String run = "MATCH (n:Root)-[:HAS_YEAR]->(y:Year {year: toint({year})})-[:HAS_MONTH]->" +
+        String run = "MERGE (n:Root)-[:HAS_YEAR]->(y:Year {year: toint({year})})-[:HAS_MONTH]->" +
         "(mon:Month {month: toint({month})})-[:HAS_DAY]->(d:Day {day: toint({day})})-[:HAS_HOUR]->" + 
         "(h:Hour {hour: toint({hour})})-[:HAS_MIN]->(min) WHERE toint(tostring(min.start)+'00')<=" +
         "toint({trackletStartTime}) AND toint({trackletStartTime})<=toint(tostring(min.end)+'59') " +
@@ -220,18 +222,20 @@ public class Neo4jConnector extends GraphDatabaseConnector {
             "id",   tracklet.id
         ));
 
+        logger.info("neo4j save tracklet:"+tracklet.toString());
+        logger.info("----------------neo4j-------------------------");
         // Close session.
         session.close();
     }
     
     @Override
-    public void setTrackletSavingPathFlag(@Nonnull String nodeID,@Nonnull Boolean flag) {
+    public void setTrackletSavingPathFlag(@Nonnull String nodeID,@Nonnull Boolean flag,Logger logger) {
         // Set path to an existing node or one newly created.
         Session session = driver.session();
         session.run("MERGE (p:Person {id: {id}}) SET p.flag={flag};",
                 Values.parameters("id", nodeID, "flag", flag));
       
-
+        logger.info("插入的是："+nodeID+":"+flag);
         // Close session.
         session.close();
     }
@@ -294,7 +298,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     }
 
     @Override
-    public void setPedestrianAttributes(@Nonnull String nodeID, @Nonnull Attributes attr) {
+    public void setPedestrianAttributes(@Nonnull String nodeID, @Nonnull Attributes attr,Logger logger) {
         // Set attributes to an existing node or one newly created.
         Session session = driver.session();
         session.run("MERGE (p:Person {id: {id}}) SET "
@@ -551,6 +555,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
                         "occlusionObject", attr.occlusionObject,
                         "occlusionOther", attr.occlusionOther
                 ));
+        logger.info("插入的属性是："+attr.toString());
         session.close();
     }
 
@@ -864,5 +869,77 @@ public class Neo4jConnector extends GraphDatabaseConnector {
 
         // Close session.
         session.close();
+	}
+
+	@Override
+	public void setTrackletSavingPath(String nodeID, String path) {
+		// TODO Auto-generated method stub
+		Session session = driver.session();
+        session.run("MERGE (p:Person {id: {id}}) SET p.path={path};",
+                Values.parameters("id", nodeID, "path", path));
+        // Get the info of a tracklet.
+        // Test (we don't need host:port when run on our platform).
+        //String hostPort = "har://hdfs-kman-nod2:8020";
+        //String storeDir = hostPort + path;
+        //System.out.println("storeDir: " + storeDir);
+        // End
+        /*String storeDir = path;
+        String trackletInfo = "1024";
+        try {
+            trackletInfo = getTrackletInfo(storeDir);
+        } catch(IOException e1) {
+        } catch(URISyntaxException e2) {
+        }
+
+        JsonParser jParser = new JsonParser();
+        JsonObject jObject = jParser.parse(trackletInfo).getAsJsonObject();
+        
+        // Start frame index of a tracklet.
+        int trackletStartIdx = jObject.get("run-frame-index").getAsInt();
+        JsonObject jObjectId = jObject.get("id").getAsJsonObject();
+        String videoStartTime= jObjectId.get("video-url").getAsString();
+        // split videoStartTime with "-".
+        videoStartTime = videoStartTime.split("-")[0];
+        
+        // bounding boxes.
+        JsonArray jArrayBoundingBoxes = jObject.get("bounding-boxes").getAsJsonArray();
+        String bbCoordinatesInfo = jArrayBoundingBoxes.toString();
+
+        // Start time of a tracklet.
+        String trackletStartTime = calTrackletStartTime(trackletStartIdx, 
+                                                        videoStartTime);
+        // Insert the information of boundingboxes, start time and start frame index.
+        session.run("MATCH (p:Person {id: {id}}) SET " 
+                  + "p.startTime=toint({startTime}), "
+                  + "p.startIndex={startIndex}, "
+                  + "p.boundingBoxes={boundingBoxes};",
+                   Values.parameters(
+                   "id", nodeID,
+                   "startTime", trackletStartTime,
+                   "startIndex",trackletStartIdx,
+                   "boundingBoxes", bbCoordinatesInfo));
+        // Insert relation.
+        String queryYear = trackletStartTime.substring(0,4);
+        String queryMon  = trackletStartTime.substring(0,6);
+        String queryDay  = trackletStartTime.substring(0,8);
+        String queryHour = trackletStartTime.substring(0,10);
+        String run = "MATCH (n:Root)-[:HAS_YEAR]->(y:Year {year: toint({year})})-[:HAS_MONTH]->" +
+        "(mon:Month {month: toint({month})})-[:HAS_DAY]->(d:Day {day: toint({day})})-[:HAS_HOUR]->" + 
+        "(h:Hour {hour: toint({hour})})-[:HAS_MIN]->(min) WHERE toint(tostring(min.start)+'00')<=" +
+        "toint({trackletStartTime}) AND toint({trackletStartTime})<=toint(tostring(min.end)+'59') " +
+        "MATCH (p:Person {id: {id}}) MERGE (min)-[:INCLUDES_PERSON]->(p);";
+        session.run(run, Values.parameters(
+            "year", queryYear,
+            "month",queryMon,
+            "day",  queryDay,
+            "hour", queryHour,
+            "trackletStartTime", trackletStartTime,
+            "trackletStartTime", trackletStartTime,
+            "id",   nodeID
+        ));
+*/
+        // Close session.
+        session.close();
+		
 	}
 }

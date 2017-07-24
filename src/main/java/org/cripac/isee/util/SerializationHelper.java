@@ -66,7 +66,8 @@ public class SerializationHelper {
      * @return An object from which the byte array is serialized.
      * @throws ClassNotFoundException On failure finding target class.
      */
-    public
+    @SuppressWarnings("unchecked")
+	public
     @Nonnull
     static <T> T deserialize(@Nonnull byte[] byteArray) throws IOException, ClassNotFoundException {
         ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
