@@ -218,6 +218,8 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                         logger.fatal("confPool contains key " + confFile + " but value is null!");
                                         return;
                                     }
+                                    logger.info("confFile:"+confFile);
+                                    
                                     final Tracker tracker = new BasicTracker(confBytes, logger);
 
                                     final FileSystem hdfs = HDFSFactory.newInstance();
@@ -252,6 +254,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                             final String videoRoot = metadataDir + "/new2/" + tracklet.id.videoID;
                                             final String taskRoot = videoRoot + "/" + taskID;
                                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                            hdfs.mkdirs(new Path(storeDir));
                                             logger.debug("Tracklet " + tracklet.id
                                                     + " is too long. Passing it through HDFS at \"" + storeDir + "\".");
                                             logger.info("tracking开始保存图片");

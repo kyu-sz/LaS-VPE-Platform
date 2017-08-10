@@ -24,12 +24,20 @@
 
 package org.cripac.isee.alg.pedestrian.reid;
 
+import java.io.Serializable;
+
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+
 /**
  * Base class for features of different lengths.
  *
  * @author Ken Yu, CRIPAC, 2016
  */
-public abstract class Feature {
+public abstract class Feature implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    public Tracklet.Identifier trackletID;
     /**
      * @return The length of the feature.
      */

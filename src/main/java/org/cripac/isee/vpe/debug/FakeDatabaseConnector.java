@@ -17,14 +17,19 @@
 
 package org.cripac.isee.vpe.debug;
 
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Random;
+
+import javax.annotation.Nonnull;
+
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.Minute;
+import org.cripac.isee.alg.pedestrian.attr.ReIdAttributesTemp;
+import org.cripac.isee.alg.pedestrian.reid.Feature;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 import org.cripac.isee.vpe.util.logging.Logger;
-
-import javax.annotation.Nonnull;
-import java.util.NoSuchElementException;
-import java.util.Random;
 
 /**
  * Simulate a database connector that provides tracklets and attributes.
@@ -142,5 +147,66 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
 	public void setTrackletSavingPathFlag(String nodeID, Boolean flag, Logger logger) {
 		// TODO Auto-generated method stub
 		
+	}
+
+	@Override
+	public void setPedestrianReIDFeature(String nodeID, String dataType, Feature fea) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public Feature getPedestrianReIDFeature(String nodeID, String dataType) throws NoSuchElementException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public List<ReIdAttributesTemp> getPedestrianReIDFeatureList(String dataType) throws NoSuchElementException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public List<String> getPedestrianReIDFeatureBase64List(String dataType) throws NoSuchElementException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void addIsFinish(String nodeID, boolean isFinish) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void addIsGetSim(String nodeID, boolean IsGetSim) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void addSimRel(String nodeID1, String nodeID2, double SimRel) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public List<float[]> getPedestrianReIDFeatureList(boolean isFinish, boolean IsGetSim)
+			throws NoSuchElementException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public List<Minute> getMinutes() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public List<ReIdAttributesTemp> getPedestrianReIDFeatureList(Minute minute) throws NoSuchElementException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

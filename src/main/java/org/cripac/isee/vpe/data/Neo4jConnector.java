@@ -10,19 +10,28 @@
 
 package org.cripac.isee.vpe.data;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+import javax.annotation.Nonnull;
+
+import org.apache.commons.codec.binary.Base64;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.Minute;
+import org.cripac.isee.alg.pedestrian.attr.ReIdAttributesTemp;
+import org.cripac.isee.alg.pedestrian.reid.Feature;
+import org.cripac.isee.alg.pedestrian.reid.FeatureMSCAN;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet.BoundingBox;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.neo4j.driver.v1.*;
-import com.google.gson.*;
-
-import javax.annotation.Nonnull;
-import java.util.NoSuchElementException;
-import java.io.IOException;
-import java.net.URISyntaxException;
-
-import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.getTrackletInfo;
+import org.neo4j.driver.v1.AuthTokens;
+import org.neo4j.driver.v1.Driver;
+import org.neo4j.driver.v1.GraphDatabase;
+import org.neo4j.driver.v1.Record;
+import org.neo4j.driver.v1.Session;
+import org.neo4j.driver.v1.StatementResult;
+import org.neo4j.driver.v1.Values;
 
 /**
  * \class Neo4jConnector
@@ -31,7 +40,7 @@ import static org.cripac.isee.vpe.util.hdfs.HadoopHelper.getTrackletInfo;
  */
 public class Neo4jConnector extends GraphDatabaseConnector {
 
-    private Driver driver = GraphDatabase.driver("bolt://172.18.33.84:7687",
+    private Driver driver = GraphDatabase.driver("bolt://172.18.33.37:7687",
             AuthTokens.basic("neo4j", "casia@1234"));
 
     protected void finalize() throws Throwable {
@@ -941,5 +950,194 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         // Close session.
         session.close();
 		
+	}
+	
+	
+	@Override
+    public void setPedestrianReIDFeature(@Nonnull String nodeID,
+                                         @Nonnull String dataType, 
+                                         @Nonnull Feature fea) {
+        Session session = driver.session();
+        byte[] feature = fea.getBytes();
+        String feaStringBase64 = Base64.encodeBase64String(feature);
+        session.run("MERGE (p:Person {id: {id}, dataType: {dataType}}) SET "
+                  + "p.reidFeature={reidFeature};",
+                  Values.parameters("id", nodeID, 
+                                    "dataType", dataType, 
+                                    "reidFeature", feaStringBase64));
+        session.close();
+    }
+
+    @Override
+    public Feature getPedestrianReIDFeature(@Nonnull String nodeID,
+                                            @Nonnull String dataType) throws NoSuchElementException {
+        Session session = driver.session();
+        StatementResult result = session.run(
+            "MATCH (p:Person {id: {id}, dataType: {dataType}}) RETURN p.reidFeature;",
+            Values.parameters("id", nodeID, "dataType", dataType)
+        );
+        session.close();
+        if (result.hasNext()) {
+            Record record = result.next();
+            String featureBase64Str = record.get("p.reidFeature").asString();
+            byte[] featureBytes = Base64.decodeBase64(featureBase64Str);
+            Feature feature = new FeatureMSCAN(featureBytes);
+            return feature;
+        }
+        throw new NoSuchElementException();
+    }
+    
+    @Override
+    public List<ReIdAttributesTemp> getPedestrianReIDFeatureList(@Nonnull String dataType) throws NoSuchElementException {
+        Session session = driver.session();
+        StatementResult result = session.run(
+            "MATCH (p:Person {dataType: {dataType}}) RETURN p.trackletID,p.reidFeature,p.camID,p.startTime;",
+            Values.parameters("dataType", dataType)
+        );
+        List<ReIdAttributesTemp> list=new ArrayList<>();
+        while (result.hasNext()) {
+            Record record = result.next();
+            ReIdAttributesTemp reIdAttributesTemp=new ReIdAttributesTemp();
+            String camID = record.get("p.camID").asString();
+            Long startTime = (Long)record.get("p.startTime").asNumber();
+            String trackletID = record.get("p.trackletID").asString();
+            String featureBase64Str = record.get("p.reidFeature").asString();
+            byte[] featureBytes = Base64.decodeBase64(featureBase64Str);
+            Feature feature = new FeatureMSCAN(featureBytes);
+            reIdAttributesTemp.setFeatureVector(feature.getVector());
+            reIdAttributesTemp.setCamID(camID);
+            reIdAttributesTemp.setTrackletID(trackletID);
+//            reIdAttributesTemp.setReidFeature(featureBase64Str);
+            reIdAttributesTemp.setStartTime(startTime);
+//            list.add(feature.getVector());
+            list.add(reIdAttributesTemp);
+        }
+        session.close();
+        return list;
+    }
+    
+    
+    @Override
+    public List<String> getPedestrianReIDFeatureBase64List(@Nonnull String dataType) throws NoSuchElementException {
+        Session session = driver.session();
+        StatementResult result = session.run(
+            "MATCH (p:Person {dataType: {dataType}}) RETURN p.reidFeature;",
+            Values.parameters("dataType", dataType)
+        );
+        List<String> list=new ArrayList<>();
+        while (result.hasNext()) {
+            Record record = result.next();
+            String featureBase64Str = record.get("p.reidFeature").asString();
+            byte[] featureBytes = Base64.decodeBase64(featureBase64Str);
+            Feature feature = new FeatureMSCAN(featureBytes);
+            list.add(featureBase64Str);
+        }
+        session.close();
+        return list;
+    }
+
+	@Override
+	public void addIsFinish(String nodeID, boolean isFinish) {
+		// TODO Auto-generated method stub
+		
+		Session session = driver.session();
+        session.run("MERGE (p:Person {id: {id}}) SET p.isFinish={isFinish};",
+                Values.parameters("id", nodeID, "isFinish", isFinish));
+        session.close();
+	}
+
+	@Override
+	public void addIsGetSim(String nodeID, boolean IsGetSim) {
+		// TODO Auto-generated method stub
+		Session session = driver.session();
+        session.run("MERGE (p:Person {id: {id}}) SET p.IsGetSim={IsGetSim};",
+                Values.parameters("id", nodeID, "IsGetSim", IsGetSim));
+        session.close();
+	}
+
+	@Override
+	public void addSimRel( String nodeID1, String nodeID2, double SimRel) {
+		// TODO Auto-generated method stub
+		Session session = driver.session();
+        session.run("MATCH (a:Person {id: {id1}}), (b:Person {id: {id2}}) CREATE (a)-[r:Similarity{SimRel:{SimRel}}]->(b);",
+                Values.parameters("id1", nodeID1, "id2", nodeID2,"SimRel", SimRel));
+        session.close();
+	}
+
+	@Override
+	public List<float[]> getPedestrianReIDFeatureList(boolean isFinish, boolean IsGetSim)
+			throws NoSuchElementException {
+		// TODO Auto-generated method stub
+		
+		Session session = driver.session();
+        StatementResult result = session.run(
+            "MATCH (p:Person {isFinish: {isFinish},IsGetSim: {IsGetSim}}) RETURN p.reidFeature;",
+            Values.parameters("isFinish", isFinish,"IsGetSim", IsGetSim)
+        );
+        List<float[]> list=new ArrayList<>();
+        while (result.hasNext()) {
+            Record record = result.next();
+            String featureBase64Str = record.get("p.reidFeature").asString();
+            byte[] featureBytes = Base64.decodeBase64(featureBase64Str);
+            Feature feature = new FeatureMSCAN(featureBytes);
+            list.add(feature.getVector());
+        }
+        session.close();
+        return list;
+	}
+
+	@Override
+	public List<Minute> getMinutes() {
+		Session session = driver.session();
+		StatementResult result = session.run("MATCH (n:Minute) RETURN n.start,n.end order by n.start;");
+		List<Minute> list = new ArrayList<>();
+		while (result.hasNext()) {
+			Record record = result.next();
+			Long start = (Long) record.get("n.start").asNumber();
+			Long end = (Long) record.get("n.end").asNumber();
+			Minute minute = new Minute();
+			minute.setEnd(end);
+			minute.setStart(start);
+			list.add(minute);
+		}
+		session.close();
+		return list;
+	}
+
+	@Override
+	public List<ReIdAttributesTemp> getPedestrianReIDFeatureList(Minute minute) throws NoSuchElementException {
+		// TODO Auto-generated method stub
+		Session session = driver.session();
+		List<ReIdAttributesTemp> list=new ArrayList<>();
+			StatementResult result = session.run(
+					"MATCH (a:Minute{start:{start}})-[:INCLUDES_PERSON]-(b:Person)  "
+					+ "return b.trackletID,b.reidFeature,b.camID,b.startTime order by a.start;"
+					,Values.parameters("start", minute.getStart().longValue())
+					);
+			while (result.hasNext()) {
+				Record record = result.next();
+				ReIdAttributesTemp reIdAttributesTemp=new ReIdAttributesTemp();
+				String camID = record.get("b.camID").asString();
+				Long startTime = (Long)record.get("b.startTime").asNumber();
+				String trackletID = record.get("b.trackletID").asString();
+				String featureBase64Str = record.get("b.reidFeature").asString();
+				if (!featureBase64Str.equals("null")) {
+					byte[] featureBytes = Base64.decodeBase64(featureBase64Str);
+					Feature feature = new FeatureMSCAN(featureBytes);
+//					System.out.println(camID+","+id+","+startTime+","+feature.getVector());
+					reIdAttributesTemp.setFeatureVector(feature.getVector());
+					
+				}
+				reIdAttributesTemp.setCamID(camID);
+				reIdAttributesTemp.setTrackletID(trackletID);
+//            reIdAttributesTemp.setReidFeature(featureBase64Str);
+				reIdAttributesTemp.setStartTime(startTime);
+//            list.add(feature.getVector());
+				list.add(reIdAttributesTemp);
+			}
+			
+		
+        session.close();
+        return list;
 	}
 }

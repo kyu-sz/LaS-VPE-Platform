@@ -6,14 +6,11 @@
 
 package org.cripac.isee.vpe.data;
 
-import org.cripac.isee.vpe.data.Neo4jConnector;
+import java.util.Iterator;
+import java.util.List;
+
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
 import org.cripac.isee.vpe.util.logging.Logger;
-import org.cripac.isee.vpe.util.logging.SynthesizedLogger;
-
-import java.util.logging.Level;
-
-import org.cripac.isee.vpe.data.GraphDatabaseConnector;
 
 public class SetTrackletNodeTest {
 
@@ -25,7 +22,17 @@ public class SetTrackletNodeTest {
 //        Logger logger=new SynthesizedLogger(APP_NAME, propCenter);
         GraphDatabaseConnector dbConnector = new Neo4jConnector();
         long startTime = System.currentTimeMillis();
-        dbConnector.setTrackletSavingPath("test_1a", storeDir);
+//        dbConnector.setTrackletSavingPath("test_1a", storeDir);
+        List<String> list=dbConnector.getPedestrianReIDFeatureBase64List("dli_test");
+      
+//        dbConnector.addIsFinish("/user/vpe.cripac/new2/20131223141032-20131223141628/d3fba52d-c1a5-4aa0-8c95-6be46892688f/2", true);
+//        dbConnector.addIsGetSim("/user/vpe.cripac/new2/20131223141032-20131223141628/d3fba52d-c1a5-4aa0-8c95-6be46892688f/0", false);
+//        dbConnector.addSimRel("/user/vpe.cripac/new2/20131223141032-20131223141628/d3fba52d-c1a5-4aa0-8c95-6be46892688f/2", "/user/vpe.cripac/new2/20131223141032-20131223141628/d3fba52d-c1a5-4aa0-8c95-6be46892688f/0", 1.0);
+        for (Iterator iterator = list.iterator(); iterator.hasNext();) {
+			String string = (String) iterator.next();
+			System.out.println(string);
+			logger.info(string);
+		}
         long endTime = System.currentTimeMillis();
 //        System.out.println("Cost time of insert a node: " + (endTime - startTime) + "ms");
         logger.info("Cost time of insert a node: " + (endTime - startTime) + "ms");

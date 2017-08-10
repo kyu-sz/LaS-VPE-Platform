@@ -17,15 +17,19 @@
 
 package org.cripac.isee.vpe.data;
 
-import org.bytedeco.javacpp.RealSense.intrinsics;
-import org.cripac.isee.alg.pedestrian.attr.Attributes;
-import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
-import org.cripac.isee.vpe.util.logging.Logger;
+import java.io.Serializable;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 import javax.annotation.Nonnull;
 
-import java.io.Serializable;
-import java.util.NoSuchElementException;
+import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.Hour;
+import org.cripac.isee.alg.pedestrian.attr.Minute;
+import org.cripac.isee.alg.pedestrian.attr.ReIdAttributesTemp;
+import org.cripac.isee.alg.pedestrian.reid.Feature;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.vpe.util.logging.Logger;
 
 /**
  * The class GraphDatabaseConnector is the base class of graph databases connectors.
@@ -136,4 +140,59 @@ public abstract class GraphDatabaseConnector implements Serializable{
             this.similarity = similarity;
         }
     }
+    
+    
+    /**
+     * Set the reid feature of a pedestrian.
+     * 
+     * @param nodeID   the ID of the pedestrian.
+     * @param dataType it depends on the execute plan (the algorithm to generate such result).
+     * @param fea      the reid feature of the pedestrian.
+     */
+    public abstract void setPedestrianReIDFeature(@Nonnull String nodeID,
+                                                  @Nonnull String dataType,
+                                                  @Nonnull Feature fea);
+    
+    
+    /**
+     * Get the reid feature of a pedestrian.
+     *
+     * @param nodeID the ID of the pedestrian.
+     * @param dataType user plan.
+     * @return the reid feature of the pedestrian.
+     * @throws NoSuchElementException On failure finding the pedestrian.
+     */
+    public abstract Feature getPedestrianReIDFeature(@Nonnull String nodeID,
+                                                     @Nonnull String dataType) throws NoSuchElementException;
+    
+    //得到符合条件的FeatureList,目前使用dataType=“dli_test”做判断
+    public abstract List<ReIdAttributesTemp> getPedestrianReIDFeatureList(@Nonnull String dataType)throws NoSuchElementException;
+    
+    //得到符合条件的FeatureList,isFinish=true，IsGetSim=false
+    public abstract List<float[]> getPedestrianReIDFeatureList(@Nonnull boolean isFinish,boolean IsGetSim)throws NoSuchElementException;
+    
+    //得到Minute节点
+    public abstract List<Minute> getMinutes();
+    //得到Hour节点
+//    public abstract List<Hour> getHours();
+    
+    //根据minute，得到符合条件的节点，用来做相似度计算
+    public abstract List<ReIdAttributesTemp> getPedestrianReIDFeatureList(Minute minute)throws NoSuchElementException;
+    
+    //得到符合条件的FeatureList中的base64，用作测试
+    public abstract List<String> getPedestrianReIDFeatureBase64List(@Nonnull String dataType) throws NoSuchElementException;
+    
+    //标志位，是否完成了reid
+    public abstract void addIsFinish(@Nonnull String nodeID,@Nonnull boolean isFinish);
+    
+    //标志位，是否完成了计算相似度
+    //做完相似度计算后，设置IsGetSim=true
+    public abstract void addIsGetSim(@Nonnull String nodeID,@Nonnull boolean IsGetSim);
+    
+    //增加一条边,保存相似度
+    
+    public abstract void addSimRel(@Nonnull String nodeID1,@Nonnull String nodeID2,@Nonnull double SimRel);
+    
+    
+    
 }
