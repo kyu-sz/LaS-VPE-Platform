@@ -60,7 +60,11 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
 import com.sun.tools.javac.code.Attribute.Array;
 
+<<<<<<< HEAD
 //import scala.reflect.internal.Trees.This;
+=======
+import scala.reflect.internal.Trees.This;
+>>>>>>> branch 'win_eclipse' of https://github.com/kyu-sz/LaS-VPE-Platform.git
 
 /**
  * The HadoopHelper class provides utilities for Hadoop usage.
