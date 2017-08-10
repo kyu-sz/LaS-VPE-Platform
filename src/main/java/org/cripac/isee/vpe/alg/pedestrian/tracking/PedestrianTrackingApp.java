@@ -252,6 +252,7 @@ public class PedestrianTrackingApp extends SparkStreamingApp {
                                             final String videoRoot = metadataDir + "/new2/" + tracklet.id.videoID;
                                             final String taskRoot = videoRoot + "/" + taskID;
                                             final String storeDir = taskRoot + "/" + tracklet.id.serialNumber;
+                                            hdfs.mkdirs(new Path(storeDir));
                                             logger.debug("Tracklet " + tracklet.id
                                                     + " is too long. Passing it through HDFS at \"" + storeDir + "\".");
                                             logger.info("tracking开始保存图片");

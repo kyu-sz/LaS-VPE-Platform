@@ -14,25 +14,25 @@
  * You should have received a copy of the GNU General Public License
  * along with LaS-VPE Platform.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.cripac.isee.vpe.util.kafka
+package org.cripac.isee.vpe.util.kafka;
 
-import java.util.Properties
-import java.util.concurrent.{CancellationException, ExecutionException}
-import java.{lang => jl, util => ju}
-import javax.annotation.{Nonnull, Nullable}
+import java.util.Properties;
+import java.util.concurrent.{CancellationException, ExecutionException};
+import java.{lang => jl, util => ju};
+import javax.annotation.{Nonnull, Nullable};
 
-import kafka.admin.{AdminUtils, RackAwareMode}
-import kafka.common.Topic
-import kafka.utils.ZkUtils
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import org.apache.kafka.common.errors.TopicExistsException
-import org.apache.kafka.common.security.JaasUtils
-import org.cripac.isee.util.SerializationHelper
-import org.cripac.isee.vpe.common.DataType
-import org.cripac.isee.vpe.ctrl.TaskData
-import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger}
+import kafka.admin.{AdminUtils, RackAwareMode};
+import kafka.common.Topic;
+import kafka.utils.ZkUtils;
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord};
+import org.apache.kafka.common.errors.TopicExistsException;
+import org.apache.kafka.common.security.JaasUtils;
+import org.cripac.isee.util.SerializationHelper;
+import org.cripac.isee.vpe.common.DataType;
+import org.cripac.isee.vpe.ctrl.TaskData;
+import org.cripac.isee.vpe.util.logging.{ConsoleLogger, Logger};
 
-import scala.language.postfixOps
+import scala.language.postfixOps;
 
 /**
   * The class KafkaHelper provides static basic methods for manipulating Kafka affairs.

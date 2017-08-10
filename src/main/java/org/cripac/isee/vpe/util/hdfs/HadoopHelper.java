@@ -125,10 +125,10 @@ public class HadoopHelper {
     public static Tracklet retrieveTracklet(@Nonnull String storeDir,
                                             @Nonnull FileSystem hdfs
                                             ,Logger logger) throws IOException, URISyntaxException {
-        final InputStreamReader infoReader;
-        final HarFileSystem harFS;
+         InputStreamReader infoReader=null;
+//        final HarFileSystem harFS;
         final FileSystem fs;
-        final String revisedStoreDir=storeDir;
+//        final String revisedStoreDir=storeDir;
 
         logger.info("HadoopHelper:"+storeDir);
         boolean onHDFS = false;
@@ -140,12 +140,12 @@ public class HadoopHelper {
             infoReader = new InputStreamReader(hdfs.open(new Path(storeDir + "/info.txt")));
             fs = hdfs;
 //            revisedStoreDir = storeDir;
-            harFS = null;
+//            harFS = null;
         } else {
             // Open the Hadoop Archive of the task the track is generated in.
-            while (storeDir.endsWith("/")) {
-                storeDir = storeDir.substring(0, storeDir.length() - 1);
-            }
+//            while (storeDir.endsWith("/")) {
+//                storeDir = storeDir.substring(0, storeDir.length() - 1);
+//            }
 //            if (storeDir.contains(".har")) {
 //                revisedStoreDir = storeDir;
 //            } else {
@@ -154,10 +154,10 @@ public class HadoopHelper {
 //            }
 //            harFS = new HarFileSystem();
 //            harFS.initialize(new URI(revisedStoreDir), new Configuration());
-            logger.info("HadoopHelper:"+revisedStoreDir);
-            infoReader = new InputStreamReader(hdfs.open(new Path(revisedStoreDir + "/info.txt")));
+            logger.info("HadoopHelper:"+storeDir+"不存在");
+//            infoReader = new InputStreamReader(hdfs.open(new Path(revisedStoreDir + "/info.txt")));
 //            fs = harFS;
-            fs = hdfs;
+//            fs = hdfs;
         }
 
         // Read verbal informations of the track.

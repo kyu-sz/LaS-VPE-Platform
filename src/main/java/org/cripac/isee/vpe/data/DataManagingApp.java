@@ -118,8 +118,8 @@ public class DataManagingApp extends SparkStreamingApp {
     public static void main(String[] args) throws Exception {
         final AppPropertyCenter propCenter = new AppPropertyCenter(args);
 
-        AtomicReference<Boolean> running = new AtomicReference<>();
-        running.set(true);
+//        AtomicReference<Boolean> running = new AtomicReference<>();
+//        running.set(true);
 
 //        Thread packingThread = new Thread(new TrackletPackingThread(propCenter, running));
 //        packingThread.start();
@@ -128,7 +128,7 @@ public class DataManagingApp extends SparkStreamingApp {
         app.initialize();
         app.start();
         app.awaitTermination();
-        running.set(false);
+//        running.set(false);
     }
 
     public static class VideoCuttingStream extends Stream {
