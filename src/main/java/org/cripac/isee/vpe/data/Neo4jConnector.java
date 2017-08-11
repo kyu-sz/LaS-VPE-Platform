@@ -117,8 +117,8 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     public void setTrackletSavingPath(@Nonnull String nodeID, @Nonnull String path,Logger logger) {
         // Set path to an existing node or one newly created.
         Session session = driver.session();
-        session.run("MERGE (p:Person {id: {id}}) SET p.path={path};",
-                Values.parameters("id", nodeID, "path", path));
+        session.run("MERGE (p:Person {trackletID: {trackletID}}) SET p.path={path};",
+                Values.parameters("trackletID", nodeID, "path", path));
         logger.info("插入的是："+nodeID+":"+path);
         // Get the info of a tracklet.
         // Test (we don't need host:port when run on our platform).
@@ -202,12 +202,12 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         String trackletStartTime = calTrackletStartTime(trackletStartIdx, 
                                                         videoStartTime);
         // Insert the information of boundingboxes, start time and start frame index.
-        session.run("MERGE (p:Person {id: {id}}) SET " 
+        session.run("MERGE (p:Person {trackletID: {trackletID}}) SET " 
                   + "p.startTime=toint({startTime}), "
                   + "p.startIndex={startIndex}, "
                   + "p.boundingBoxes={boundingBoxes};",
                    Values.parameters(
-                   "id", tracklet.id,
+                   "trackletID", tracklet.id,
                    "startTime", trackletStartTime,
                    "startIndex",trackletStartIdx,
                    "boundingBoxes", bbCoordinatesInfo));
@@ -220,7 +220,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         "(mon:Month {month: toint({month})})-[:HAS_DAY]->(d:Day {day: toint({day})})-[:HAS_HOUR]->" + 
         "(h:Hour {hour: toint({hour})})-[:HAS_MIN]->(min) WHERE toint(tostring(min.start)+'00')<=" +
         "toint({trackletStartTime}) AND toint({trackletStartTime})<=toint(tostring(min.end)+'59') " +
-        "MATCH (p:Person {id: {id}}) MERGE (min)-[:INCLUDES_PERSON]->(p);";
+        "MATCH (p:Person {trackletID: {trackletID}}) MERGE (min)-[:INCLUDES_PERSON]->(p);";
         session.run(run, Values.parameters(
             "year", queryYear,
             "month",queryMon,
@@ -228,7 +228,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
             "hour", queryHour,
             "trackletStartTime", trackletStartTime,
             "trackletStartTime", trackletStartTime,
-            "id",   tracklet.id
+            "trackletID",   tracklet.id
         ));
 
         logger.info("neo4j save tracklet:"+tracklet.toString());
@@ -241,8 +241,8 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     public void setTrackletSavingPathFlag(@Nonnull String nodeID,@Nonnull Boolean flag,Logger logger) {
         // Set path to an existing node or one newly created.
         Session session = driver.session();
-        session.run("MERGE (p:Person {id: {id}}) SET p.flag={flag};",
-                Values.parameters("id", nodeID, "flag", flag));
+        session.run("MERGE (p:Person {trackletID: {trackletID}}) SET p.flag={flag};",
+                Values.parameters("trackletID", nodeID, "flag", flag));
       
         logger.info("插入的是："+nodeID+":"+flag);
         // Close session.
@@ -253,8 +253,8 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     public void setTrackletSavingVideoPath(@Nonnull String nodeID,@Nonnull String videoPath) {
         // Set path to an existing node or one newly created.
         Session session = driver.session();
-        session.run("MERGE (p:Person {id: {id}}) SET p.videoPath={videoPath};",
-                Values.parameters("id", nodeID, "videoPath", videoPath));
+        session.run("MERGE (p:Person {trackletID: {trackletID}}) SET p.videoPath={videoPath};",
+                Values.parameters("trackletID", nodeID, "videoPath", videoPath));
       
 
         // Close session.
@@ -264,8 +264,8 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     public String getTrackletSavingDir(@Nonnull String nodeID) throws NoSuchElementException {
         // Return path of an existing node, otherwise, return nothing.
         Session session = driver.session();
-        StatementResult result = session.run("MATCH (p:Person {id: {id}}) RETURN p.path;",
-                Values.parameters("id", nodeID));
+        StatementResult result = session.run("MATCH (p:Person {trackletID: {trackletID}}) RETURN p.path;",
+                Values.parameters("trackletID", nodeID));
         session.close();
         if (result.hasNext()) {
             // Just return the first match.
@@ -282,7 +282,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         // If one of idA and idB does not exist, do nothing.
         // If relationship already exists, change the value; Otherwise, create a relationship and set the value.
         Session session = driver.session();
-        session.run("MATCH (p1:Person {id: {id1}}), (p2:Person {id: {id2}}) " +
+        session.run("MATCH (p1:Person {trackletID: {id1}}), (p2:Person {trackletID: {id2}}) " +
                         "MERGE (p1)-[s:Similar]->(p2) " +
                         "SET s.similarity={sim};",
                 Values.parameters("id1", idA, "id2", idB, "sim", similarity));
@@ -293,7 +293,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     public float getPedestrianSimilarity(@Nonnull String idA, @Nonnull String idB) throws NoSuchElementException {
         // Match the whole pattern and return the similarity, if the pattern exists.
         Session session = driver.session();
-        StatementResult result = session.run("MATCH (p1:Person {id: {id1}})-[s:Similar]->(p2:Person {id: {id2}}) " +
+        StatementResult result = session.run("MATCH (p1:Person {trackletID: {id1}})-[s:Similar]->(p2:Person {trackletID: {id2}}) " +
                         "RETURN s.similarity;",
                 Values.parameters("id1", idA, "id2", idB));
         session.close();
@@ -310,7 +310,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     public void setPedestrianAttributes(@Nonnull String nodeID, @Nonnull Attributes attr,Logger logger) {
         // Set attributes to an existing node or one newly created.
         Session session = driver.session();
-        session.run("MERGE (p:Person {id: {id}}) SET "
+        session.run("MERGE (p:Person {trackletID: {id}}) SET "
                         + "p.genderMale = {genderMale}, "
                         + "p.genderFemale = {genderFemale}, "
                         + "p.genderOther = {genderOther}, "
@@ -572,7 +572,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     public Attributes getPedestrianAttributes(@Nonnull String nodeID) throws NoSuchElementException {
         // Return attributes of an existing node, otherwise, return nothing.
         Session session = driver.session();
-        StatementResult result = session.run("MATCH (p:Person {id: {id}}) RETURN "
+        StatementResult result = session.run("MATCH (p:Person {trackletID: {id}}) RETURN "
                         + "p.genderMale, "
                         + "p.genderFemale, "
                         + "p.genderOther, "
@@ -841,7 +841,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
     public Link[] getLinkedPedestrians(@Nonnull String nodeID) throws NoSuchElementException {
         // Match the whole pattern and, return the number of matches.
         Session session = driver.session();
-        StatementResult result = session.run("MATCH (p1:Person {id: {id}})-[s:Similar]->(p2:Person) RETURN count(*) AS num;", Values.parameters("id", nodeID));
+        StatementResult result = session.run("MATCH (p1:Person {trackletID: {id}})-[s:Similar]->(p2:Person) RETURN count(*) AS num;", Values.parameters("id", nodeID));
         session.close();
 
         int num = 0;
@@ -856,8 +856,8 @@ public class Neo4jConnector extends GraphDatabaseConnector {
 
         // Match the whole pattern and, return the other node and the similarity for each match.
         // Results are sorted in descending order.
-        result = session.run("MATCH (p1:Person {id: {id}})-[s:Similar]->(p2:Person) " +
-                        "WITH s.similarity AS sim, p2.id AS id2 ORDER BY sim DESC RETURN sim, id2;",
+        result = session.run("MATCH (p1:Person {trackletID: {id}})-[s:Similar]->(p2:Person) " +
+                        "WITH s.similarity AS sim, p2.trackletID AS id2 ORDER BY sim DESC RETURN sim, id2;",
                 Values.parameters("id", nodeID));
         int i = 0;
         while (result.hasNext()) {
@@ -872,7 +872,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
 		// TODO Auto-generated method stub
 		// Set path to an existing node or one newly created.
         Session session = driver.session();
-        session.run("MERGE (p:Person {id: {id}}) SET p.width={width};",
+        session.run("MERGE (p:Person {trackletID: {id}}) SET p.width={width};",
                 Values.parameters("id", nodeID, "width", width));
       
 
@@ -884,7 +884,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
 	public void setTrackletSavingPath(String nodeID, String path) {
 		// TODO Auto-generated method stub
 		Session session = driver.session();
-        session.run("MERGE (p:Person {id: {id}}) SET p.path={path};",
+        session.run("MERGE (p:Person {trackletID: {id}}) SET p.path={path};",
                 Values.parameters("id", nodeID, "path", path));
         // Get the info of a tracklet.
         // Test (we don't need host:port when run on our platform).
@@ -960,7 +960,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         Session session = driver.session();
         byte[] feature = fea.getBytes();
         String feaStringBase64 = Base64.encodeBase64String(feature);
-        session.run("MERGE (p:Person {id: {id}, dataType: {dataType}}) SET "
+        session.run("MERGE (p:Person {trackletID: {id}, dataType: {dataType}}) SET "
                   + "p.reidFeature={reidFeature};",
                   Values.parameters("id", nodeID, 
                                     "dataType", dataType, 
@@ -973,7 +973,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
                                             @Nonnull String dataType) throws NoSuchElementException {
         Session session = driver.session();
         StatementResult result = session.run(
-            "MATCH (p:Person {id: {id}, dataType: {dataType}}) RETURN p.reidFeature;",
+            "MATCH (p:Person {trackletID: {id}, dataType: {dataType}}) RETURN p.reidFeature;",
             Values.parameters("id", nodeID, "dataType", dataType)
         );
         session.close();
@@ -1041,7 +1041,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
 		// TODO Auto-generated method stub
 		
 		Session session = driver.session();
-        session.run("MERGE (p:Person {id: {id}}) SET p.isFinish={isFinish};",
+        session.run("MERGE (p:Person {trackletID: {id}}) SET p.isFinish={isFinish};",
                 Values.parameters("id", nodeID, "isFinish", isFinish));
         session.close();
 	}
@@ -1050,7 +1050,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
 	public void addIsGetSim(String nodeID, boolean IsGetSim) {
 		// TODO Auto-generated method stub
 		Session session = driver.session();
-        session.run("MERGE (p:Person {id: {id}}) SET p.IsGetSim={IsGetSim};",
+        session.run("MERGE (p:Person {trackletID: {id}}) SET p.IsGetSim={IsGetSim};",
                 Values.parameters("id", nodeID, "IsGetSim", IsGetSim));
         session.close();
 	}
@@ -1059,8 +1059,29 @@ public class Neo4jConnector extends GraphDatabaseConnector {
 	public void addSimRel( String nodeID1, String nodeID2, double SimRel) {
 		// TODO Auto-generated method stub
 		Session session = driver.session();
-        session.run("MATCH (a:Person {id: {id1}}), (b:Person {id: {id2}}) CREATE (a)-[r:Similarity{SimRel:{SimRel}}]->(b);",
-                Values.parameters("id1", nodeID1, "id2", nodeID2,"SimRel", SimRel));
+        session.run("MATCH (a:Person {trackletID: {id1}}), (b:Person {trackletID: {id2}}) MERGE (a)-[r:Similarity]->(b) set r.Minute={Minute};"
+                ,Values.parameters("id1", nodeID1, "id2", nodeID2
+                		,"Minute", SimRel
+                		));
+        session.close();
+	}
+	
+	//删除不必要的节点
+	public void delNode( String nodeID1) {
+		// TODO Auto-generated method stub
+		Session session = driver.session();
+		StatementResult result =  session.run("MATCH (a:Person {trackletID: {id1}}) return a.path;"
+                ,Values.parameters("id1", nodeID1));
+        while (result.hasNext()) {
+            Record record = result.next();
+            String path = record.get("a.path").asString();
+            System.out.println("out:"+path);
+            if (path.equals("null")) {
+            	System.out.println(path);
+            	session.run("MATCH (a:Person {trackletID: {id1},path:{path}}) delete a;"
+            			,Values.parameters("id1", nodeID1,"path",path));
+			}
+        }
         session.close();
 	}
 
@@ -1110,9 +1131,11 @@ public class Neo4jConnector extends GraphDatabaseConnector {
 		Session session = driver.session();
 		List<ReIdAttributesTemp> list=new ArrayList<>();
 			StatementResult result = session.run(
-					"MATCH (a:Minute{start:{start}})-[:INCLUDES_PERSON]-(b:Person)  "
-					+ "return b.trackletID,b.reidFeature,b.camID,b.startTime order by a.start;"
-					,Values.parameters("start", minute.getStart().longValue())
+					"MATCH (a:Minute"
+//					+ "{start:{start}}"
+					+ ")-[:INCLUDES_PERSON]-(b:Person)  "
+					+ "return b.trackletID,b.reidFeature,b.camID,b.startTime order by a.start limit 3;"
+//					,Values.parameters("start", minute.getStart().longValue())
 					);
 			while (result.hasNext()) {
 				Record record = result.next();
@@ -1140,4 +1163,7 @@ public class Neo4jConnector extends GraphDatabaseConnector {
         session.close();
         return list;
 	}
+	
+	
+	
 }

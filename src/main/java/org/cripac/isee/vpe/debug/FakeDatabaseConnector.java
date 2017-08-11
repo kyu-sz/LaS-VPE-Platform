@@ -209,4 +209,10 @@ public class FakeDatabaseConnector extends GraphDatabaseConnector {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+	@Override
+	public void delNode(String nodeID1) {
+		// TODO Auto-generated method stub
+		
+	}
 }

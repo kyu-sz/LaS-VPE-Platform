@@ -1,4 +1,4 @@
-package org.cripac.isee.test;
+package org.cripac.isee.vpe.data;
 
 import java.io.FileOutputStream;
 import java.io.IOException;

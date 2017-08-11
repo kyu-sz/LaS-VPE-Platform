@@ -193,6 +193,6 @@ public abstract class GraphDatabaseConnector implements Serializable{
     
     public abstract void addSimRel(@Nonnull String nodeID1,@Nonnull String nodeID2,@Nonnull double SimRel);
     
-    
-    
+    //删除节点
+    public abstract void delNode( String nodeID1) ;
 }
