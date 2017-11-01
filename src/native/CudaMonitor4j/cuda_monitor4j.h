@@ -13,6 +13,14 @@ extern "C" {
 #define org_cripac_isee_vpe_ctrl_MonitorThread_NORM_PRIORITY 5L
 #undef org_cripac_isee_vpe_ctrl_MonitorThread_MAX_PRIORITY
 #define org_cripac_isee_vpe_ctrl_MonitorThread_MAX_PRIORITY 10L
+
+/*
+ * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
+ * Method:    getInfoCount
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getInfoCount
+  (JNIEnv *, jobject, jint);
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
  * Method:    initNVML

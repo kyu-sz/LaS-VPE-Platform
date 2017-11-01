@@ -24,9 +24,12 @@ import java.util.NoSuchElementException;
 import javax.annotation.Nonnull;
 
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.Day;
 import org.cripac.isee.alg.pedestrian.attr.Hour;
 import org.cripac.isee.alg.pedestrian.attr.Minute;
+import org.cripac.isee.alg.pedestrian.attr.Month;
 import org.cripac.isee.alg.pedestrian.attr.ReIdAttributesTemp;
+import org.cripac.isee.alg.pedestrian.attr.Year;
 import org.cripac.isee.alg.pedestrian.reid.Feature;
 import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
 import org.cripac.isee.vpe.util.logging.Logger;
@@ -174,7 +177,13 @@ public abstract class GraphDatabaseConnector implements Serializable{
     //得到Minute节点
     public abstract List<Minute> getMinutes();
     //得到Hour节点
-//    public abstract List<Hour> getHours();
+//    public abstract List<Hour> getHours(Day day);
+//    //得到day
+//    public abstract List<Day> getDays(Month month);
+//    //得到month
+//    public abstract List<Month> getMonths(Year year);
+//    //得到year
+//    public abstract List<Year> getYears();
     
     //根据minute，得到符合条件的节点，用来做相似度计算
     public abstract List<ReIdAttributesTemp> getPedestrianReIDFeatureList(Minute minute)throws NoSuchElementException;

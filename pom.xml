@@ -113,7 +113,7 @@
 					<archive>
 						<manifest>
 							<addClasspath>true</addClasspath>
-							<classpathPrefix>lib</classpathPrefix>
+							<classpathPrefix>lib/</classpathPrefix>
 							<mainClass>org.cripac.isee.vpe.ctrl.SystemEntry</mainClass>
 						</manifest>
 					</archive>
@@ -145,7 +145,7 @@
 							<archive>
 								<manifest>
 									<addClasspath>true</addClasspath>
-									<classpathPrefix>lib</classpathPrefix>
+									<classpathPrefix>lib/</classpathPrefix>
 									<mainClass>org.cripac.isee.vpe.ctrl.SystemEntry</mainClass>
 								</manifest>
 							</archive>

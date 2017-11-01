@@ -18,6 +18,7 @@ import javax.annotation.Nonnull;
 
 import org.apache.commons.codec.binary.Base64;
 import org.cripac.isee.alg.pedestrian.attr.Attributes;
+import org.cripac.isee.alg.pedestrian.attr.Hour;
 import org.cripac.isee.alg.pedestrian.attr.Minute;
 import org.cripac.isee.alg.pedestrian.attr.ReIdAttributesTemp;
 import org.cripac.isee.alg.pedestrian.reid.Feature;

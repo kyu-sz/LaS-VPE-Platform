@@ -18,59 +18,88 @@
  */
 package org.cripac.isee.vpe.ctrl;
 
-import com.google.gson.Gson;
-import com.sun.management.OperatingSystemMXBean;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.cripac.isee.vpe.util.kafka.KafkaHelper;
-import org.cripac.isee.vpe.util.logging.Logger;
+import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 
 import javax.management.InstanceNotFoundException;
 import javax.management.MalformedObjectNameException;
 import javax.management.ReflectionException;
-import java.lang.management.ManagementFactory;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.cripac.isee.util.WebToolUtils;
+import org.cripac.isee.vpe.entities.Report;
+import org.cripac.isee.vpe.util.kafka.KafkaHelper;
+import org.cripac.isee.vpe.util.logging.Logger;
+
+import com.google.gson.Gson;
+import com.sun.management.OperatingSystemMXBean;
 
 public class MonitorThread extends Thread {
 
-    public static final String REPORT_TOPIC = "monitor-report";
+    public static final String REPORT_TOPIC = "monitor-desc-";
 
-    private static class Report {
-        long usedMem;
-        long jvmMaxMem;
-        long jvmTotalMem;
-        long physicTotalMem;
-        int procCpuLoad;
-        int sysCpuLoad;
-        DevInfo[] devInfos;
-
-        private static class DevInfo {
-            int fanSpeed;
-            int utilRate;
-            long usedMem;
-            long totalMem;
-            int temp;
-            int slowDownTemp;
-            int shutdownTemp;
-            int powerUsage;
-            int powerLimit;
-        }
-    }
+//    private static class Report {
+//        long usedMem;
+//        long jvmMaxMem;
+//        long jvmTotalMem;
+//        long physicTotalMem;
+//        int procCpuLoad;
+//        int sysCpuLoad;
+//        DevInfo[] devInfos;
+//
+//        private static class DevInfo {
+//        	//编号
+//        	int index;
+//            int fanSpeed;
+//            //GPU使用率
+//            int utilRate;
+//            long usedMem;
+//            long totalMem;
+//            int temp;
+//            int slowDownTemp;
+//            int shutdownTemp;
+//            int powerUsage;
+//            int powerLimit;
+//            //正在运行的gpu的程序个数
+//            int infoCount;
+////            ProcessesDevInfo[] processesDevInfos;
+////            private static class ProcessesDevInfo {
+////            	//正在使用的gpu id
+////            	int pid;
+////            	//正在使用的gpu 内存
+////            	long usedGpuMemory;
+////            }
+//        }
+//        
+//    }
 
     private final Logger logger;
     private final KafkaProducer<String, String> reportProducer;
     private final Runtime runtime = Runtime.getRuntime();
     private final OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+    //gpu个数
     private final int deviceCount;
+    //主机名
     private final String nodeName;
-
+    private final String ip;
+//    private final int infoCount;
+    private native int getInfoCount(int index);
+    
+//    private native int getPid(int index);
+    
+//    private native long getUsedGpuMemory(int index);
+    
     private native int initNVML();
 
+    //gpu个数
     private native int getDeviceCount();
-
+    
     private native int getFanSpeed(int index);
 
+    //GPU使用率
     private native int getUtilizationRate(int index);
 
     private native long getFreeMemory(int index);
@@ -102,8 +131,19 @@ public class MonitorThread extends Thread {
         }
         nodeName = nodeName1;
 
+        String ipString;
+        try {
+        	ipString=WebToolUtils.getLocalIP();
+		} catch (Exception e) {
+			// TODO: handle exception
+			ipString="Unknown ip";
+		}
+        ip=ipString;
+        
+        logger.info("hostname："+this.nodeName+",ip:"+this.ip);
+        
         KafkaHelper.createTopic(propCenter.zkConn, propCenter.zkSessionTimeoutMs, propCenter.zkConnectionTimeoutMS,
-                REPORT_TOPIC,
+                REPORT_TOPIC+ip,
                 propCenter.kafkaNumPartitions, propCenter.kafkaReplFactor);
 
         logger.info("Running with " + osBean.getAvailableProcessors() + " " + osBean.getArch() + " processors");
@@ -116,19 +156,24 @@ public class MonitorThread extends Thread {
             this.deviceCount = 0;
             logger.info("Cannot initialize NVML: " + nvmlInitRet);
         }
+        
+//        this.infoCount=getInfoCount();
     }
 
     @Override
     public void run() {
         Report report = new Report();
         report.devInfos = new Report.DevInfo[deviceCount];
+        report.devNumList=new ArrayList<>();
+        report.processNumList=new ArrayList<>();
         for (int i = 0; i < deviceCount; ++i) {
             report.devInfos[i] = new Report.DevInfo();
+            report.devNumList.add(i);
         }
 
-        logger.debug("Starting monitoring!");
+        logger.debug("Starting monitoring gpu!");
         //noinspection InfiniteLoopStatement
-        while (true) {
+//        while (true) {
             report.usedMem = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
             report.jvmMaxMem = runtime.maxMemory() / (1024 * 1024);
             report.jvmTotalMem = runtime.totalMemory() / (1024 * 1024);
@@ -146,6 +191,7 @@ public class MonitorThread extends Thread {
             StringBuilder stringBuilder = new StringBuilder("GPU Usage:");
             for (int i = 0; i < deviceCount; ++i) {
                 Report.DevInfo info = report.devInfos[i];
+                info.index=i;
                 info.fanSpeed = getFanSpeed(i);
                 info.utilRate = getUtilizationRate(i);
                 info.usedMem = getUsedMemory(i);
@@ -155,9 +201,15 @@ public class MonitorThread extends Thread {
                 info.shutdownTemp = getShutdownTemperatureThreshold(i);
                 info.powerUsage = getPowerUsage(i);
                 info.powerLimit = getPowerLimit(i);
-
-                stringBuilder.append("\n|Index\t|Fan\t|Util\t|Mem(MB)\t|Temp(C)\t|Pow");
-                stringBuilder.append("\n|").append(i)
+                info.infoCount=getInfoCount(i);
+//                info.processNumList=new ArrayList<>();
+                for (int j = 0; j < info.infoCount; j++) {
+//                	Report.DevInfo.ProcessesDevInfo processesDevInfo=info.processesDevInfos[j];
+//                	processesDevInfo.usedGpuMemory=getUsedGpuMemory(j);
+                	report.processNumList.add(i);
+				}
+                stringBuilder.append("\n|Index\t|Fan\t|Util\t|Mem(MB)\t|Temp(C)\t|Pow\t|infoCount");
+                stringBuilder.append("\n|").append(info.index)
                         .append("\t|")
                         .append(info.fanSpeed)
                         .append("\t|")
@@ -168,18 +220,20 @@ public class MonitorThread extends Thread {
                         .append("\t|")
                         .append(info.temp).append("/").append(info.slowDownTemp).append("/").append(info.shutdownTemp)
                         .append("\t|")
-                        .append(info.powerUsage).append("/").append(info.powerLimit);
+                        .append(info.powerUsage).append("/").append(info.powerLimit)
+                		.append("\t|")
+                		.append(info.infoCount);
             }
             logger.info(stringBuilder.toString());
 
-            this.reportProducer.send(new ProducerRecord<>(REPORT_TOPIC, nodeName, new Gson().toJson(report)));
+            this.reportProducer.send(new ProducerRecord<>(REPORT_TOPIC+ip, nodeName, new Gson().toJson(report)));
 
-            try {
-                sleep(10000);
-            } catch (InterruptedException ignored) {
-            }
+//            try {
+//                sleep(10000);
+//            } catch (InterruptedException ignored) {
+//            }
         }
-    }
+//    }
 
     static {
         org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(MonitorThread.class);
@@ -187,6 +241,7 @@ public class MonitorThread extends Thread {
             logger.info("Loading native libraries for MonitorThread from "
                     + System.getProperty("java.library.path"));
             System.loadLibrary("CudaMonitor4j");
+//            System.load("/home/jun.li/monitor.test/src/native/CudaMonitor4j/Release/libCudaMonitor4j.so");
             logger.info("Native libraries for BasicTracker successfully loaded!");
         } catch (Throwable t) {
             logger.error("Failed to load native library for MonitorThread", t);

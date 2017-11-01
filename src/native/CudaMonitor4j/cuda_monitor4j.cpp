@@ -9,6 +9,19 @@ inline nvmlDevice_t getDevice(unsigned int index) {
 
 /*
  * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
+ * Method:    getInfoCount
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_org_cripac_isee_vpe_ctrl_MonitorThread_getInfoCount
+(JNIEnv *env, jobject obj, jint index){
+unsigned int infoCount;
+nvmlProcessInfo_t infos[10];
+nvmlDeviceGetComputeRunningProcesses(getDevice((unsigned int) index),&infoCount,infos);
+	return infoCount;
+}
+
+/*
+ * Class:     org_cripac_isee_vpe_ctrl_MonitorThread
  * Method:    initNVML
  * Signature: ()I
  */
