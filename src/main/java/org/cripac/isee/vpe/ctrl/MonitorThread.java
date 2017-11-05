@@ -76,15 +76,15 @@ public class MonitorThread extends Thread {
 //        
 //    }
 
-    private final Logger logger;
-    private final KafkaProducer<String, String> reportProducer;
-    private final Runtime runtime = Runtime.getRuntime();
-    private final OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+    private Logger logger;
+    private KafkaProducer<String, String> reportProducer;
+    private Runtime runtime = Runtime.getRuntime();
+    private OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
     //gpu个数
-    private final int deviceCount;
+    private int deviceCount;
     //主机名
-    private final String nodeName;
-    private final String ip;
+    private String nodeName;
+    private String ip;
 //    private final int infoCount;
     private native int getInfoCount(int index);
     
@@ -143,7 +143,7 @@ public class MonitorThread extends Thread {
         logger.info("hostname："+this.nodeName+",ip:"+this.ip);
         
         KafkaHelper.createTopic(propCenter.zkConn, propCenter.zkSessionTimeoutMs, propCenter.zkConnectionTimeoutMS,
-                REPORT_TOPIC+ip,
+                REPORT_TOPIC,
                 propCenter.kafkaNumPartitions, propCenter.kafkaReplFactor);
 
         logger.info("Running with " + osBean.getAvailableProcessors() + " " + osBean.getArch() + " processors");
@@ -159,81 +159,31 @@ public class MonitorThread extends Thread {
         
 //        this.infoCount=getInfoCount();
     }
+    
+    
+    public MonitorThread(){
+    	
+    }
+    
 
-    @Override
+
+	@Override
     public void run() {
-        Report report = new Report();
-        report.devInfos = new Report.DevInfo[deviceCount];
-        report.devNumList=new ArrayList<>();
-        report.processNumList=new ArrayList<>();
-        for (int i = 0; i < deviceCount; ++i) {
-            report.devInfos[i] = new Report.DevInfo();
-            report.devNumList.add(i);
-        }
-
-        logger.debug("Starting monitoring gpu!");
+    	Report report =getReport();
         //noinspection InfiniteLoopStatement
-//        while (true) {
-            report.usedMem = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            report.jvmMaxMem = runtime.maxMemory() / (1024 * 1024);
-            report.jvmTotalMem = runtime.totalMemory() / (1024 * 1024);
-            report.physicTotalMem = osBean.getTotalPhysicalMemorySize() / (1024 * 1024);
-            logger.info("Memory consumption: "
-                    + report.usedMem + "/"
-                    + report.jvmMaxMem + "/"
-                    + report.jvmTotalMem + "/"
-                    + report.physicTotalMem + "M");
-
-            report.procCpuLoad = (int) (osBean.getProcessCpuLoad() * 100);
-            report.sysCpuLoad = (int) (osBean.getSystemCpuLoad() * 100);
-            logger.info("CPU load: " + report.procCpuLoad + "/" + report.sysCpuLoad + "%");
-
-            StringBuilder stringBuilder = new StringBuilder("GPU Usage:");
-            for (int i = 0; i < deviceCount; ++i) {
-                Report.DevInfo info = report.devInfos[i];
-                info.index=i;
-                info.fanSpeed = getFanSpeed(i);
-                info.utilRate = getUtilizationRate(i);
-                info.usedMem = getUsedMemory(i);
-                info.totalMem = getTotalMemory(i);
-                info.temp = getTemperature(i);
-                info.slowDownTemp = getSlowDownTemperatureThreshold(i);
-                info.shutdownTemp = getShutdownTemperatureThreshold(i);
-                info.powerUsage = getPowerUsage(i);
-                info.powerLimit = getPowerLimit(i);
-                info.infoCount=getInfoCount(i);
-//                info.processNumList=new ArrayList<>();
-                for (int j = 0; j < info.infoCount; j++) {
-//                	Report.DevInfo.ProcessesDevInfo processesDevInfo=info.processesDevInfos[j];
-//                	processesDevInfo.usedGpuMemory=getUsedGpuMemory(j);
-                	report.processNumList.add(i);
-				}
-                stringBuilder.append("\n|Index\t|Fan\t|Util\t|Mem(MB)\t|Temp(C)\t|Pow\t|infoCount");
-                stringBuilder.append("\n|").append(info.index)
-                        .append("\t|")
-                        .append(info.fanSpeed)
-                        .append("\t|")
-                        .append(String.format("%3d", info.utilRate)).append('%')
-                        .append("\t|")
-                        .append(String.format("%5d", info.usedMem / (1024 * 1024)))
-                        .append("/").append(String.format("%5d", info.totalMem / (1024 * 1024)))
-                        .append("\t|")
-                        .append(info.temp).append("/").append(info.slowDownTemp).append("/").append(info.shutdownTemp)
-                        .append("\t|")
-                        .append(info.powerUsage).append("/").append(info.powerLimit)
-                		.append("\t|")
-                		.append(info.infoCount);
+        int count=0;
+        while (true) {
+        	getDevInfo(report,count);
+            try {
+                sleep(10000);
+            } catch (InterruptedException ignored) {
             }
-            logger.info(stringBuilder.toString());
-
-            this.reportProducer.send(new ProducerRecord<>(REPORT_TOPIC+ip, nodeName, new Gson().toJson(report)));
-
-//            try {
-//                sleep(10000);
-//            } catch (InterruptedException ignored) {
+            count++;
+//            if (count>1) {
+//            	report.processNumList.clear();
 //            }
         }
-//    }
+    }
 
     static {
         org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(MonitorThread.class);
@@ -247,5 +197,78 @@ public class MonitorThread extends Thread {
             logger.error("Failed to load native library for MonitorThread", t);
             throw t;
         }
+    }
+    
+    public Report getReport(){
+    	Report report = new Report();
+        report.devInfos = new Report.DevInfo[deviceCount];
+        report.devNumList=new ArrayList<>();
+        report.processNumList=new ArrayList<>();
+        for (int i = 0; i < deviceCount; ++i) {
+            report.devInfos[i] = new Report.DevInfo();
+            report.devNumList.add(i);
+        }
+
+        logger.debug("Starting monitoring gpu!");
+        return report;
+    }
+    public Report getDevInfo(Report report,int count){
+    	report.usedMem = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        report.jvmMaxMem = runtime.maxMemory() / (1024 * 1024);
+        report.jvmTotalMem = runtime.totalMemory() / (1024 * 1024);
+        report.physicTotalMem = osBean.getTotalPhysicalMemorySize() / (1024 * 1024);
+        logger.info("Memory consumption: "
+                + report.usedMem + "/"
+                + report.jvmMaxMem + "/"
+                + report.jvmTotalMem + "/"
+                + report.physicTotalMem + "M");
+
+        report.procCpuLoad = (int) (osBean.getProcessCpuLoad() * 100);
+        report.sysCpuLoad = (int) (osBean.getSystemCpuLoad() * 100);
+        logger.info("CPU load: " + report.procCpuLoad + "/" + report.sysCpuLoad + "%");
+
+        StringBuilder stringBuilder = new StringBuilder("GPU Usage:");
+        for (int i = 0; i < deviceCount; ++i) {
+            Report.DevInfo info = report.devInfos[i];
+            info.index=i;
+            info.fanSpeed = getFanSpeed(i);
+            info.utilRate = getUtilizationRate(i);
+            info.usedMem = getUsedMemory(i);
+            info.totalMem = getTotalMemory(i);
+            info.temp = getTemperature(i);
+            info.slowDownTemp = getSlowDownTemperatureThreshold(i);
+            info.shutdownTemp = getShutdownTemperatureThreshold(i);
+            info.powerUsage = getPowerUsage(i);
+            info.powerLimit = getPowerLimit(i);
+            info.infoCount=getInfoCount(i);
+//            info.processNumList=new ArrayList<>();
+            if (count==0) {
+				
+            	for (int j = 0; j < info.infoCount; j++) {
+//            	Report.DevInfo.ProcessesDevInfo processesDevInfo=info.processesDevInfos[j];
+//            	processesDevInfo.usedGpuMemory=getUsedGpuMemory(j);
+            		report.processNumList.add(i);
+            	}
+			}
+            stringBuilder.append("\n|Index\t|Fan\t|Util\t|Mem(MB)\t|Temp(C)\t|Pow\t|infoCount");
+            stringBuilder.append("\n|").append(info.index)
+                    .append("\t|")
+                    .append(info.fanSpeed)
+                    .append("\t|")
+                    .append(String.format("%3d", info.utilRate)).append('%')
+                    .append("\t|")
+                    .append(String.format("%5d", info.usedMem / (1024 * 1024)))
+                    .append("/").append(String.format("%5d", info.totalMem / (1024 * 1024)))
+                    .append("\t|")
+                    .append(info.temp).append("/").append(info.slowDownTemp).append("/").append(info.shutdownTemp)
+                    .append("\t|")
+                    .append(info.powerUsage).append("/").append(info.powerLimit)
+            		.append("\t|")
+            		.append(info.infoCount);
+        }
+        logger.info(stringBuilder.toString());
+
+        this.reportProducer.send(new ProducerRecord<>(REPORT_TOPIC, nodeName, new Gson().toJson(report)));
+        return report;
     }
 }

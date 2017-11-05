@@ -18,6 +18,7 @@
 package org.cripac.isee.vpe.ctrl;
 
 import org.apache.commons.cli.*;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -30,6 +31,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.log4j.Level;
 import org.apache.spark.launcher.SparkLauncher;
+import org.cripac.isee.vpe.entities.Report;
 import org.cripac.isee.vpe.util.hdfs.HadoopHelper;
 import org.cripac.isee.vpe.util.kafka.EvenlyDistributingPartitioner;
 import org.cripac.isee.vpe.util.logging.ConsoleLogger;
@@ -56,8 +58,6 @@ import java.util.Map.Entry;
 public class SystemPropertyCenter implements Serializable {
 
     private static final long serialVersionUID = -6642856932636724919L;
-    
-    public  static String projectLocation="/home/vpe.cripac/projects/jun.li/LaS-VPE-Platform";
     /* Logger for parsing */
     protected transient Logger logger = new ConsoleLogger(Level.INFO);
 
@@ -87,6 +87,8 @@ public class SystemPropertyCenter implements Serializable {
     String[] appsToStart = null;
     /* CaffeBytedeco properties */
     public String caffeGPU = "-1";
+    
+    public Collection<Integer> gpus=null;
     /* Number of executor instances. */
     public int numExecutors = 2;
     /* Memory per executor (e.g. 1000M, 2G) (Default: 1G) */
@@ -370,9 +372,9 @@ public class SystemPropertyCenter implements Serializable {
                 case "kafka.fetch.timeout.ms":
                     kafkaFetchTimeoutMs = Integer.parseInt((String) entry.getValue());
                     break;
-                case "caffe.gpu":
-                    caffeGPU = (String) entry.getValue();
-                    break;
+//                case "caffe.gpu":
+//                    caffeGPU = (String) entry.getValue();
+//                    break;
                 case "spark.streaming.kafka.maxRatePerPartition":
                     maxRatePerPartition = (String) entry.getValue();
                     break;
@@ -390,9 +392,24 @@ public class SystemPropertyCenter implements Serializable {
             caffeGPU = commandLine.getOptionValue('g');
         }
 
+        gpus=getGpus();
+        
         validateConfigurations();
     }
 
+    @SuppressWarnings("unchecked")
+	public Collection<Integer> getGpus(){
+    	MonitorThread monitorThread=new MonitorThread();
+        
+        Report report = monitorThread.getDevInfo(monitorThread.getReport(),0);
+        
+        List<Integer> devNumList=report.devNumList;
+        List<Integer> processNumList=report.processNumList;
+        
+        Collection<Integer> result=CollectionUtils.subtract(devNumList, processNumList);  
+        result.forEach(f->{System.out.println(f);});
+        return result;
+    }
     /**
      * Generate command line options for SparkSubmit client, according to the
      * stored properties.

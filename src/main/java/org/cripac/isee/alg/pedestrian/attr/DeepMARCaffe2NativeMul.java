@@ -1,0 +1,40 @@
+package org.cripac.isee.alg.pedestrian.attr;
+
+import java.util.Collection;
+
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet;
+import org.cripac.isee.alg.pedestrian.tracking.Tracklet.BoundingBox;
+import org.cripac.isee.util.Singleton;
+import org.cripac.isee.vpe.alg.pedestrian.attr.PedestrianAttrRecogApp.AppPropertyCenter;
+import org.cripac.isee.vpe.util.logging.Logger;
+
+public class DeepMARCaffe2NativeMul  implements DeepMARCaffe2, BatchRecognizer{
+	
+	public DeepMARCaffe2NativeMul(AppPropertyCenter propCenter,Singleton<Logger> loggerSingleton){
+		Collection<Integer> gpus=propCenter.gpus;
+		gpus.forEach(f->{
+			System.out.println("当前gpu是："+f);
+		
+			try {
+				new DeepMARCaffe2Native(String.valueOf(f), loggerSingleton.getInst());
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		});
+	}
+
+	@Override
+	public Attributes recognize(Tracklet tracklet) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Attributes[] recognize(BoundingBox[] bboxes) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	
+}
