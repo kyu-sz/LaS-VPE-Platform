@@ -29,3 +29,5 @@ lib/
 
 # System runtime logs #
 core.*
+/.cache-tests
+/.cache-main
