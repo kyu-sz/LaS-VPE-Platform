@@ -458,8 +458,7 @@ public class DataManagingApp extends SparkStreamingApp {
                                     if (trackletOrURL.isStored()) {
                                         // The tracklet has already been stored at HDFS.
                                         logger.debug("Tracklet has already been stored at " + trackletOrURL.getURL()
-                                                + ". Skipping.");
-                                        return;
+                                                + ". Skip storing.");
                                     } else {
                                         final String videoRoot = metadataDir + "/new2/" + tracklet.id.videoID;
                                         final String taskRoot = videoRoot + "/" + taskID;
